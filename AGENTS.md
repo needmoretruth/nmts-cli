@@ -38,12 +38,24 @@ nothing found. If you were not told which, ask.
 **4. Do not invent commands.** Run `nmts --help` and use what is there. Commands marked
 `[not built yet]` are not stubs to work around — they do not exist.
 
+**5. Two credentials, two jobs.** The **account code** opens the files and stays on this machine.
+The **API key** makes the server answer without the human check a browser sign-in does — it opens
+no file. `ls` needs both:
+
+```sh
+export NMTS_ACCOUNT_CODE="..."
+export NMTS_API_KEY="..."
+```
+
+If there is no key, say so and stop. Do not try to sign in instead; that path needs a person.
+
 ## Commands that work today
 
 ```
 nmts login       keep an account code on this machine
 nmts logout      remove the stored account code
 nmts whoami      which account the stored code belongs to — offline, no server call
+nmts ls          list the files in the account
 nmts --help      the current command list, with unbuilt ones marked
 nmts --version   the version
 ```
@@ -51,9 +63,18 @@ nmts --version   the version
 `whoami` derives the account identifier and the public code from the stored account code without
 contacting anything. It is the cheapest way to confirm a code is present and well-formed.
 
+`ls --json` prints one JSON object on stdout: `{state, seq, entries: [{id, path, kind, size,
+updatedAt, trashed}], hiddenTrashed, firstTimeOnThisMachine, serverSeqDisagreed}`. Parse that
+rather than the table. Entries in the trash are omitted unless `--all`, and `hiddenTrashed` says
+how many were left out — do not report a file as gone without checking it.
+
+`ls` refuses rather than lists when the server offers a file list older than one this machine
+already saw, or a different list at the same version number. Those are not transient errors and
+must not be retried: report them to the person and stop.
+
 ## Commands that do not exist yet
 
-`ls` · `put` · `get`. They print what they are and exit non-zero. Do not shell out to something
+`put` · `get`. They print what they are and exit non-zero. Do not shell out to something
 else to fake them.
 
 ## Exit codes

@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { test } from "node:test";
+import { NOT_BUILT_YET } from "../src/main.ts";
 import { testConfigDir } from "../src/credentials.ts";
 import { generateCode } from "./helpers.ts";
 
@@ -55,14 +56,29 @@ test("no arguments prints help and exits 0 — an agent probing the tool learns 
 });
 
 test("help names every unbuilt command, so nothing is discovered by guessing", async () => {
+  // ⛔ Read from NOT_BUILT_YET rather than a list written here. A copy would keep passing on the
+  //    day a command ships -- it would simply assert about a command nobody announces any more --
+  //    and the failure that matters is the opposite one: something unbuilt that help stays quiet
+  //    about. That is what an agent discovers by guessing.
   const r = await nmts(["--help"]);
-  for (const command of ["ls", "put", "get"]) {
+  assert.ok(NOT_BUILT_YET.length > 0, "nothing is unbuilt -- delete this test rather than empty it");
+  for (const command of NOT_BUILT_YET) {
     assert.match(r.stdout, new RegExp(`\\b${command}\\b.*not built yet`), `${command} unmarked`);
+  }
+  // …and the ones that ARE built must not carry the mark.
+  for (const command of ["login", "logout", "whoami", "ls"]) {
+    assert.doesNotMatch(
+      r.stdout,
+      new RegExp(`\\b${command}\\b[^\\n]*not built yet`),
+      `${command} is built and help says otherwise`,
+    );
   }
 });
 
 test("an announced-but-unbuilt command exits 4 and says not to retry", async () => {
-  const r = await nmts(["ls"]);
+  const first = NOT_BUILT_YET[0];
+  assert.ok(first !== undefined, "nothing is unbuilt -- delete this test rather than empty it");
+  const r = await nmts([first]);
   assert.equal(r.code, 4);
   assert.match(r.stderr, /not built yet/);
   assert.match(r.stderr, /Do not retry/);

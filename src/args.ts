@@ -17,14 +17,25 @@ export interface ParsedArgs {
   network?: string;
   help: boolean;
   version: boolean;
+  /** Machine-readable output where a command has one. */
+  json: boolean;
+  /** Include what is in the trash. */
+  all: boolean;
 }
 
 /** Every option this tool accepts. Kept as data so a test can assert none of them is a secret. */
 export const OPTIONS_TAKING_A_VALUE = ["--server", "--network"] as const;
-export const FLAGS = ["--help", "-h", "--version", "-V"] as const;
+export const FLAGS = ["--help", "-h", "--version", "-V", "--json", "--all"] as const;
 
 export function parseArgs(argv: readonly string[]): ParsedArgs {
-  const parsed: ParsedArgs = { command: null, operands: [], help: false, version: false };
+  const parsed: ParsedArgs = {
+    command: null,
+    operands: [],
+    help: false,
+    version: false,
+    json: false,
+    all: false,
+  };
   let index = 0;
   while (index < argv.length) {
     const token = argv[index];
@@ -37,6 +48,14 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     }
     if (token === "--version" || token === "-V") {
       parsed.version = true;
+      continue;
+    }
+    if (token === "--json") {
+      parsed.json = true;
+      continue;
+    }
+    if (token === "--all") {
+      parsed.all = true;
       continue;
     }
     if (token === "--server" || token === "--network") {

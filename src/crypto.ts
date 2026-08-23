@@ -28,6 +28,14 @@ export interface CryptoGlue {
   kdf_derive(codeBytes: Uint8Array): Uint8Array;
   /** Display form of a share address, which is what a person shares. */
   share_address_display(address: Uint8Array): string;
+  /**
+   * Open one NCF-3 envelope: key, the associated data it was sealed with, the envelope bytes.
+   *
+   * ⛔ The associated data is not decoration. An envelope sealed for one purpose cannot be opened
+   *    as another, so passing the wrong string here does not silently produce wrong plaintext —
+   *    it throws. That is why the strings live in one table (`AAD`) rather than at call sites.
+   */
+  envelope_open(key: Uint8Array, aad: Uint8Array, envelope: Uint8Array): Uint8Array;
 }
 
 const REQUIRED: readonly (keyof CryptoGlue)[] = [
@@ -35,7 +43,20 @@ const REQUIRED: readonly (keyof CryptoGlue)[] = [
   "account_code_display",
   "kdf_derive",
   "share_address_display",
+  "envelope_open",
 ];
+
+/**
+ * The associated-data strings of NCF-3, for the envelopes this tool opens.
+ *
+ * ⛔ FROZEN (NCF-3 §2.2). They are the separator between one purpose and another: the file list
+ *    cannot be opened as a delegation, and neither can be opened as a file. Copied here rather
+ *    than imported because this package does not import the browser tree — the conformance
+ *    vectors are what arbitrate, and they are in the crypto repository.
+ */
+export const AAD = {
+  fileList: "nmts/v3/file-list",
+} as const;
 
 /**
  * Byte ranges inside `kdf_derive`'s output.
@@ -48,6 +69,7 @@ export const DERIVED = {
   accountId: [0, 16],
   authSecret: [16, 48],
   dataKey: [48, 80],
+  fileListKey: [80, 112],
   shareAddress: [208, 224],
 } as const;
 

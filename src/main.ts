@@ -25,6 +25,7 @@ import { helpText } from "./help.ts";
 import { BINARY_NAME } from "./product.ts";
 import { login } from "./commands/login.ts";
 import { logout } from "./commands/logout.ts";
+import { ls } from "./commands/ls.ts";
 import { whoami } from "./commands/whoami.ts";
 
 /** Kept here, not read from package.json: the published build has no package.json beside it. */
@@ -37,7 +38,7 @@ export const VERSION = "0.0.0";
  *    unknown means "you guessed the name wrong, try again", unfinished means "stop, this will not
  *    work however you spell it". They get different exit codes for exactly that reason.
  */
-export const NOT_BUILT_YET = ["ls", "put", "get"] as const;
+export const NOT_BUILT_YET = ["put", "get"] as const;
 
 export async function run(argv: readonly string[]): Promise<number> {
   const args = parseArgs(argv);
@@ -58,6 +59,13 @@ export async function run(argv: readonly string[]): Promise<number> {
       return logout();
     case "whoami":
       return await whoami({ server: args.server, network: args.network });
+    case "ls":
+      return await ls({
+        server: args.server,
+        network: args.network,
+        json: args.json,
+        all: args.all,
+      });
     default:
       if ((NOT_BUILT_YET as readonly string[]).includes(args.command)) {
         throw new NotBuiltYetError(`\`${args.command}\``);

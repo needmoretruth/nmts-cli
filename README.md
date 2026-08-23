@@ -6,9 +6,9 @@ network. For people at a terminal, and for the agents they run.
 > **If you are an AI agent, read [AGENTS.md](AGENTS.md) instead.** It says the same things in the
 > order a program needs them, and it is the file to follow when a person points you at this tool.
 
-> **Status: not released.** This is being built in the open. It is not on npm yet, and `ls`,
-> `put` and `get` are not implemented. Nothing here is a promise about a shipped feature — the
-> help output marks what is not built, and so does this file.
+> **Status: not released.** This is being built in the open. It is not on npm yet, and `put` and
+> `get` are not implemented. Nothing here is a promise about a shipped feature — the help output
+> marks what is not built, and so does this file.
 
 ## What it is
 
@@ -57,6 +57,19 @@ The environment variable wins when both are present.
 **The code is never accepted as a command-line argument.** On Linux any process can read another
 process's command line, and shells record it in history.
 
+## The API key is a second, different thing
+
+The account code opens your files. It does not get the server to answer: signing in needs a human
+check, which no command-line tool can pass. A **key**, made on the account screen, is what waives
+that check — and nothing else. It opens no file, and it cannot delete the account or end your
+sessions.
+
+```sh
+export NMTS_API_KEY="..."
+```
+
+`nmts ls` needs both: the key so the server answers, the code so the answer can be opened.
+
 ## Commands
 
 | Command | What it does | |
@@ -64,11 +77,14 @@ process's command line, and shells record it in history.
 | `nmts login` | Keep an account code on this machine | |
 | `nmts logout` | Remove the stored account code | |
 | `nmts whoami` | Show which account the stored code belongs to, without asking the server | |
-| `nmts ls` | List files in the account | *not built yet* |
+| `nmts ls` | List the files in the account | |
 | `nmts put <file>…` | Encrypt and upload | *not built yet* |
 | `nmts get <file>` | Download and decrypt | *not built yet* |
 
 `nmts --help` prints the current list, and marks the same things.
+
+`ls` takes `--json` for machine-readable output and `--all` to include what is in the trash.
+Trashed entries are hidden by default, and the count says how many were hidden.
 
 ## Networks
 

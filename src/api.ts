@@ -51,11 +51,34 @@ function adviseFor(code: string): string | null {
     case "CLEARANCE_REQUIRED":
     case "TURNSTILE_FAILED":
       return (
-        "This account needs a human check, which a command-line tool cannot pass. " +
-        "An API key issued from the account screen is what waives it — that is not built yet."
+        "This account needs a human check, which a command-line tool cannot pass. An API key " +
+        "made on the account screen is what waives it — put it in NMTS_API_KEY. If that screen " +
+        "has no place to make one, this server does not have API keys switched on."
       );
     case "UNAUTHORIZED":
-      return "The session is missing or expired. Sign in again.";
+      return "The credential is missing or expired. Check NMTS_API_KEY, or make a new key.";
+    // ⛔ Each of these says something different on purpose, because the remedies are different
+    //    and a program that cannot tell them apart will retry the one thing that cannot work.
+    case "API_KEY_REVOKED":
+      return "Somebody revoked this key. It will not start working again — make a new one.";
+    case "API_KEY_EXPIRED":
+      return "This key reached the end of the lifetime it was given. Make a new one.";
+    case "API_KEY_SCOPE":
+      return (
+        "The key is valid and was not given permission for this. Nothing here will succeed with " +
+        "it — a key with the right permissions has to be made on the account screen."
+      );
+    case "API_KEY_MALFORMED":
+      return (
+        "What was sent is not a well-formed key. Check that the whole string was copied, with " +
+        "no quotes or line break — it is one line of exactly 65 characters."
+      );
+    case "ACCOUNT_CODE_NOT_A_CREDENTIAL":
+      return (
+        "That was an account code, not an API key. The code never goes to the server; it stays " +
+        "on this machine and opens the files. Put the code in NMTS_ACCOUNT_CODE and the key in " +
+        "NMTS_API_KEY."
+      );
     case "ACCOUNT_BANNED":
       return "This account is suspended. Nothing here will succeed until that is lifted.";
     case "CREDITS_SHORT":

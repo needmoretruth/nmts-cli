@@ -22,6 +22,8 @@ import { join } from "node:path";
 
 /** The environment variable an agent sets instead of running `login`. */
 export const CODE_ENV_VAR = "NMTS_ACCOUNT_CODE";
+/** The API key, same rules: read fresh, never an argument, never printed. */
+export const API_KEY_ENV_VAR = "NMTS_API_KEY";
 
 /** Directory holding everything this tool keeps. 0700 where the platform honours it. */
 export function configDir(): string {
@@ -152,6 +154,22 @@ export function resolveAccountCode(): { code: string; source: "env" | "file" } |
   if (fromEnv !== undefined && fromEnv.length > 0) return { code: fromEnv, source: "env" };
   const file = readCredentialsFile();
   if (file) return { code: file.accountCode, source: "file" };
+  return null;
+}
+
+/**
+ * The API key this run should use, and where it came from.
+ *
+ * ⚠ SEPARATE FROM THE ACCOUNT CODE ON PURPOSE, and the two can come from different places. The
+ *   code is what opens the files; the key is only what makes the server answer without a human
+ *   check. Somebody may keep the code in the environment for one run while the key stays on the
+ *   machine, or the other way round, and neither combination is unusual enough to refuse.
+ */
+export function resolveApiKey(): { key: string; source: "env" | "file" } | null {
+  const fromEnv = process.env[API_KEY_ENV_VAR];
+  if (fromEnv !== undefined && fromEnv.length > 0) return { key: fromEnv, source: "env" };
+  const file = readCredentialsFile();
+  if (file?.apiKey !== undefined && file.apiKey.length > 0) return { key: file.apiKey, source: "file" };
   return null;
 }
 
