@@ -80,6 +80,7 @@ export NMTS_API_KEY="..."
 | `nmts ls` | List the files in the account | |
 | `nmts put <file>…` | Encrypt and upload | *not built yet* |
 | `nmts get <path>` | Download one file, decrypt it and check it | |
+| `nmts mcp` | Serve `ls` and `get` as tools over the Model Context Protocol | |
 
 `nmts --help` prints the current list, and marks the same things.
 
@@ -92,6 +93,22 @@ do not add up to the file the list describes, or a whole-file hash that does not
 before anything reaches the disk. A file on disk is a claim that it is the file.
 
 ⚠ It holds one part in memory at a time, sealed and open, and a part is at most 64 MiB.
+
+## For an agent that speaks MCP
+
+`nmts mcp` serves the same two things as tools over the Model Context Protocol, on stdin/stdout.
+Point a client at it:
+
+```json
+{ "command": "nmts", "args": ["mcp", "--out", "/where/files/should/land"] }
+```
+
+It offers `nmts_whoami`, `nmts_list` and `nmts_get`. It cannot make or revoke a key, cannot delete
+anything, and cannot write outside the directory you name — a model asking for a path that climbs
+out of it gets the file's own name inside it, or a refusal. Those are not gaps to fill in later: a
+tool a model calls on its own is a different thing from a command a person typed.
+
+It is implemented directly rather than with an SDK, so it adds no dependency.
 
 ## Networks
 

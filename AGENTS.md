@@ -57,6 +57,7 @@ nmts logout      remove the stored account code
 nmts whoami      which account the stored code belongs to — offline, no server call
 nmts ls          list the files in the account
 nmts get <path>  fetch one file, decrypt it, check it, write it
+nmts mcp         serve ls and get as MCP tools on stdin/stdout
 nmts --help      the current command list, with unbuilt ones marked
 nmts --version   the version
 ```
@@ -81,6 +82,15 @@ something to force on their behalf.
 `get` refuses rather than writing a half-right file. A part that will not decrypt, parts that do
 not add up, or a whole-file hash that does not match all stop before anything reaches the disk,
 and nothing is written. Those are not transient: report them and stop.
+
+## If your client speaks MCP
+
+`nmts mcp` is the same two things as tools: `nmts_whoami`, `nmts_list`, `nmts_get`. Prefer them
+over shelling out — the person chose the directory files land in when they started the server, and
+the tools cannot write anywhere else.
+
+`nmts_get` takes a path INSIDE the account, not a path on disk. Asking for one that climbs out of
+the directory gets you the file's own name inside it, or a refusal; do not try to work around that.
 
 ## Commands that do not exist yet
 

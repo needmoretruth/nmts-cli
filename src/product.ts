@@ -14,6 +14,15 @@ export const PRODUCT_NAME = "nmts";
 /** What an agent types. The same word: there is nothing to translate between the two. */
 export const BINARY_NAME = "nmts";
 
+/**
+ * This build's version.
+ *
+ * ⛔ Kept here rather than read from `package.json`: the published build has no package.json
+ *    beside it. Here rather than in `main.ts` because the MCP server has to say it too, and a
+ *    command importing the entry point is a cycle waiting to bite.
+ */
+export const VERSION = "0.0.0";
+
 /** Where the product lives, for messages that need to send somebody somewhere real. */
 export const HOME_URL = "https://nmts.me";
 

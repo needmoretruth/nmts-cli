@@ -22,15 +22,13 @@
 import { parseArgs } from "./args.ts";
 import { NmtsError, NotBuiltYetError, renderError, UNKNOWN_FAILURE_EXIT } from "./errors.ts";
 import { helpText } from "./help.ts";
-import { BINARY_NAME } from "./product.ts";
+import { BINARY_NAME, VERSION } from "./product.ts";
 import { login } from "./commands/login.ts";
 import { logout } from "./commands/logout.ts";
 import { get } from "./commands/get.ts";
 import { ls } from "./commands/ls.ts";
+import { mcp } from "./commands/mcp.ts";
 import { whoami } from "./commands/whoami.ts";
-
-/** Kept here, not read from package.json: the published build has no package.json beside it. */
-export const VERSION = "0.0.0";
 
 /**
  * Commands this version announces but has not built.
@@ -68,6 +66,8 @@ export async function run(argv: readonly string[]): Promise<number> {
         force: args.force,
         json: args.json,
       });
+    case "mcp":
+      return await mcp({ server: args.server, network: args.network, out: args.out });
     case "ls":
       return await ls({
         server: args.server,
