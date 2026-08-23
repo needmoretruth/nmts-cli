@@ -21,11 +21,15 @@ export interface ParsedArgs {
   json: boolean;
   /** Include what is in the trash. */
   all: boolean;
+  /** Where to write a fetched file. */
+  out?: string;
+  /** Replace a file that is already there. */
+  force: boolean;
 }
 
 /** Every option this tool accepts. Kept as data so a test can assert none of them is a secret. */
-export const OPTIONS_TAKING_A_VALUE = ["--server", "--network"] as const;
-export const FLAGS = ["--help", "-h", "--version", "-V", "--json", "--all"] as const;
+export const OPTIONS_TAKING_A_VALUE = ["--server", "--network", "--out"] as const;
+export const FLAGS = ["--help", "-h", "--version", "-V", "--json", "--all", "--force"] as const;
 
 export function parseArgs(argv: readonly string[]): ParsedArgs {
   const parsed: ParsedArgs = {
@@ -35,6 +39,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     version: false,
     json: false,
     all: false,
+    force: false,
   };
   let index = 0;
   while (index < argv.length) {
@@ -58,14 +63,19 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       parsed.all = true;
       continue;
     }
-    if (token === "--server" || token === "--network") {
+    if (token === "--force") {
+      parsed.force = true;
+      continue;
+    }
+    if (token === "--server" || token === "--network" || token === "--out") {
       const value = argv[index];
       if (value === undefined || value.startsWith("-")) {
         throw new NmtsError(`${token} needs a value after it.`, { exitCode: 2 });
       }
       index += 1;
       if (token === "--server") parsed.server = value;
-      else parsed.network = value;
+      else if (token === "--network") parsed.network = value;
+      else parsed.out = value;
       continue;
     }
     if (token.startsWith("--server=")) {
@@ -74,6 +84,10 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     }
     if (token.startsWith("--network=")) {
       parsed.network = token.slice("--network=".length);
+      continue;
+    }
+    if (token.startsWith("--out=")) {
+      parsed.out = token.slice("--out=".length);
       continue;
     }
     if (token.startsWith("-") && token !== "-") {

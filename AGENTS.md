@@ -56,6 +56,7 @@ nmts login       keep an account code on this machine
 nmts logout      remove the stored account code
 nmts whoami      which account the stored code belongs to — offline, no server call
 nmts ls          list the files in the account
+nmts get <path>  fetch one file, decrypt it, check it, write it
 nmts --help      the current command list, with unbuilt ones marked
 nmts --version   the version
 ```
@@ -72,10 +73,18 @@ how many were left out — do not report a file as gone without checking it.
 already saw, or a different list at the same version number. Those are not transient errors and
 must not be retried: report them to the person and stop.
 
+`get` takes the path exactly as `ls` prints it. `--out` chooses where to write; without it the
+file lands in the working directory under its own name. It will not replace an existing file
+unless you pass `--force` — if you get "already exists", that is a decision for the person, not
+something to force on their behalf.
+
+`get` refuses rather than writing a half-right file. A part that will not decrypt, parts that do
+not add up, or a whole-file hash that does not match all stop before anything reaches the disk,
+and nothing is written. Those are not transient: report them and stop.
+
 ## Commands that do not exist yet
 
-`put` · `get`. They print what they are and exit non-zero. Do not shell out to something
-else to fake them.
+`put`. It prints what it is and exits non-zero. Do not shell out to something else to fake it.
 
 ## Exit codes
 

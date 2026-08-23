@@ -6,9 +6,9 @@ network. For people at a terminal, and for the agents they run.
 > **If you are an AI agent, read [AGENTS.md](AGENTS.md) instead.** It says the same things in the
 > order a program needs them, and it is the file to follow when a person points you at this tool.
 
-> **Status: not released.** This is being built in the open. It is not on npm yet, and `put` and
-> `get` are not implemented. Nothing here is a promise about a shipped feature — the help output
-> marks what is not built, and so does this file.
+> **Status: not released.** This is being built in the open. It is not on npm yet, and `put` is
+> not implemented. Nothing here is a promise about a shipped feature — the help output marks what
+> is not built, and so does this file.
 
 ## What it is
 
@@ -79,12 +79,19 @@ export NMTS_API_KEY="..."
 | `nmts whoami` | Show which account the stored code belongs to, without asking the server | |
 | `nmts ls` | List the files in the account | |
 | `nmts put <file>…` | Encrypt and upload | *not built yet* |
-| `nmts get <file>` | Download and decrypt | *not built yet* |
+| `nmts get <path>` | Download one file, decrypt it and check it | |
 
 `nmts --help` prints the current list, and marks the same things.
 
 `ls` takes `--json` for machine-readable output and `--all` to include what is in the trash.
 Trashed entries are hidden by default, and the count says how many were hidden.
+
+`get` takes `--out` to choose where to write and `--force` to replace a file that is already
+there. It refuses rather than writing a half-right file: a part that will not decrypt, parts that
+do not add up to the file the list describes, or a whole-file hash that does not match all stop
+before anything reaches the disk. A file on disk is a claim that it is the file.
+
+⚠ It holds one part in memory at a time, sealed and open, and a part is at most 64 MiB.
 
 ## Networks
 

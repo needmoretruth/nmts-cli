@@ -70,3 +70,72 @@ export async function sealFileList(code: string, body: Uint8Array): Promise<stri
   key.fill(0);
   return out;
 }
+
+/** One part of a sealed file, as the storage network would hold it. */
+export interface SealedPart {
+  blobId: string;
+  sealed: Uint8Array;
+}
+
+/** What sealing a file produces: what the file list would carry, and what the network would hold. */
+export interface SealedFile {
+  dekWrapped: string;
+  contentHashCt: string;
+  parts: SealedPart[];
+}
+
+/**
+ * Seal a file the way the browser does, so a test can serve one a real `get` will open.
+ *
+ * ⛔ Same keys, same associated data, same order as the product: the file key is wrapped under the
+ *    account's data key, the whole-file hash is sealed under the same key, and each part is its own
+ *    NCF-3 stream under the file key. A test that used different ones would prove the tool agrees
+ *    with the test rather than with the format.
+ *
+ * `pieces` are the parts IN ORDER. Pad the last one by handing it more bytes than the file holds —
+ * that is exactly what the write side does, and the caller passes the real `size` separately.
+ */
+export async function sealFile(
+  code: string,
+  pieces: readonly Uint8Array[],
+  size?: number,
+): Promise<SealedFile> {
+  const glue = await loadEngine();
+  const parse = fn(glue, "account_code_parse") as (input: string) => Uint8Array;
+  const derive = fn(glue, "kdf_derive") as (bytes: Uint8Array) => Uint8Array;
+  const seal = fn(glue, "envelope_seal") as (k: Uint8Array, aad: Uint8Array, pt: Uint8Array) => Uint8Array;
+  const b64 = fn(glue, "b64_encode") as (bytes: Uint8Array) => string;
+  const genDek = fn(glue, "generate_dek") as () => Uint8Array;
+  const encrypt = fn(glue, "stream_encrypt_all") as (dek: Uint8Array, pt: Uint8Array) => Uint8Array;
+
+  const derived = derive(parse(code));
+  const dataKey = derived.slice(48, 80);
+  derived.fill(0);
+  const dek = genDek();
+
+  const utf8 = new TextEncoder();
+  const dekWrapped = b64(seal(dataKey, utf8.encode("nmts/v3/dek-wrap"), dek));
+
+  // ⛔ The hash covers the FILE, not the stored bytes. A padded last part carries more plaintext
+  //    than the file holds, and hashing that would make the product's own check fail on a file it
+  //    sealed correctly — the browser hashes what it writes out, which is `size` bytes.
+  const total = pieces.reduce((n, piece) => n + piece.length, 0);
+  const real = size ?? total;
+  const { createHash } = await import("node:crypto");
+  const hasher = createHash("sha256");
+  let left = real;
+  for (const piece of pieces) {
+    if (left <= 0) break;
+    hasher.update(piece.subarray(0, Math.min(left, piece.length)));
+    left -= piece.length;
+  }
+  const contentHashCt = b64(seal(dataKey, utf8.encode("nmts/v3/content-hash"), new Uint8Array(hasher.digest())));
+  dataKey.fill(0);
+
+  const parts = pieces.map((piece, i) => ({
+    blobId: `test-blob-${i}-${piece.length}`,
+    sealed: encrypt(dek, piece),
+  }));
+  dek.fill(0);
+  return { dekWrapped, contentHashCt, parts };
+}

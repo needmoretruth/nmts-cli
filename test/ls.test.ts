@@ -18,8 +18,18 @@ import { generateCode, sealFileList } from "./helpers.ts";
 let answer: { status: number; body: unknown } = { status: 200, body: { state: "absent" } };
 let lastAuth: string | undefined;
 
+// ⛔ IT ROUTES BY PATH, and that is not decoration. It used to answer ANY url, which meant a tool
+//    asking for the wrong address still got a file list — and it did: `/manifest` instead of
+//    `/v1/manifest` passed every test here and failed against a real server.
+let lastPath: string | null = null;
 const server: Server = createServer((req, res) => {
   lastAuth = req.headers.authorization;
+  lastPath = req.url ?? null;
+  if (!(req.url ?? "").startsWith("/v1/manifest")) {
+    res.writeHead(404, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: { code: "NOT_FOUND", message: "no such route" } }));
+    return;
+  }
   res.writeHead(answer.status, { "content-type": "application/json" });
   res.end(JSON.stringify(answer.body));
 });
@@ -119,6 +129,16 @@ test("⛔ without an API key it says so and names the way to supply one — the 
     assert.ok(failure instanceof NmtsError);
     assert.equal(failure.exitCode, 3);
     assert.match(`${failure.message} ${failure.nextStep ?? ""}`, new RegExp(API_KEY_ENV_VAR));
+  });
+});
+
+test("⛔ it asks the address the server actually serves", async () => {
+  await withSandbox("ls-path", async () => {
+    process.env[CODE_ENV_VAR] = await generateCode();
+    process.env[API_KEY_ENV_VAR] = KEY;
+    answer = { status: 200, body: { state: "absent" } };
+    await ls({ server: BASE, network: "testnet", write: collect().write });
+    assert.equal(lastPath, "/v1/manifest");
   });
 });
 

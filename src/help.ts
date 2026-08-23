@@ -8,6 +8,7 @@ import { BINARY_NAME, HOME_URL, PRODUCT_NAME } from "./product.ts";
 import { API_KEY_ENV_VAR, CODE_ENV_VAR } from "./credentials.ts";
 import { NETWORK_ENV_VAR } from "./network.ts";
 import { SERVER_ENV_VAR } from "./server.ts";
+import { AGGREGATOR_ENV_VAR } from "./walrus.ts";
 
 export function helpText(version: string): string {
   return [
@@ -22,13 +23,15 @@ export function helpText(version: string): string {
     `  whoami                Show which account the stored code belongs to (offline)`,
     `  ls                    List files in the account`,
     `  put <file>...         Encrypt and upload                               [not built yet]`,
-    `  get <file>            Download and decrypt                             [not built yet]`,
+    `  get <path>            Download one file and decrypt it`,
     ``,
     `OPTIONS`,
     `  --server <url>        NMTS server (default ${SERVER_ENV_VAR} or the live one)`,
     `  --network <name>      mainnet or testnet. Required for any server but the live one`,
     `  --json                Machine-readable output (ls)`,
     `  --all                 Include what is in the trash (ls)`,
+    `  --out <path>          Where to write the file (get). Default: its own name`,
+    `  --force               Replace a file that is already there (get)`,
   `  --version             Print the version and exit`,
     `  --help                Print this and exit`,
     ``,
@@ -38,6 +41,8 @@ export function helpText(version: string): string {
     `  ${API_KEY_ENV_VAR.padEnd(20)}Key made on the account screen. It waives the human check a`,
     `                      browser sign-in does, and nothing else — it opens no file.`,
     `  ${SERVER_ENV_VAR.padEnd(20)}Server to talk to. For development stacks.`,
+    `  ${AGGREGATOR_ENV_VAR.padEnd(20)}Storage-network read hosts, comma-separated. Replaces`,
+    `                      the built-in list rather than adding to it.`,
     `  ${NETWORK_ENV_VAR.padEnd(20)}mainnet or testnet. Never guessed: a wrong one looks in a place`,
     `                      your files were never stored.`,
     ``,

@@ -25,6 +25,7 @@ import { helpText } from "./help.ts";
 import { BINARY_NAME } from "./product.ts";
 import { login } from "./commands/login.ts";
 import { logout } from "./commands/logout.ts";
+import { get } from "./commands/get.ts";
 import { ls } from "./commands/ls.ts";
 import { whoami } from "./commands/whoami.ts";
 
@@ -38,7 +39,7 @@ export const VERSION = "0.0.0";
  *    unknown means "you guessed the name wrong, try again", unfinished means "stop, this will not
  *    work however you spell it". They get different exit codes for exactly that reason.
  */
-export const NOT_BUILT_YET = ["put", "get"] as const;
+export const NOT_BUILT_YET = ["put"] as const;
 
 export async function run(argv: readonly string[]): Promise<number> {
   const args = parseArgs(argv);
@@ -59,6 +60,14 @@ export async function run(argv: readonly string[]): Promise<number> {
       return logout();
     case "whoami":
       return await whoami({ server: args.server, network: args.network });
+    case "get":
+      return await get(args.operands[0], {
+        server: args.server,
+        network: args.network,
+        out: args.out,
+        force: args.force,
+        json: args.json,
+      });
     case "ls":
       return await ls({
         server: args.server,

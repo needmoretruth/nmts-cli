@@ -36,6 +36,15 @@ export interface CryptoGlue {
    *    it throws. That is why the strings live in one table (`AAD`) rather than at call sites.
    */
   envelope_open(key: Uint8Array, aad: Uint8Array, envelope: Uint8Array): Uint8Array;
+  /**
+   * Decrypt one whole NCF-3 stream — header, every chunk, and the end-of-stream check.
+   *
+   * ⚠ IT HOLDS THE WHOLE PART IN MEMORY, both sealed and open. That is the honest limit of this
+   *   first version: a part is at most 64 MiB, so a file split into many parts costs one part at
+   *   a time, but a single huge part costs its own size twice. The chunk-at-a-time entry points
+   *   exist in the engine and are what a streaming version would use.
+   */
+  stream_decrypt_all(dek: Uint8Array, stream: Uint8Array): Uint8Array;
 }
 
 const REQUIRED: readonly (keyof CryptoGlue)[] = [
@@ -44,6 +53,7 @@ const REQUIRED: readonly (keyof CryptoGlue)[] = [
   "kdf_derive",
   "share_address_display",
   "envelope_open",
+  "stream_decrypt_all",
 ];
 
 /**
@@ -56,6 +66,15 @@ const REQUIRED: readonly (keyof CryptoGlue)[] = [
  */
 export const AAD = {
   fileList: "nmts/v3/file-list",
+  /** Wraps a file's own key under the account's data key (NCF-3 §3). */
+  dekWrap: "nmts/v3/dek-wrap",
+  /**
+   * Wraps the SHA-256 of a file's whole plaintext (NCF-3 §2.2).
+   *
+   * Sealed rather than stored bare because a plaintext content hash identifies the FILE: it is
+   * matchable against public hash sets, and it is equal across two accounts holding the same file.
+   */
+  contentHash: "nmts/v3/content-hash",
 } as const;
 
 /**

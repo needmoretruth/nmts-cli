@@ -105,7 +105,7 @@ export async function readFileList(
   accountCode: string,
   accountId: string,
 ): Promise<FileList> {
-  const answer = asResponse(await request(base, "/manifest", { token: apiKey }));
+  const answer = asResponse(await request(base, "/v1/manifest", { token: apiKey }));
   const first = !hasSeenBefore(accountId);
   if (answer.state === "absent") return { manifest: null, firstTimeOnThisMachine: first };
 
