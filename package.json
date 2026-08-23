@@ -1,0 +1,54 @@
+{
+  "name": "nmts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Command-line access to NMTS end-to-end encrypted storage, for people and for their agents.",
+  "license": "AGPL-3.0-only",
+  "homepage": "https://github.com/needmoretruth/nmts-cli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/needmoretruth/nmts-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/needmoretruth/nmts-cli/issues"
+  },
+  "keywords": [
+    "nmts",
+    "walrus",
+    "sui",
+    "encryption",
+    "e2ee",
+    "storage",
+    "cli",
+    "mcp",
+    "agent"
+  ],
+  "type": "module",
+  "bin": {
+    "nmts": "./dist/main.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "vendor",
+    "README.md",
+    "AGENTS.md",
+    "LICENSE",
+    "LICENSING.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test \"test/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@mysten/sui": "^2.20.1",
+    "@mysten/walrus": "^1.2.3"
+  }
+}

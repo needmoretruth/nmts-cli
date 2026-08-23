@@ -1,0 +1,17 @@
+{
+  "name": "nmts-crypto-wasm",
+  "type": "module",
+  "description": "wasm-bindgen surface over nmts-crypto (NCF-1) for nmts/web. Production build only — never enable the `vectors` feature here.",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-only",
+  "files": [
+    "nmts_crypto_wasm_bg.wasm",
+    "nmts_crypto_wasm.js",
+    "nmts_crypto_wasm.d.ts"
+  ],
+  "main": "nmts_crypto_wasm.js",
+  "types": "nmts_crypto_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

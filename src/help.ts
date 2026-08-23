@@ -1,0 +1,48 @@
+// What `nmts` prints when asked what it can do.
+//
+// ⛔ COMMANDS THAT ARE NOT BUILT ARE MARKED, NOT HIDDEN. An agent that discovers a command by
+//    running it and getting "unknown command" learns the wrong thing — it will try synonyms. Being
+//    told the command exists and is unfinished is a fact it can act on: stop, and do not retry.
+
+import { BINARY_NAME, HOME_URL, PRODUCT_NAME } from "./product.ts";
+import { CODE_ENV_VAR } from "./credentials.ts";
+import { NETWORK_ENV_VAR } from "./network.ts";
+import { SERVER_ENV_VAR } from "./server.ts";
+
+export function helpText(version: string): string {
+  return [
+    `${PRODUCT_NAME} ${version} — command-line access to end-to-end encrypted NMTS storage.`,
+    ``,
+    `USAGE`,
+    `  ${BINARY_NAME} <command> [options]`,
+    ``,
+    `COMMANDS`,
+    `  login                 Keep an account code on this machine`,
+    `  logout                Remove the stored account code`,
+    `  whoami                Show which account the stored code belongs to (offline)`,
+    `  ls                    List files in the account                        [not built yet]`,
+    `  put <file>...         Encrypt and upload                               [not built yet]`,
+    `  get <file>            Download and decrypt                             [not built yet]`,
+    ``,
+    `OPTIONS`,
+    `  --server <url>        NMTS server (default ${SERVER_ENV_VAR} or the live one)`,
+    `  --network <name>      mainnet or testnet. Required for any server but the live one`,
+  `  --version             Print the version and exit`,
+    `  --help                Print this and exit`,
+    ``,
+    `ENVIRONMENT`,
+    `  ${CODE_ENV_VAR}   The account code. Read fresh each run and never written to disk.`,
+    `                        Takes precedence over anything stored by \`${BINARY_NAME} login\`.`,
+    `  ${SERVER_ENV_VAR}          Server to talk to. For development stacks.`,
+  `  ${NETWORK_ENV_VAR}         mainnet or testnet. Never guessed: a wrong one looks in a place`,
+  `                        your files were never stored.`,
+    ``,
+    `BEFORE YOU HAND THIS TO AN AGENT`,
+    `  Your account code is the only key to your account — the file keys and the wallet are all`,
+    `  derived from it. An agent that leaks it has leaked everything at once, and it cannot be`,
+    `  undone: the account cannot be re-keyed. Use an account you would be willing to lose.`,
+    ``,
+    `  ${HOME_URL}`,
+    ``,
+  ].join("\n");
+}

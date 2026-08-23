@@ -1,0 +1,62 @@
+// How this tool fails.
+//
+// ⛔ AN AGENT READS THESE. Every message here is written for a reader that will act on it without
+//    asking a person: it says what happened, and it says the one thing to do next. "Unauthorized"
+//    tells an agent nothing it can use; "your API key was revoked — issue a new one at
+//    nmts.me/account" tells it whether to retry, ask, or stop.
+//
+// ⛔ NOTHING SECRET IS EVER INTERPOLATED. Not the account code, not the API key, not a session
+//    token. An error string is the one place a secret escapes without anybody choosing to print
+//    it, and agents copy error strings into logs and prompts by default.
+
+/** A failure this tool understood, with an exit code and something the caller can do. */
+export class NmtsError extends Error {
+  readonly exitCode: number;
+  /** One line naming the next action, or null when there is nothing useful to suggest. */
+  readonly nextStep: string | null;
+
+  constructor(message: string, options: { exitCode?: number; nextStep?: string | null } = {}) {
+    super(message);
+    this.name = "NmtsError";
+    this.exitCode = options.exitCode ?? 1;
+    this.nextStep = options.nextStep ?? null;
+  }
+}
+
+/** Nothing is signed in on this machine and no code was supplied. */
+export class NotLoggedInError extends NmtsError {
+  constructor(binary: string, envVar: string) {
+    super(`No NMTS account code on this machine.`, {
+      exitCode: 3,
+      nextStep: `Run \`${binary} login\`, or set ${envVar} in the environment.`,
+    });
+    this.name = "NotLoggedInError";
+  }
+}
+
+/** The command exists but is not built yet. Said plainly rather than failing as if it broke. */
+export class NotBuiltYetError extends NmtsError {
+  constructor(what: string) {
+    super(`${what} is not built yet.`, {
+      exitCode: 4,
+      nextStep: `This is not a failure — the command is announced but unfinished. Do not retry.`,
+    });
+    this.name = "NotBuiltYetError";
+  }
+}
+
+/** Render a failure for a terminal an agent is reading. */
+export function renderError(error: unknown, binary: string): string {
+  if (error instanceof NmtsError) {
+    const lines = [`${binary}: ${error.message}`];
+    if (error.nextStep) lines.push(`  ${error.nextStep}`);
+    return lines.join("\n");
+  }
+  // Unknown failures print their message and nothing else — no stack, which is where paths,
+  // usernames and sometimes arguments leak into whatever the agent logs.
+  const message = error instanceof Error ? error.message : String(error);
+  return `${binary}: ${message}`;
+}
+
+/** Exit code for an unknown failure, kept distinct from the ones above. */
+export const UNKNOWN_FAILURE_EXIT = 1;

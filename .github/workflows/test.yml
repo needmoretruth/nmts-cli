@@ -1,0 +1,33 @@
+# ⛔ IT REACTS TO `push` ONLY — never to `pull_request`. A workflow that runs on pull requests
+#    executes a stranger's code with this repository's token, and this repository does not merge
+#    outside code in any case: a merged patch would move part of the copyright to its author, and
+#    the separate-licence offer in LICENSING.md can only be made by whoever holds all of it.
+#
+# ⚠ Three operating systems because that is the claim the README makes. Plain JavaScript with no
+#    native build step should run wherever Node runs, and "should" is not something a reader can
+#    check — this is.
+name: test
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ["22", "24"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
