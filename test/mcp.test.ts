@@ -5,6 +5,8 @@
 //    directly rather than trusted to review.
 
 import { strict as assert } from "node:assert";
+import { tmpdir } from "node:os";
+import { join, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 import { test } from "node:test";
 
@@ -136,12 +138,18 @@ test("⛔ every line put on the wire is one JSON object — nothing else may go 
 });
 
 // ── WHERE FETCHED FILES LAND ────────────────────────────────────────────────────────────────
+// ⛔ THE SEPARATOR IS NOT `/`. A first version of these two tests wrote `/` by hand and passed on
+//    Linux and macOS while failing on Windows, where `resolve` answers in backslashes — the three
+//    operating systems this repository's CI runs is what caught it. Build every expected path the
+//    way the code does, from `join`/`sep`, and the test speaks whatever platform it is on.
+const ROOT = join(tmpdir(), "nmts-mcp-test");
+
 test("⛔ a name that tries to climb out lands INSIDE anyway, or is refused — never outside", async () => {
   // ⛔ The property is not "these are rejected". A file in somebody's drive may legitimately be
   //    called `../../etc/passwd`, and refusing to fetch it would be a bug. What must hold is that
   //    it cannot become a path on THIS disk outside the chosen directory: the climb is stripped,
   //    and anything with no usable last segment is refused.
-  const root = "/tmp/nmts-mcp-test";
+  const root = resolve(ROOT);
   for (const climbing of ["../../etc/passwd", "/etc/passwd", "..", ".", "sub/../../../out", "..\\..\\win"]) {
     let landed: string | null = null;
     try {
@@ -151,15 +159,15 @@ test("⛔ a name that tries to climb out lands INSIDE anyway, or is refused — 
       continue;
     }
     assert.ok(
-      landed.startsWith(`${root}/`),
+      landed.startsWith(root + sep) && landed !== root,
       `${climbing} would be written to ${landed}, which is outside ${root}`,
     );
   }
 });
 
 test("an ordinary name lands under the chosen directory, keeping only its last segment", () => {
-  assert.equal(destinationFor("/tmp/nmts-mcp-test", "photos/beach.jpg"), "/tmp/nmts-mcp-test/beach.jpg");
-  assert.equal(destinationFor("/tmp/nmts-mcp-test", "notes.txt"), "/tmp/nmts-mcp-test/notes.txt");
+  assert.equal(destinationFor(ROOT, "photos/beach.jpg"), join(ROOT, "beach.jpg"));
+  assert.equal(destinationFor(ROOT, "notes.txt"), join(ROOT, "notes.txt"));
 });
 
 // ── THE SEAM ────────────────────────────────────────────────────────────────────────────────
@@ -169,7 +177,6 @@ test("an ordinary name lands under the chosen directory, keeping only its last s
 // protocol message reaches stdout while it does.
 import { createServer, type Server } from "node:http";
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { after } from "node:test";
 
 import { mcp } from "../src/commands/mcp.ts";
