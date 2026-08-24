@@ -9,9 +9,18 @@
 //    browser tree so the two cannot describe the file list differently. Editing it there would
 //    make the copy a fork, which is the one thing the generator exists to prevent.
 //
-// The definition is the WHATWG one verbatim: `typedef (ArrayBufferView or ArrayBuffer) BufferSource`.
+// Each definition below is the WHATWG one verbatim.
 declare global {
+  /** `typedef (ArrayBufferView or ArrayBuffer) BufferSource` */
   type BufferSource = ArrayBufferView | ArrayBuffer;
+  /**
+   * `typedef (Request or USVString) RequestInfo`
+   *
+   * Node implements `fetch` and `@types/node` declares its parameter inline rather than naming
+   * this type, so code that has to MATCH the signature of `fetch` — a caller supplying its own —
+   * has nothing to write.
+   */
+  type RequestInfo = Request | string;
 }
 
 export {};

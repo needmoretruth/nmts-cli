@@ -21,7 +21,7 @@ test("a generated code derives an account id and a public code", async () => {
   const identity = await identityOf(await generateCode());
   // 16 bytes as base64url is 22 characters with no padding.
   assert.match(identity.accountId, /^[A-Za-z0-9_-]{22}$/);
-  // The share address is grouped Crockford Base32 with a trailing check symbol.
+  // The public code is grouped Crockford Base32 with a trailing check symbol.
   assert.match(identity.publicCode, /^[0-9A-Z]{9}-[0-9A-Z]{9}-[0-9A-Z]{8}[0-9A-Z*~$=U]$/);
 });
 

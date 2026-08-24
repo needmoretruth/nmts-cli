@@ -6,8 +6,8 @@
 //    is signed in. Printing an account id without saying that would read as "connected".
 
 import { identityOf } from "../account.ts";
-import { CODE_ENV_VAR, resolveAccountCode, readCredentialsFile } from "../credentials.ts";
-import { NotLoggedInError } from "../errors.ts";
+import { requireAccountCode } from "../code-access.ts";
+import { CODE_ENV_VAR, readCredentialsFile } from "../credentials.ts";
 import { BINARY_NAME } from "../product.ts";
 import { resolveNetwork } from "../network.ts";
 import { resolveServer } from "../server.ts";
@@ -20,11 +20,15 @@ export interface WhoamiOptions {
 
 export async function whoami(options: WhoamiOptions = {}): Promise<number> {
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));
-  const resolved = resolveAccountCode();
-  if (resolved === null) throw new NotLoggedInError(BINARY_NAME, CODE_ENV_VAR);
+  const resolved = await requireAccountCode();
 
   const identity = await identityOf(resolved.code);
-  const stored = resolved.source === "file" ? readCredentialsFile() : null;
+  // ⛔ BOTH STORED SHAPES, and an adversarial review is why. This read `source === "file"` only,
+  //    which was right while the file always held the code in the clear — and became wrong the
+  //    day `login` started sealing by default. Somebody who ran `login --server … --network
+  //    testnet` was then told, silently, that their account was on the live server and mainnet.
+  const stored =
+    resolved.source === "file" || resolved.source === "file-locked" ? readCredentialsFile() : null;
   const server = resolveServer(options.server ?? stored?.server);
   const network = resolveNetwork(server, options.network ?? stored?.network);
 

@@ -122,3 +122,31 @@ test("wipe clears without returning anything", () => {
   const step = r.push(ENTER);
   assert.equal(step.kind === "done" ? step.value : null, "");
 });
+
+test("⛔ what arrives after the newline is KEPT for the next question", () => {
+  // ⛔ A TERMINAL DELIVERS A PASTE AS ONE CHUNK, and `login` asks three questions in a row. A
+  //    reader that stopped at the first newline and dropped the rest lost the next two answers,
+  //    and the run ended in "Cancelled" — which reads as something the person chose to do.
+  const reader = new SecretReader();
+  const step = reader.push(Buffer.from("first\nsecond\nthird\n", "utf8"));
+  assert.deepEqual(step, { kind: "done", value: "first" });
+  assert.equal(Buffer.from(reader.takeLeftover()).toString("utf8"), "second\nthird\n");
+  // Taken once. A second caller must not be handed the same bytes again.
+  assert.equal(reader.takeLeftover().length, 0);
+});
+
+test("⛔ the kept bytes are a COPY of the stream's buffer, not a window onto it", () => {
+  // The defect this catches was measured, not imagined: `Buffer.prototype.slice` returns a view,
+  // Node reuses the read buffer, and the carried answer came back empty at the next prompt.
+  const chunk = Buffer.from("first\nsecond\n", "utf8");
+  const reader = new SecretReader();
+  reader.push(chunk);
+  chunk.fill(0);
+  assert.equal(Buffer.from(reader.takeLeftover()).toString("utf8"), "second\n");
+});
+
+test("a chunk with nothing after the newline keeps nothing", () => {
+  const reader = new SecretReader();
+  reader.push(Buffer.from("only\n", "utf8"));
+  assert.equal(reader.takeLeftover().length, 0);
+});

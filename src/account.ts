@@ -53,12 +53,22 @@ export async function identityOf(code: string): Promise<AccountIdentity> {
       nextStep: "Check for a mistyped or missing character. The last character is a check symbol.",
     });
   }
+  // ⛔ WIPED, like every other derivation in this tool. This buffer is not an account id — it is
+  //    EVERY KEY IN THE ACCOUNT: the sign-in secret, the key that opens the files, the key that
+  //    opens the file list, and the wallet root. This one call site was leaving all of it live for
+  //    as long as the process ran, and `put` calls it on the path that then spends money and holds
+  //    a file's plaintext. The two public values are copied out first; nothing else survives.
   const derived = glue.kdf_derive(bytes);
-  const [idFrom, idTo] = DERIVED.accountId;
-  const [shareFrom, shareTo] = DERIVED.shareAddress;
-  return {
-    accountId: Buffer.from(derived.slice(idFrom, idTo)).toString("base64url"),
-    publicCode: glue.share_address_display(derived.slice(shareFrom, shareTo)),
-    displayCode: glue.account_code_display(bytes),
-  };
+  try {
+    const [idFrom, idTo] = DERIVED.accountId;
+    const [shareFrom, shareTo] = DERIVED.shareAddress;
+    return {
+      accountId: Buffer.from(derived.slice(idFrom, idTo)).toString("base64url"),
+      publicCode: glue.share_address_display(derived.slice(shareFrom, shareTo)),
+      displayCode: glue.account_code_display(bytes),
+    };
+  } finally {
+    derived.fill(0);
+    bytes.fill(0);
+  }
 }

@@ -20,7 +20,13 @@ export const DEFAULT_TIMEOUT_MS = 30_000;
 export interface ServerRefusal {
   code: string;
   message: string;
-  details?: Record<string, number>;
+  /**
+   * Whatever the refusal carries beside its words — a limit that was hit, an address to go to.
+   *
+   * ⚠ Values are not all numbers: `AGENT_VERIFY_REQUIRED` names the page a person opens. Nothing
+   *   here validates the shape, so a narrower type than the wire's would be a claim, not a check.
+   */
+  details?: Record<string, string | number>;
 }
 
 /** A refusal the server explained. Carries its code so a caller can branch without string matching. */
@@ -43,6 +49,14 @@ export interface RequestOptions {
   token?: string | undefined;
   timeoutMs?: number;
   signal?: AbortSignal | undefined;
+  /**
+   * Make this request safe to repeat.
+   *
+   * ⛔ A NARROW OPTION RATHER THAN ARBITRARY HEADERS. The two calls that need it are the two that
+   *    SPEND -- committing a file and reserving storage -- and a general header bag on a client
+   *    that carries a bearer token is a way to send that token somewhere it was not meant to go.
+   */
+  idempotencyKey?: string;
 }
 
 /** What a caller does next about a refusal, when the tool knows something the message does not. */
@@ -79,6 +93,28 @@ function adviseFor(code: string): string | null {
         "on this machine and opens the files. Put the code in NMTS_ACCOUNT_CODE and the key in " +
         "NMTS_API_KEY."
       );
+    case "AGENT_VERIFY_REQUIRED":
+      return (
+        "This was refused because nothing has checked lately that a person is behind this " +
+        "account's key. Ask the person to run `nmts verify` and to follow what it prints — it " +
+        "gives them a code to type at a browser, and nothing here can pass that check for them."
+      );
+    // ⛔ THE REFUSAL IS CORRECT AND THERE IS NOTHING HERE TO WORK AROUND. Accepting terms is a
+    //    person reading a document and agreeing to it; a program doing it for them would be
+    //    signing on somebody else's behalf, and this tool holds an API key, not a person. So the
+    //    only thing missing was the advice — without it an agent gets a bare 403 and starts
+    //    trying credentials, which is the one thing that cannot be the cause.
+    //
+    // ⚠ It does not say WHICH requests are refused. The server gates some and not others (reading
+    //   and deleting are not gated today), that line has moved twice, and a sentence here naming
+    //   the list would be a copy of it that nothing keeps true.
+    case "TERMS_ACCEPTANCE_REQUIRED":
+      return (
+        "This account has not accepted the terms now in force, and the server refuses this " +
+        "request until it does. Nothing on this machine can accept them. Ask the person to open " +
+        "the account screen at nmts.me and accept there. Other requests may still work in the " +
+        "meantime."
+      );
     case "ACCOUNT_BANNED":
       return "This account is suspended. Nothing here will succeed until that is lifted.";
     case "CREDITS_SHORT":
@@ -112,6 +148,7 @@ export async function request(base: string, path: string, options: RequestOption
   const headers: Record<string, string> = { accept: "application/json" };
   if (body !== undefined) headers["content-type"] = "application/json";
   if (token !== undefined && token.length > 0) headers["authorization"] = `Bearer ${token}`;
+  if (options.idempotencyKey !== undefined) headers["idempotency-key"] = options.idempotencyKey;
 
   let response: Response;
   try {

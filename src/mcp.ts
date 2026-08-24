@@ -15,6 +15,8 @@
 //   anywhere else on disk, and it cannot make or revoke a key — those need a person at a browser.
 import { createInterface } from "node:readline";
 
+import { checkArgs } from "./mcp-args.ts";
+
 /** JSON-RPC 2.0, the subset MCP uses. `id` absent means a notification: no answer is sent. */
 export interface Request {
   jsonrpc: "2.0";
@@ -96,10 +98,27 @@ export async function handle(
       const name = request.params?.["name"];
       const tool = tools.find((t) => t.name === name);
       if (tool === undefined) return fail(METHOD_NOT_FOUND, `no tool named ${String(name)}`);
+      // ⛔ THE SCHEMA IS CHECKED HERE, ONCE, FOR EVERY TOOL. It used to be advertised and never
+      //    enforced: anything that was not an object became `{}` and everything else went straight
+      //    through, so a tool declaring `dry_run: boolean` was handed the STRING "true" and its
+      //    `=== true` test read it as false — a request for a price became a paid upload. Checking
+      //    in each tool would be the same four checks written twenty times, and the twentieth would
+      //    forget. ⛔ A wrong argument is REFUSED, never repaired: guessing what `"true"` meant is
+      //    deciding on the caller's behalf which branch spends money.
       const raw = request.params?.["arguments"];
-      const args = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+      const args = raw === undefined ? {} : raw;
+      const problems = checkArgs(tool.inputSchema, args);
+      if (problems.length > 0) {
+        return reply({
+          content: [{ type: "text", text: `${tool.name}: ${problems.join("; ")}` }],
+          isError: true,
+        });
+      }
       try {
-        return reply({ content: [{ type: "text", text: await tool.run(args) }] });
+        // Narrowed by the check above: `checkArgs` refuses anything that is not an object.
+        const checked: Record<string, unknown> =
+          typeof args === "object" && args !== null && !Array.isArray(args) ? { ...args } : {};
+        return reply({ content: [{ type: "text", text: await tool.run(checked) }] });
       } catch (error) {
         // ⛔ A failed TOOL is not a failed SESSION. The model is told what went wrong and can try
         //    something else; a JSON-RPC error would look to some clients like the server broke.

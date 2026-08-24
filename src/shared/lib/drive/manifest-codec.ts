@@ -16,6 +16,18 @@
 // Relative, with the extension, because `node --test` type-strips this module directly for the
 // codec round-trip suite and resolves no path aliases.
 import { NETWORK_WHEN_UNRECORDED } from "../storage-network.ts";
+import {
+  settingsFromWire,
+  settingsToWire,
+  TEXT_SCALE_DEFAULT_PCT,
+  TEXT_SCALE_MAX_PCT,
+  TEXT_SCALE_MIN_PCT,
+  type AccountSettings,
+  type WireSettings,
+} from "./manifest-settings.ts";
+
+export { TEXT_SCALE_DEFAULT_PCT, TEXT_SCALE_MAX_PCT, TEXT_SCALE_MIN_PCT };
+export type { AccountSettings };
 
 /**
  * One share this device made, kept where the server cannot reach it (`ManifestEntry.shares`).
@@ -131,37 +143,7 @@ export interface ManifestEntry {
  * as a star's: an older build that SAVES rewrites the blob without the member it never read, so a
  * stale tab can silently reset these. Turning them back on is the whole repair.
  */
-export interface AccountSettings {
-  /** Developer mode — technical storage facts + ciphertext links in the file detail. Absent = off. */
-  developerMode?: true;
-  /**
-   * In-app text size, percent of the DEVICE's own size. Absent = 100 = follow the device. Never a
-   * pixel value: the device's own accessibility setting stays underneath, and this multiplies it.
-   */
-  textScalePct?: number;
-  /**
-   * SIZE PADDING rule — how coarsely a file's stored size is rounded up.
-   *
-   * Absent = Padmé, the default: about 32 possible sizes per doubling, ~1% more storage.
-   * `"pow2"` rounds to the next power of two: one size per doubling, ~39% more storage. Those are
-   * the only two, and there is deliberately no "off" — the owner's choice was between two rules,
-   * and switching padding off would mean "this account's files still state their exact size".
-   *
-   * Here, in the sealed list, for the same reason the other two are: the server must not learn it
-   * (it would be a per-account fingerprint the server could hold on to), and it
-   * follows the account rather than the device, so a phone and a laptop pad the same way.
-   *
-   * ⚠ It applies to what is uploaded NEXT. Bytes already on the storage network cannot be
-   * re-padded, and the screen says so.
-   */
-  paddingMode?: "pow2";
-}
 
-/** The sanity bounds a stored text scale must sit in to be USED. One place; codec and UI agree. */
-export const TEXT_SCALE_MIN_PCT = 80;
-export const TEXT_SCALE_MAX_PCT = 160;
-/** Follow the device. Not written to the wire — absence is the only spelling of it. */
-export const TEXT_SCALE_DEFAULT_PCT = 100;
 
 /** The decoded manifest. */
 export interface Manifest {
@@ -246,13 +228,6 @@ interface WireShareReceipt {
 }
 
 /** Account settings on the wire — short keys for the same reason the entries use them. */
-interface WireSettings {
-  /** developerMode. */
-  dm?: 1;
-  /** textScalePct. */
-  tx?: number;
-}
-
 interface WireManifest {
   v: number;
   /** The store version this blob is sealed at — NCF-3 §6.1. */
@@ -262,45 +237,6 @@ interface WireManifest {
   items: WireEntry[];
   /** Account-level settings; absent when everything is at its default. */
   st?: WireSettings;
-}
-
-/** Settings → wire, or null when every field is at its default (then nothing is written). */
-function settingsToWire(s: AccountSettings | undefined): WireSettings | null {
-  if (!s) return null;
-  const w: WireSettings = {};
-  if (s.developerMode) w.dm = 1;
-  if (
-    typeof s.textScalePct === "number" &&
-    Number.isFinite(s.textScalePct) &&
-    s.textScalePct !== TEXT_SCALE_DEFAULT_PCT &&
-    s.textScalePct >= TEXT_SCALE_MIN_PCT &&
-    s.textScalePct <= TEXT_SCALE_MAX_PCT
-  ) {
-    w.tx = Math.round(s.textScalePct);
-  }
-  return w.dm !== undefined || w.tx !== undefined ? w : null;
-}
-
-/**
- * Wire → settings, dropping anything unusable. A text scale outside the bounds is DROPPED, not
- * clamped: rendering a whole app at a number some other build miswrote is worse than falling back
- * to the device's own size, which is always readable.
- */
-function settingsFromWire(w: unknown): AccountSettings | undefined {
-  if (!w || typeof w !== "object") return undefined;
-  const raw = w as WireSettings;
-  const s: AccountSettings = {};
-  if (raw.dm === 1) s.developerMode = true;
-  if (
-    typeof raw.tx === "number" &&
-    Number.isFinite(raw.tx) &&
-    raw.tx !== TEXT_SCALE_DEFAULT_PCT &&
-    raw.tx >= TEXT_SCALE_MIN_PCT &&
-    raw.tx <= TEXT_SCALE_MAX_PCT
-  ) {
-    s.textScalePct = Math.round(raw.tx);
-  }
-  return s.developerMode !== undefined || s.textScalePct !== undefined ? s : undefined;
 }
 
 function toWire(e: ManifestEntry): WireEntry {

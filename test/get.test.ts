@@ -15,7 +15,7 @@ import { API_KEY_ENV_VAR, CODE_ENV_VAR, modesAreEnforced, testConfigDir } from "
 import { NmtsError } from "../src/errors.ts";
 import { AGGREGATOR_ENV_VAR } from "../src/walrus.ts";
 import { encodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
-import { generateCode, sealFile, sealFileList, type SealedFile } from "./helpers.ts";
+import { generateCode, sealFile, sealFileList, type SealedFile , grantConsents} from "./helpers.ts";
 
 const ITEM_ID = "11111111-2222-3333-4444-555555555555";
 
@@ -65,6 +65,9 @@ async function withSandbox(name: string, body: (dir: string) => Promise<void>): 
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   process.env["NMTS_CONFIG_DIR"] = dir;
+  // ⛔ These suites hand the code in through the environment, which asks once. The agreement is
+  //    tested in consent.test.ts and cli.test.ts; here it would only stop the test at exit 5.
+  grantConsents(dir, "plain-env", "spend");
   process.env[AGGREGATOR_ENV_VAR] = BASE;
   process.env[API_KEY_ENV_VAR] = KEY;
   try {

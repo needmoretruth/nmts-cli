@@ -8,6 +8,15 @@
 // ⛔ NOTHING SECRET IS EVER INTERPOLATED. Not the account code, not the API key, not a session
 //    token. An error string is the one place a secret escapes without anybody choosing to print
 //    it, and agents copy error strings into logs and prompts by default.
+//
+// ⛔⭐ THAT RULE COVERS WHAT THIS TOOL WRITES — AND `renderError` PRINTS WHAT IT DID NOT. An
+//    unknown error's `message` goes out verbatim, which is right (a swallowed cause is a debug
+//    session nobody can start) and is also a hole: an adversarial review made `JSON.parse` fail on
+//    the credentials file, and V8's own message quotes about thirty characters of the input —
+//    nine symbols of a real account code reached stderr. The fix is not here. It is that anything
+//    reading a file the code is in must catch its own parser and throw a message of its own
+//    (`credentials.ts`, `unusable`). ▶ Any NEW code that parses a secret-bearing file owes the
+//    same, and this paragraph is the reason why.
 
 /** A failure this tool understood, with an exit code and something the caller can do. */
 export class NmtsError extends Error {
@@ -49,7 +58,12 @@ export class NotBuiltYetError extends NmtsError {
 export function renderError(error: unknown, binary: string): string {
   if (error instanceof NmtsError) {
     const lines = [`${binary}: ${error.message}`];
-    if (error.nextStep) lines.push(`  ${error.nextStep}`);
+    // ⛔ EVERY line of the next step is indented, not just the first. A multi-line explanation
+    //    whose second line runs flush to the margin reads as a separate message, and the one
+    //    place that matters is a warning somebody is deciding on.
+    if (error.nextStep) {
+      for (const line of error.nextStep.split("\n")) lines.push(line === "" ? "" : `  ${line}`);
+    }
     return lines.join("\n");
   }
   // Unknown failures print their message and nothing else — no stack, which is where paths,

@@ -13,7 +13,7 @@ import { ls } from "../src/commands/ls.ts";
 import { API_KEY_ENV_VAR, CODE_ENV_VAR, testConfigDir } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
 import { encodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
-import { generateCode, sealFileList } from "./helpers.ts";
+import { generateCode, sealFileList, grantConsents } from "./helpers.ts";
 
 let answer: { status: number; body: unknown } = { status: 200, body: { state: "absent" } };
 let lastAuth: string | undefined;
@@ -54,6 +54,9 @@ async function withSandbox(name: string, body: () => Promise<void>): Promise<voi
   };
   rmSync(dir, { recursive: true, force: true });
   process.env["NMTS_CONFIG_DIR"] = dir;
+  // ⛔ These suites hand the code in through the environment, which asks once. The agreement is
+  //    tested in consent.test.ts and cli.test.ts; here it would only stop the test at exit 5.
+  grantConsents(dir, "plain-env", "spend");
   try {
     await body();
   } finally {
@@ -224,7 +227,10 @@ test("⛔ trashed entries are hidden AND the hiding is said out loud", async () 
 
     const loud = collect();
     await ls({ server: BASE, network: "testnet", all: true, write: loud.write });
-    assert.match(loud.lines.join("\n"), /gone\.txt.*\[trash\]/);
+    // ⚠ The mark now carries the DEADLINE as well. `deletedAt: 1` is 1970, so this row is one the
+    //   sweep is ready to drop — and saying only "[trash]" for it was the defect: a row about to
+    //   lose its key looked exactly like one thrown away this morning.
+    assert.match(loud.lines.join("\n"), /gone\.txt.*\[trash, past 30 days/);
   });
 });
 

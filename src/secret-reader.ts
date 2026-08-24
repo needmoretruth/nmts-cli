@@ -35,9 +35,26 @@ export class SecretReader {
   //    of a CSI sequence (0x40–0x7e), which is where the terminal protocol says it ends.
   #escape: "none" | "saw-escape" | "in-csi" = "none";
 
+  /**
+   * Whatever followed the newline in the chunk that finished the last answer.
+   *
+   * ⚠ It is bytes a person typed at a prompt that is now closed — which is the NEXT prompt's
+   *   input. It never contains anything the caller did not send here.
+   */
+  #leftover: Uint8Array = new Uint8Array(0);
+
+  /** Bytes that arrived after the answer ended, for the prompt that comes next. */
+  takeLeftover(): Uint8Array {
+    const out = this.#leftover;
+    this.#leftover = new Uint8Array(0);
+    return out;
+  }
+
   /** Feed one chunk. Returns what the caller should do next. */
   push(chunk: Uint8Array): SecretStep {
+    let index = -1;
     for (const byte of chunk) {
+      index += 1;
       if (this.#escape !== "none") {
         this.#consumeEscape(byte);
         continue;
@@ -49,6 +66,16 @@ export class SecretReader {
       if (byte === CTRL_C) return { kind: "cancelled" };
       if (byte === CTRL_D && this.#bytes.length === 0) return { kind: "cancelled" };
       if (byte === CARRIAGE_RETURN || byte === LINE_FEED) {
+        // ⛔ WHAT CAME AFTER THE NEWLINE IS KEPT, NOT DROPPED. A person answering three prompts by
+        //    pasting three lines sends all of them in ONE chunk; a reader that stopped at the
+        //    first newline and threw the rest away lost the next two answers, and the run ended
+        //    in "Cancelled" — which reads as something the person did.
+        // ⛔ COPIED, NOT A VIEW. `chunk` is the stream's own buffer and Node reuses it for the
+        //    next read; `Buffer.prototype.slice` returns a window onto that same memory, so what
+        //    was kept here would be overwritten — or zeroed by the caller wiping the chunk it was
+        //    handed. Measured: the next prompt read an empty buffer and the run ended in
+        //    "Cancelled". The constructor copies; `slice` on a Buffer does not.
+        this.#leftover = new Uint8Array(chunk.subarray(index + 1));
         return { kind: "done", value: this.take() };
       }
       if (byte === BACKSPACE || byte === BACKSPACE_ALT) {

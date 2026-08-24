@@ -6,14 +6,14 @@
 
 import { strict as assert } from "node:assert";
 import { execFile } from "node:child_process";
-import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { test } from "node:test";
 import { NOT_BUILT_YET } from "../src/main.ts";
 import { testConfigDir } from "../src/credentials.ts";
-import { generateCode } from "./helpers.ts";
+import { generateCode, grantConsents } from "./helpers.ts";
 
 const run = promisify(execFile);
 const MAIN = fileURLToPath(new URL("../src/main.ts", import.meta.url));
@@ -36,9 +36,24 @@ async function nmts(args: string[], env: Record<string, string> = {}): Promise<R
   }
 }
 
-function sandbox(name: string): { dir: string; env: Record<string, string>; clean: () => void } {
+/**
+ * A config directory of this test's own, optionally with agreements already in it.
+ *
+ * ⛔ THE AGREEMENTS ARE NEVER SEEDED BY DEFAULT. Handing the code in through the environment asks
+ *    for `plain-env` once, and storing it unsealed asks for `unsafe-code-storage`; a sandbox that
+ *    granted both to every test would make the two tests below — the ones that prove the refusal
+ *    happens — the only place the difference could be seen, and a wrong default would look green.
+ */
+/** ⚠ Not a secret: it locks a throwaway code the engine made for this run and nothing else. */
+const PASS = "correct horse battery staple";
+
+function sandbox(
+  name: string,
+  ...consents: readonly string[]
+): { dir: string; env: Record<string, string>; clean: () => void } {
   const dir = testConfigDir(name);
   rmSync(dir, { recursive: true, force: true });
+  if (consents.length > 0) grantConsents(dir, ...consents);
   return { dir, env: { NMTS_CONFIG_DIR: dir }, clean: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
@@ -55,33 +70,21 @@ test("no arguments prints help and exits 0 — an agent probing the tool learns 
   assert.match(r.stdout, /COMMANDS/);
 });
 
-test("help names every unbuilt command, so nothing is discovered by guessing", async () => {
-  // ⛔ Read from NOT_BUILT_YET rather than a list written here. A copy would keep passing on the
-  //    day a command ships -- it would simply assert about a command nobody announces any more --
-  //    and the failure that matters is the opposite one: something unbuilt that help stays quiet
-  //    about. That is what an agent discovers by guessing.
+test("⛔ every command help names is one this version can actually run", async () => {
+  // The list this reads used to hold `put`, and these two tests said so out loud so an agent could
+  // not discover an unfinished command by guessing at it. `put` shipped, the list emptied, and the
+  // tests failed rather than quietly asserting nothing -- which is what they were written to do.
+  // What is left is the half that does not expire: nothing in help wears the unfinished mark.
   const r = await nmts(["--help"]);
-  assert.ok(NOT_BUILT_YET.length > 0, "nothing is unbuilt -- delete this test rather than empty it");
-  for (const command of NOT_BUILT_YET) {
-    assert.match(r.stdout, new RegExp(`\\b${command}\\b.*not built yet`), `${command} unmarked`);
+  assert.equal(NOT_BUILT_YET.length, 0, "something is unfinished -- announce it in help and say so here");
+  assert.doesNotMatch(
+    r.stdout,
+    /not built yet/,
+    "help marks a command as unfinished while the tool believes everything is built",
+  );
+  for (const command of ["login", "logout", "whoami", "ls", "put", "get", "mcp", "verify"]) {
+    assert.match(r.stdout, new RegExp(`\\b${command}\\b`), `${command} is missing from help`);
   }
-  // …and the ones that ARE built must not carry the mark.
-  for (const command of ["login", "logout", "whoami", "ls"]) {
-    assert.doesNotMatch(
-      r.stdout,
-      new RegExp(`\\b${command}\\b[^\\n]*not built yet`),
-      `${command} is built and help says otherwise`,
-    );
-  }
-});
-
-test("an announced-but-unbuilt command exits 4 and says not to retry", async () => {
-  const first = NOT_BUILT_YET[0];
-  assert.ok(first !== undefined, "nothing is unbuilt -- delete this test rather than empty it");
-  const r = await nmts([first]);
-  assert.equal(r.code, 4);
-  assert.match(r.stderr, /not built yet/);
-  assert.match(r.stderr, /Do not retry/);
 });
 
 test("an unknown command exits 2 — a different code, because it means try a different name", async () => {
@@ -107,34 +110,13 @@ test("login with no terminal and no environment variable exits 3 and says what t
   }
 });
 
-test("login stores the code from the environment, 0600, and separates the two checks", async () => {
-  const s = sandbox("cli-login");
-  const code = await generateCode();
-  try {
-    const r = await nmts(["login"], { ...s.env, NMTS_ACCOUNT_CODE: code });
-    assert.equal(r.code, 0);
-    const path = join(s.dir, "credentials.json");
-    assert.ok(existsSync(path), "no credentials file was written");
-    assert.equal(JSON.parse(readFileSync(path, "utf8")).accountCode, code);
-    if (process.platform !== "win32") {
-      assert.equal(statSync(path).mode & 0o077, 0, "credentials are readable by others");
-    }
-    // ⛔ The two claims are separate and the tool must keep them separate: the code's SHAPE was
-    //    verified here, and whether the ACCOUNT exists was not.
-    assert.match(r.stdout, /well-formed/);
-    assert.match(r.stdout, /Whether the account EXISTS has not been checked/);
-  } finally {
-    s.clean();
-  }
-});
-
 test("the first run shows the notice about what an account code is; the second does not", async () => {
-  const s = sandbox("cli-notice");
+  const s = sandbox("cli-notice", "plain-env");
   const code = await generateCode();
   try {
-    const first = await nmts(["login"], { ...s.env, NMTS_ACCOUNT_CODE: code });
+    const first = await nmts(["login"], { ...s.env, NMTS_ACCOUNT_CODE: code, NMTS_PASSPHRASE: PASS });
     assert.match(first.stdout, /only key to your account/);
-    const second = await nmts(["login"], { ...s.env, NMTS_ACCOUNT_CODE: code });
+    const second = await nmts(["login"], { ...s.env, NMTS_ACCOUNT_CODE: code, NMTS_PASSPHRASE: PASS });
     assert.ok(!/only key to your account/.test(second.stdout), "the notice repeated on the second run");
   } finally {
     s.clean();
@@ -142,10 +124,10 @@ test("the first run shows the notice about what an account code is; the second d
 });
 
 test("no output anywhere echoes the account code back", async () => {
-  const s = sandbox("cli-no-echo");
+  const s = sandbox("cli-no-echo", "plain-env");
   const code = await generateCode();
   try {
-    const r = await nmts(["login"], { ...s.env, NMTS_ACCOUNT_CODE: code });
+    const r = await nmts(["login"], { ...s.env, NMTS_ACCOUNT_CODE: code, NMTS_PASSPHRASE: PASS });
     assert.ok(!r.stdout.includes(code), "stdout carried the account code");
     assert.ok(!r.stderr.includes(code), "stderr carried the account code");
   } finally {
@@ -154,10 +136,10 @@ test("no output anywhere echoes the account code back", async () => {
 });
 
 test("logout removes the file and does not claim to have ended anything on the server", async () => {
-  const s = sandbox("cli-logout");
+  const s = sandbox("cli-logout", "plain-env");
   const code = await generateCode();
   try {
-    await nmts(["login"], { ...s.env, NMTS_ACCOUNT_CODE: code });
+    await nmts(["login"], { ...s.env, NMTS_ACCOUNT_CODE: code, NMTS_PASSPHRASE: PASS });
     const r = await nmts(["logout"], s.env);
     assert.equal(r.code, 0);
     assert.ok(!existsSync(join(s.dir, "credentials.json")), "the credentials file survived logout");
@@ -190,7 +172,7 @@ test("whoami refuses to guess: no code on this machine exits 3, not 0 with blank
 });
 
 test("whoami answers offline and says so, so an account id does not read as 'connected'", async () => {
-  const s = sandbox("cli-whoami");
+  const s = sandbox("cli-whoami", "plain-env");
   const code = await generateCode();
   try {
     const r = await nmts(["whoami"], { ...s.env, NMTS_ACCOUNT_CODE: code });
@@ -205,21 +187,34 @@ test("whoami answers offline and says so, so an account id does not read as 'con
 });
 
 test("whoami says WHERE the code came from — stored, or only in the environment", async () => {
-  const s = sandbox("cli-whoami-source");
+  const s = sandbox("cli-whoami-source", "plain-env");
   const code = await generateCode();
   try {
     const fromEnv = await nmts(["whoami"], { ...s.env, NMTS_ACCOUNT_CODE: code });
     assert.match(fromEnv.stdout, /not stored/);
-    await nmts(["login"], { ...s.env, NMTS_ACCOUNT_CODE: code });
-    const fromFile = await nmts(["whoami"], s.env);
+    await nmts(["login"], { ...s.env, NMTS_ACCOUNT_CODE: code, NMTS_PASSPHRASE: PASS });
+    const fromFile = await nmts(["whoami"], { ...s.env, NMTS_PASSPHRASE: PASS });
     assert.match(fromFile.stdout, /this machine/);
   } finally {
     s.clean();
   }
 });
 
+test("verify is wired to the switch: it refuses for want of a key, not as an unknown command", async () => {
+  // ⛔ THE TWO CODES ARE THE POINT. 2 would mean the command name never reached a case and an
+  //    agent should try another spelling; 3 means the command ran and wants a credential.
+  const s = sandbox("cli-verify-nokey");
+  try {
+    const r = await nmts(["verify", "--status"], { ...s.env, NMTS_API_KEY: "" });
+    assert.equal(r.code, 3);
+    assert.match(r.stderr, /NMTS_API_KEY/);
+  } finally {
+    s.clean();
+  }
+});
+
 test("⛔ login refuses a mistyped code offline instead of storing it", async () => {
-  const s = sandbox("cli-login-typo");
+  const s = sandbox("cli-login-typo", "plain-env");
   const code = await generateCode();
   const flipped = (code[0] === "0" ? "1" : "0") + code.slice(1);
   try {

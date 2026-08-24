@@ -1,0 +1,224 @@
+// Turning a local file into the three things an upload needs: sealed bytes, a wrapped key, and a
+// hash the account can check the bytes against later.
+//
+// ⛔ NOTHING HERE TOUCHES THE NETWORK OR THE CLOCK. It is a pure function of (plaintext, data key)
+//    plus the one random file key the engine makes, which is what lets the tests drive it with
+//    fixed inputs and compare against what `get` recovers.
+//
+// ⛔ THE PLAINTEXT NEVER LEAVES THIS PROCESS. What goes out is the NCF-3 stream; what the server
+//    is told is its LENGTH. The name, the folder and the real size are written into the account's
+//    sealed file list, which the server cannot open.
+
+import { createHash } from "node:crypto";
+import type { CryptoGlue } from "./crypto.ts";
+import { AAD } from "./crypto.ts";
+import { NmtsError } from "./errors.ts";
+import { sealedLenFor as sealedLength } from "./shared/lib/crypto/size-padding.ts";
+
+/**
+ * How much of a file goes into ONE part, unless the caller says otherwise.
+ *
+ * ⛔ IT IS A MEMORY BOUND, NOT A PRODUCT LIMIT. Sealing holds a part's ciphertext, and the storage
+ *    network's erasure coding then expands it about fivefold while it computes the blob id — so a
+ *    part costs several times its own size in memory before a single byte is sent. The file itself
+ *    is never held: it is read a slice at a time.
+ *
+ * ⚠ THIS NUMBER USED TO BE THE WHOLE FILE'S CEILING, and keeping it as the part size is deliberate.
+ *   It means growing past one part cannot make an upload that worked yesterday run out of memory
+ *   today — the most memory this tool asks for is the same as it always was.
+ *
+ * Bigger parts mean fewer reservations, and every reservation counts against the account's daily
+ * spending allowance; smaller parts mean less memory and a shorter piece of work to lose when
+ * something goes wrong. `put --part-size` is how somebody picks a different trade.
+ */
+export const DEFAULT_PART_BYTES = 64 * 2 ** 20;
+
+/**
+ * What NCF-3 adds to a part's plaintext: a fixed header, and one tag per chunk.
+ *
+ * ⛔ NOT MEASURED, BECAUSE THE ONE CALLER NEEDS IT BEFORE SEALING: the price is quoted, and
+ *    `--dry-run` answers, without a very large file ever being read. A test seals real plaintexts
+ *    with the real engine and compares, so this is held against the format rather than against a
+ *    copy of these numbers.
+ */
+export const NCF3_SHAPE = {
+  headerLen: 72,
+  tagLen: 16,
+  chunkSize: 4 * 2 ** 20,
+} as const;
+
+/** How many bytes one sealed part of this plaintext length occupies. */
+export function sealedLenFor(plaintextLen: number): number {
+  if (!Number.isSafeInteger(plaintextLen) || plaintextLen < 0) {
+    throw new NmtsError(`A plaintext length must be a non-negative whole number: ${plaintextLen}.`);
+  }
+  return sealedLength(plaintextLen, NCF3_SHAPE);
+}
+
+/** Everything an upload needs about one file, and nothing that identifies it. */
+export interface SealedFile {
+  /** The complete NCF-3 stream — header, chunks, end mark. These are the bytes that get stored. */
+  sealed: Uint8Array;
+  /** The file's own key wrapped under the account's data key (base64url envelope). */
+  dekWrapped: string;
+  /** SHA-256 of the plaintext, sealed under the account's data key (base64url envelope). */
+  contentHashCt: string;
+  /** Plaintext length — what the file list records, and what a reader reassembles to. */
+  plaintextLen: number;
+  /** Sealed length — what the server is told, what storage is bought for, what credits count. */
+  sealedLen: number;
+}
+
+const encoder = new TextEncoder();
+
+/** The three secrets a file carries, made once and reused by every one of its parts. */
+export interface FileSecrets {
+  /**
+   * The file's own key, raw.
+   *
+   * ⛔ THE CALLER WIPES IT. Every part of a file is sealed under this one key, so it has to outlive
+   *    the first part — which means nothing here can wipe it, and the loop that uses it must.
+   */
+  dek: Uint8Array;
+  /** The same key wrapped under the account's data key (base64url envelope). */
+  dekWrapped: string;
+  /** The plaintext's SHA-256, sealed under the account's data key (base64url envelope). */
+  contentHashCt: string;
+}
+
+/**
+ * Make a file's key and seal the hash of its contents.
+ *
+ * ⛔ THE HASH IS OF THE PLAINTEXT, AND IT IS SEALED RATHER THAN STORED BARE. A bare content hash
+ *    identifies the file itself: it is the same number for everyone who holds that file, and it is
+ *    matchable against published hash sets. Sealed, it is checkable only by the account that wrote
+ *    it — which is the only party that needs to check it.
+ *
+ * `contentDigest` is the SHA-256 of the whole plaintext, which the caller computes while reading
+ * the file. Passing it in rather than the file is what lets this work for a file too large to hold.
+ */
+export function fileSecrets(
+  crypt: CryptoGlue,
+  dataKey: Uint8Array,
+  contentDigest: Uint8Array,
+): FileSecrets {
+  if (contentDigest.length !== 32) {
+    throw new NmtsError(`A content digest must be 32 bytes, got ${contentDigest.length}.`);
+  }
+  const dek = crypt.generate_dek();
+  const dekWrapped = crypt.envelope_seal(dataKey, encoder.encode(AAD.dekWrap), dek);
+  const contentHashCt = crypt.envelope_seal(dataKey, encoder.encode(AAD.contentHash), contentDigest);
+  return {
+    dek,
+    dekWrapped: Buffer.from(dekWrapped).toString("base64url"),
+    contentHashCt: Buffer.from(contentHashCt).toString("base64url"),
+  };
+}
+
+/**
+ * Seal ONE part of a file, reading its plaintext as it goes.
+ *
+ * ⛔ A FRESH SESSION, AND THEREFORE A FRESH NONCE, EVERY TIME. The format requires each part to be
+ *    its own stream under its own nonce prefix; the engine allocates one inside the session and
+ *    there is no way from here to reuse one. That is the property that makes a re-sealed part a
+ *    DIFFERENT blob — which is exactly why a resumed upload pushes the bytes it wrote down rather
+ *    than sealing again.
+ *
+ * ⛔ THE DECLARED LENGTH IS CHECKED AGAINST WHAT ARRIVES. The engine refuses to finish a stream
+ *    that was fed too little; too much is caught here. A part whose header declares a length its
+ *    bytes do not match is a file that reassembles wrong, and the reader would not find out until
+ *    the download.
+ */
+export async function sealPart(
+  crypt: CryptoGlue,
+  dek: Uint8Array,
+  chunks: AsyncIterable<Uint8Array>,
+  placement: { index: number; total: number; plaintextLen: number },
+): Promise<Uint8Array> {
+  const { index, total, plaintextLen } = placement;
+  if (plaintextLen <= 0) {
+    throw new NmtsError("An empty part cannot be sealed.", {
+      nextStep: "The storage network has nothing to store and would refuse the reservation.",
+    });
+  }
+  const sealer = new crypt.StreamEncryptor(dek, plaintextLen, index, total);
+  try {
+    const out: Uint8Array[] = [sealer.header()];
+    let seen = 0;
+    for await (const chunk of chunks) {
+      seen += chunk.length;
+      if (seen > plaintextLen) {
+        throw new NmtsError(
+          `Part ${index + 1} of ${total} was given more bytes than it declared (${plaintextLen}).`,
+          { nextStep: "Nothing was sent. The file changed while it was being read." },
+        );
+      }
+      out.push(sealer.push(chunk));
+    }
+    if (seen !== plaintextLen) {
+      throw new NmtsError(
+        `Part ${index + 1} of ${total} declared ${plaintextLen} bytes and read ${seen}.`,
+        { nextStep: "Nothing was sent. The file changed while it was being read." },
+      );
+    }
+    out.push(sealer.finish());
+    return concat(out);
+  } finally {
+    // ⛔ THE ENGINE HOLDS THE KEY UNTIL THIS RUNS, including on the way out of a failed read.
+    sealer.free();
+  }
+}
+
+function concat(pieces: readonly Uint8Array[]): Uint8Array {
+  let total = 0;
+  for (const piece of pieces) total += piece.length;
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const piece of pieces) {
+    out.set(piece, at);
+    at += piece.length;
+  }
+  return out;
+}
+
+/**
+ * Seal a whole file held in memory, as one part.
+ *
+ * ⛔ THE DATA KEY IS BORROWED, NOT KEPT. The caller derived it and the caller wipes it; this
+ *    function does not hold a reference past its own return. The file key it makes IS wiped here,
+ *    because nothing outside needs it — the wrapped copy is what travels.
+ */
+export async function sealFile(
+  crypt: CryptoGlue,
+  dataKey: Uint8Array,
+  plaintext: Uint8Array,
+): Promise<SealedFile> {
+  if (plaintext.length === 0) {
+    throw new NmtsError("An empty file cannot be uploaded.", {
+      nextStep: "The storage network has nothing to store and would refuse the reservation.",
+    });
+  }
+  const digest = new Uint8Array(createHash("sha256").update(plaintext).digest());
+  const secrets = fileSecrets(crypt, dataKey, digest);
+  digest.fill(0);
+  try {
+    const sealed = await sealPart(crypt, secrets.dek, oneChunk(plaintext), {
+      index: 0,
+      total: 1,
+      plaintextLen: plaintext.length,
+    });
+    return {
+      sealed,
+      dekWrapped: secrets.dekWrapped,
+      contentHashCt: secrets.contentHashCt,
+      plaintextLen: plaintext.length,
+      sealedLen: sealed.length,
+    };
+  } finally {
+    secrets.dek.fill(0);
+  }
+}
+
+async function* oneChunk(bytes: Uint8Array): AsyncIterable<Uint8Array> {
+  yield bytes;
+}

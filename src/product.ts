@@ -21,7 +21,7 @@ export const BINARY_NAME = "nmts";
  *    beside it. Here rather than in `main.ts` because the MCP server has to say it too, and a
  *    command importing the entry point is a cycle waiting to bite.
  */
-export const VERSION = "0.0.0";
+export const VERSION = "0.1.0";
 
 /** Where the product lives, for messages that need to send somebody somewhere real. */
 export const HOME_URL = "https://nmts.me";
@@ -31,3 +31,16 @@ export const SOURCE_URL = "https://github.com/needmoretruth/nmts-cli";
 
 /** Who holds the copyright. One place, because it is also the answer to "who can license this". */
 export const COPYRIGHT = "Copyright (C) 2026 needmoretruth";
+
+/**
+ * Where to write about a fault, a confusing message, or anything that got in the way.
+ *
+ * ⛔ IT IS IN THE TOOL AND NOT ONLY IN THE README, because the moment somebody wants to report
+ *    something is the moment it went wrong -- and that is exactly when nobody goes looking for a
+ *    web page. The smallest annoyance is worth an email; most of them are cheap to fix and
+ *    invisible from here.
+ */
+export const SUPPORT_EMAIL = "nmts@nmts.me";
+
+/** The document in the source repository that is written for an agent rather than for a person. */
+export const AGENTS_DOC = "AGENTS.md";

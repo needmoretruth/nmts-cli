@@ -1,0 +1,73 @@
+# Publishes this package to the npm registry when a version tag is pushed.
+#
+# ⛔ NO LONG-LIVED TOKEN LIVES IN THIS REPOSITORY. Publishing authenticates with a short-lived
+#    OpenID Connect credential the workflow run mints for itself ("trusted publishing"), which the
+#    registry accepts only for this repository and this workflow file. A stolen repository secret
+#    is a thing that can be stolen; there is no such secret here to steal. The one-time setup is on
+#    the registry side, on the package's settings page.
+#
+# ⛔ IT REACTS TO A TAG ONLY — never to `pull_request`, and never to an ordinary push on a branch.
+#    Publishing a version cannot be undone: the registry keeps the version number forever, and
+#    unpublishing is not something to plan around. So it happens when somebody deliberately names
+#    a version, and at no other time.
+#
+# ⛔ THE TAG AND THE MANIFEST MUST AGREE, and the run stops if they do not. A package whose
+#    published version disagrees with the tag it was cut from is one nobody can reason about
+#    afterwards, and by the time anybody notices it is already permanent.
+#
+# WHAT `--provenance` ADDS: the registry records, and shows on the package page, which repository
+# and which workflow run produced these bytes. It says where the package came from. It does not
+# say the code is correct, and nothing here claims otherwise.
+name: publish
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  # Required to mint the short-lived credential described above, and for provenance.
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      # Trusted publishing needs a recent npm; the one bundled with the runner's Node may be older.
+      - name: A recent npm
+        run: npm install -g npm@latest
+
+      - name: The tag says what the manifest says
+        run: |
+          set -euo pipefail
+          declared=$(node -p "require('./package.json').version")
+          tagged="${GITHUB_REF_NAME#v}"
+          if [ "$declared" != "$tagged" ]; then
+            echo "tag $GITHUB_REF_NAME does not match version $declared in package.json" >&2
+            exit 1
+          fi
+
+      - name: Install
+        run: npm ci
+
+      # The tests are the gate, not a formality: this is the last point at which a bad version can
+      # be stopped, because the step after it cannot be taken back.
+      - name: Check and test
+        run: |
+          npm run typecheck
+          npm test
+
+      # `prepack` builds, so the packed tarball always carries the compiled command the `bin` entry
+      # names. Listing it first puts the exact file list in the log of the run that published it.
+      - name: What would go out
+        run: npm pack --dry-run
+
+      - name: Publish
+        run: npm publish --provenance --access public

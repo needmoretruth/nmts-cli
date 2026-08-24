@@ -13,8 +13,33 @@ import { test } from "node:test";
 import { handle, serve, PROTOCOL_VERSIONS, type ToolDefinition } from "../src/mcp.ts";
 import { destinationFor } from "../src/commands/mcp.ts";
 import { NmtsError } from "../src/errors.ts";
+import { PRODUCT_NAME, VERSION } from "../src/product.ts";
 
-const INFO = { name: "nmts", version: "0.0.0" };
+// ⛔ TAKEN FROM THE PROGRAM, NOT TYPED AGAIN. A version written here as a literal is a third
+//    copy of a number that already lives in two places, and the day it goes stale this test
+//    fails for a reason that has nothing to do with what it is testing.
+const INFO = { name: PRODUCT_NAME, version: VERSION };
+
+/**
+ * A tool that spends unless it is told to hold back — the shape every paid tool here has.
+ *
+ * ⛔ It reports what it SAW, not what it was asked, so the test below can tell "refused" from
+ *    "ran the paid branch". Reading `dry_run` with `=== true` is deliberate: it is what the real
+ *    tools do, and the whole point is that the transport must never let a string reach it.
+ */
+const spender: ToolDefinition = {
+  name: "spender",
+  description: "would spend unless held back",
+  inputSchema: {
+    type: "object",
+    properties: { file: { type: "string" }, dry_run: { type: "boolean" } },
+    required: ["file"],
+    additionalProperties: false,
+  },
+  async run(args) {
+    return args["dry_run"] === true ? "priced only" : "SPENT";
+  },
+};
 
 const echo: ToolDefinition = {
   name: "echo",
@@ -183,7 +208,7 @@ import { mcp } from "../src/commands/mcp.ts";
 import { API_KEY_ENV_VAR, CODE_ENV_VAR, testConfigDir } from "../src/credentials.ts";
 import { AGGREGATOR_ENV_VAR } from "../src/walrus.ts";
 import { encodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
-import { generateCode, sealFile, sealFileList } from "./helpers.ts";
+import { generateCode, sealFile, sealFileList , grantConsents} from "./helpers.ts";
 
 let seamManifest: unknown = { state: "absent" };
 let seamParts: unknown = { size: 0, parts: [] };
@@ -224,6 +249,9 @@ test("a tool really reads the account and writes the file, and stdout stays clea
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
   process.env["NMTS_CONFIG_DIR"] = dir;
+  // ⛔ These suites hand the code in through the environment, which asks once. The agreement is
+  //    tested in consent.test.ts and cli.test.ts; here it would only stop the test at exit 5.
+  grantConsents(dir, "plain-env", "spend");
   process.env[AGGREGATOR_ENV_VAR] = SEAM_BASE;
   process.env[API_KEY_ENV_VAR] = ["nmts", "ak1", "Abcdefghijkl"].join("_") + "_" + "x".repeat(43);
   try {
@@ -304,4 +332,44 @@ test("a tool really reads the account and writes the file, and stdout stays clea
       else process.env[n] = v;
     }
   }
+});
+
+test('⛔ a boolean sent as a string is refused — it does not fall through to the paid branch', async () => {
+  // The failure this holds: a model that sends `"dry_run": "true"` asked for a price. Before the
+  // transport checked the declared schema, `=== true` read that string as false and the call
+  // spent. A refusal is the only right answer — guessing which branch was meant is not this
+  // layer's decision to make.
+  const answer = await handle(
+    {
+      jsonrpc: "2.0",
+      id: 7,
+      method: "tools/call",
+      params: { name: "spender", arguments: { file: "a", dry_run: "true" } },
+    },
+    [spender],
+    INFO,
+  );
+  const result = answer?.["result"];
+  assert.ok(result !== null && typeof result === "object");
+  assert.equal(Reflect.get(result, "isError"), true, "the paid branch ran on a string");
+  const text = JSON.stringify(Reflect.get(result, "content"));
+  assert.match(text, /dry_run.*must be boolean/);
+  assert.doesNotMatch(text, /SPENT/);
+});
+
+test("a correct call still reaches the tool", async () => {
+  const answer = await handle(
+    {
+      jsonrpc: "2.0",
+      id: 8,
+      method: "tools/call",
+      params: { name: "spender", arguments: { file: "a", dry_run: true } },
+    },
+    [spender],
+    INFO,
+  );
+  const result = answer?.["result"];
+  assert.ok(result !== null && typeof result === "object");
+  assert.equal(Reflect.get(result, "isError"), undefined);
+  assert.match(JSON.stringify(Reflect.get(result, "content")), /priced only/);
 });

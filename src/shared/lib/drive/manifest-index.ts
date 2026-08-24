@@ -1,0 +1,288 @@
+// Reading a drive out of the decrypted list — folder children, paths, search, totals. ⚠ PUBLISHED —
+// copied byte-for-byte into the `nmts` command-line package; keep comments self-contained English.
+//
+// Everything here happens ON THE DEVICE with ZERO network calls, which is the point of the whole
+// change: the server can no longer answer "what is in this folder" because it can no longer read
+// the question.
+//
+// PURE: no I/O, no crypto, no React. Build an index once per list version and query it many times.
+//
+// TRASH IS INHERITED, NOT STAMPED (manifest-ops.ts). An item counts as trashed when it or any
+//   ancestor carries `deletedAt`. Two consequences the callers depend on:
+//     * a live folder listing must exclude inherited-trashed children, not just directly-marked
+//       ones — otherwise the contents of a trashed folder reappear at their old parent;
+//     * the trash view lists TRASH ROOTS (the item the person actually deleted), so deleting a
+//       folder shows one row, not four hundred.
+//
+// CYCLES ARE TREATED AS DATA, NOT AS IMPOSSIBLE. A parent chain that loops would hang every walk
+//   in this file. Nothing we write can produce one, but the list is rebuilt by other devices and
+//   older builds, so every ancestor walk is bounded and a loop resolves to "detached".
+import type { ManifestEntry } from "./manifest-codec.ts";
+
+/** Folder items use kind 0, files kind 1 — the same numbers the items API uses. */
+export const KIND_FOLDER = 0;
+export const KIND_FILE = 1;
+
+/** Parent key for the drive root. `parentId: null` is stored; this is its map key. */
+const ROOT = "\u0000root";
+
+export interface ManifestIndex {
+  /** Every entry, in the order the list was written. */
+  readonly all: readonly ManifestEntry[];
+  readonly byId: ReadonlyMap<string, ManifestEntry>;
+  /** Direct children by parent id (root under its own key). Values keep list order. */
+  readonly childrenByParent: ReadonlyMap<string, readonly ManifestEntry[]>;
+}
+
+/** Build the lookup structures for one version of the list. Cost is linear; do it once. */
+export function buildIndex(entries: readonly ManifestEntry[]): ManifestIndex {
+  const byId = new Map<string, ManifestEntry>();
+  const childrenByParent = new Map<string, ManifestEntry[]>();
+  for (const e of entries) {
+    byId.set(e.id, e);
+    const key = e.parentId ?? ROOT;
+    const bucket = childrenByParent.get(key);
+    if (bucket) bucket.push(e);
+    else childrenByParent.set(key, [e]);
+  }
+  return { all: entries, byId, childrenByParent };
+}
+
+/**
+ * The instant this item became trash — its own, or the nearest trashed ancestor's.
+ * `null` means live. A parent chain that is broken or looping counts as live at the point it
+ * breaks: showing an item whose parent vanished is recoverable, hiding it silently is not.
+ */
+export function trashedAt(index: ManifestIndex, entry: ManifestEntry): number | null {
+  let cursor: ManifestEntry | undefined = entry;
+  const seen = new Set<string>();
+  while (cursor) {
+    if (cursor.deletedAt !== undefined) return cursor.deletedAt;
+    if (cursor.parentId === null) return null;
+    if (seen.has(cursor.id)) return null;
+    seen.add(cursor.id);
+    cursor = index.byId.get(cursor.parentId);
+  }
+  return null;
+}
+
+/** Live = not trashed itself and under no trashed ancestor. */
+export function isLive(index: ManifestIndex, entry: ManifestEntry): boolean {
+  return trashedAt(index, entry) === null;
+}
+
+/**
+ * Does the ACCOUNT hold a file that whole-account export could actually write out?
+ *
+ * Asked by the export card, which offers itself on this and nothing else. The two wrong answers it
+ * replaces are both easy to reach: counting the CURRENT LEVEL hides the card from an account whose
+ * files all sit inside folders, and counting entries of any kind offers a download to a drive of
+ * empty folders — one that can only answer "there is nothing to download".
+ *
+ * ⚠ Trashed files are excluded on purpose. They are still stored and still paid for, but export
+ * writes the live drive, so a drive whose every file is in the trash has nothing to export.
+ */
+export function hasLiveFile(index: ManifestIndex): boolean {
+  return index.all.some((e) => e.kind === KIND_FILE && isLive(index, e));
+}
+
+/**
+ * Live children of a folder (`null` = drive root), in list order.
+ * Sorting belongs to the view: the same folder is shown by name, size and date in different places.
+ */
+export function childrenOf(
+  index: ManifestIndex,
+  parentId: string | null,
+): readonly ManifestEntry[] {
+  const bucket = index.childrenByParent.get(parentId ?? ROOT);
+  if (!bucket) return [];
+  return bucket.filter((e) => isLive(index, e));
+}
+
+/**
+ * What the trash view shows: items the person deleted directly, newest first.
+ * A child whose parent is also trashed is deliberately absent — it is restored with its parent.
+ */
+export function trashRoots(index: ManifestIndex): readonly ManifestEntry[] {
+  const roots = index.all.filter((e) => {
+    if (e.deletedAt === undefined) return false;
+    if (e.parentId === null) return true;
+    const parent = index.byId.get(e.parentId);
+    // Parent gone entirely: this is the top of what remains, so it is its own root.
+    return parent === undefined || trashedAt(index, parent) === null;
+  });
+  return roots.slice().sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0));
+}
+
+/**
+ * Folder names from the root down to (and excluding) this item.
+ * An entry whose chain is broken returns what could be resolved — callers render that as a
+ * partial path rather than claiming the item sits at the root.
+ */
+export function pathOf(index: ManifestIndex, entry: ManifestEntry): readonly string[] {
+  const names: string[] = [];
+  const seen = new Set<string>([entry.id]);
+  let parentId = entry.parentId;
+  while (parentId !== null) {
+    if (seen.has(parentId)) break;
+    seen.add(parentId);
+    const parent = index.byId.get(parentId);
+    if (!parent) break;
+    names.push(parent.name);
+    parentId = parent.parentId;
+  }
+  names.reverse();
+  return names;
+}
+
+/** Every descendant of a folder, live and trashed, depth-first. The folder itself is excluded. */
+export function descendantsOf(
+  index: ManifestIndex,
+  folderId: string,
+): readonly ManifestEntry[] {
+  const out: ManifestEntry[] = [];
+  const seen = new Set<string>([folderId]);
+  const stack = [folderId];
+  while (stack.length > 0) {
+    const id = stack.pop() as string;
+    for (const child of index.childrenByParent.get(id) ?? []) {
+      if (seen.has(child.id)) continue;
+      seen.add(child.id);
+      out.push(child);
+      if (child.kind === KIND_FOLDER) stack.push(child.id);
+    }
+  }
+  return out;
+}
+
+/**
+ * True when `folderId` is `candidateId` or sits underneath it.
+ * Move targets are checked with this: dropping a folder into its own subtree would detach that
+ * whole branch from the root, and nothing in the UI could reach it afterwards.
+ */
+export function isSelfOrDescendant(
+  index: ManifestIndex,
+  candidateId: string,
+  folderId: string,
+): boolean {
+  if (candidateId === folderId) return true;
+  let cursor = index.byId.get(candidateId);
+  const seen = new Set<string>();
+  while (cursor && cursor.parentId !== null) {
+    if (cursor.parentId === folderId) return true;
+    if (seen.has(cursor.id)) return false;
+    seen.add(cursor.id);
+    cursor = index.byId.get(cursor.parentId);
+  }
+  return false;
+}
+
+/**
+ * Live items whose name contains `query`, case-insensitively.
+ *
+ * This search is COMPLETE — it reads the whole list from memory. That is a change worth knowing
+ * about: the old server-backed listing could only match what had been fetched, so "no results"
+ * was a claim the UI had to hedge. Here it is simply true.
+ */
+export function searchByName(
+  index: ManifestIndex,
+  query: string,
+  limit = 500,
+): readonly ManifestEntry[] {
+  const needle = query.trim().toLocaleLowerCase();
+  if (needle === "") return [];
+  const out: ManifestEntry[] = [];
+  for (const e of index.all) {
+    if (out.length >= limit) break;
+    if (!e.name.toLocaleLowerCase().includes(needle)) continue;
+    if (!isLive(index, e)) continue;
+    out.push(e);
+  }
+  return out;
+}
+
+/**
+ * Live files the person starred, newest first.
+ *
+ * Files only: a folder is already reachable in the panel's tree, so starring one would put the same
+ * thing in two places and make "favourites" mean two different kinds of row.
+ */
+export function favoriteFiles(index: ManifestIndex): readonly ManifestEntry[] {
+  return index.all
+    .filter((e) => e.kind === KIND_FILE && e.favorite === true && isLive(index, e))
+    .slice()
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+/**
+ * Every label in use, with how many live files wear it, ordered by the person's own locale.
+ *
+ * Counting here rather than in the panel matters: the count is what tells someone a label still has
+ * files in it before they rename or clear it, and it must agree with what opening it shows.
+ */
+export function labelCounts(index: ManifestIndex): { label: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const e of index.all) {
+    if (e.kind !== KIND_FILE || !e.labels || e.labels.length === 0) continue;
+    if (!isLive(index, e)) continue;
+    for (const label of e.labels) counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/** Live files wearing one label, newest first. */
+export function filesWithLabel(
+  index: ManifestIndex,
+  label: string,
+): readonly ManifestEntry[] {
+  return index.all
+    .filter(
+      (e) =>
+        e.kind === KIND_FILE &&
+        (e.labels ?? []).includes(label) &&
+        isLive(index, e),
+    )
+    .slice()
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export interface DriveTotals {
+  /** Live files. Folders are not counted — they hold nothing. */
+  files: number;
+  /** Live folders. */
+  folders: number;
+  /** Bytes of live files. */
+  bytes: number;
+  /** Files sitting in the trash (still stored, still paid for). */
+  trashedFiles: number;
+  /** Bytes held by trashed files — the figure that explains "deleting did not free space yet". */
+  trashedBytes: number;
+}
+
+/** Whole-drive counts. Exact, because the list is complete by construction. */
+export function totalsOf(index: ManifestIndex): DriveTotals {
+  const totals: DriveTotals = {
+    files: 0,
+    folders: 0,
+    bytes: 0,
+    trashedFiles: 0,
+    trashedBytes: 0,
+  };
+  for (const e of index.all) {
+    const live = isLive(index, e);
+    if (e.kind === KIND_FOLDER) {
+      if (live) totals.folders += 1;
+      continue;
+    }
+    if (live) {
+      totals.files += 1;
+      totals.bytes += e.size;
+    } else {
+      totals.trashedFiles += 1;
+      totals.trashedBytes += e.size;
+    }
+  }
+  return totals;
+}

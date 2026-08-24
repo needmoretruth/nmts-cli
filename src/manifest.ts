@@ -13,6 +13,14 @@
 // ⚠ THE RECORD IS NOT A SECRET. It holds an account id, a version number and a hash of ciphertext.
 //    It is still written 0600, because it sits beside a file that IS a secret and one mode is
 //    easier to keep right than two.
+//
+// ⛔ AND THE SEALED BYTES THEMSELVES ARE KEPT, beside that record. The record alone is a detector:
+//    it can tell that a list went backwards, and it cannot hand anybody a list. The blob can — it
+//    is the account's names, folders and file keys, sealed with the account code, and a copy of it
+//    on this machine is one of the two things a person needs when the server has nothing to give
+//    them. A tool that read the list on every run and then threw it away left an account used only
+//    from a terminal with neither. It is written with the record, by the one function that writes
+//    either, so the two can never describe different versions.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -54,6 +62,74 @@ function statePath(): string {
   return join(configDir(), "file-list-state.json");
 }
 
+/**
+ * Where this machine keeps one account's sealed file list.
+ *
+ * ⛔ AN ACCOUNT ID BECOMES PART OF A PATH HERE, so it is CHECKED rather than trusted. Every id this
+ *    tool has comes from its own derivation and is base64url, but a value that reaches a path join
+ *    unchecked is how `..` becomes a write somewhere else, and the check costs one line.
+ */
+function keptListPath(accountId: string): string {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(accountId)) {
+    throw new NmtsError("That is not an account id this tool derived.", {
+      nextStep: "Nothing was written. This is a fault in the tool rather than in the account.",
+    });
+  }
+  return join(configDir(), `file-list-${accountId}.json`);
+}
+
+/** This machine's copy of one account's sealed file list. */
+export interface KeptList {
+  /** The version these bytes carry. Higher is newer — the same counter every device syncs by. */
+  seq: number;
+  /** When THIS MACHINE wrote the copy, RFC3339 on its own clock. */
+  savedAt: string;
+  /** The sealed blob, base64url: exactly the bytes the server served or this tool wrote. */
+  ct: string;
+}
+
+function isKeptList(value: unknown): value is KeptList {
+  if (typeof value !== "object" || value === null) return false;
+  return (
+    typeof Reflect.get(value, "seq") === "number" &&
+    typeof Reflect.get(value, "savedAt") === "string" &&
+    typeof Reflect.get(value, "ct") === "string"
+  );
+}
+
+/**
+ * The copy this machine holds for an account, or null when it holds none.
+ *
+ * ⚠ A COPY THAT CANNOT BE READ IS REPORTED AS NO COPY, on purpose. There is nothing to salvage
+ *   from a truncated one, the next read of the list replaces it, and a command that refused to
+ *   write out a good copy because an old one is unreadable would be refusing the very thing it is
+ *   for.
+ */
+export function readKeptList(accountId: string): KeptList | null {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(keptListPath(accountId), "utf8"));
+    return isKeptList(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Keep these sealed bytes as this machine's copy.
+ *
+ * ⛔ NEWER ONLY. A copy is replaced when the version landing is at least the one already kept, and
+ *    never when it is older: this machine's record of what it has seen can be lost or cleared, and
+ *    a run that then read an older list from the server must not overwrite the newest copy with
+ *    it. The record refuses a lower version while it exists; this is what holds when it does not.
+ */
+function writeKept(accountId: string, seq: number, ct: string): void {
+  const held = readKeptList(accountId);
+  if (held !== null && held.seq > seq) return;
+  const copy: KeptList = { seq, savedAt: new Date().toISOString(), ct };
+  mkdirSync(configDir(), { recursive: true, mode: 0o700 });
+  writeFileSync(keptListPath(accountId), `${JSON.stringify(copy, null, 2)}\n`, { mode: 0o600 });
+}
+
 interface SeenState {
   /** Keyed by account id, so switching accounts is not mistaken for a rollback. */
   [accountId: string]: { seq: number; fingerprint: string };
@@ -70,11 +146,32 @@ function readSeen(): SeenState {
   }
 }
 
-function writeSeen(accountId: string, seq: number, fp: string): void {
+/**
+ * Write down what this machine has seen: the version, the fingerprint, and the bytes.
+ *
+ * ⛔ ONE FUNCTION FOR BOTH. The detector and the copy describe the same blob, and two functions
+ *    would be two chances for a caller to update one and not the other — after which the machine
+ *    would hold a copy of one version while claiming to have seen another.
+ */
+function writeSeen(accountId: string, seq: number, fp: string, ct: string): void {
   const all = readSeen();
   all[accountId] = { seq, fingerprint: fp };
   mkdirSync(configDir(), { recursive: true, mode: 0o700 });
   writeFileSync(statePath(), `${JSON.stringify(all, null, 2)}\n`, { mode: 0o600 });
+  // The record goes first: it is the safety device, and a machine that failed to keep a copy must
+  // still refuse an older list afterwards.
+  writeKept(accountId, seq, ct);
+}
+
+/**
+ * Record a version this machine WROTE, so the server cannot serve an older one back afterwards.
+ *
+ * ⛔ ONLY AFTER THE SERVER ACCEPTED IT. Recording a version that lost the compare-and-swap would
+ *    leave this machine believing in a list that never existed — and then refusing the real one as
+ *    a rollback.
+ */
+export async function recordWrittenList(accountId: string, seq: number, ct: string): Promise<void> {
+  writeSeen(accountId, seq, await fingerprint(ct), ct);
 }
 
 /** True when this machine has a record for the account — i.e. a rollback would be visible. */
@@ -85,6 +182,13 @@ export function hasSeenBefore(accountId: string): boolean {
 export interface FileList {
   /** null when the account has no list yet — a new account, not an error. */
   manifest: Manifest | null;
+  /**
+   * base64url SHA-256 of the sealed blob this list came out of. Absent with no list.
+   *
+   * ⛔ A WRITER NEEDS IT. The next version has to name the blob it continued from, or the fork
+   *    check has a hole exactly where a fork would be introduced.
+   */
+  fingerprint?: string;
   /** The version the sealed blob itself claims. Absent with no list. */
   seq?: number;
   /** What the server's column said, when it disagreed with the sealed value. */
@@ -162,10 +266,12 @@ export async function readFileList(
   const manifest = await decodeManifest(body);
   body.fill(0);
 
-  const out: FileList = { manifest, seq: manifest.seq, firstTimeOnThisMachine: first };
+  const out: FileList = { manifest, seq: manifest.seq, fingerprint: fp, firstTimeOnThisMachine: first };
   // ⛔ The sealed number is the authenticated one, so it is what gets recorded and what a later
   //    run compares against. The column is reported when it differs and otherwise ignored.
   if (manifest.seq !== answer.seq) out.serverSeqDisagreed = answer.seq;
-  writeSeen(accountId, manifest.seq, fp);
+  // ⛔ THE VERSION THAT IS KEPT IS THE SEALED ONE, and so are the bytes it came out of. Believing
+  //    the server's column here would let it decide which copy this machine keeps.
+  writeSeen(accountId, manifest.seq, fp, answer.ct);
   return out;
 }

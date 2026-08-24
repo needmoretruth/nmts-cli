@@ -18,6 +18,33 @@ export const AGGREGATOR_HOSTS: Readonly<Record<string, readonly string[]>> = {
   mainnet: ["https://aggregator.walrus-mainnet.walrus.space"],
 };
 
+/**
+ * Curated Walrus upload-relay (write) endpoints per network, preference order.
+ *
+ * ⛔ A RELAY IS NOT AN AGGREGATOR, and the difference is money. The relay is named inside the
+ *    register transaction the server pays a tip in, so the bytes have to go to the SAME host the
+ *    reservation was made for. That is why a write picks its host BEFORE the storage is bought and
+ *    then never moves: failing over to a second relay would push bytes nobody paid that relay for.
+ */
+export const RELAY_HOSTS: Readonly<Record<string, readonly string[]>> = {
+  testnet: ["https://upload-relay.testnet.walrus.space"],
+  mainnet: ["https://upload-relay.mainnet.walrus.space"],
+};
+
+/**
+ * Sui JSON-RPC endpoints per network — public mirrors, because the official full nodes retired
+ * JSON-RPC on both networks (browser measurements 2026-07-29 testnet, 2026-08-03 mainnet).
+ *
+ * ⛔ READ-ONLY, AND NOT TRUSTED WITH ANYTHING. This tool asks one question here: how many shards
+ *    the storage network currently has, which the erasure coding needs. A wrong answer produces a
+ *    blob id the storage network refuses, so it fails loudly at the relay rather than quietly
+ *    storing something unreadable. No key is ever sent to one of these, and nothing is signed.
+ */
+export const SUI_RPC_HOSTS: Readonly<Record<string, string>> = {
+  testnet: "https://rpc-testnet.suiscan.xyz",
+  mainnet: "https://rpc-mainnet.suiscan.xyz",
+};
+
 /** How long one host gets before the next is tried. A read that stalls is a read that failed. */
 export const READ_TIMEOUT_MS = 60_000;
 
@@ -29,6 +56,42 @@ export const READ_TIMEOUT_MS = 60_000;
  *   than one, tried in the order given.
  */
 export const AGGREGATOR_ENV_VAR = "NMTS_AGGREGATOR";
+
+/**
+ * Push writes through somebody else's relay, or through a development stack.
+ *
+ * ⚠ ONE host, not a list. Unlike reads there is nothing to fail over to — see `RELAY_HOSTS`.
+ */
+export const RELAY_ENV_VAR = "NMTS_RELAY";
+
+/** Ask a different Sui JSON-RPC node the shard-count question. */
+export const SUI_RPC_ENV_VAR = "NMTS_SUI_RPC";
+
+/** The relay this run writes through: the environment's if it named one, else the network's. */
+export function relayHost(network: string): string {
+  const named = process.env[RELAY_ENV_VAR]?.trim();
+  if (named) return named;
+  const host = RELAY_HOSTS[network]?.[0];
+  if (host === undefined) {
+    throw new NmtsError(`No upload relay is known for the ${network} storage network.`, {
+      nextStep: `Name one in ${RELAY_ENV_VAR} to upload anyway.`,
+    });
+  }
+  return host;
+}
+
+/** The Sui JSON-RPC node this run asks about shard count. */
+export function suiRpcHost(network: string): string {
+  const named = process.env[SUI_RPC_ENV_VAR]?.trim();
+  if (named) return named;
+  const host = SUI_RPC_HOSTS[network];
+  if (host === undefined) {
+    throw new NmtsError(`No Sui RPC endpoint is known for the ${network} network.`, {
+      nextStep: `Name one in ${SUI_RPC_ENV_VAR} to upload anyway.`,
+    });
+  }
+  return host;
+}
 
 function fromEnvironment(): readonly string[] | null {
   const raw = process.env[AGGREGATOR_ENV_VAR];

@@ -4,12 +4,31 @@
 //    credential to every scanner and every person who finds it, and one day somebody creates the
 //    account it names. The engine makes a fresh one in under a millisecond.
 
+import { mkdirSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { engineDir } from "../src/crypto.ts";
+import { decodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 
 let generate: ((...args: never[]) => unknown) | null = null;
+
+/**
+ * Write consent grants straight into a sandbox config directory.
+ *
+ * ⛔ WHY TESTS NEED THIS AT ALL. Reading the account code out of `NMTS_ACCOUNT_CODE` asks for the
+ *    `plain-env` agreement once per machine, so almost every test that supplies a code that way
+ *    would otherwise stop at exit 5 and prove nothing about what it was written for. The
+ *    agreement itself is tested where it belongs — in `consent.test.ts` and `cli.test.ts` — and
+ *    those two do NOT call this.
+ */
+export function grantConsents(dir: string, ...keys: readonly string[]): void {
+  const now = new Date().toISOString();
+  const record: Record<string, { grantedAt: string; byVersion: string }> = {};
+  for (const key of keys) record[key] = { grantedAt: now, byVersion: "test" };
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  writeFileSync(join(dir, "consent.json"), `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
+}
 
 /** A throwaway account code from the engine. Not an account: nothing was ever created for it. */
 export async function generateCode(): Promise<string> {
@@ -69,6 +88,26 @@ export async function sealFileList(code: string, body: Uint8Array): Promise<stri
   const out = b64(seal(key, new TextEncoder().encode("nmts/v3/file-list"), body));
   key.fill(0);
   return out;
+}
+
+/**
+ * Open a sealed file list — the inverse of `sealFileList`.
+ *
+ * ⛔ IT OPENS WHAT THE TOOL WROTE, WITH THE SAME KEY THE FORMAT NAMES. A test that asserted on
+ *    what the tool THOUGHT it wrote would pass while the bytes on the wire said something else,
+ *    which is exactly the failure a sealed format can hide.
+ */
+export async function openFileList(code: string, ct: string): Promise<ManifestEntry[]> {
+  const glue = await loadEngine();
+  const parse = fn(glue, "account_code_parse") as (input: string) => Uint8Array;
+  const derive = fn(glue, "kdf_derive") as (bytes: Uint8Array) => Uint8Array;
+  const open = fn(glue, "envelope_open") as (k: Uint8Array, aad: Uint8Array, env: Uint8Array) => Uint8Array;
+  const derived = derive(parse(code));
+  const key = derived.slice(80, 112);
+  derived.fill(0);
+  const body = open(key, new TextEncoder().encode("nmts/v3/file-list"), Buffer.from(ct, "base64url"));
+  key.fill(0);
+  return [...(await decodeManifest(body)).entries];
 }
 
 /** One part of a sealed file, as the storage network would hold it. */
