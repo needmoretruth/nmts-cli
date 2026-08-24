@@ -1,0 +1,9 @@
+# ⛔ LINE ENDINGS ARE FIXED HERE BECAUSE A CHECK COMPARES BYTES. `dist/` is committed, and this
+#    repository's own checks rebuild it and refuse if one byte differs. Windows checkouts convert
+#    line endings by default, which would make every one of those files differ from a fresh build
+#    on that machine — a check that fails for a reason that has nothing to do with the code, on
+#    one platform only, is worse than no check.
+#
+# ⚠ `text=auto` still lets git detect binary files, so the WebAssembly engine in `vendor/` is left
+#   exactly as it is.
+* text=auto eol=lf

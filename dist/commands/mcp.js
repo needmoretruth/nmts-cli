@@ -1,0 +1,139 @@
+// `nmts mcp` — the same account, offered to an agent as tools instead of as a command line.
+//
+// ⛔ WHAT IT WILL AND WILL NOT DO. It offers most of what the command line offers: reading the
+//    account, fetching files, uploading them, rearranging them, and sharing one with another
+//    account. What it does NOT offer is not a gap to fill in later — a tool a model can call on
+//    its own is a different thing from a command a person typed, and this is the list of
+//    differences and why each one is there:
+//      · Making or revoking a key, signing in or out, and granting this tool's agreements. Those
+//        are the person's credentials and the person's consent, and a surface that could grant its
+//        own permissions has none.
+//      · Passing the human check. A machine cannot; that is what the check is.
+//      · Destroying anything permanently — emptying the trash, erasing a file for good. Putting
+//        something in the trash IS here, because it can be taken back.
+//      · Rebuilding a lost file list. It works, but every name it recovers is a placeholder, and
+//        somebody should see that happen rather than read about it afterwards.
+//      · Writing the account's disaster-recovery files, and downloading the separate recovery
+//        program. Those exist for the day this service is not there, and they are a person's to
+//        make and to keep.
+//    Nothing here can write outside the one directory the person named when they started it.
+//
+// ⛔ THE OUTPUT DIRECTORY IS CHOSEN BY THE PERSON, NEVER BY THE MODEL. Every tool that writes
+//    takes a path INSIDE THE ACCOUNT and lands under that directory. There is nowhere in any tool
+//    declaration to put a path on this disk, which is what keeps that true as tools are added: a
+//    model that asks for `../../.ssh/authorized_keys` gets a refusal, not a surprise.
+//
+// ⛔ NOTHING BUT PROTOCOL GOES TO STDOUT — and two things had to change for that to be true.
+//    Prompts now write to stderr, and this server refuses to prompt at all (`allowPrompt: false`),
+//    because its stdin IS the protocol: a passphrase prompt here consumed the client's first
+//    message as a guess and put its own question on the wire. Everything a person reads goes to stderr — a stray line
+//    on stdout is a parse error at the client and the tools disappear with no explanation.
+import { existsSync, mkdirSync, statSync } from "node:fs";
+import { resolve } from "node:path";
+import { identityOf } from "../account.js";
+import { requireAccountCode } from "../code-access.js";
+import { API_KEY_ENV_VAR, CODE_ENV_VAR, readCredentialsFile, resolveApiKey } from "../credentials.js";
+import { NmtsError } from "../errors.js";
+import { serve } from "../mcp.js";
+// ⚠ Re-exported so callers that knew it here keep working; the rule itself lives one level up now.
+import { destinationFor } from "../safe-path.js";
+export { destinationFor };
+import { BINARY_NAME, PRODUCT_NAME, VERSION } from "../product.js";
+import { resolveNetwork } from "../network.js";
+import { resolveServer } from "../server.js";
+import { fileTools } from "../mcp-tools/files.js";
+import { organiseTools } from "../mcp-tools/organise.js";
+import { readTools } from "../mcp-tools/reads.js";
+import { shareTools } from "../mcp-tools/share.js";
+/**
+ * Which account this server is holding, answered without asking anything.
+ *
+ * ⛔ It is derived here, offline, from the code this process opened at startup. It says nothing
+ *    about whether that account exists on the server, whether it has credits, or whether the key
+ *    beside it belongs to the same account — a model that treats "whoami answered" as "I am signed
+ *    in and can spend" has been misled by its own tool.
+ */
+function whoami(ctx) {
+    return {
+        name: "nmts_whoami",
+        description: "Which NMTS account this machine holds the code for. Derived here, offline: it says " +
+            "nothing about whether that account exists on the server or has credits.",
+        inputSchema: { type: "object", properties: {}, additionalProperties: false },
+        async run() {
+            return [
+                `account id  ${ctx.accountId}`,
+                `server      ${ctx.server}`,
+                `network     ${ctx.network}`,
+                `files land  ${ctx.outDir}`,
+            ].join("\n");
+        },
+    };
+}
+/**
+ * Every schema this program actually serves, for the gate that checks they can be enforced.
+ *
+ * ⛔ IT BUILDS THE REAL TABLE rather than restating it. A hand-kept list of tool names in a test is
+ *    a list that goes stale the day somebody adds a tool, and the failure is a tool nobody checks.
+ *    The context here is a placeholder — no tool reads it while its schema is being looked at.
+ */
+export function mcpToolSchemas() {
+    const ctx = { server: "https://example.invalid", network: "testnet", outDir: "/", accountId: "-" };
+    const all = [whoami(ctx), ...readTools(ctx), ...fileTools(ctx), ...organiseTools(ctx), ...shareTools(ctx)];
+    return all.map((t) => ({ name: t.name, inputSchema: t.inputSchema }));
+}
+export async function mcp(options = {}) {
+    const note = options.note ?? ((line) => process.stderr.write(`${line}\n`));
+    // ⛔ NO PROMPT FROM HERE. stdin is the protocol; see `OpenOptions.allowPrompt`.
+    //
+    // ⚠ AND THE CODE IS HELD FOR AS LONG AS THIS SERVER RUNS. A passphrase on a sealed store is a
+    //   gate at startup, not a gate per request: once this process has the code it keeps it, and
+    //   every tool call it serves uses it without asking again. That is the only shape a server can
+    //   have — there is nobody to ask mid-session — and it is written down here because somebody
+    //   deciding whether to leave this running deserves to know it.
+    const resolved = await requireAccountCode({ allowPrompt: false });
+    const key = resolveApiKey();
+    if (key === null) {
+        throw new NmtsError("This account has no API key on this machine, and the server needs one.", {
+            exitCode: 3,
+            nextStep: `Make a key on the account screen at nmts.me and put it in ${API_KEY_ENV_VAR}, or store ` +
+                `it with \`${BINARY_NAME} login\`.`,
+        });
+    }
+    const stored = readCredentialsFile();
+    const server = resolveServer(options.server ?? stored?.server);
+    const network = resolveNetwork(server, options.network ?? stored?.network);
+    const identity = await identityOf(resolved.code);
+    const outDir = resolve(options.out ?? process.cwd());
+    if (!existsSync(outDir))
+        mkdirSync(outDir, { recursive: true });
+    if (!statSync(outDir).isDirectory()) {
+        throw new NmtsError(`${outDir} is not a directory.`, { exitCode: 2 });
+    }
+    const ctx = { server, network, outDir, accountId: identity.accountId };
+    /**
+     * The whole surface, in one place.
+     *
+     * ⛔ THE ORDER IS THE ORDER A CLIENT SHOWS THEM IN, so it goes reads, then fetching, then
+     *    rearranging, then the one that hands a file to somebody else. A model scanning the list
+     *    meets the harmless ones first and the irreversible one last, which is the order it should
+     *    be thinking in.
+     */
+    const tools = [
+        whoami(ctx),
+        ...readTools(ctx),
+        ...fileTools(ctx),
+        ...organiseTools(ctx),
+        ...shareTools(ctx),
+    ];
+    // ⛔ To stderr, deliberately. A person starting this by hand should see what it is; a client
+    //    reading stdout must see nothing but protocol.
+    note(`${PRODUCT_NAME} · ${identity.accountId} · ${network} · files land in ${outDir}`);
+    note(`Tools: ${tools.map((t) => t.name).join(" · ")}`);
+    await serve({
+        input: options.input ?? process.stdin,
+        output: options.output ?? ((line) => process.stdout.write(`${line}\n`)),
+        tools,
+        info: { name: BINARY_NAME, version: VERSION },
+    });
+    return 0;
+}

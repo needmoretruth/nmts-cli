@@ -59,10 +59,17 @@ jobs:
           npm run typecheck
           npm test
 
-      # `prepare` builds, so the packed tarball carries the compiled command the `bin` entry names.
-      # Listing it first puts the exact file list into the log of the run that released it.
+      # ⛔ THE BUILD IS EXPLICIT, because nothing builds this package on its own any more. It has
+      #    no `prepare` script: installing straight from a repository has to work, and npm prepares
+      #    a git dependency in a staging clone where the compiler is not available — a package that
+      #    needs building fails there with `tsc: not found`. So `dist/` is committed, the job above
+      #    proves it matches this source, and this rebuilds it anyway so the tarball is this run's.
+      #
+      # Listing what goes out first puts the exact file list into the log of the run that released
+      # it — the package contents are the registry's rules to apply, not ours to assume.
       - name: What goes out
         run: |
+          npm run build
           npm pack --dry-run
           npm pack
 
@@ -78,16 +85,19 @@ jobs:
 
               npm install -g github:needmoretruth/nmts-cli#TAG
 
-          That clones this repository and compiles it on your machine. The `.tgz` attached
-          below is the same package already compiled, for installing without a clone:
+          Or, without a clone, from the tarball attached below:
 
-              npm install -g <the url of the .tgz>
+              npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 
           Node 22 or newer. Nothing is compiled by a C compiler and there is no native build
           step; the encryption engine is a WebAssembly module carried in the package.
           NOTES
           sed -i "s|#TAG|#$GITHUB_REF_NAME|" notes.md
-          gh release create "$GITHUB_REF_NAME" ./*.tgz \
+          # ⛔ TWO COPIES OF ONE FILE, ON PURPOSE. The version-stamped name is what somebody pins
+          #    to. The plain one is what `…/releases/latest/download/nmts.tgz` resolves to, and
+          #    that URL is the only install line that does not have to be edited every release.
+          cp ./nmts-*.tgz nmts.tgz
+          gh release create "$GITHUB_REF_NAME" ./nmts-*.tgz ./nmts.tgz \
             --title "$GITHUB_REF_NAME" \
             --notes-file notes.md
 

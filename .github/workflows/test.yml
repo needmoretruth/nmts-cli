@@ -32,6 +32,22 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+      # ⛔ `dist/` IS IN THIS REPOSITORY, AND IT MUST BE THE ONE THIS SOURCE PRODUCES. It is here
+      #    because installing straight from a repository cannot build: npm prepares a git
+      #    dependency in a staging clone where the compiler is not available, and the install ends
+      #    with `tsc: not found` (measured against this repository on npm 11.16.0). Committing the
+      #    build is what makes `npm install -g github:…` work at all — and the price of committing
+      #    a generated thing is that it can silently stop matching what generated it. This is that
+      #    price, paid: build again and refuse if a single byte differs.
+      - name: The committed build is the one this source produces
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv dist dist-committed
+          npm run build
+          diff -r dist-committed dist
+          rm -rf dist-committed
+
       # ⛔ THE INSTALLED COMMAND, NOT THE ONE IN THIS DIRECTORY. Everything above runs the source
       #    from a checkout, and that is not how anybody else runs this. `npm install -g` does not
       #    copy the command onto the PATH — it puts a symlink there (a shim on Windows), and the

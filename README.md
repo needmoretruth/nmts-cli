@@ -40,20 +40,27 @@ npm install -g github:needmoretruth/nmts-cli
 nmts --help
 ```
 
-That clones this repository and builds it on your machine. To pin a version instead of tracking
-the default branch, name a tag:
+That takes the default branch. To pin a version, name a tag:
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli#v0.2.0
 ```
 
-Every [release](https://github.com/needmoretruth/nmts-cli/releases) also carries a `.tgz` of the
-same package, for installing without a clone — the URL of that file works in place of the name
-above.
+Or from the tarball on the [latest release](https://github.com/needmoretruth/nmts-cli/releases),
+which is the same package and needs no clone:
+
+```sh
+npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
+```
 
 **It is not on a package registry, and `npm install -g nmts` will not find it.** That name is
 unclaimed; nothing is published under it. If that changes, this section will say so and name the
 command. Nothing else about installing changes: the repository stays the source either way.
+
+**Nothing is compiled at install time**, and `dist/` is in this repository for that reason:
+installing straight from a repository cannot build, because npm prepares it in a staging clone
+where the compiler is not there. A committed build can drift from what produced it, so this
+repository's own checks rebuild it on every push and refuse if one byte differs.
 
 To work on it rather than install it:
 
@@ -64,13 +71,13 @@ npm install
 node src/main.ts --help
 ```
 
-`npm install` also builds `dist/`, and `node dist/main.js` runs the built version — the same
-output the installed command runs.
+`npm run build` refreshes `dist/`, and `node dist/main.js` runs it — the same file the installed
+command runs.
 
-**Nothing is compiled by a C compiler and there is no native build step**: the TypeScript is
-compiled to JavaScript, and the encryption engine is a WebAssembly module already in the
-repository. It runs wherever Node runs — Linux, macOS, Windows, and inside a rootless container.
-Starting it costs about 80 milliseconds, and commands load only what they need.
+**There is no native build step and no C compiler anywhere in this**: the encryption engine is a
+WebAssembly module carried in the repository. It runs wherever Node runs — Linux, macOS,
+Windows, and inside a rootless container. Starting it costs about 80 milliseconds, and commands
+load only what they need.
 
 ## First run
 
