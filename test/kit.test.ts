@@ -17,6 +17,7 @@ import { identityOf } from "../src/account.ts";
 import { kit } from "../src/commands/kit.ts";
 import { configDir } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
+import { assertModeWhereEnforced } from "./helpers.ts";
 import { KIT_DATA_BEGIN, KIT_DATA_END } from "../src/kit-file.ts";
 import type { ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 import { entry } from "./fake-drive.ts";
@@ -87,6 +88,7 @@ function machineBlock(text: string): unknown {
   return JSON.parse(rest.slice(0, end).trim());
 }
 
+
 test("the kit is written 0600, carries the code, and holds the whole recovery list", async () => {
   await withAccount(fake, "kit-writes", async (code) => {
     await fake.serve(code, [await storedFile(code, { id: "a1", name: "budget.xlsx", size: 40 })]);
@@ -105,7 +107,7 @@ test("the kit is written 0600, carries the code, and holds the whole recovery li
       const written = join(dir, name);
       // ⛔ THE MODE IS THE ONLY PROTECTION THIS FILE HAS. Every program running as you can read a
       //    0644 file, and what it would read is the account and the wallet.
-      assert.equal(statSync(written).mode & 0o777, 0o600, "the kit was not written 0600");
+      assertModeWhereEnforced(written, 0o600, "the kit was not written 0600");
 
       const text = readFileSync(written, "utf8");
       assert.ok(text.includes(identity.displayCode), "the kit does not carry the account code");
@@ -169,7 +171,7 @@ test("⛔ a name that is taken is a refusal, and the file that was there is unto
       const second = lines();
       assert.equal(await kit({ ...opts(second, dir), force: true }), 0, second.out.join("\n"));
       assert.ok(readFileSync(taken, "utf8").includes(identity.displayCode));
-      assert.equal(statSync(taken).mode & 0o777, 0o600, "a replaced kit lost its mode");
+      assertModeWhereEnforced(taken, 0o600, "a replaced kit lost its mode");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

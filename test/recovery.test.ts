@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { after, test } from "node:test";
 
 import { recovery } from "../src/commands/recovery.ts";
+import { assertModeWhereEnforced } from "./helpers.ts";
 import { NmtsError } from "../src/errors.ts";
 import { executableFor, hashFromSums, PUBLISHED, tagFromChain } from "../src/recovery-release.ts";
 import { fakeExecutable, startFakeRelease } from "./fake-release.ts";
@@ -139,13 +140,7 @@ test("a good download lands, is runnable, and says what the check does and does 
       fakeExecutable("nmts-recovery-linux-x86_64"),
       "the bytes on the disk are not the bytes the release served",
     );
-    if (process.platform !== "win32") {
-      assert.equal(
-        statSync(written).mode & 0o777,
-        0o700,
-        "the file is not runnable by the person who asked for it",
-      );
-    }
+    assertModeWhereEnforced(written, 0o700, "the file is not runnable by the person who asked for it");
 
     const words = said.out.join("\n");
     assert.ok(words.includes(written), "it did not print the full path it wrote");

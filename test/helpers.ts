@@ -4,10 +4,12 @@
 //    credential to every scanner and every person who finds it, and one day somebody creates the
 //    account it names. The engine makes a fresh one in under a millisecond.
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { strict as assert } from "node:assert";
+import { mkdirSync, writeFileSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { modesAreEnforced } from "../src/credentials.ts";
 import { engineDir } from "../src/crypto.ts";
 import { decodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 
@@ -177,4 +179,26 @@ export async function sealFile(
   }));
   dek.fill(0);
   return { dekWrapped, contentHashCt, parts };
+}
+
+/**
+ * Assert a file's permissions, where permissions are a thing this machine can express.
+ *
+ * ⛔ WINDOWS HAS NO POSIX MODE. `writeFileSync(path, data, { mode: 0o600 })` there produces a file
+ *    whose mode reads back as 0o666 however it was asked for, so a bare comparison passes on the
+ *    machines we develop on and fails on the one platform only a continuous-integration run sees.
+ *    It did: three tests at once, and nothing local could have told us.
+ *
+ * ⛔ THIS IS NOT A WAY OUT OF THE ASSERTION. `modesAreEnforced()` is the same question the product
+ *    itself asks before claiming a file is private — where the answer is no, the tool says so to
+ *    the person rather than pretending. So the check is skipped exactly where the product drops
+ *    the claim, and nowhere else: the write still asks for the mode on every platform.
+ *
+ * ⚠ ONE SPELLING, ON PURPOSE. This repository had three for the same idea — a `skip` option, an
+ *   `if (modesAreEnforced())`, and a bare `process.platform !== "win32"`. Three spellings is how a
+ *   fourth place ends up with none.
+ */
+export function assertModeWhereEnforced(path: string, expected: number, message: string): void {
+  if (!modesAreEnforced()) return;
+  assert.equal(statSync(path).mode & 0o777, expected, message);
 }

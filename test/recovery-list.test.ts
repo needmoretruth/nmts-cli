@@ -20,6 +20,7 @@ import { request, ServerError } from "../src/api.ts";
 import { recoveryList } from "../src/commands/recovery-list.ts";
 import { testConfigDir, CODE_ENV_VAR } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
+import { assertModeWhereEnforced } from "./helpers.ts";
 import type { ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 import { entry, folder, KEY } from "./fake-drive.ts";
 import {
@@ -89,6 +90,7 @@ function storedRow(id: string, plaintextLens: readonly number[]): SourceItemRow 
   };
 }
 
+
 test("a multi-page walk describes every file, and the sealed list opens with the account code", async () => {
   await withAccount(fake, "reclist-pages", async (code) => {
     const photos = folder({ id: "f1", name: "photos" });
@@ -114,7 +116,7 @@ test("a multi-page walk describes every file, and the sealed list opens with the
       assert.deepEqual(readdirSync(dir), [name], "one file, under the name the format describes");
 
       const written = join(dir, name);
-      assert.equal(statSync(written).mode & 0o777, 0o600, "the list was not written 0600");
+      assertModeWhereEnforced(written, 0o600, "the list was not written 0600");
 
       const doc: unknown = JSON.parse(readFileSync(written, "utf8"));
       assert.equal(field(doc, "format"), "nmts-recovery-map", "a reader matches on this string");
