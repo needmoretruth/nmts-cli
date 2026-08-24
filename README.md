@@ -71,8 +71,10 @@ npm install
 node src/main.ts --help
 ```
 
-`npm run build` refreshes `dist/`, and `node dist/main.js` runs it — the same file the installed
-command runs.
+`npm run compile` refreshes `dist/`, and `node dist/main.js` runs it — the same file the installed
+command runs. It is called `compile` and not `build` for a reason worth knowing before renaming
+it: on npm 11, a package with a script named `build` installs from a git URL by linking npm's own
+temporary clone and then deleting it, which leaves a broken command and **reports success**.
 
 **There is no native build step and no C compiler anywhere in this**: the encryption engine is a
 WebAssembly module carried in the repository. It runs wherever Node runs — Linux, macOS,

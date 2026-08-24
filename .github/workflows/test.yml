@@ -44,7 +44,7 @@ jobs:
         run: |
           set -euo pipefail
           mv dist dist-committed
-          npm run build
+          npm run compile
           diff -r dist-committed dist
           rm -rf dist-committed
 
