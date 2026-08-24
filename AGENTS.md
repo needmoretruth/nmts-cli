@@ -170,6 +170,7 @@ nmts mkdir <path>        make a folder, and any folder above it that is missing
 nmts mv <path> <folder>  move one thing into a folder. `/` is the top of the drive
 nmts rename <path> <n>   give one thing a new name
 nmts verify              ask a person to pass the check that opens this account's limits
+nmts update              install the newest published release of THIS TOOL. See below
 nmts mcp                 serve ls, get and put as MCP tools on stdin/stdout
 nmts --help              the current list
 nmts --version           the version
@@ -287,6 +288,25 @@ format, so that a person needs one thing rather than two, and it means whoever h
 holds the account and the wallet. Both refuse to write a partial artefact: if anything does not
 reconcile, nothing is written and the reason is printed. ⛔ **Do not make either one as part of
 some other task, and do not put a kit anywhere the person did not name.**
+
+## `nmts update` replaces the program you are running
+
+It installs the newest published release of this tool over the one running, by calling
+`npm install --global` with the address of that release. Two things follow from that:
+
+- **It is not part of any task somebody gave you.** Nobody asks for their files to be listed and
+  means "and upgrade the tool". Run it when the person asked for it, not because a notice
+  appeared.
+- **It changes the program mid-session.** Commands started after it runs are a different version,
+  and one that failed before may behave differently — which is a fact to report, not to rely on.
+
+`nmts update --dry-run` prints the versions and the exact command and changes nothing. That is the
+safe form to run when what you want is the answer to "is this current".
+
+Separately, once a day after a command finishes, this tool asks the releases page which version is
+newest and writes the answer down; when it is newer than the one running, the next run prints one
+line **on stderr**. It is not part of any command's answer, `--json` output is unaffected, and
+setting `NMTS_NO_UPDATE_CHECK` to anything stops it. `nmts env` reports what it last found.
 
 ## When the server says a person has to check in
 

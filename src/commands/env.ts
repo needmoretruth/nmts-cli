@@ -11,7 +11,9 @@ import {
   resolveApiKey,
   type CredentialSource,
 } from "../credentials.ts";
-import { BINARY_NAME, SUPPORT_EMAIL } from "../product.ts";
+import { BINARY_NAME, SUPPORT_EMAIL, VERSION } from "../product.ts";
+import { checkingIsOff, NO_CHECK_ENV_VAR, readCheck } from "../update-check.ts";
+import { isNewer } from "../update-source.ts";
 
 /**
  * Where a credential came from, in words rather than in the field name.
@@ -36,6 +38,26 @@ function sourceWords(source: CredentialSource): string {
 export interface EnvOptions {
   json?: boolean;
   write?: (line: string) => void;
+}
+
+/**
+ * What the version check last did, in one line.
+ *
+ * ⛔ IT IS IN HERE BECAUSE THE CHECK IS QUIET. It is the only request this tool makes that no
+ *    command asked for, and it never fails a command — so if it has been failing for a month,
+ *    this line is the only place that says so. A quiet mechanism with nowhere to report is
+ *    indistinguishable from one that is not running.
+ */
+function updateCheckWords(running: string): string {
+  if (checkingIsOff()) return `off — ${NO_CHECK_ENV_VAR} is set`;
+  const record = readCheck();
+  if (record === null) return `has not run yet`;
+  const when = record.checkedAt.slice(0, 16).replace("T", " ");
+  if (record.failed !== undefined) return `⛔ last try ${when} UTC did not answer — ${record.failed}`;
+  if (record.latest === undefined) return `last ran ${when} UTC and found nothing to compare`;
+  return isNewer(record.latest, running)
+    ? `${record.latest} is published (this is ${running}) — \`${BINARY_NAME} update\` installs it`
+    : `${record.latest} is newest, looked up ${when} UTC`;
 }
 
 export function env(options: EnvOptions = {}): number {
@@ -82,6 +104,7 @@ export function env(options: EnvOptions = {}): number {
               : { present: false, refused: keyProblem }
             : { present: true, source: key.source },
         advice,
+        updateCheck: checkingIsOff() ? { off: true } : (readCheck() ?? { ran: false }),
       }),
     );
     return 0;
@@ -118,6 +141,7 @@ export function env(options: EnvOptions = {}): number {
     say(`  passphrase    ${how}`);
   }
   say(`  api key       ${found(key, keyProblem)}`);
+  say(`  version check ${updateCheckWords(VERSION)}`);
 
   if (advice.length > 0) {
     say(``);

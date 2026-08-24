@@ -1,13 +1,15 @@
-// How this program ends: the code it leaves behind, and the one failure that must not become one.
+// How this program ends.
 //
-// ⛔ SPLIT OUT OF `main.ts` RATHER THAN INVENTED. Both of these were written there and are
-//    unchanged; they moved because that file passed the length gate the day five commands landed,
-//    and the rule in this repository is that a file gets divided when it is being worked on. What
-//    belongs together here is "the shape of the ending" — everything above it in `main.ts` decides
-//    WHAT to do, and these two decide how the process stops saying so.
+// ⛔ SPLIT OUT OF `main.ts` RATHER THAN INVENTED. Each of these was written there and moved here
+//    unchanged, on the day that file passed the length gate — the rule in this repository is that
+//    a file gets divided when it is being worked on. What belongs together here is "the shape of
+//    the ending": everything in `main.ts` decides WHAT to do, and everything here decides how the
+//    process stops saying so — the code it leaves behind, the one failure that must not become
+//    one, whether it was the program at all, and the last line it prints.
 
 import { realpathSync } from "node:fs";
 
+import { parseArgs } from "./args.ts";
 import { NmtsError, UNKNOWN_FAILURE_EXIT } from "./errors.ts";
 
 /** The exit code a failure asks for, or the generic one. */
@@ -69,4 +71,38 @@ export function invokedDirectly(moduleFilename: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Commands the version notice stays out of.
+ *
+ * ⛔ `update` BECAUSE IT IS THE NOTICE'S OWN SUBJECT — it has just said more about versions than
+ *    one line could, and repeating a shorter version of it underneath would be noise.
+ * ⛔ `mcp` BECAUSE IT DOES NOT END. It is a server on a pipe, and its stderr is read by whatever
+ *    started it; a line arriving there whenever the process happens to stop is not a notice, it is
+ *    an unexplained log entry.
+ */
+const NO_NOTICE: readonly string[] = ["update", "mcp"];
+
+/**
+ * Say so if a newer release is already known about, and refresh what is known for next time.
+ *
+ * ⛔ AFTER THE COMMAND, NOT BEFORE IT. Whatever was asked for has already been printed and the
+ *    exit code is already decided; nothing here can change either. ⛔ AND ONLY FROM `main`: the
+ *    tests drive `run` directly, so no test and no embedded caller ever reaches a network.
+ */
+export async function noteUpdateAfter(argv: readonly string[], version: string): Promise<void> {
+  let command: string | null;
+  try {
+    command = parseArgs(argv).command;
+  } catch {
+    // A command line this could not read is one that failed above. Nothing to add to it.
+    return;
+  }
+  if (command !== null && NO_NOTICE.includes(command)) return;
+  // ⛔ THE SWITCH IS NOT CHECKED HERE AS WELL. `noteUpdate` reads it, and reading it twice would
+  //    put one rule in two files — the shape that ends with one of them changing. There is nothing
+  //    to save by checking early: the module holding the switch is the module being loaded.
+  const { noteUpdate } = await import("./update-check.ts");
+  await noteUpdate({ running: version });
 }

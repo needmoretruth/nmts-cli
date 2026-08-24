@@ -27,7 +27,7 @@
 //    whole command surface can be driven from a test without ending the test runner.
 import { parseArgs } from "./args.js";
 import { NmtsError, NotBuiltYetError, renderError } from "./errors.js";
-import { endQuietlyOnClosedPipe, exitCodeFor, invokedDirectly } from "./exit.js";
+import { endQuietlyOnClosedPipe, exitCodeFor, invokedDirectly, noteUpdateAfter } from "./exit.js";
 import { helpText } from "./help.js";
 import { BINARY_NAME, VERSION } from "./product.js";
 /**
@@ -338,6 +338,10 @@ export async function run(argv) {
                 json: args.json,
             });
         }
+        case "update": {
+            const { update } = await import("./commands/update.js");
+            return await update({ json: args.json, dryRun: args.dryRun });
+        }
         case "mcp": {
             const { mcp } = await import("./commands/mcp.js");
             return await mcp({ server: args.server, network: args.network, out: args.out });
@@ -354,13 +358,15 @@ export async function run(argv) {
 }
 async function main() {
     endQuietlyOnClosedPipe();
+    const argv = process.argv.slice(2);
     try {
-        process.exitCode = await run(process.argv.slice(2));
+        process.exitCode = await run(argv);
     }
     catch (error) {
         process.stderr.write(`${renderError(error, BINARY_NAME)}\n`);
         process.exitCode = exitCodeFor(error);
     }
+    await noteUpdateAfter(argv, VERSION);
 }
 if (invokedDirectly(import.meta.filename)) {
     await main();

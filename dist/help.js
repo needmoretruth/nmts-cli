@@ -6,6 +6,7 @@
 import { AGENTS_DOC, BINARY_NAME, HOME_URL, PRODUCT_NAME, SOURCE_URL } from "./product.js";
 import { API_KEY_ENV_VAR, API_KEY_FILE_ENV_VAR, CODE_ENV_VAR, CODE_FILE_ENV_VAR, PASSPHRASE_ENV_VAR, } from "./credentials.js";
 import { NETWORK_ENV_VAR } from "./network.js";
+import { LATEST_RELEASE_URL, NO_CHECK_ENV_VAR } from "./update-source.js";
 import { SERVER_ENV_VAR } from "./server.js";
 import { AGGREGATOR_ENV_VAR } from "./walrus.js";
 import { CHECK_DOES_NOT_PROVE, CHECK_PROVES, RECOVERY_TOOL_URL, wrapText, } from "./recovery-release.js";
@@ -55,6 +56,7 @@ export function helpText(version) {
         `  unshare <id>          Withdraw a share you sent, or remove one you were sent`,
         `  env                   What this machine is, and what it means for the account code`,
         `  consent               See what this machine has agreed to, and change it`,
+        `  update                Install the newest published release of this tool`,
         `  recovery              Download the standalone program that reads files back without NMTS`,
         `  recovery-list         Write the file that finds your bytes without NMTS. Holds no code`,
         `  kit                   Recovery kit: that list AND your account code, together in one file`,
@@ -66,8 +68,9 @@ export function helpText(version) {
         `  --network <name>      mainnet or testnet. Required for any server but the live one`,
         `  --json                Machine-readable output (ls, usage, get, put, env, verify,`,
         `                        expiring, sweep, rebuild, pull, wallet, shares, share, receive,`,
-        `                        recovery, balance, trial, extend, recovery-list, kit, create —`,
-        `                        create needs --out as well, so the code never enters the output)`,
+        `                        recovery, balance, trial, extend, recovery-list, kit, update,`,
+        `                        create — create needs --out as well, so the code never enters`,
+        `                        the output)`,
         `  --all                 Include what is in the trash (ls)`,
         `  --find <text>         List only the files whose name contains this text (ls). Folders`,
         `                        appear only where they hold a match`,
@@ -82,8 +85,9 @@ export function helpText(version) {
         `                        has seen a list for (rebuild). \`create\` never replaces a file`,
         `  --name <name>         The name the uploaded file gets in the drive (put)`,
         `  --to <folder>         Destination folder, as \`${BINARY_NAME} ls\` prints it (put, push)`,
-        `  --dry-run             Say what it would cost, and stop (put, push, extend). With`,
-        `                        \`extend\` nothing is signed and the wallet key is never touched`,
+        `  --dry-run             Say what it would cost, and stop (put, push, extend), or what it`,
+        `                        would install, and stop (update). With \`extend\` nothing is`,
+        `                        signed and the wallet key is never touched`,
         `  --part-size <n>       Bytes per part for a large upload (put, push). Default 64MiB.`,
         `                        a plain number, or one with KiB, MiB or GiB. Bigger parts mean`,
         `                        fewer purchases; smaller parts use less memory`,
@@ -119,6 +123,7 @@ export function helpText(version) {
         `                          the built-in list rather than adding to it.`,
         `  ${NETWORK_ENV_VAR.padEnd(24)}mainnet or testnet. Never guessed: a wrong one looks in a place`,
         `                          your files were never stored.`,
+        `  ${NO_CHECK_ENV_VAR.padEnd(24)}Set to anything to stop the version check described below.`,
         ``,
         // ⛔ THE TWO SENTENCES ABOUT THE CHECK ARE IMPORTED, NOT RETYPED. They are also printed by
         //    the command itself, and a second copy is how one of them starts promising more than the
@@ -133,6 +138,22 @@ export function helpText(version) {
         ``,
         `  It writes one file where you point it, refuses a name that is already taken unless you`,
         `  pass --force, and installs nothing: no copy goes onto your PATH.`,
+        ``,
+        // ⛔ IT IS WRITTEN DOWN BECAUSE IT IS THE ONLY REQUEST THIS TOOL MAKES THAT NOBODY ASKED FOR.
+        //    Everything else it sends goes to the NMTS server or the storage network because a command
+        //    needed it. This one goes to a third host, on its own, and a tool that does that without
+        //    saying so is one whose network behaviour has to be found out with a packet capture.
+        `THE VERSION CHECK`,
+        `  Once a day, after a command has finished, this asks which release of this tool is newest:`,
+        ``,
+        `    ${LATEST_RELEASE_URL}`,
+        ``,
+        `  and writes the answer down. When it is newer than the one running, the NEXT run prints one`,
+        `  line on stderr saying so. It sends no account code, no key and no command name: the`,
+        `  request is for a page address, and what the site can see is that it was asked.`,
+        ``,
+        `  Setting ${NO_CHECK_ENV_VAR} to anything stops both halves. \`${BINARY_NAME} env\` shows what`,
+        `  it last found, and \`${BINARY_NAME} update\` asks now and installs what it finds.`,
         ``,
         `BEFORE YOU HAND THIS TO AN AGENT`,
         `  Your account code is the only key to your account — the file keys and the wallet are all`,

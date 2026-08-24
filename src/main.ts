@@ -28,7 +28,7 @@
 
 import { parseArgs } from "./args.ts";
 import { NmtsError, NotBuiltYetError, renderError } from "./errors.ts";
-import { endQuietlyOnClosedPipe, exitCodeFor, invokedDirectly } from "./exit.ts";
+import { endQuietlyOnClosedPipe, exitCodeFor, invokedDirectly, noteUpdateAfter } from "./exit.ts";
 import { helpText } from "./help.ts";
 import { BINARY_NAME, VERSION } from "./product.ts";
 
@@ -343,6 +343,10 @@ export async function run(argv: readonly string[]): Promise<number> {
         json: args.json,
       });
     }
+    case "update": {
+      const { update } = await import("./commands/update.ts");
+      return await update({ json: args.json, dryRun: args.dryRun });
+    }
     case "mcp": {
       const { mcp } = await import("./commands/mcp.ts");
       return await mcp({ server: args.server, network: args.network, out: args.out });
@@ -360,12 +364,14 @@ export async function run(argv: readonly string[]): Promise<number> {
 
 async function main(): Promise<void> {
   endQuietlyOnClosedPipe();
+  const argv = process.argv.slice(2);
   try {
-    process.exitCode = await run(process.argv.slice(2));
+    process.exitCode = await run(argv);
   } catch (error) {
     process.stderr.write(`${renderError(error, BINARY_NAME)}\n`);
     process.exitCode = exitCodeFor(error);
   }
+  await noteUpdateAfter(argv, VERSION);
 }
 
 if (invokedDirectly(import.meta.filename)) {

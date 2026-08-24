@@ -43,7 +43,7 @@ nmts --help
 That takes the default branch. To pin a version, name a tag:
 
 ```sh
-npm install -g github:needmoretruth/nmts-cli#v0.2.0
+npm install -g github:needmoretruth/nmts-cli#v0.3.0
 ```
 
 Or from the tarball on the [latest release](https://github.com/needmoretruth/nmts-cli/releases),
@@ -80,6 +80,30 @@ temporary clone and then deleting it, which leaves a broken command and **report
 WebAssembly module carried in the repository. It runs wherever Node runs — Linux, macOS,
 Windows, and inside a rootless container. Starting it costs about 80 milliseconds, and commands
 load only what they need.
+
+## Staying up to date
+
+```sh
+nmts update
+```
+
+It reads which release is newest, prints the version running and the version published, and
+installs the newer one with `npm install --global` from that release's own address. `--dry-run`
+prints the command and stops. Run from a source checkout rather than an installed copy, it
+refuses: installing would leave two copies and the PATH would decide which one runs.
+
+Separately, **once a day, after a command has finished**, it asks
+`https://github.com/needmoretruth/nmts-cli/releases/latest` which release is newest and writes the
+answer down. When that is newer than the version running, the next run prints one line on stderr
+saying so — stderr, so it cannot land in the output of `--json`.
+
+That request carries no account code, no API key and no command name: it asks for a page address,
+and what the site can see is that somebody asked for it. It is the only request this tool makes
+that no command asked for; everything else goes to the NMTS server or to the storage network
+because something needed it.
+
+Set `NMTS_NO_UPDATE_CHECK` to anything and both halves stop — the lookup and the notice.
+`nmts env` shows what the check last found, or why it did not answer.
 
 ## First run
 
@@ -184,6 +208,7 @@ It cannot be rotated while keeping the account.
 | `nmts kit` | Recovery kit: that list **and the account code**, together in one file |
 | `nmts sweep` | Drop trash entries past their 30 days. **Cannot be undone** — asks every run |
 | `nmts consent` | What this machine has agreed to |
+| `nmts update` | Install the newest published release of this tool |
 | `nmts ls` | List the files |
 | `nmts usage` | What the account holds: counts, bytes, the largest files, the trash |
 | `nmts get <path>` | Download one file, decrypt it, check it |

@@ -5,7 +5,9 @@
 //    nowhere safe to keep the code here" would say it too late.
 import { adviseFor, readEnvironment } from "../environment.js";
 import { PASSPHRASE_ENV_VAR, resolveAccountCode, resolveApiKey, } from "../credentials.js";
-import { BINARY_NAME, SUPPORT_EMAIL } from "../product.js";
+import { BINARY_NAME, SUPPORT_EMAIL, VERSION } from "../product.js";
+import { checkingIsOff, NO_CHECK_ENV_VAR, readCheck } from "../update-check.js";
+import { isNewer } from "../update-source.js";
 /**
  * Where a credential came from, in words rather than in the field name.
  *
@@ -24,6 +26,29 @@ function sourceWords(source) {
         case "file-locked":
             return "this tool's own file, sealed with a passphrase";
     }
+}
+/**
+ * What the version check last did, in one line.
+ *
+ * ⛔ IT IS IN HERE BECAUSE THE CHECK IS QUIET. It is the only request this tool makes that no
+ *    command asked for, and it never fails a command — so if it has been failing for a month,
+ *    this line is the only place that says so. A quiet mechanism with nowhere to report is
+ *    indistinguishable from one that is not running.
+ */
+function updateCheckWords(running) {
+    if (checkingIsOff())
+        return `off — ${NO_CHECK_ENV_VAR} is set`;
+    const record = readCheck();
+    if (record === null)
+        return `has not run yet`;
+    const when = record.checkedAt.slice(0, 16).replace("T", " ");
+    if (record.failed !== undefined)
+        return `⛔ last try ${when} UTC did not answer — ${record.failed}`;
+    if (record.latest === undefined)
+        return `last ran ${when} UTC and found nothing to compare`;
+    return isNewer(record.latest, running)
+        ? `${record.latest} is published (this is ${running}) — \`${BINARY_NAME} update\` installs it`
+        : `${record.latest} is newest, looked up ${when} UTC`;
 }
 export function env(options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
@@ -66,6 +91,7 @@ export function env(options = {}) {
                     : { present: false, refused: keyProblem }
                 : { present: true, source: key.source },
             advice,
+            updateCheck: checkingIsOff() ? { off: true } : (readCheck() ?? { ran: false }),
         }));
         return 0;
     }
@@ -96,6 +122,7 @@ export function env(options = {}) {
         say(`  passphrase    ${how}`);
     }
     say(`  api key       ${found(key, keyProblem)}`);
+    say(`  version check ${updateCheckWords(VERSION)}`);
     if (advice.length > 0) {
         say(``);
         for (const item of advice) {
