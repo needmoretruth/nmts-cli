@@ -316,6 +316,20 @@ test("installed copies are recognised by where the installer puts them", () => {
   assert.equal(installedAsPackage("/opt/other/node_modules/something-else/dist/main.js"), false);
 });
 
+// ⛔ THE ONE THAT WENT RED ONLY ON WINDOWS, AND ONLY AFTER IT WAS PUBLISHED. Splitting a path on
+//    the platform's own separator found nothing in `D:/a/…`, which is a shape Node really hands
+//    out — so an installed copy was told it was not installed, and `update` refused to run. Both
+//    spellings are asserted here on every platform, because a rule tested only where it happens
+//    to hold is a rule nobody is testing.
+test("⛔ both path separators, whichever platform this runs on", () => {
+  assert.equal(installedAsPackage("D:\\npm\\node_modules\\nmts\\dist\\commands\\update.js"), true);
+  assert.equal(installedAsPackage("D:/npm/node_modules/nmts/dist/commands/update.js"), true);
+  assert.equal(installedAsPackage("D:\\a\\nmts-cli\\src\\commands\\update.ts"), false);
+  assert.equal(installedAsPackage("D:/a/nmts-cli/src/commands/update.ts"), false);
+  // Mixed, which is what a path that passed through both a URL and `join` looks like.
+  assert.equal(installedAsPackage("D:/npm\\node_modules/nmts\\dist/commands/update.js"), true);
+});
+
 test("`update` runs exactly the command it printed", async () => {
   const said: string[] = [];
   let ran: readonly string[] = [];

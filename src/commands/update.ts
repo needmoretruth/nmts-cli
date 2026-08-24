@@ -23,7 +23,6 @@
 //    other than the NMTS server and the storage network. The other is `nmts recovery`.
 
 import { spawnSync } from "node:child_process";
-import { sep } from "node:path";
 
 import { NmtsError } from "../errors.ts";
 import { BINARY_NAME, SOURCE_URL, VERSION } from "../product.ts";
@@ -70,9 +69,15 @@ export interface InstallOutcome {
  *
  * The test is the one thing that is actually true of every such copy and of nothing else: it
  * lives in a directory named for the package, inside a `node_modules`.
+ *
+ * ⛔ BOTH SEPARATORS, AND THAT IS NOT DEFENSIVENESS. Windows accepts either, and Node hands out
+ *    either: a path that came through a file URL arrives as `D:/a/…` while `import.meta.filename`
+ *    gives `D:\a\…`. Splitting on the platform's own separator found nothing in the first shape,
+ *    so an installed copy on Windows was told it was not installed and `update` refused to run —
+ *    green on Linux and macOS, red only on the platform this repository tests last.
  */
 export function installedAsPackage(moduleFile: string): boolean {
-  const parts = moduleFile.split(sep);
+  const parts = moduleFile.split(/[\\/]/);
   const at = parts.lastIndexOf("node_modules");
   return at >= 0 && parts[at + 1] === BINARY_NAME;
 }
