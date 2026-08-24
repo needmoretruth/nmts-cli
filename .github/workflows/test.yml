@@ -31,3 +31,23 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+
+      # ⛔ THE INSTALLED COMMAND, NOT THE ONE IN THIS DIRECTORY. Everything above runs the source
+      #    from a checkout, and that is not how anybody else runs this. `npm install -g` does not
+      #    copy the command onto the PATH — it puts a symlink there (a shim on Windows), and the
+      #    program has to survive being reached that way. It did not: `nmts --version` printed
+      #    NOTHING and exited 0 once installed, and so did every other command, because the file
+      #    asked whether it was the program by comparing its own path against the one it was
+      #    invoked as. Exit 0 with no output is the one failure an agent reads as success.
+      #
+      # ⚠ IT ALSO PROVES THE PACKAGE, not just the code: what `files` carries, whether the build
+      #   ran, and whether the entry point is where `bin` says. A test suite cannot see any of it.
+      - name: The installed command runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm pack
+          npm install -g ./nmts-*.tgz
+          test -n "$(nmts --version)"
+          nmts --version
+          nmts env

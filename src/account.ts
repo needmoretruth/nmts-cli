@@ -8,6 +8,16 @@
 //    not hand them out, and nothing that prints goes near them. `identityOf` returns only the two
 //    values that are already public: the account id the server knows you by, and the code other
 //    people use to share with you.
+//
+// ⚠ TWO OTHER MODULES DERIVE `authSecret`, AND THEY ARE NAMED HERE SO THIS PARAGRAPH STAYS TRUE.
+//   `registration.ts` builds it for the single call that CREATES an account, because the server
+//   has to be given it once to store a verifier of it. `account-proof.ts` builds it for the three
+//   recovery routes that ask a key to prove the account code as well — the same value a sign-in
+//   sends, and its own header says why sending it is safe and what it can still do if it is
+//   stolen. Neither returns it to anything else, and nothing here changed: this module still does
+//   not hand it out. ⚠ `dataKey` is a different matter and is NOT returned by anything, here or
+//   there — the few commands that need it cut it from their own derivation and wipe it in the
+//   same function.
 
 import { DERIVED, loadCrypto } from "./crypto.ts";
 import { NmtsError } from "./errors.ts";

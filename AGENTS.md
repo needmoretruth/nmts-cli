@@ -112,7 +112,7 @@ is not a transient error and must not be retried in a loop.
 
 ## What needs the person's decision
 
-`nmts` stops for exactly **four** things, and asks once per machine. It stops by printing what
+`nmts` stops for exactly **five** things, and asks once per machine. It stops by printing what
 would happen, what could go wrong, and the one command that agrees. **Show that text to the person
 and let them decide. Do not run the grant command yourself.**
 
@@ -122,14 +122,14 @@ and let them decide. Do not run the grant command yourself.**
 | `unsafe-code-storage` | Before writing the account code down unsealed. `nmts login` seals it by default and asks nothing |
 | `plain-env` | Before using the code from `NMTS_ACCOUNT_CODE`, or printing one to be set |
 | `share` | Before giving another account the key to one of this account's files. It is the only one whose risk is not this account's: withdrawing a share stops further downloads and reaches nothing already fetched |
-| `wallet` | Before signing anything with the wallet the account code derives. **No command signs yet**, so nothing asks for this one today — it is listed because it is part of the ladder you will meet, not because it is live |
+| `wallet` | Before signing anything with the wallet the account code derives. `nmts extend` is the one command that does. Every other purchase here is made with credits, which NMTS issues; this one moves WAL out of the wallet on a public chain, and nobody — NMTS included — can reverse it |
 
 ⚠ Exit code **5** means somebody has to agree before this goes ahead. Usually it is one of the five
 above, and it is not an error to retry: nothing was done and nothing was written. Print what it
 said and let the person decide; if they would rather not agree, the `NMTS_ACCOUNT_CODE_FILE` form
 asks for nothing and is the better arrangement anyway.
 
-`nmts sweep` also exits 5 and is **not** one of the four. It answers to `--yes` on that run rather
+`nmts sweep` also exits 5 and is **not** one of the five. It answers to `--yes` on that run rather
 than to a stored grant, because what is being decided is these entries today, not a standing
 capability — a grant given once would make every later sweep silent, which is the same thing as
 sweeping automatically.
@@ -159,6 +159,12 @@ nmts put <file>          encrypt one file and upload it — SPENDS CREDITS
 nmts rm <path>           move one thing to the trash. Restorable for 30 days
 nmts restore <path>      bring one thing back out of the trash
 nmts expiring            which files run out of bought storage soon, and when
+nmts extend <path>       buy more time for one stored file — SIGNS AND SPENDS FROM THE WALLET
+nmts balance             credits left, what they buy, and the ceilings on spending
+nmts trial               what is left of this week's free credits; `trial apply` asks for some
+nmts create              make a NEW account and print its code once
+nmts recovery-list       write the file that finds this account's bytes without NMTS
+nmts kit                 recovery kit — that list AND the account code, together in one file
 nmts sweep               drop trash entries past 30 days. CANNOT BE UNDONE — asks every run
 nmts mkdir <path>        make a folder, and any folder above it that is missing
 nmts mv <path> <folder>  move one thing into a folder. `/` is the top of the drive
@@ -237,6 +243,50 @@ account code alone, for the machine it is running on. ⛔ **Do not run it as par
 task.** It downloads an executable and makes it runnable, and who decides to have a program on
 their disk is the person, not you. If the work you are doing has made it clear they should have
 it, say so and show them the command.
+
+**`extend`** is the only command here that signs anything, and the only one that spends from a
+wallet rather than from credits. `nmts expiring` says which files are running out; this buys them
+more of the storage network's epochs. ⛔ **A signed purchase cannot be reversed by anyone, NMTS
+included** — it moves WAL out of the wallet the account code derives, on a public chain. So:
+
+```sh
+nmts extend notes/report.pdf --dry-run    # the real price. Nothing is signed, no key is touched
+nmts extend notes/report.pdf --epochs 4   # how many epochs to add
+```
+
+The first run on a machine exits 5 and prints what agreeing to `wallet` would mean. Show that to
+the person. A file that is nowhere near its deadline is refused rather than extended, because
+extending early spends money on a deadline nobody is near; `--yes` says to do it anyway. ⚠ If the
+purchase succeeds and the server then fails to record the date, that is reported as itself and
+**must not be retried** — the storage is already bought, and a second run buys it again.
+
+**`trial`** reads this week's free credits; `nmts trial apply` asks for some. The rules are the
+server's: one application per account per week, first come first served against a weekly budget.
+There is no flag that asks for more and no retry loop that waits for a place. ⚠ On the live
+service an application also needs a browser check of its own, per application, which a command
+line cannot produce — the reply says so and names the page a person can apply from.
+
+**`create`** makes a NEW account and prints its code once. ⛔ **Nothing can print it again.** The
+server stores a one-way verifier and never the code, so a lost code is a lost account and every
+file in it, for the holder and for NMTS alike. It needs an account that already exists: this tool
+signs in with one account's key and creates another, which is how a service that keeps its
+customers' files in NMTS gives each customer their own. The first account of all has to be made in
+a browser — a machine cannot pass the check that door asks for, and this command says so rather
+than failing with a message about permissions.
+
+With `--json` the code does **not** go into the output: `--out <file>` is required, and the JSON
+carries the path. Machine-readable output ends up in pipes, files, CI logs and transcripts, which
+is exactly where an account code must never be. ⚠ It stores nothing on this machine and switches
+nothing over — `nmts login` is a separate act, on purpose.
+
+**`recovery-list`** and **`kit`** write the two things that matter on the day NMTS is not there.
+The recovery list holds, encrypted, where every file's bytes are on the public storage network and
+the key that opens each one; it carries no account code, so it is safe to keep where the code is
+not. `nmts kit` writes that list **together with the account code in the clear** — that is the
+format, so that a person needs one thing rather than two, and it means whoever holds that file
+holds the account and the wallet. Both refuse to write a partial artefact: if anything does not
+reconcile, nothing is written and the reason is printed. ⛔ **Do not make either one as part of
+some other task, and do not put a kit anywhere the person did not name.**
 
 ## When the server says a person has to check in
 

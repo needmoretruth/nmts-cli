@@ -27,8 +27,13 @@ import type { Network } from "./network.ts";
  * ⛔ IT IS WALLET 0 BECAUSE THAT IS THE ONE THE BROWSER OPENS. Every wallet, including this one,
  *    comes out of `wallet_seed_for` — there is no special case for the first — so the index is the
  *    whole of the difference between "the account's wallet" and somebody else's.
+ *
+ * ⛔ EXPORTED SO THE SIGNER CANNOT PICK ITS OWN. `extend-sign.ts` derives a keypair from the same
+ *    root and has to reach the SAME wallet as the address printed here; a second literal `0` over
+ *    there would be a second answer to a question with one right one, and the failure is silent —
+ *    a signature from an address nobody funded. `extend-sign.test.ts` compares the two.
  */
-const BUILT_IN_WALLET_INDEX = 0;
+export const BUILT_IN_WALLET_INDEX = 0;
 
 /**
  * How many base units make one coin. SUI counts in MIST and WAL counts in FROST; both are 1e9.

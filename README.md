@@ -26,13 +26,36 @@ Two consequences worth knowing before you start:
   including NMTS, from opening them.
 
 There are two ways to pay: **credits**, where NMTS's treasury buys the storage and your account
-spends credits it already holds, or **your own Sui wallet**, which the browser app uses. This tool
-uses the credit path.
+spends credits it already holds, or **your own Sui wallet**, which signs the purchase itself on a
+public chain. Uploading here always uses credits. One command uses the wallet — `nmts extend`,
+which buys more time for a file that is already stored — and it asks for a separate agreement
+before it signs, because a signed purchase is not something NMTS can reverse.
 
 ## Install
 
-From the source. Node 22 or newer; nothing is compiled at install time, and the encryption engine
-is in the repository, so there is nothing else to fetch.
+Node 22 or newer. One line, straight from this repository:
+
+```sh
+npm install -g github:needmoretruth/nmts-cli
+nmts --help
+```
+
+That clones this repository and builds it on your machine. To pin a version instead of tracking
+the default branch, name a tag:
+
+```sh
+npm install -g github:needmoretruth/nmts-cli#v0.2.0
+```
+
+Every [release](https://github.com/needmoretruth/nmts-cli/releases) also carries a `.tgz` of the
+same package, for installing without a clone — the URL of that file works in place of the name
+above.
+
+**It is not on a package registry, and `npm install -g nmts` will not find it.** That name is
+unclaimed; nothing is published under it. If that changes, this section will say so and name the
+command. Nothing else about installing changes: the repository stays the source either way.
+
+To work on it rather than install it:
 
 ```sh
 git clone https://github.com/needmoretruth/nmts-cli
@@ -41,15 +64,13 @@ npm install
 node src/main.ts --help
 ```
 
-It is not on a package registry yet. When it is, this section will say so and name the command
-that installs it.
+`npm install` also builds `dist/`, and `node dist/main.js` runs the built version — the same
+output the installed command runs.
 
-`npm run build` produces `dist/`, and `node dist/main.js` runs the built version — that is the
-same output a published package would carry.
-
-**Node 22 or newer.** Plain JavaScript, no native build step, no compiler — it runs wherever Node
-runs: Linux, macOS, Windows, and inside a rootless container. Starting it costs about 80
-milliseconds, and commands load only what they need.
+**Nothing is compiled by a C compiler and there is no native build step**: the TypeScript is
+compiled to JavaScript, and the encryption engine is a WebAssembly module already in the
+repository. It runs wherever Node runs — Linux, macOS, Windows, and inside a rootless container.
+Starting it costs about 80 milliseconds, and commands load only what they need.
 
 ## First run
 
@@ -147,6 +168,11 @@ It cannot be rotated while keeping the account.
 | `nmts login` / `logout` | Keep or remove an account code on this machine |
 | `nmts whoami` | Which account the stored code belongs to — offline, no server call |
 | `nmts expiring` | Which files run out of bought storage soon, and when |
+| `nmts extend <path>` | Buy more storage time for one file — **signs and spends from the wallet** |
+| `nmts create` | Make a NEW account and print its code once. Nothing can print it again |
+| `nmts trial` | What is left of this week's free credits. `trial apply` asks for some |
+| `nmts recovery-list` | Write the file that finds this account's bytes without NMTS |
+| `nmts kit` | Recovery kit: that list **and the account code**, together in one file |
 | `nmts sweep` | Drop trash entries past their 30 days. **Cannot be undone** — asks every run |
 | `nmts consent` | What this machine has agreed to |
 | `nmts ls` | List the files |
@@ -359,14 +385,15 @@ whether the directory it would write to survives the container being removed.
 
 ## What it stops to ask about
 
-Four things, once per machine: **spending credits**, **storing the account code unsealed**, **using
-it from a plain environment variable**, and **signing with the wallet**. Each prints what would
-happen, what could go wrong, and the one command that agrees.
+Five things, once per machine: **spending credits**, **storing the account code unsealed**, **using
+it from a plain environment variable**, **giving another account one of your files**, and
+**signing with the wallet**. Each prints what would happen, what could go wrong, and the one
+command that agrees.
 
-Three of the four can happen today. **No command in this version signs anything with the wallet**,
-so nothing has ever asked for that one. It is listed because the ladder is meant to stay the same
-shape under somebody who has already read it — a key that appears the day the first signing
-command does is a key nobody notices.
+The last of those belongs to one command: `nmts extend`, which buys more storage time for a file
+that is already stored. Everything else here is paid for with credits, which NMTS issues and can
+put right; that one signs a purchase on a public chain, and nobody — NMTS included — can reverse
+it. That is why it has an agreement of its own rather than sharing the one for spending.
 
 Nothing else asks *once per machine*. One command asks *every run* instead: `nmts sweep`, which
 drops trash entries whose thirty days have run out. That destroys this account's copy of the key

@@ -125,7 +125,8 @@ export async function wallet(what: string | undefined, options: WalletOptions = 
     say(`  exits non-zero when it happens — so nothing driving it reads a missing number as an`);
     say(`  empty wallet.`);
   }
-  say(`  Nothing here signs or spends. No command in this tool signs anything.`);
+  say(`  Nothing here signs or spends. \`${BINARY_NAME} extend\` is the one command that signs, and it`);
+  say(`  asks for a separate agreement before it does.`);
   return exitCodeFor(balances);
 }
 

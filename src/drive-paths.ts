@@ -87,6 +87,26 @@ export function fullPathOf(index: ManifestIndex, entry: ManifestEntry): string {
  *    folded to one form; what gets STORED is untouched, because the name belongs to whoever wrote
  *    it.
  */
+/**
+ * Strip a folder's own path off one of its descendants, in DRIVE terms.
+ *
+ * ⛔ IT IS STRING ARITHMETIC AND NOT `node:path`. A drive path always uses `/`, whatever separator
+ *    the machine reading it happens to use, and `path.relative` answers in the MACHINE's
+ *    separator. On Windows that turned `deep/under.txt` into `deep\under.txt`, which the
+ *    containment check downstream then refused as a name trying to leave its directory — so
+ *    fetching a folder failed outright on one of the three platforms this tool ships for, and
+ *    every test passed, because on the other two the two separators are the same character.
+ *    ⚠ That is the whole class: a drive path and a path on this disk are different kinds of thing,
+ *    and `node:path` is only ever right about the second.
+ *
+ * A path that is not under the prefix comes back unchanged — the caller decides what that means.
+ */
+export function underPrefix(prefix: string, drivePath: string): string {
+  if (prefix === "") return drivePath;
+  const head = prefix.endsWith("/") ? prefix : `${prefix}/`;
+  return drivePath.startsWith(head) ? drivePath.slice(head.length) : drivePath;
+}
+
 export function normalisePath(input: string): string {
   const stripped = input.replace(/^\.?\/+/u, "").replace(/\/+$/u, "").normalize("NFC");
   // A bare "." is where you already are — the top of the drive, not a folder called ".".

@@ -33,6 +33,7 @@ import {
   KIND_FOLDER,
   normalisePath,
   type ManifestIndex,
+  underPrefix,
 } from "../drive-paths.ts";
 import { NmtsError } from "../errors.ts";
 import { readFileList } from "../manifest.ts";
@@ -96,7 +97,7 @@ export async function pull(target: string | undefined, options: PullOptions = {}
   const outcomes: Outcome[] = [];
   for (const entry of wanted) {
     const drivePath = fullPathOf(index, entry);
-    const local = safeJoin(base, prefix === "" ? drivePath : relative(prefix, drivePath));
+    const local = safeJoin(base, underPrefix(prefix, drivePath));
     if (existsSync(local) && options.force !== true) {
       outcomes.push({ path: drivePath, bytes: entry.size, state: "skipped" });
       continue;

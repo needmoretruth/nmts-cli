@@ -196,8 +196,12 @@ export async function readEpochWindow(network: string): Promise<EpochClock | nul
  * `epoch_state` is a tagged union and only its settled variant carries the moment. Read by name
  * rather than cast: a shape change in the protocol has to surface as "no anchor", which costs the
  * caller precision, instead of as a NaN that becomes a date.
+ *
+ * ⛔ EXPORTED SO THERE IS ONE OF IT. `extend-chain.ts` reads the same two states for a different
+ *    reason and needs the same anchor; a second copy of this narrowing would be a second answer to
+ *    "has this epoch settled", and the two would drift the day the protocol renames the variant.
  */
-function epochStartedMs(epochState: unknown): number | null {
+export function epochStartedMs(epochState: unknown): number | null {
   if (typeof epochState !== "object" || epochState === null) return null;
   if (Reflect.get(epochState, "$kind") !== "EpochChangeDone") return null;
   const at = Number(Reflect.get(epochState, "EpochChangeDone"));

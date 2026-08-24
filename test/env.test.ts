@@ -1,7 +1,7 @@
 // What `nmts env` measures, and the pipe behaviour every command depends on.
 
 import { strict as assert } from "node:assert";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -116,15 +116,32 @@ test("a container is told its config directory does not survive removal", () => 
   );
 });
 
-test("⛔ a closed pipe ends the run quietly — `nmts ls | head` is an ordinary thing to do", async () => {
+test("⛔ a closed pipe ends the run quietly — piping this output somewhere is ordinary", async () => {
   // Without this, Node turns EPIPE into a fatal error and the caller reads a stack trace where
   // the answer should be. An agent piping this anywhere would conclude the tool is broken.
   //
-  // ⛔ `env`, NOT `--help`. The help text is written in ONE call and fits inside the pipe buffer,
-  //    so it never reaches a closed pipe and a test using it passes with the handler removed —
-  //    measured. `env` writes a line at a time, which is what actually meets the closed pipe.
-  const { stdout, stderr } = await run("/bin/sh", ["-c", `node ${MAIN} env | head -2`]);
-  assert.match(stdout, /system/);
-  assert.doesNotMatch(stderr, /EPIPE/);
+  // ⛔ THE PIPE IS CLOSED FROM HERE, NOT BY A SHELL. This used to run `/bin/sh -c "… | head -2"`,
+  //    which meant the one test of a platform-independent behaviour could only run where `/bin/sh`
+  //    and `head` exist — so on Windows it did not fail, it errored, and this tool ships for
+  //    Windows. Closing the read end from this process produces the same EPIPE at the child and
+  //    needs nothing from the machine it runs on.
+  //
+  // ⛔ AND IT IS CLOSED BEFORE THE CHILD WRITES, not after the first chunk. `env` prints little
+  //    enough to arrive in ONE chunk, so a version of this test that waited for that chunk and
+  //    then closed had already let the whole run finish — it stayed green with the handler
+  //    deleted, which is the shape of a test that holds nothing. Measured, not assumed.
+  const child = spawn(process.execPath, [MAIN, "env"], { stdio: ["ignore", "pipe", "pipe"] });
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk: string) => (stderr += chunk));
+  child.stdout.destroy();
+  const code = await new Promise<number | null>((done) => child.once("close", (c) => done(c)));
+  assert.doesNotMatch(stderr, /EPIPE/, "the tool reported a broken pipe as a fault");
   assert.doesNotMatch(stderr, /Unhandled/);
+  assert.equal(code, 0, `a closed pipe ended the run with ${code}`);
+});
+
+test("and it does print what it was asked for when somebody is reading", async () => {
+  const { stdout } = await run(process.execPath, [MAIN, "env"]);
+  assert.match(stdout, /system/);
 });

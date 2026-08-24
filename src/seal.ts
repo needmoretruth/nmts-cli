@@ -13,7 +13,10 @@ import { createHash } from "node:crypto";
 import type { CryptoGlue } from "./crypto.ts";
 import { AAD } from "./crypto.ts";
 import { NmtsError } from "./errors.ts";
-import { sealedLenFor as sealedLength } from "./shared/lib/crypto/size-padding.ts";
+import {
+  chunkCount,
+  sealedLenFor as sealedLength,
+} from "./shared/lib/crypto/size-padding.ts";
 
 /**
  * How much of a file goes into ONE part, unless the caller says otherwise.
@@ -53,6 +56,43 @@ export function sealedLenFor(plaintextLen: number): number {
     throw new NmtsError(`A plaintext length must be a non-negative whole number: ${plaintextLen}.`);
   }
   return sealedLength(plaintextLen, NCF3_SHAPE);
+}
+
+/**
+ * The plaintext length a sealed part of this size was sealed FROM.
+ *
+ * ⛔ WHY THE INVERSE EXISTS. The server is told what a part OCCUPIES and nothing about the file
+ *    behind it, and it is the only number it can serve back. A recovery list records the length
+ *    the stored stream DECLARES, because that is what a reader checks the fetched header against —
+ *    so somewhere the one number has to become the other, and this is that place. It sits beside
+ *    the forward arithmetic rather than in a module of its own so that the two can never be
+ *    changed apart.
+ *
+ * ⛔ IT REFUSES RATHER THAN ROUNDS. Every reachable sealed length has exactly one plaintext length
+ *    behind it, and the lengths between them are not reachable at all — a stream of n chunks ends
+ *    where the next one's first tag would begin. The one caller that matters is the recovery
+ *    list's own integrity check, where a lenient answer would be the failure it exists to catch.
+ *
+ * ⚠ RESTATED FROM `web/src/lib/crypto/sealed-size.ts::plaintextLenFromSealed`, which this package
+ *   cannot import (zero imports across the two trees). Only the SEARCH is restated: each candidate
+ *   is confirmed with `chunkCount` from the shared byte-for-byte copy, so the formula itself still
+ *   lives in one file.
+ */
+export function plaintextLenFromSealed(sealedLen: number): number {
+  if (!Number.isSafeInteger(sealedLen)) {
+    throw new NmtsError(`A sealed length must be a whole number: ${sealedLen}.`);
+  }
+  const body = sealedLen - NCF3_SHAPE.headerLen;
+  const per = NCF3_SHAPE.chunkSize + NCF3_SHAPE.tagLen;
+  // Chunk counts grow with the length, so the right one is within a step of this estimate; each
+  // candidate is checked against the forward formula rather than trusted.
+  const estimate = Math.max(1, Math.ceil((body - NCF3_SHAPE.tagLen) / per));
+  for (const chunks of [estimate - 1, estimate, estimate + 1]) {
+    if (chunks < 1) continue;
+    const plaintext = body - NCF3_SHAPE.tagLen * chunks;
+    if (plaintext >= 0 && chunkCount(plaintext, NCF3_SHAPE) === chunks) return plaintext;
+  }
+  throw new NmtsError(`${sealedLen} is not a length any NCF-3 stream can have.`);
 }
 
 /** Everything an upload needs about one file, and nothing that identifies it. */

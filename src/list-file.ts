@@ -23,9 +23,7 @@
 //      the field's own contract — a claim the writer makes about itself — and a person holding two
 //      copies of one account's list can then tell which program wrote each.
 
-import { AAD } from "./crypto.ts";
-import { HOME_URL, VERSION } from "./product.ts";
-import { RECOVERY_TOOL, RECOVERY_TOOL_URL } from "./recovery-release.ts";
+import { artifactAbout, WRITTEN_BY, type ArtifactAbout } from "./artifact-about.ts";
 
 /** Wrapper format identifier, distinct from the recovery list's. */
 export const LIST_FILE_FORMAT = "nmts-file-list";
@@ -34,22 +32,11 @@ export const LIST_FILE_VERSION = 1;
 /** Filename extension. Deliberately not the recovery list's: the two must not be confusable. */
 export const LIST_FILE_EXTENSION = "nmtslist";
 
-/** The product these artefacts come from, spelled as the format carries it. */
-const PRODUCT = "NMTS";
-// ⚠ The program's name and its address are NOT written here. They are the recovery release's own
-//   names and they live with it (`recovery-release.ts`), because `nmts recovery` builds download
-//   addresses out of the same two strings — a second copy would let a rename reach the downloader
-//   and not this file's header, or the other way round.
-/** Where the envelope format is written down, in the copy anybody can reach. */
-const CRYPTO_SPEC_URL = `${RECOVERY_TOOL_URL}/blob/main/docs/CRYPTO-FORMAT-NCF3.md`;
-
-/**
- * Which build wrote the file.
- *
- * ⚠ A CLAIM, NEVER A REQUIREMENT. No reader can check it, and none should refuse a file over it.
- *   It is here to save a person a search when they are holding a file and wondering what made it.
- */
-export const WRITTEN_BY = `nmts-cli ${VERSION}`;
+// ⚠ THE HEADER BLOCK IS NOT SPELLED HERE. Three artefacts carry the same one — this file, the
+//   recovery list and the recovery kit — and it is built in `artifact-about.ts` so that a renamed
+//   program or a moved document reaches all three. `WRITTEN_BY` is re-exported because it is the
+//   value this wrapper puts in `app_version`, and a test reads it from here.
+export { WRITTEN_BY };
 
 /** Plain-language lines for whoever finds this file with no idea what it is. */
 const NOTE: readonly string[] = [
@@ -60,24 +47,6 @@ const NOTE: readonly string[] = [
   `It does not replace the recovery list: storage-network addresses live only in the recovery ` +
     `list. Keep both, somewhere other than the account code.`,
 ];
-
-/** What the wrapper says about itself, for a program rather than a person. */
-interface ArtifactAbout {
-  product: string;
-  product_url: string;
-  app_version: string;
-  artifact: string;
-  tool: string;
-  tool_url: string;
-  spec_url: string;
-  sealed: {
-    format: string;
-    context: string;
-    encoding: string;
-    opened_with: string;
-    spec_url: string;
-  };
-}
 
 /** The on-disk document. */
 export interface FileListFile {
@@ -122,25 +91,7 @@ export function buildFileListFile(input: BuildListFileInput): { filename: string
     account_id: input.accountId,
     sealed: input.sealed,
     note: [...NOTE],
-    about: {
-      product: PRODUCT,
-      product_url: HOME_URL,
-      app_version: WRITTEN_BY,
-      artifact: "file-list",
-      tool: RECOVERY_TOOL,
-      tool_url: RECOVERY_TOOL_URL,
-      spec_url: CRYPTO_SPEC_URL,
-      sealed: {
-        format: "ncf3",
-        // The domain separator the envelope was sealed under. Not a secret and not a key: it is
-        // the string a re-implementation has to pass to the same function, and one that guesses it
-        // wrong gets an authentication failure with nothing to explain it.
-        context: AAD.fileList,
-        encoding: "base64url",
-        opened_with: "nmts-account-code",
-        spec_url: CRYPTO_SPEC_URL,
-      },
-    },
+    about: artifactAbout("file-list"),
   };
   const slug = input.accountId.replace(/[^A-Za-z0-9]/g, "").slice(0, 8) || "account";
   return {

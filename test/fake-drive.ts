@@ -46,6 +46,24 @@ export interface FakeDrive {
    *   skips what it cannot parse.
    */
   expiringRaw: unknown;
+  /**
+   * What `GET /v1/items/{id}/extend-preview` answers, in the server's own spelling.
+   *
+   * ⚠ UNTYPED FOR THE SAME REASON `expiringRaw` IS: the shapes worth testing include the ones the
+   *   type forbids — a target with no object id, a count that arrives as a string — and a test
+   *   that could not build those could not fail for a reader that quietly skips what it cannot
+   *   parse. Null is "the server lists nothing to extend", which is a real answer.
+   */
+  extendPreview: unknown;
+  /** Every extension the tool reported, in the order it reported them. */
+  extendRecorded: { epochs: unknown; tx_digest: unknown }[];
+  /**
+   * Make recording an extension fail.
+   *
+   * ⛔ THE ONE FAILURE THIS HARNESS HAS TO BE ABLE TO PRODUCE. By the time that call is made the
+   *    storage is already bought, so what the tool says here decides whether somebody pays twice.
+   */
+  extendRecordFails: boolean;
   /** Every request the tool made, in order. */
   calls: string[];
   /** Every sealed list the tool successfully wrote. */
@@ -70,6 +88,9 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     expiring: [] as ExpiringRow[],
     truncated: false,
     expiringRaw: undefined as unknown,
+    extendPreview: null as unknown,
+    extendRecorded: [] as { epochs: unknown; tx_digest: unknown }[],
+    extendRecordFails: false,
     calls: [] as string[],
     written: [] as string[],
   };
@@ -114,6 +135,27 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     if (method === "GET" && url.startsWith("/v1/items/expiring")) {
       const items: unknown = state.expiringRaw === undefined ? state.expiring : state.expiringRaw;
       return json(200, { items, truncated: state.truncated });
+    }
+    if (method === "GET" && /^\/v1\/items\/[^/]+\/extend-preview$/.test(url)) {
+      const id = decodeURIComponent(url.split("/")[3] ?? "");
+      // Null means "nothing on this file can be extended" — the shape the real server sends for a
+      // file whose parts are all on treasury-paid storage.
+      return json(200, state.extendPreview ?? { item_id: id, targets: [], treasury_parts: 1, untracked_parts: 0 });
+    }
+    if (method === "POST" && /^\/v1\/items\/[^/]+\/extended$/.test(url)) {
+      let raw = "";
+      req.on("data", (c: Buffer) => (raw += c.toString("utf8")));
+      req.on("end", () => {
+        const body: unknown = raw === "" ? {} : JSON.parse(raw);
+        const at = (name: string): unknown =>
+          typeof body === "object" && body !== null ? Reflect.get(body, name) : undefined;
+        if (state.extendRecordFails) {
+          return json(500, { error: { code: "INTERNAL", message: "the note of it was not written" } });
+        }
+        state.extendRecorded.push({ epochs: at("epochs"), tx_digest: at("tx_digest") });
+        json(200, { parts_moved: 1, quilts_moved: 0, replay: false });
+      });
+      return;
     }
     if (method === "GET" && url.startsWith("/v1/objects")) {
       // Cursor paging exactly as the API does it: `after` names the last id of the page before.
@@ -166,6 +208,21 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     set expiringRaw(v: unknown) {
       state.expiringRaw = v;
     },
+    get extendPreview(): unknown {
+      return state.extendPreview;
+    },
+    set extendPreview(v: unknown) {
+      state.extendPreview = v;
+    },
+    get extendRecorded() {
+      return state.extendRecorded;
+    },
+    get extendRecordFails() {
+      return state.extendRecordFails;
+    },
+    set extendRecordFails(v: boolean) {
+      state.extendRecordFails = v;
+    },
     get calls() {
       return state.calls;
     },
@@ -198,6 +255,9 @@ export async function startFakeDrive(): Promise<FakeDrive> {
       state.expiring = [];
       state.truncated = false;
       state.expiringRaw = undefined;
+      state.extendPreview = null;
+      state.extendRecorded = [];
+      state.extendRecordFails = false;
       state.calls = [];
       state.written = [];
     },

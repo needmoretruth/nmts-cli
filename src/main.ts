@@ -27,7 +27,8 @@
 //    whole command surface can be driven from a test without ending the test runner.
 
 import { parseArgs } from "./args.ts";
-import { NmtsError, NotBuiltYetError, renderError, UNKNOWN_FAILURE_EXIT } from "./errors.ts";
+import { NmtsError, NotBuiltYetError, renderError } from "./errors.ts";
+import { endQuietlyOnClosedPipe, exitCodeFor, invokedDirectly } from "./exit.ts";
 import { helpText } from "./help.ts";
 import { BINARY_NAME, VERSION } from "./product.ts";
 
@@ -118,6 +119,36 @@ export async function run(argv: readonly string[]): Promise<number> {
     case "expiring": {
       const { expiring } = await import("./commands/expiring.ts");
       return await expiring({ server: args.server, network: args.network, json: args.json });
+    }
+    case "extend": {
+      const { extend } = await import("./commands/extend.ts");
+      return await extend(args.operands[0], {
+        server: args.server,
+        network: args.network,
+        epochs: args.epochs,
+        dryRun: args.dryRun,
+        yes: args.yes,
+        json: args.json,
+      });
+    }
+    case "create": {
+      const { create } = await import("./commands/create.ts");
+      return await create({
+        server: args.server,
+        network: args.network,
+        out: args.out,
+        acceptTerms: args.acceptTerms,
+        acceptPrivacy: args.acceptPrivacy,
+        json: args.json,
+      });
+    }
+    case "trial": {
+      const { trial } = await import("./commands/trial.ts");
+      return await trial(args.operands[0], {
+        server: args.server,
+        network: args.network,
+        json: args.json,
+      });
     }
     case "get": {
       const { get } = await import("./commands/get.ts");
@@ -292,6 +323,26 @@ export async function run(argv: readonly string[]): Promise<number> {
       const { recovery } = await import("./commands/recovery.ts");
       return await recovery({ out: args.out, force: args.force, json: args.json });
     }
+    case "recovery-list": {
+      const { recoveryList } = await import("./commands/recovery-list.ts");
+      return await recoveryList({
+        server: args.server,
+        network: args.network,
+        out: args.out,
+        force: args.force,
+        json: args.json,
+      });
+    }
+    case "kit": {
+      const { kit } = await import("./commands/kit.ts");
+      return await kit({
+        server: args.server,
+        network: args.network,
+        out: args.out,
+        force: args.force,
+        json: args.json,
+      });
+    }
     case "mcp": {
       const { mcp } = await import("./commands/mcp.ts");
       return await mcp({ server: args.server, network: args.network, out: args.out });
@@ -307,37 +358,6 @@ export async function run(argv: readonly string[]): Promise<number> {
   }
 }
 
-/** The exit code a failure asks for, or the generic one. */
-export function exitCodeFor(error: unknown): number {
-  if (error instanceof NmtsError) return error.exitCode;
-  return UNKNOWN_FAILURE_EXIT;
-}
-
-/**
- * Stop a closed pipe from becoming a crash.
- *
- * ⛔ `nmts ls | head` IS AN ORDINARY THING TO DO, and without this it prints a ten-line stack
- *    trace instead of the answer. `head` closes the pipe once it has its lines; the next write
- *    raises EPIPE, and Node turns an unhandled stream error into a fatal one. Every shell tool is
- *    expected to end quietly there — that is what SIGPIPE does for programs that do not intercept
- *    it — and an agent piping this into anything would otherwise read a crash and conclude the
- *    tool is broken.
- *
- * ⚠ ONLY EPIPE. A write that fails for any other reason is still a real failure and still throws;
- *   swallowing all stream errors would hide a full disk behind silence.
- */
-function endQuietlyOnClosedPipe(): void {
-  for (const stream of [process.stdout, process.stderr]) {
-    stream.on("error", (error: NodeJS.ErrnoException) => {
-      if (error.code === "EPIPE") {
-        process.exitCode = 0;
-        return;
-      }
-      throw error;
-    });
-  }
-}
-
 async function main(): Promise<void> {
   endQuietlyOnClosedPipe();
   try {
@@ -348,7 +368,6 @@ async function main(): Promise<void> {
   }
 }
 
-// Run only when this file is the program, so importing it from a test does nothing.
-if (process.argv[1] !== undefined && import.meta.filename === process.argv[1]) {
+if (invokedDirectly(import.meta.filename)) {
   await main();
 }

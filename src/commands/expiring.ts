@@ -14,9 +14,9 @@
 //    this command are the only two places an expiry warning ever appears, because NMTS holds no
 //    address to send one to.
 //
-// ⛔ AND IT BUYS NOTHING. Extending storage moves the person's own coins and is signed by their own
-//    wallet; there is no command here that signs. What this does is make the deadline visible in
-//    time for somebody to act on it.
+// ⛔ AND IT BUYS NOTHING. What this does is make the deadline visible in time for somebody to act
+//    on it. Acting on it is `nmts extend`, which spends from the person's own wallet and asks for
+//    its own agreement first — this command reads, and no amount of it costs anything.
 
 import { request } from "../api.ts";
 import { buildIndex, fullPathOf } from "../drive-paths.ts";
@@ -30,7 +30,7 @@ import {
   type ExpiryStage,
 } from "../expiry.ts";
 import { readFileList } from "../manifest.ts";
-import { HOME_URL } from "../product.ts";
+import { BINARY_NAME, HOME_URL } from "../product.ts";
 import { openSession } from "../session.ts";
 import { humanSize } from "../units.ts";
 
@@ -179,8 +179,9 @@ export async function expiring(options: ExpiringOptions = {}): Promise<number> {
   }
   say(``);
   say(
-    `Extending storage is paid for from your own wallet and signed on your own device, at ` +
-      `${HOME_URL}. No command in this tool signs anything.`,
+    `Extending storage is paid for from your own wallet and signed on this machine: ` +
+      `\`${BINARY_NAME} extend <path>\`, or the browser at ${HOME_URL}. It spends WAL rather than ` +
+      `credits, and it asks once before it signs.`,
   );
   return 0;
 }

@@ -56,6 +56,18 @@ export interface ParsedArgs {
   desc: boolean;
   /** `push`: include entries whose name begins with a dot. */
   hidden: boolean;
+  /** `extend`: how many of the storage network's epochs to add. */
+  epochs?: string;
+  /**
+   * `create`: the version of the Terms of Service a PERSON read and accepts for the new account.
+   *
+   * ⛔ IT IS A VALUE AND NOT A FLAG, so that what was accepted is on the command line rather than
+   *    implied by it. A tool that could accept "whatever is current" would be agreeing on behalf
+   *    of somebody who never saw a version number.
+   */
+  acceptTerms?: string;
+  /** `create`: the version of the Privacy Policy accepted in the same act. */
+  acceptPrivacy?: string;
 }
 
 /** Which field a value-taking option fills. */
@@ -68,6 +80,9 @@ const VALUE_OPTIONS = {
   "--part-size": "partSize",
   "--find": "find",
   "--sort": "sort",
+  "--epochs": "epochs",
+  "--accept-terms": "acceptTerms",
+  "--accept-privacy": "acceptPrivacy",
 } as const satisfies Record<string, keyof ParsedArgs>;
 
 /** Which field a flag sets to true. */

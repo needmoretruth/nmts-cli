@@ -57,6 +57,18 @@ export interface RequestOptions {
    *    that carries a bearer token is a way to send that token somewhere it was not meant to go.
    */
   idempotencyKey?: string;
+  /**
+   * Proof that this run holds the account code, for the three routes that ask for one.
+   *
+   * ⛔ A NAMED OPTION, FOR THE SAME REASON `idempotencyKey` IS ONE. A general header bag on a
+   *    client that carries a bearer token is a way to send that token somewhere it was not meant
+   *    to go; this is one field, filled by one module, and it reaches exactly one header.
+   *
+   * ⛔ ITS VALUE IS NEVER IN A MESSAGE, A URL OR A LOG. `account-proof.ts` says what it is and
+   *    what it can still do if it leaks. The server refuses to log it either — see
+   *    `ACCOUNT_PROOF_HEADER` in `api/src/auth/api_key_auth.rs`.
+   */
+  accountProof?: string;
 }
 
 /** What a caller does next about a refusal, when the tool knows something the message does not. */
@@ -115,6 +127,17 @@ function adviseFor(code: string): string | null {
         "the account screen at nmts.me and accept there. Other requests may still work in the " +
         "meantime."
       );
+    // ⛔ A KEY IS NOT ENOUGH HERE AND NEVER WILL BE. These routes rebuild what makes the account
+    //    recoverable without NMTS, and the owner's rule is that the code is re-entered for them.
+    //    An agent that reads this as "my key is wrong" starts making new keys, which is the one
+    //    remedy that cannot work.
+    case "ACCOUNT_PROOF_REQUIRED":
+      return (
+        "This request needs proof of the account code as well as the key, and what was sent was " +
+        "missing or did not match. Check that the code this machine is holding belongs to the " +
+        "same account as the key. Wrong attempts are counted, and three of them lock these " +
+        "routes for a while."
+      );
     case "ACCOUNT_BANNED":
       return "This account is suspended. Nothing here will succeed until that is lifted.";
     case "CREDITS_SHORT":
@@ -149,6 +172,9 @@ export async function request(base: string, path: string, options: RequestOption
   if (body !== undefined) headers["content-type"] = "application/json";
   if (token !== undefined && token.length > 0) headers["authorization"] = `Bearer ${token}`;
   if (options.idempotencyKey !== undefined) headers["idempotency-key"] = options.idempotencyKey;
+  // ⛔ THE HEADER NAME IS THE SERVER'S, spelled once. It is enforced inside `from_request_parts`,
+  //    which sees headers and never a body — which is why the proof is a header and not a field.
+  if (options.accountProof !== undefined) headers["x-nmts-account-proof"] = options.accountProof;
 
   let response: Response;
   try {

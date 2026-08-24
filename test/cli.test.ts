@@ -226,3 +226,30 @@ test("⛔ login refuses a mistyped code offline instead of storing it", async ()
     s.clean();
   }
 });
+
+test("⛔ the command still runs when it is reached through a symlink, which is how it is installed", async () => {
+  // ⛔ THIS IS WHAT `npm install -g` ACTUALLY DOES. It does not copy the command onto your PATH —
+  //    it puts a symlink there pointing into the installed package. Node then loads the module by
+  //    its REAL path, so `import.meta.filename` and `process.argv[1]` are two different strings,
+  //    and the guard at the bottom of `main.ts` used to compare them directly.
+  //
+  // ⛔ THE FAILURE IT CATCHES IS SILENCE, NOT A CRASH. With that guard, an installed `nmts
+  //    --version` printed nothing and exited 0 — and so did every other command. Exit 0 with no
+  //    output is the one failure an agent cannot act on: it reads success. Measured against a real
+  //    global install before this test existed, and proved red by comparing the two paths again.
+  //
+  // ⚠ IT LINKS THE SOURCE, NOT THE BUILT FILE. `dist/` is not there until somebody builds, and a
+  //   test that quietly passes when the thing it links is missing would be worse than no test.
+  //   The mismatch it reproduces is the same one either way: the link's path is not the file's.
+  const { mkdtempSync, symlinkSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(join(tmpdir(), "nmts-symlink-"));
+  const link = join(dir, "nmts-as-installed.ts");
+  try {
+    symlinkSync(MAIN, link);
+    const { stdout } = await run(process.execPath, [link, "--version"], { env: { ...process.env } });
+    assert.match(stdout, /^\d+\.\d+\.\d+\n$/, "the installed command printed nothing at all");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

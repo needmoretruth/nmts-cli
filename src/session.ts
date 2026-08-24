@@ -7,7 +7,12 @@
 
 import { requireAccountCode } from "./code-access.ts";
 import { identityOf } from "./account.ts";
-import { API_KEY_ENV_VAR, readCredentialsFile, resolveApiKey } from "./credentials.ts";
+import {
+  API_KEY_ENV_VAR,
+  readCredentialsFile,
+  resolveApiKey,
+  type CredentialSource,
+} from "./credentials.ts";
 import { NmtsError } from "./errors.ts";
 import { resolveNetwork } from "./network.ts";
 import { BINARY_NAME } from "./product.ts";
@@ -16,6 +21,16 @@ import { resolveServer } from "./server.ts";
 export interface Session {
   /** The account code. ⛔ Held for the command's own work and never written anywhere. */
   code: string;
+  /**
+   * Where this machine got that code from.
+   *
+   * ⛔ CARRIED BECAUSE ONE THING A COMMAND DOES WITH THE CODE STILL NEEDS AN AGREEMENT. Sending
+   *    the account proof (`account-proof.ts`) is that thing, and the agreement it asks for —
+   *    `plain-env` — is about WHERE the code came from, not what is being done with it. A session
+   *    that dropped this would leave the deciding module unable to tell a sealed stored code from
+   *    an environment variable, and its only options would be to ask always or to ask never.
+   */
+  source: CredentialSource;
   apiKey: string;
   server: string;
   network: string;
@@ -54,5 +69,12 @@ export async function openSession(options: {
   const server = resolveServer(options.server ?? stored?.server);
   const network = resolveNetwork(server, options.network ?? stored?.network);
   const identity = await identityOf(resolved.code);
-  return { code: resolved.code, apiKey, server, network, accountId: identity.accountId };
+  return {
+    code: resolved.code,
+    source: resolved.source,
+    apiKey,
+    server,
+    network,
+    accountId: identity.accountId,
+  };
 }

@@ -1,13 +1,15 @@
 // Does every consent key this tool DECLARES actually stop something?
 //
-// ⛔ THE DOCUMENTATION COUNTED FOUR AND THE CODE ENFORCED THREE. `wallet` has been declared since
-//    the ladder was written, `nmts consent` prints it, and both README and AGENTS.md describe a
-//    tool that stops to ask before signing — while no line anywhere calls `requireConsent`
-//    for it, because no command signs anything yet. Nobody was misled into danger by that; the
-//    danger is the other direction. A key that is declared and never enforced teaches a reader
-//    that the ladder is a list of topics rather than a list of gates, and the day a signing
-//    command lands, "wallet is already in the ladder" is exactly the sentence that lets it ship
-//    without one.
+// ⛔ THE DOCUMENTATION COUNTED FOUR AND THE CODE ENFORCED THREE. `wallet` was declared when the
+//    ladder was written, `nmts consent` printed it, and the documentation described a tool that
+//    stops to ask before signing — while no line anywhere called `requireConsent` for it, because
+//    nothing signed. Nobody was misled into danger by that; the danger is the other direction. A
+//    key that is declared and never enforced teaches a reader that the ladder is a list of topics
+//    rather than a list of gates, and the day a signing command lands, "wallet is already in the
+//    ladder" is exactly the sentence that lets it ship without one.
+//    ⭐ THAT DAY HAS COME: `nmts extend` signs, it calls for `wallet`, and the exemption that said
+//      nothing signs was deleted in the same change. The list below is empty now, and the second
+//      test keeps it honest — an exemption that has stopped being true reads as a decision.
 //
 // ⛔ SO THE GATE COMPARES SETS, NOT COUNTS. A count is satisfied by any four things; a set is
 //    satisfied only by the right four. Declaring a key without enforcing it stays possible —
@@ -33,12 +35,7 @@ const SRC = join(fileURLToPath(new URL("../src", import.meta.url)));
  * ⛔ A REASON, NOT A NAME. An allowlist of bare names is a list of things somebody once decided
  *    to ignore; a reason is something the next reader can check and delete.
  */
-const DECLARED_WITHOUT_A_CALLER: Partial<Record<ConsentKey, string>> = {
-  wallet:
-    "No command signs a chain transaction yet. The key is declared so that the command which " +
-    "does cannot be written without one, and so the ladder does not change shape under a person " +
-    "who has already read it. Delete this line in the same change that adds the first signer.",
-};
+const DECLARED_WITHOUT_A_CALLER: Partial<Record<ConsentKey, string>> = {};
 
 /** Every `.ts` file the tool itself is made of — not the copied browser library, not the tests. */
 function sources(dir: string): string[] {
@@ -58,7 +55,18 @@ function sources(dir: string): string[] {
 function enforcedKeys(): Set<string> {
   const found = new Set<string>();
   for (const file of sources(SRC)) {
-    const text = readFileSync(file, "utf8");
+    // ⛔ COMMENT LINES ARE DROPPED FIRST, and that is not tidiness. Every module that asks for a
+    //    key explains itself in a header, and those headers quote the call — so with the whole
+    //    file scanned, DELETING the only real call left this gate green because the paragraph
+    //    describing it still matched. Measured while the first signing command landed: the call
+    //    was removed from `commands/extend.ts` and every test here went on passing.
+    //
+    // ⚠ It is still text, not a parse. A call inside a string literal would count, and a call
+    //   that exists on a path nothing reaches would count too — see the header.
+    const text = readFileSync(file, "utf8")
+      .split("\n")
+      .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+      .join("\n");
     for (const m of text.matchAll(/requireConsent\(\s*"([^"]+)"/gu)) {
       const key = m[1];
       if (key !== undefined) found.add(key);
