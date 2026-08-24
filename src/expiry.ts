@@ -18,15 +18,32 @@
 //    the number alone would put "we do not know" at the top of a list headed "about to be lost".
 //    `stageOf` answers `unrecorded` for those and the caller keeps them apart.
 //
-// ⚠ THE BROWSER HOLDS THE SAME RULES, and the four thresholds below are machine-compared against
-//   its copies. The arithmetic around them is a second implementation rather than the copied
-//   module every other shared rule in this package uses: the browser's lives in a file that also
-//   imports its wallet client, which cannot follow it into a command-line package.
+// ⛔ THE ARITHMETIC IS NOT WRITTEN HERE ANY MORE (2026-08-24). It used to be a second
+//    implementation of the browser's, with only the four thresholds machine-compared — and a
+//    compared VALUE does not stop two programs computing different answers from it. The browser's
+//    copy lived in a file that also imports its wallet client, which cannot follow into a
+//    command-line package, so the pure half was split out there and is copied here byte for byte
+//    (`shared/lib/extend/epochs.ts`). What is left in this file is the part the browser has no use
+//    for: a validated clock, the stage a file is in, the cutoff to ask the server about, and the
+//    words a person reads.
 //
 // PURE: no network, no SDK, no clock of its own — `nowMs` is always passed in. That is what lets
 // `node --test` drive the branches a real network only reaches during an epoch change.
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+import {
+  daysLeftUntilEpoch as sharedDaysLeftUntilEpoch,
+  NOTICE_DAYS,
+  NOTICE_EPOCHS,
+  URGENT_DAYS,
+  URGENT_EPOCHS,
+  warningEpochs as sharedWarningEpochs,
+  type DaysLeft,
+} from "./shared/lib/extend/epochs.ts";
+
+// ⛔ Re-exported under the same names: a caller has no reason to know which of the two files a
+//    threshold came from, and making it know would be a second thing to keep in step.
+export { NOTICE_DAYS, NOTICE_EPOCHS, URGENT_DAYS, URGENT_EPOCHS };
+export type { DaysLeft };
 
 /** Where the storage network's clock stands. Built by `epochClock`, never assembled by hand. */
 export interface EpochClock {
@@ -57,25 +74,6 @@ export function epochClock(
 }
 
 /**
- * Warn from here on, in two stages: a plain note, then an urgent one.
- *
- * Each stage is a floor in DAYS and a floor in EPOCHS, and the wider one wins (`warningEpochs`).
- * Counted in days alone, a fourteen-day epoch makes the whole warning exactly one epoch wide, so
- * somebody who runs this monthly never sees it. Counted in epochs alone, a one-day epoch shrinks
- * the same warning from fourteen days to three.
- *
- * ⛔ They must match the browser's, which draws the same warning over the same files for the same
- *    account: `web/src/lib/extend/chain.ts::NOTICE_DAYS`,
- *    `web/src/lib/extend/chain.ts::NOTICE_EPOCHS`, `web/src/lib/extend/chain.ts::URGENT_DAYS` and
- *    `web/src/lib/extend/chain.ts::URGENT_EPOCHS`. Two tools disagreeing about when a file is in
- *    danger is worse for the person than either threshold on its own.
- */
-export const NOTICE_DAYS = 14;
-export const NOTICE_EPOCHS = 3;
-export const URGENT_DAYS = 3;
-export const URGENT_EPOCHS = 1;
-
-/**
  * How far ahead a warning stage reaches, in epochs: a floor in days and a floor in epochs, wider
  * one wins.
  *
@@ -83,15 +81,7 @@ export const URGENT_EPOCHS = 1;
  * exists to prevent.
  */
 export function warningEpochs(clock: EpochClock, days: number, floorEpochs: number): number {
-  return Math.max(Math.ceil((days * DAY_MS) / clock.durationMs), floorEpochs);
-}
-
-/** Whole days until a term ends, and whether that number is a measurement or a lower bound. */
-export interface DaysLeft {
-  /** Rounded DOWN. Negative is a real answer: the epoch is already behind us. */
-  days: number;
-  /** False ⇒ `days` is a floor and the words beside it must say so. */
-  exact: boolean;
+  return sharedWarningEpochs(days, floorEpochs, clock.durationMs);
 }
 
 /**
@@ -101,11 +91,16 @@ export interface DaysLeft {
  * earliest the epoch can arrive — see the header for why the other edge is never used.
  */
 export function daysLeftUntilEpoch(clock: EpochClock, epoch: number, nowMs: number): DaysLeft {
-  const ahead = epoch - clock.current;
-  if (clock.startedMs !== null) {
-    return { days: Math.floor((clock.startedMs + ahead * clock.durationMs - nowMs) / DAY_MS), exact: true };
+  const left = sharedDaysLeftUntilEpoch(epoch, clock, nowMs);
+  // ⛔ THE SHARED FUNCTION ANSWERS `null` FOR A CLOCK IT CANNOT DIVIDE BY, and this one cannot
+  //    hand that back: every caller here is already past `epochClock`, which refuses such a clock
+  //    at the boundary — that is the whole reason `EpochClock` is a type you cannot assemble by
+  //    hand. So `null` here would mean the validator and the arithmetic disagree about what a
+  //    usable clock is, and a wrong number of days on a screen about deletion is worse than a stop.
+  if (left === null) {
+    throw new Error("the storage network's clock passed validation and then could not be counted with");
   }
-  return { days: Math.floor(((ahead - 1) * clock.durationMs) / DAY_MS), exact: false };
+  return left;
 }
 
 /**
