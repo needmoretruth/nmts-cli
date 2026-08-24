@@ -23,6 +23,7 @@ const VALUE_OPTIONS = {
     "--find": "find",
     "--sort": "sort",
     "--epochs": "epochs",
+    "--port": "port",
     "--accept-terms": "acceptTerms",
     "--accept-privacy": "acceptPrivacy",
 };

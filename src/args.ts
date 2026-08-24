@@ -58,6 +58,8 @@ export interface ParsedArgs {
   hidden: boolean;
   /** `extend`: how many of the storage network's epochs to add. */
   epochs?: string;
+  /** `s3`: which loopback port the gateway listens on. */
+  port?: string;
   /**
    * `create`: the version of the Terms of Service a PERSON read and accepts for the new account.
    *
@@ -81,6 +83,7 @@ const VALUE_OPTIONS = {
   "--find": "find",
   "--sort": "sort",
   "--epochs": "epochs",
+  "--port": "port",
   "--accept-terms": "acceptTerms",
   "--accept-privacy": "acceptPrivacy",
 } as const satisfies Record<string, keyof ParsedArgs>;

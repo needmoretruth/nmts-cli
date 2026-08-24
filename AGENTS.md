@@ -171,7 +171,8 @@ nmts mv <path> <folder>  move one thing into a folder. `/` is the top of the dri
 nmts rename <path> <n>   give one thing a new name
 nmts verify              ask a person to pass the check that opens this account's limits
 nmts update              install the newest published release of THIS TOOL. See below
-nmts mcp                 serve ls, get and put as MCP tools on stdin/stdout
+nmts mcp                 serve this account's commands as MCP tools on stdin/stdout
+nmts s3                  serve the drive to any S3 program, on this machine only. Read only
 nmts --help              the current list
 nmts --version           the version
 ```
@@ -288,6 +289,23 @@ format, so that a person needs one thing rather than two, and it means whoever h
 holds the account and the wallet. Both refuse to write a partial artefact: if anything does not
 reconcile, nothing is written and the reason is printed. ⛔ **Do not make either one as part of
 some other task, and do not put a kit anywhere the person did not name.**
+
+## `nmts s3` hands the drive to a program that speaks S3
+
+It starts a server on this machine's loopback address that answers the S3 protocol, so a tool that
+already knows S3 — rclone, the AWS CLI, a backup program — can list and download this account's
+files without knowing anything about NMTS.
+
+- **The bucket is `drive` and a key is the file's path**, `photos/a.jpg`. Folders come back as
+  common prefixes.
+- **The credentials it prints are made at start and stored nowhere.** Give them to the tool you are
+  driving; they stop working when the command stops.
+- **It is read only.** Uploads and deletes answer `501 NotImplemented`. A tool that reports a
+  successful backup over this is reporting one that did not happen.
+- **It runs until it is stopped.** Start it in the background of the task that needs it and stop it
+  when that task is over; do not leave it running because it might be useful later.
+- ⛔ **The address cannot be changed.** If a task needs the drive reachable from another machine,
+  that is not what this is, and there is nothing here to configure toward it.
 
 ## `nmts update` replaces the program you are running
 

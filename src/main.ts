@@ -351,6 +351,10 @@ export async function run(argv: readonly string[]): Promise<number> {
       const { mcp } = await import("./commands/mcp.ts");
       return await mcp({ server: args.server, network: args.network, out: args.out });
     }
+    case "s3": {
+      const { s3 } = await import("./commands/s3.ts");
+      return await s3({ server: args.server, network: args.network, port: args.port, json: args.json });
+    }
     default:
       if (NOT_BUILT_YET.includes(args.command)) {
         throw new NotBuiltYetError(`\`${args.command}\``);

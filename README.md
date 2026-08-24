@@ -43,7 +43,7 @@ nmts --help
 That takes the default branch. To pin a version, name a tag:
 
 ```sh
-npm install -g github:needmoretruth/nmts-cli#v0.3.2
+npm install -g github:needmoretruth/nmts-cli#v0.4.0
 ```
 
 Or from the tarball on the [latest release](https://github.com/needmoretruth/nmts-cli/releases),
@@ -232,6 +232,7 @@ It cannot be rotated while keeping the account.
 | `nmts wallet` | The account's wallet address, and its SUI and WAL balances |
 | `nmts verify` | Ask a person to pass the check that opens this account's limits |
 | `nmts mcp` | Serve a subset of the above as tools over the Model Context Protocol |
+| `nmts s3` | Serve the drive to any S3 program, on this machine only. Read only |
 
 `ls` takes `--json` and `--all` (include the trash). Trashed entries are hidden by default and the
 count always says how many were hidden. `--find <text>` keeps only files whose name contains the
@@ -435,6 +436,44 @@ for those files, so a grant given once would make every later sweep silent. List
 renaming and moving never stop for anyone.
 
 `nmts consent` shows what has been agreed to and can take it back.
+
+## Serving the drive to S3 tools
+
+`nmts s3` starts a server on this machine that speaks the S3 protocol. Point rclone, the AWS CLI, or
+any backup program that already knows S3 at it, and it lists and downloads this account's files.
+
+```
+$ nmts s3
+  This account's drive is being served at http://127.0.0.1:9000, to this machine only.
+
+  endpoint        http://127.0.0.1:9000
+  bucket          drive
+  access key id   NMTS…
+  secret key      …
+```
+
+- **One bucket, named `drive`.** A key is the file's path without the leading slash, so
+  `photos/a.jpg` in the drive is `photos/a.jpg` here. Folders come back as common prefixes,
+  including empty ones — this drive has real folders and hiding them would describe a different
+  drive from the one in the browser.
+- **The credentials are made when the command starts and are stored nowhere.** They stop working
+  when it stops.
+- **It listens on 127.0.0.1, and there is no option to change that.** One signature stands between
+  a request and every file in the account, and the key it checks was printed on a terminal.
+- **Read only.** Listing and downloading work; uploading and deleting answer `501 NotImplemented`
+  rather than a success over nothing.
+- **A file uploaded from another device can take five seconds to appear**, which is how long a
+  file list is reused before it is fetched again.
+
+With rclone:
+
+```
+$ rclone config create drive s3 provider=Other region=us-east-1 \
+    endpoint=http://127.0.0.1:9000 \
+    access_key_id=<the id printed above> secret_access_key=<the secret printed above>
+$ rclone lsf -R drive:drive
+$ rclone copy drive:drive ./somewhere
+```
 
 ## For an agent that speaks MCP
 
