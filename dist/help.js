@@ -61,7 +61,7 @@ export function helpText(version) {
         `  recovery-list         Write the file that finds your bytes without NMTS. Holds no code`,
         `  kit                   Recovery kit: that list AND your account code, together in one file`,
         `  verify                Ask a person to pass the check that opens this account's limits`,
-        `  mcp                   Serve ls, get and put as tools, for an agent that speaks MCP`,
+        `  mcp                   Serve this account's commands as tools, for an agent that speaks MCP`,
         ``,
         `OPTIONS`,
         `  --server <url>        NMTS server (default ${SERVER_ENV_VAR} or the live one)`,

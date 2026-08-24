@@ -43,7 +43,7 @@ nmts --help
 That takes the default branch. To pin a version, name a tag:
 
 ```sh
-npm install -g github:needmoretruth/nmts-cli#v0.3.1
+npm install -g github:needmoretruth/nmts-cli#v0.3.2
 ```
 
 Or from the tarball on the [latest release](https://github.com/needmoretruth/nmts-cli/releases),
@@ -442,10 +442,11 @@ renaming and moving never stop for anyone.
 { "command": "nmts", "args": ["mcp", "--out", "/where/files/should/land"] }
 ```
 
-It offers eighteen tools — reading the account (`nmts_whoami`, `nmts_list`, `nmts_usage`,
-`nmts_expiring`, `nmts_shares`), fetching (`nmts_get`, `nmts_pull`, `nmts_receive`), uploading
-(`nmts_put`, `nmts_push`), rearranging (`nmts_mkdir`, `nmts_move`, `nmts_rename`, `nmts_mark`,
-`nmts_trash`, `nmts_restore`) and sharing (`nmts_share`, `nmts_unshare`).
+It offers twenty tools — reading the account (`nmts_whoami`, `nmts_list`, `nmts_usage`,
+`nmts_expiring`, `nmts_balance`, `nmts_shares`), fetching (`nmts_get`, `nmts_pull`,
+`nmts_receive`), uploading (`nmts_put`, `nmts_push`), rearranging (`nmts_mkdir`, `nmts_move`,
+`nmts_rename`, `nmts_mark`, `nmts_trash`, `nmts_restore`) and sharing (`nmts_public_code`,
+`nmts_share`, `nmts_unshare`).
 
 What it deliberately does **not** offer, and why each one is out:
 

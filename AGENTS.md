@@ -350,10 +350,10 @@ the tool printed and stop retrying that request; other commands may still work.
 ## If your client speaks MCP
 
 `nmts mcp` serves most of this document as tools: `nmts_whoami` `nmts_list` `nmts_usage`
-`nmts_expiring` `nmts_shares` · `nmts_get` `nmts_pull` `nmts_receive` · `nmts_put` `nmts_push` ·
-`nmts_public_code` · `nmts_mkdir` `nmts_move` `nmts_rename` `nmts_mark` `nmts_trash` `nmts_restore` · `nmts_share`
-`nmts_unshare`. Prefer them over shelling out — the person chose the directory files land in when
-they started the server, and the tools cannot write anywhere else.
+`nmts_expiring` `nmts_balance` `nmts_shares` · `nmts_get` `nmts_pull` `nmts_receive` · `nmts_put`
+`nmts_push` · `nmts_public_code` · `nmts_mkdir` `nmts_move` `nmts_rename` `nmts_mark` `nmts_trash`
+`nmts_restore` · `nmts_share` `nmts_unshare`. Prefer them over shelling out — the person chose the
+directory files land in when they started the server, and the tools cannot write anywhere else.
 
 Five things are deliberately absent, and asking a shell to do them instead is working around a
 decision rather than around a limitation: signing in or out and anything to do with keys or with

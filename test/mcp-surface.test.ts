@@ -6,6 +6,7 @@
 //    on that line is the split that means something rather than a cut at a line number.
 
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import { mcpToolSchemas } from "../src/commands/mcp.ts";
@@ -99,4 +100,42 @@ test("⛔ nothing that signs a chain transaction is in the surface", () => {
       `${forbidden} is not something a model does on somebody's behalf, and it is now reachable by one`,
     );
   }
+});
+
+// ⛔ THE DOCUMENTS THAT LIST THE TOOLS ARE HELD TO THE REGISTRY (2026-08-24).
+//
+//    Found by writing a page about this tool and checking it: the help text said `mcp` serves
+//    "ls, get and put" — THREE — while twenty tools were declared; AGENTS.md was missing one and
+//    README.md was missing two and said "eighteen". Every one of those lists was written by hand
+//    on the day it was true, and each fell behind on a different day.
+//
+//    ▶ A hand-kept list is a promise that somebody will remember to extend it, and nobody does. So
+//      the set is compared, in both directions: a tool no document names is invisible to the agent
+//      these documents are FOR, and a name in a document that no longer exists is worse — it is an
+//      instruction to call something that answers with a refusal.
+//
+// ⛔ THE HELP TEXT IS HELD TO THE OPPOSITE RULE: it must NOT enumerate. It is one line on a screen
+//    that already lists thirty commands, there is nowhere in it to keep twenty names current, and
+//    the last time it tried it was wrong for as long as anybody had been reading it.
+test("the documents' set of MCP tools is the set that is declared", async () => {
+  const { mcpToolSchemas } = await import("../src/commands/mcp.ts");
+  const declared = new Set(mcpToolSchemas().map((t) => t.name));
+  assert.ok(declared.size >= 15, `only ${declared.size} tools were found — the walk is blind`);
+
+  for (const doc of ["README.md", "AGENTS.md"]) {
+    const text = readFileSync(new URL(`../${doc}`, import.meta.url), "utf8");
+    const named = new Set(text.match(/nmts_[a-z_]+/g) ?? []);
+    const missing = [...declared].filter((n) => !named.has(n)).sort();
+    const invented = [...named].filter((n) => !declared.has(n)).sort();
+    assert.deepEqual(missing, [], `${doc} does not name: ${missing.join(" ")}`);
+    assert.deepEqual(invented, [], `${doc} names tools that do not exist: ${invented.join(" ")}`);
+  }
+});
+
+test("⛔ the help text names no tools — it cannot be kept current there", async () => {
+  const { helpText } = await import("../src/help.ts");
+  const text = helpText("0.0.0");
+  assert.equal((text.match(/nmts_[a-z_]+/g) ?? []).length, 0, "the help text lists tool names");
+  // Nor a count written out in words: "three" and "eighteen" are exactly how this went stale.
+  assert.doesNotMatch(text, /mcp\b[^\n]*\b(ls, get and put|three tools|eighteen|twenty)\b/i);
 });
