@@ -306,8 +306,9 @@ files without knowing anything about NMTS.
 - ⛔ **An upload to a key that already exists is refused with `409`.** This drive does not replace
   files. Delete it first if replacing is what was asked for — a delete is recoverable for thirty
   days — and do not work around the refusal by inventing a second key.
-- ⚠ **Large files fail**: clients switch to multipart above their own threshold and this gateway
-  refuses those. The message says which setting sends the file in one request instead.
+- **Large files go up in pieces** and are put together here, in order, with each piece checked
+  against the hash the client signed for. Nothing reaches the drive until every piece has arrived,
+  so an upload that is interrupted stores nothing rather than half a file.
 - **It runs until it is stopped.** Start it in the background of the task that needs it and stop it
   when that task is over; do not leave it running because it might be useful later.
 - ⛔ **The address cannot be changed.** If a task needs the drive reachable from another machine,

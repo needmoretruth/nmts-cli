@@ -43,7 +43,7 @@ nmts --help
 That takes the default branch. To pin a version, name a tag:
 
 ```sh
-npm install -g github:needmoretruth/nmts-cli#v0.5.0
+npm install -g github:needmoretruth/nmts-cli#v0.6.0
 ```
 
 Or from the tarball on the [latest release](https://github.com/needmoretruth/nmts-cli/releases),
@@ -467,9 +467,9 @@ $ nmts s3
 - ⛔ **An upload to a key that is already there is refused with `409`.** This drive does not replace
   files: the same name arrives as a numbered copy, so answering 200 would tell a sync tool it had
   updated a file it had duplicated. Delete it first, or upload under another key.
-- ⚠ **Large files are not sent yet.** Clients switch to a multipart upload above their own size
-  threshold — rclone's is `--s3-upload-cutoff` — and this gateway refuses those, with a message
-  saying so. Raising that threshold sends the file in one request instead.
+- **Large files go up in pieces**, the way S3 clients send them: the pieces arrive out of order and
+  at the same time, and each one is checked against the hash the client signed for before it
+  becomes part of the file. Nothing is stored until every piece is in.
 - ⚠ **The modification time is not carried across.** A file arrives with the time it was uploaded,
   so a tool comparing timestamps decides an unchanged file has changed and tries to send it again
   — and gets the `409` above. `rclone --size-only` compares sizes and skips it, which is what makes

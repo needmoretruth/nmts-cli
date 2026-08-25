@@ -19,6 +19,7 @@ import type { Readable } from "node:stream";
 import type { PlaintextSink } from "../download-sink.ts";
 import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
 import { BUCKET, listObjects, objectsOf, folderPrefixesOf, MAX_KEYS_LIMIT, type DriveObject } from "./listing.ts";
+import { handleMultipart, isMultipartRequest } from "./multipart.ts";
 import { responseSink } from "./response-sink.ts";
 import {
   STREAMING_PAYLOAD,
@@ -58,6 +59,24 @@ export interface DriveWriter {
   put(key: string, body: Readable, size: number): Promise<void>;
   /** Send one file to the trash, where it stays recoverable for thirty days. */
   trash(object: DriveObject): Promise<void>;
+  /**
+   * Staging for uploads that arrive in pieces. Absent means this gateway refuses them.
+   *
+   * ⚠ Separate from `put` because the pieces have to land somewhere before they are one file, and
+   *   where that is belongs to whoever is running this rather than to the protocol.
+   */
+  readonly multipart?: {
+    begin(key: string): Promise<string>;
+    part(
+      uploadId: string,
+      partNumber: number,
+      body: Readable,
+      size: number,
+      expectedSha256: string | null,
+    ): Promise<string>;
+    complete(uploadId: string): Promise<string>;
+    abort(uploadId: string): Promise<void>;
+  };
 }
 
 export interface GatewayOptions {
@@ -215,6 +234,45 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
 
   const writer = options.source.write;
 
+  // ⛔ ONE ANSWER FOR ONE QUESTION. Both ways of uploading have to refuse an existing key
+  //    identically, or a client that switches to pieces at some size gets a different rule for
+  //    large files than for small ones — and the difference would appear only above the threshold.
+  const takenKey = (): boolean => objectsOf(entries).some((o) => o.key === key);
+  const refuseExisting = (): void => {
+    fail(
+      res,
+      409,
+      "InvalidRequest",
+      "There is already a file at that key, and this drive does not replace files. Delete it " +
+        "first — a delete puts it in the trash, where it stays recoverable for thirty days.",
+      pathname,
+    );
+  };
+
+  if (isMultipartRequest(method, query) && key !== "") {
+    if (writer === undefined) {
+      fail(res, 501, "NotImplemented", readOnlyBecause(), pathname);
+      return;
+    }
+    if (method === "POST" && query.has("uploads") && takenKey()) {
+      refuseExisting();
+      return;
+    }
+    const handled = await handleMultipart({
+      req,
+      res,
+      bucket: BUCKET,
+      key,
+      method,
+      query,
+      writer,
+      payloadHash: /^[0-9a-f]{64}$/.test(verdict.payloadHash) ? verdict.payloadHash : null,
+      fail: (status, code, message) => fail(res, status, code, message, pathname),
+      ...(options.log === undefined ? {} : { log: options.log }),
+    });
+    if (handled) return;
+  }
+
   if (method === "PUT" && key !== "") {
     if (writer === undefined) {
       fail(res, 501, "NotImplemented", readOnlyBecause(), pathname);
@@ -242,16 +300,8 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
     //    name arrives as a numbered copy, which is a product decision and not this gateway's to
     //    change. Answering 200 while writing "name (2)" would tell a sync tool it had updated a
     //    file it had in fact duplicated, and it would go on duplicating on every run.
-    const already = objectsOf(entries).some((o) => o.key === key);
-    if (already) {
-      fail(
-        res,
-        409,
-        "InvalidRequest",
-        "There is already a file at that key, and this drive does not replace files. Delete it " +
-          "first — a delete puts it in the trash, where it stays recoverable for thirty days.",
-        pathname,
-      );
+    if (takenKey()) {
+      refuseExisting();
       return;
     }
     try {
@@ -288,22 +338,6 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
     res.writeHead(204);
     res.end();
     options.log?.(`DELETE ${key} → trash`);
-    return;
-  }
-
-  // ⛔ MULTIPART IS NAMED RATHER THAN LUMPED IN WITH EVERYTHING ELSE. It is what every client
-  //    switches to for a large file, so "not implemented" without the reason reads as a broken
-  //    gateway rather than a known edge with a way around it.
-  if (method === "POST" || query.has("uploadId") || query.has("uploads")) {
-    fail(
-      res,
-      501,
-      "NotImplemented",
-      "This gateway does not do multipart uploads yet. Clients switch to them above a size " +
-        "threshold — rclone's is --s3-upload-cutoff — so raising that threshold sends the file in " +
-        "one request instead.",
-      pathname,
-    );
     return;
   }
 

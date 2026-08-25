@@ -29,6 +29,17 @@ export function listBucketsXml(bucket, createdAt) {
         `<Name>${escapeXml(bucket)}</Name><CreationDate>${escapeXml(createdAt)}</CreationDate>` +
         `</Bucket></Buckets></ListAllMyBucketsResult>`);
 }
+export function initiateUploadXml(bucket, key, uploadId) {
+    return (`${HEAD}<InitiateMultipartUploadResult xmlns="${NS}">` +
+        `<Bucket>${escapeXml(bucket)}</Bucket><Key>${escapeXml(key)}</Key>` +
+        `<UploadId>${escapeXml(uploadId)}</UploadId></InitiateMultipartUploadResult>`);
+}
+export function completeUploadXml(bucket, key, etag) {
+    return (`${HEAD}<CompleteMultipartUploadResult xmlns="${NS}">` +
+        `<Location>/${escapeXml(bucket)}/${escapeXml(key)}</Location>` +
+        `<Bucket>${escapeXml(bucket)}</Bucket><Key>${escapeXml(key)}</Key>` +
+        `<ETag>${escapeXml(etag)}</ETag></CompleteMultipartUploadResult>`);
+}
 /** `encoding-type=url` means every name in the answer comes back percent-encoded. */
 function out(value, encodingType) {
     return escapeXml(encodingType === "url" ? encodeURIComponent(value) : value);

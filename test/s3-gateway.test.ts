@@ -12,7 +12,12 @@ import { strict as assert } from "node:assert";
 import { after, test } from "node:test";
 import type { AddressInfo } from "node:net";
 
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { createGateway, newCredential } from "../src/s3/server.ts";
+import { createStaging } from "../src/s3/staging.ts";
 import type { ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 import { sign } from "./s3-sign.ts";
 
@@ -219,6 +224,9 @@ const writable = createGateway({
       trash: async (object) => {
         trashed.push(object.key);
       },
+      multipart: createStaging(mkdtempSync(join(tmpdir(), "nmts-gateway-test-")), async (key, path) => {
+        written.push({ key, bytes: readFileSync(path, "utf8") });
+      }),
     },
   },
 });
@@ -283,10 +291,39 @@ test("⛔ with no writer, writes are refused and say why", async () => {
   assert.equal((await send("DELETE", "/drive/readme.txt", Buffer.alloc(0), {}, HOST)).status, 501);
 });
 
-test("⛔ multipart is refused with the way around it, not a bare failure", async () => {
-  const res = await send("POST", "/drive/big.bin?uploads");
+// ⛔ MEASURED FROM A REAL CLIENT, AND THE ORDER IS THE POINT: rclone sent parts 1, 3, 2.
+test("a file that arrives in pieces is stored whole, in order", async () => {
+  const begun = await send("POST", "/drive/big.bin?uploads=");
+  assert.equal(begun.status, 200);
+  const uploadId = /<UploadId>([^<]+)<\/UploadId>/.exec(await begun.text())?.[1];
+  assert.ok(uploadId !== undefined, "no upload id came back");
+  const at = (n: number, text: string): Promise<Response> =>
+    send("PUT", `/drive/big.bin?partNumber=${n}&uploadId=${uploadId}&x-id=UploadPart`, Buffer.from(text));
+  assert.equal((await at(1, "ONE-")).status, 200);
+  assert.equal((await at(3, "THREE")).status, 200);
+  assert.equal((await at(2, "TWO-")).status, 200);
+  const done = await send("POST", `/drive/big.bin?uploadId=${uploadId}`, Buffer.from("<CompleteMultipartUpload/>"));
+  assert.equal(done.status, 200);
+  assert.match(await done.text(), /<Key>big\.bin<\/Key>/);
+  assert.deepEqual(written.at(-1), { key: "big.bin", bytes: "ONE-TWO-THREE" });
+});
+
+test("⛔ starting a piecewise upload onto an existing key is the same refusal as a whole one", async () => {
+  const res = await send("POST", "/drive/readme.txt?uploads=");
+  assert.equal(res.status, 409, "large files got a different rule from small ones");
+});
+
+test("⛔ with no writer, a piecewise upload is refused too", async () => {
+  const res = await send("POST", "/drive/big2.bin?uploads=", Buffer.alloc(0), {}, HOST);
   assert.equal(res.status, 501);
-  assert.match(await res.text(), /upload-cutoff/);
+  assert.match(await res.text(), /consent grant spend/);
+});
+
+test("aborting a piecewise upload answers 204", async () => {
+  const begun = await send("POST", "/drive/gone.bin?uploads=");
+  const uploadId = /<UploadId>([^<]+)<\/UploadId>/.exec(await begun.text())?.[1] ?? "";
+  const res = await send("DELETE", `/drive/gone.bin?uploadId=${uploadId}`);
+  assert.equal(res.status, 204);
 });
 
 test("⛔ a chunk-signed body is refused rather than stored wrong", async () => {

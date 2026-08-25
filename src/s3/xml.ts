@@ -38,6 +38,23 @@ export function listBucketsXml(bucket: string, createdAt: string): string {
   );
 }
 
+export function initiateUploadXml(bucket: string, key: string, uploadId: string): string {
+  return (
+    `${HEAD}<InitiateMultipartUploadResult xmlns="${NS}">` +
+    `<Bucket>${escapeXml(bucket)}</Bucket><Key>${escapeXml(key)}</Key>` +
+    `<UploadId>${escapeXml(uploadId)}</UploadId></InitiateMultipartUploadResult>`
+  );
+}
+
+export function completeUploadXml(bucket: string, key: string, etag: string): string {
+  return (
+    `${HEAD}<CompleteMultipartUploadResult xmlns="${NS}">` +
+    `<Location>/${escapeXml(bucket)}/${escapeXml(key)}</Location>` +
+    `<Bucket>${escapeXml(bucket)}</Bucket><Key>${escapeXml(key)}</Key>` +
+    `<ETag>${escapeXml(etag)}</ETag></CompleteMultipartUploadResult>`
+  );
+}
+
 export interface ObjectRow {
   readonly key: string;
   readonly lastModified: string;
