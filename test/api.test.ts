@@ -18,7 +18,23 @@ let lastRequest: Recorded | null = null;
 let respond: (send: (status: number, body: string, contentType?: string) => void) => void = (send) =>
   send(200, JSON.stringify({ ok: true }));
 
+/**
+ * How many of the next requests answer 503 instead of doing what `respond` says.
+ *
+ * ⛔ A STATUS, NOT A DESTROYED SOCKET. Both mean "try again", and a status is the one a test can
+ *    produce reliably — destroying the socket under Node's own fetch is answered by its connection
+ *    handling rather than by ours, so the branch never gets reached and the test measures nothing.
+ *    The connection-error half of the same question is pinned directly on `isTransient`.
+ */
+let failNext = 0;
+
 const server: Server = createServer((req, res) => {
+  if (failNext > 0) {
+    failNext -= 1;
+    res.writeHead(503, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: { code: "UPSTREAM", message: "not now" } }));
+    return;
+  }
   const chunks: Buffer[] = [];
   req.on("data", (c: Buffer) => chunks.push(c));
   req.on("end", () => {
@@ -130,7 +146,8 @@ test("a non-JSON body blames what is in front of the server, not the JSON", asyn
 
 test("an unreachable server says so instead of 'fetch failed'", async () => {
   await assert.rejects(
-    () => request("http://127.0.0.1:1", "/v1/thing", { timeoutMs: 2000 }),
+    // ⛔ One attempt: what this pins is the SHAPE of a single failure, not the retry policy.
+    () => request("http://127.0.0.1:1", "/v1/thing", { timeoutMs: 2000, retryBudgetMs: 0 }),
     (error: unknown) => {
       assert.ok(error instanceof NmtsError);
       assert.match(error.message, /Could not reach/);
@@ -161,4 +178,54 @@ test("the default deadline exists and is not absurd", () => {
 
 test("a path that does not start with / is refused, so no absolute URL can redirect the call", async () => {
   await assert.rejects(() => request(BASE, "https://elsewhere.example/v1/thing"), NmtsError);
+});
+
+// ── Going on across a link that blinks ───────────────────────────────────────────────────────────
+//
+// ⛔ WHAT IS PINNED HERE IS THE SAFETY RULE, not the arithmetic (that is `retry-budget.ts`, which
+//    the browser and this package share byte for byte). A read may be repeated because repeating
+//    it is the same request. A write may NOT, unless it carries an idempotency key — a request
+//    that reached the server and died on the way back looks exactly like one that never arrived,
+//    and guessing wrong there spends money twice.
+test("⭐ a read that fails to connect is tried again, and says so while it waits", async () => {
+  // ⛔ An earlier test leaves a server that never answers behind: this is module-level state.
+  respond = (send) => send(200, JSON.stringify({ ok: true }));
+  const waits: number[] = [];
+  failNext = 2;
+  const value = await request(BASE, "/v1/thing", { onWait: (info) => waits.push(info.attempt) });
+  assert.deepEqual(value, { ok: true });
+  assert.equal(failNext, 0, "the two refusals were not made");
+  assert.deepEqual(waits, [1, 2], "it waited without telling anybody");
+});
+
+test("⛔ a write with no idempotency key is NOT repeated — an unknown outcome can pay twice", async () => {
+  // ⛔ An earlier test leaves a server that never answers behind: this is module-level state.
+  respond = (send) => send(200, JSON.stringify({ ok: true }));
+  failNext = 2;
+  await assert.rejects(() => request(BASE, "/v1/thing", { method: "POST", body: {} }));
+  assert.equal(failNext, 1, "it sent a write twice without the server's promise that it is one");
+  failNext = 0;
+});
+
+test("⭐ a write that carries an idempotency key IS repeated — the server dedupes it", async () => {
+  // ⛔ An earlier test leaves a server that never answers behind: this is module-level state.
+  respond = (send) => send(200, JSON.stringify({ ok: true }));
+  failNext = 1;
+  const value = await request(BASE, "/v1/thing", {
+    method: "POST",
+    body: {},
+    idempotencyKey: "the-same-request",
+  });
+  assert.deepEqual(value, { ok: true });
+  assert.equal(failNext, 0, "the refusal was not made");
+});
+
+test("⛔ a refusal is an answer — it is not asked again", async () => {
+  let attempts = 0;
+  respond = (send) => {
+    attempts += 1;
+    send(402, JSON.stringify({ error: { code: "NO_CREDITS", message: "no" } }));
+  };
+  await assert.rejects(() => request(BASE, "/v1/thing"));
+  assert.equal(attempts, 1, "it spent the budget to hear the same no");
 });

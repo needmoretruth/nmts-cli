@@ -543,6 +543,24 @@ guessed at: a `dry_run` sent as the string `"true"` is an error, not a paid uplo
 
 Implemented directly rather than with an SDK, so it adds no dependency.
 
+## When the connection blinks
+
+A request that could not be made — the connection refused, reset, or never established, which is
+what moving between a phone's data and a wifi network looks like — is tried again, with a wait that
+grows between attempts, for about twenty seconds before the failure is reported. Nothing is retried
+silently: the wait is announced.
+
+What is **not** retried, and why each one is out:
+
+- **A refusal.** The server saying no — wrong key, no credits, not found — is an answer. Asking
+  again spends the wait to hear the same thing later.
+- **A request that ran out of time.** It already had its thirty seconds, and that deadline exists so
+  that an agent running this in a loop is not left waiting.
+- ⛔ **A write with no idempotency key.** A request that reached the server and died on the way back
+  looks exactly like one that never arrived, and sending it twice can spend money twice. The two
+  calls that pay carry a key — the server's promise that a second copy is the same request — and
+  those are repeated. Nothing else that writes is.
+
 ## Networks
 
 `--network mainnet` or `--network testnet`, or `NMTS_NETWORK`. It is never guessed: the wrong

@@ -11,6 +11,7 @@
 //
 // ⛔ THE TOKEN IS NEVER IN A MESSAGE, A URL OR A LOG. It goes in one header and nowhere else.
 import { NmtsError } from "./errors.js";
+import { isTransient, keepTrying } from "./net-retry.js";
 /** Default deadline for a request that is not moving file bytes. */
 export const DEFAULT_TIMEOUT_MS = 30_000;
 /** A refusal the server explained. Carries its code so a caller can branch without string matching. */
@@ -102,6 +103,24 @@ function isRefusal(value) {
 export async function request(base, path, options = {}) {
     if (!path.startsWith("/"))
         throw new NmtsError(`A request path must start with "/": ${path}`);
+    // ⛔ REPEATED ONLY WHERE REPEATING IS THE SAME REQUEST. A read always is. A write is only when it
+    //    carries an idempotency key, because a request that reached the server and died on the way
+    //    back looks exactly like one that never arrived -- and guessing wrong there spends money
+    //    twice. Everything else fails once and says so, exactly as it did before.
+    const safeToRepeat = options.method === undefined ||
+        options.method === "GET" ||
+        options.idempotencyKey !== undefined;
+    if (!safeToRepeat)
+        return await once(base, path, options);
+    return await keepTrying(() => once(base, path, options), {
+        retryable: (error) => isTransient(error, error instanceof ServerError ? error.status : undefined),
+        ...(options.onWait === undefined ? {} : { onWait: options.onWait }),
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+        ...(options.retryBudgetMs === undefined ? {} : { budgetMs: options.retryBudgetMs }),
+    });
+}
+/** One attempt. `request` above decides whether there may be another. */
+async function once(base, path, options) {
     const { method = "GET", body, token, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
     const controller = new AbortController();
     const deadline = setTimeout(() => controller.abort(), timeoutMs);

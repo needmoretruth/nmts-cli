@@ -441,6 +441,20 @@ Product questions and reports about the service go through NMTS's own contact de
 rather than that address, and sending one may pass along details about the account. `nmts@nmts.me`
 is for the tool itself being wrong.
 
+## When the connection blinks
+
+A connection that was refused, reset, or never made is tried again for about twenty seconds before
+the failure is reported, so a link that drops for a moment does not end your run. ⛔ **Do not build
+your own retry loop around this tool** — you would be adding a second one on top of it, and the two
+would multiply into a wait nobody chose.
+
+⛔ **What comes back as a failure is a failure.** A refusal, a request that ran out of time, and a
+write with no idempotency key are all reported after one attempt, on purpose: a refusal is an
+answer, a deadline exists so your loop is not left waiting, and a write that reached the server and
+died on the way back looks exactly like one that never arrived — sending it again can pay twice.
+If a write failed and you cannot tell whether it landed, **read the state and look** rather than
+sending it again.
+
 ## Exit codes
 
 `0` done · `1` something went wrong · `2` the command line was wrong · `3` not signed in ·
