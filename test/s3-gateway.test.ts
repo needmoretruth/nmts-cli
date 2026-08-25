@@ -17,6 +17,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createGateway, newCredential } from "../src/s3/server.ts";
+import { refusalFor } from "../src/s3/same-file.ts";
 import { createStaging } from "../src/s3/staging.ts";
 import type { ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 import { sign } from "./s3-sign.ts";
@@ -205,6 +206,25 @@ test("⛔ there is no way to serve this to anybody else", async () => {
 
 const written: Array<{ key: string; bytes: string }> = [];
 const trashed: string[] = [];
+
+/**
+ * What this stub drive already holds, so it can answer the question the real writer answers:
+ * is the file arriving the file already there?
+ *
+ * ⛔ THE RULE ITSELF IS NOT REIMPLEMENTED HERE — `src/s3/same-file.ts` is, and `same-file.test.ts`
+ *    drives it. What this stub exists for is the half only a socket can show: that "identical" is
+ *    answered 200 with nothing written, and "different" comes back as 409 rather than 500, on BOTH
+ *    upload paths. A stub that accepted everything would let a gateway that lost the distinction
+ *    pass every test here.
+ */
+const STORED = new Map<string, string>([["readme.txt", "the readme, exactly as stored\n"]]);
+const accept = (key: string, bytes: string): void => {
+  const standing = STORED.get(key);
+  if (standing === bytes) return; // the same file: nothing is sent, and that is a success
+  if (standing !== undefined) throw refusalFor("differs", key);
+  STORED.set(key, bytes);
+  written.push({ key, bytes });
+};
 const writable = createGateway({
   credential: CREDENTIAL,
   source: {
@@ -218,14 +238,14 @@ const writable = createGateway({
       put: async (key, body, size) => {
         const chunks: Buffer[] = [];
         for await (const chunk of body) chunks.push(Buffer.from(chunk));
-        written.push({ key, bytes: Buffer.concat(chunks).toString() });
         assert.equal(Buffer.concat(chunks).length, size, "the declared size was not the body's size");
+        accept(key, Buffer.concat(chunks).toString());
       },
       trash: async (object) => {
         trashed.push(object.key);
       },
       multipart: createStaging(mkdtempSync(join(tmpdir(), "nmts-gateway-test-")), async (key, path) => {
-        written.push({ key, bytes: readFileSync(path, "utf8") });
+        accept(key, readFileSync(path, "utf8"));
       }),
     },
   },
@@ -262,15 +282,25 @@ test("a file arrives whole, at the key the client used", async () => {
   assert.deepEqual(written.at(-1), { key: "notes/new.txt", bytes: body.toString() });
 });
 
-// ⛔ THE ONE THAT KEEPS A SYNC TOOL FROM DUPLICATING FOREVER. This drive does not replace files;
-//    the same name arrives as a numbered copy. Answering 200 would tell the client it had updated
-//    a file it had in fact duplicated, and it would duplicate again on every run.
-test("⛔ a key that is already there is a conflict, and nothing is written", async () => {
+// ⛔ THE ONE THAT KEEPS A SYNC TOOL FROM DUPLICATING FOREVER. This drive does not replace files,
+//    so DIFFERENT content at a taken key is declined — and declined with 409, because the request
+//    was well formed and the drive said no. A 500 would have the client retry it forever.
+test("⛔ a key that already holds a DIFFERENT file is a conflict, and nothing is written", async () => {
   const before = written.length;
   const res = await send("PUT", "/drive/readme.txt", Buffer.from("replacement"));
   assert.equal(res.status, 409);
   assert.match(await res.text(), /does not replace files/);
   assert.equal(written.length, before, "it uploaded over an existing file");
+});
+
+// ⭐ THE SAME BYTES AT THE SAME KEY IS NOT A FAILURE, it is a file that is already there. A backup
+//    program sends the same names every night, and answering 409 made every one of those nights a
+//    page of errors.
+test("⭐ the SAME file at a taken key is answered 200, and nothing is uploaded", async () => {
+  const before = written.length;
+  const res = await send("PUT", "/drive/readme.txt", Buffer.from("the readme, exactly as stored\n"));
+  assert.equal(res.status, 200, "an unchanged file must not read as a failure");
+  assert.equal(written.length, before, "it sent bytes for a file that was already stored");
 });
 
 test("deleting puts the file in the trash, and deleting nothing is still fine", async () => {
@@ -308,9 +338,32 @@ test("a file that arrives in pieces is stored whole, in order", async () => {
   assert.deepEqual(written.at(-1), { key: "big.bin", bytes: "ONE-TWO-THREE" });
 });
 
-test("⛔ starting a piecewise upload onto an existing key is the same refusal as a whole one", async () => {
-  const res = await send("POST", "/drive/readme.txt?uploads=");
-  assert.equal(res.status, 409, "large files got a different rule from small ones");
+// ⛔ ONE RULE FOR BOTH SIZES. A client switches to pieces above a size of its own choosing, so a
+//    rule that differs between the two shows up only above that threshold — on the large files.
+//    ⚠ The verdict now lands at COMPLETE rather than at begin: until the pieces are one file there
+//      is nothing to hash, and refusing at begin is refusing on the strength of the name again.
+test("⛔ pieces that add up to a DIFFERENT file are the same refusal as a whole one", async () => {
+  const before = written.length;
+  const begun = await send("POST", "/drive/readme.txt?uploads=");
+  assert.equal(begun.status, 200, "it refused before it could know what was arriving");
+  const uploadId = /<UploadId>([^<]+)<\/UploadId>/.exec(await begun.text())?.[1];
+  assert.ok(uploadId !== undefined);
+  await send("PUT", `/drive/readme.txt?partNumber=1&uploadId=${uploadId}`, Buffer.from("something else"));
+  const done = await send("POST", `/drive/readme.txt?uploadId=${uploadId}`, Buffer.from("<CompleteMultipartUpload/>"));
+  assert.equal(done.status, 409, "large files got a different rule from small ones");
+  assert.equal(written.length, before, "it uploaded over an existing file");
+});
+
+test("⭐ pieces that add up to the SAME file are answered 200, and nothing is uploaded", async () => {
+  const before = written.length;
+  const begun = await send("POST", "/drive/readme.txt?uploads=");
+  const uploadId = /<UploadId>([^<]+)<\/UploadId>/.exec(await begun.text())?.[1];
+  assert.ok(uploadId !== undefined);
+  await send("PUT", `/drive/readme.txt?partNumber=1&uploadId=${uploadId}`, Buffer.from("the readme, "));
+  await send("PUT", `/drive/readme.txt?partNumber=2&uploadId=${uploadId}`, Buffer.from("exactly as stored\n"));
+  const done = await send("POST", `/drive/readme.txt?uploadId=${uploadId}`, Buffer.from("<CompleteMultipartUpload/>"));
+  assert.equal(done.status, 200);
+  assert.equal(written.length, before, "it sent bytes for a file that was already stored");
 });
 
 test("⛔ with no writer, a piecewise upload is refused too", async () => {

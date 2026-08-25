@@ -21,6 +21,7 @@ import { pipeline } from "node:stream/promises";
 import { randomUUID } from "node:crypto";
 import { isGranted } from "../consent.js";
 import { createStaging } from "../s3/staging.js";
+import { refusalFor, verdictForKey } from "../s3/same-file.js";
 import { fetchFile } from "../download.js";
 import { NmtsError } from "../errors.js";
 import { ensureFolderPath } from "./organise.js";
@@ -78,11 +79,34 @@ export async function s3(options = {}) {
      *    takes and afterwards.
      */
     const stagingRoot = join(tmpdir(), `nmts-s3-${randomUUID()}`);
-    /** Store one local file at a drive key, making the folders above it if they are missing. */
+    /**
+     * Store one local file at a drive key, making the folders above it if they are missing.
+     *
+     * ⛔ THE SAME-FILE QUESTION IS ANSWERED HERE AND NOWHERE ELSE.
+     *    Both ways of uploading — one PUT, or pieces staged and joined — end in this
+     *    function, so a rule written here cannot disagree with itself; written in the protocol layer
+     *    it would have to be written twice, once for each, and the two would differ the first time
+     *    one of them changed. What is compared is the plaintext's SHA-256 against the one this
+     *    account sealed when the file was first stored.
+     *
+     * ⛔ IDENTICAL CONTENT IS NOT AN ERROR. Nothing is sent and nothing is charged, and the caller
+     *    is told the upload finished — because the statement it was making, "that file is at that
+     *    key", is true. Answering 409 there is what made every backup run fail on every file it had
+     *    already stored, and a sync tool writes 409 down as a failure.
+     */
     const storeFile = async (key, path) => {
         const at = key.lastIndexOf("/");
         const folder = at < 0 ? undefined : key.slice(0, at);
         const name = at < 0 ? key : key.slice(at + 1);
+        const verdict = await verdictForKey(await entries(), key, session.code, path);
+        // ⭐ Already there, byte for byte. This is the whole point: an unchanged file costs nothing to
+        //    re-offer, so a backup that runs nightly stops paying for the nights nothing changed.
+        if (verdict === "same") {
+            say(`same ${key} — already stored, nothing sent`);
+            return;
+        }
+        if (verdict !== "free")
+            throw refusalFor(verdict, key);
         if (folder !== undefined && folder !== "")
             await ensureFolderPath(session, folder);
         await put(path, {

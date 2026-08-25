@@ -21,6 +21,7 @@ import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
 import { BUCKET, listObjects, objectsOf, folderPrefixesOf, MAX_KEYS_LIMIT, type DriveObject } from "./listing.ts";
 import { handleMultipart, isMultipartRequest } from "./multipart.ts";
 import { responseSink } from "./response-sink.ts";
+import { isKeyConflict } from "./same-file.ts";
 import {
   STREAMING_PAYLOAD,
   STREAMING_PAYLOAD_TRAILER,
@@ -234,28 +235,21 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
 
   const writer = options.source.write;
 
-  // ⛔ ONE ANSWER FOR ONE QUESTION. Both ways of uploading have to refuse an existing key
-  //    identically, or a client that switches to pieces at some size gets a different rule for
-  //    large files than for small ones — and the difference would appear only above the threshold.
-  const takenKey = (): boolean => objectsOf(entries).some((o) => o.key === key);
-  const refuseExisting = (): void => {
-    fail(
-      res,
-      409,
-      "InvalidRequest",
-      "There is already a file at that key, and this drive does not replace files. Delete it " +
-        "first — a delete puts it in the trash, where it stays recoverable for thirty days.",
-      pathname,
-    );
+  // ⛔ WHETHER A TAKEN KEY IS A CONFLICT IS NOT DECIDED HERE.
+  //    It used to be, on the strength of the NAME alone, and both upload paths carried their own
+  //    copy of that check. The question is now about CONTENT — is the file arriving the file
+  //    already there — and it cannot be answered until the bytes have arrived, so it is answered
+  //    once, by the writer, at the point both paths meet. What reaches this layer is the verdict:
+  //    a writer that returns normally means the key now holds these bytes (whether it had to send
+  //    them or they were already there), and one that throws a conflict means something else is at
+  //    that key. ⭐ The status matters: 409 is a request the drive declined, 500 is a fault of ours.
+  const refuseConflict = (error: unknown): void => {
+    fail(res, 409, "InvalidRequest", error instanceof Error ? error.message : String(error), pathname);
   };
 
   if (isMultipartRequest(method, query) && key !== "") {
     if (writer === undefined) {
       fail(res, 501, "NotImplemented", readOnlyBecause(), pathname);
-      return;
-    }
-    if (method === "POST" && query.has("uploads") && takenKey()) {
-      refuseExisting();
       return;
     }
     const handled = await handleMultipart({
@@ -296,17 +290,13 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
       fail(res, 411, "MissingContentLength", "This gateway needs to know the size before it starts.", pathname);
       return;
     }
-    // ⛔ AN EXISTING KEY IS A CONFLICT, NOT AN OVERWRITE. This drive never replaces a file: the same
-    //    name arrives as a numbered copy, which is a product decision and not this gateway's to
-    //    change. Answering 200 while writing "name (2)" would tell a sync tool it had updated a
-    //    file it had in fact duplicated, and it would go on duplicating on every run.
-    if (takenKey()) {
-      refuseExisting();
-      return;
-    }
     try {
       await writer.put(key, req, length);
     } catch (error) {
+      if (isKeyConflict(error)) {
+        refuseConflict(error);
+        return;
+      }
       fail(res, 500, "InternalError", error instanceof Error ? error.message : String(error), pathname);
       return;
     }

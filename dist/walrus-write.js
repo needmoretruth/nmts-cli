@@ -11,6 +11,9 @@
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { walrus } from "@mysten/walrus";
 import { epochClock } from "./expiry.js";
+// ⛔ The re-export below is what callers use; this local name is the same function,
+//    imported so the reader above can call it without importing from itself.
+import { epochStartedMs as readEpochStart } from "./shared/lib/extend/epochs.js";
 import { NmtsError } from "./errors.js";
 import { countingFetch } from "./progress.js";
 import { relayHost, suiRpcHost } from "./walrus.js";
@@ -163,7 +166,7 @@ export async function readEpochWindow(network) {
         // converted here and the constructor below refuses whatever did not survive it.
         const epoch = system.committee.epoch;
         const duration = staking.epoch_duration;
-        return epochClock(Number(epoch), Number(duration), epochStartedMs(staking.epoch_state));
+        return epochClock(Number(epoch), Number(duration), readEpochStart(staking.epoch_state));
     }
     catch {
         return null;
@@ -172,19 +175,14 @@ export async function readEpochWindow(network) {
 /**
  * When the current epoch began, or null.
  *
- * `epoch_state` is a tagged union and only its settled variant carries the moment. Read by name
- * rather than cast: a shape change in the protocol has to surface as "no anchor", which costs the
- * caller precision, instead of as a NaN that becomes a date.
+ * ⛔ THE NARROWING ITSELF IS NOT WRITTEN HERE (2026-08-25). It used to be, and it accepted a single
+ *    enum case while the network sits in a different one for nearly all of every epoch — so the
+ *    anchor was thrown away almost always and this tool reported "N days or more" where it could
+ *    have reported a date. The browser had the same bug in its own copy of the same judgement,
+ *    which is the point: two narrowings are two answers. It now lives beside the arithmetic that
+ *    depends on it, in the file both programs copy from.
  *
- * ⛔ EXPORTED SO THERE IS ONE OF IT. `extend-chain.ts` reads the same two states for a different
- *    reason and needs the same anchor; a second copy of this narrowing would be a second answer to
- *    "has this epoch settled", and the two would drift the day the protocol renames the variant.
+ * ⛔ STILL EXPORTED FROM HERE. `extend-chain.ts` reads the same state for a different reason and
+ *    imports this name; re-exporting keeps one import path for callers in this package.
  */
-export function epochStartedMs(epochState) {
-    if (typeof epochState !== "object" || epochState === null)
-        return null;
-    if (Reflect.get(epochState, "$kind") !== "EpochChangeDone")
-        return null;
-    const at = Number(Reflect.get(epochState, "EpochChangeDone"));
-    return Number.isFinite(at) ? at : null;
-}
+export { epochStartedMs } from "./shared/lib/extend/epochs.js";

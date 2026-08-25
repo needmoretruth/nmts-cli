@@ -211,6 +211,58 @@ export function daysLeftUntilEpoch(epoch: number, clock: LeaseClock, nowMs: numb
   return { days: Math.floor(a.minMs / dayMs), exact: a.exact };
 }
 
+/** How much time is left, broken into the units a person reads off a clock. */
+export interface TimeLeft {
+  /** Whole days. */
+  days: number;
+  /** 0–23. */
+  hours: number;
+  /** 0–59. */
+  minutes: number;
+  /** 0–59. */
+  seconds: number;
+  /** Total milliseconds, floored at zero. */
+  totalMs: number;
+  /** False ⇒ this is a LOWER BOUND — the real moment is later, by up to one epoch. */
+  exact: boolean;
+}
+
+/**
+ * The same answer `daysLeftUntilEpoch` gives, down to the second.
+ *
+ * ⭐ WHY THIS EXISTS: a day count is the right thing to glance at and the wrong thing to plan by
+ * on the last day. "1 day left" covers everything from twenty-four hours to one minute, and by
+ * then the only question left is whether there is time to deal with it tonight.
+ *
+ * ⛔ IT IS THE SAME EDGE AS THE DAY COUNT, on purpose. Both take `epochArrival`'s `minMs`, so the
+ *    two can never disagree: a countdown reading three hours under a label reading "2 days left"
+ *    would be two numbers about one fact, and a person believes the reassuring one.
+ *
+ * ⚠ EVEN EXACT IS AN ESTIMATE, and the direction is known: an epoch change can run LATE, never
+ *   early, so this can only be early. Measured on mainnet 2026-08-25 — 36 epochs after the first,
+ *   the accumulated drift was nine minutes.
+ *
+ * Null on the same input as `daysLeftUntilEpoch`: no usable epoch length.
+ */
+export function timeLeftUntilEpoch(
+  epoch: number,
+  clock: LeaseClock,
+  nowMs: number,
+): TimeLeft | null {
+  const a = epochArrival(clock, epoch, nowMs);
+  if (a === null) return null;
+  const totalMs = Math.max(0, a.minMs);
+  const seconds = Math.floor(totalMs / 1000);
+  return {
+    days: Math.floor(seconds / 86_400),
+    hours: Math.floor(seconds / 3_600) % 24,
+    minutes: Math.floor(seconds / 60) % 60,
+    seconds: seconds % 60,
+    totalMs,
+    exact: a.exact,
+  };
+}
+
 /**
  * The largest number of epochs these leases can ALL be extended by.
  *
@@ -223,6 +275,47 @@ export function headroom(leases: readonly BlobLease[], window: EpochWindow): num
   if (leases.length === 0) return 0;
   const furthest = Math.max(...leases.map((l) => l.endEpoch));
   return Math.max(0, window.current + window.maxAhead - furthest);
+}
+
+/**
+ * The enum cases of the network's `epoch_state` that carry WHEN THE CURRENT EPOCH BEGAN.
+ *
+ * ⛔ THERE ARE TWO OF THEM, AND READING ONLY THE FIRST COST US A FORTNIGHT OF PRECISION. The Move
+ *    enum has three cases: `EpochChangeSync` (a node count — a small integer, NOT a moment),
+ *    `EpochChangeDone` (the moment this epoch's change happened), and `NextParamsSelected` (the
+ *    same moment, kept after the next epoch's parameters are chosen). A network settles into the
+ *    LAST of those and stays there, so an implementation that accepted `EpochChangeDone` alone
+ *    threw the anchor away nearly always. Measured on mainnet 2026-08-25: epoch 37 reported
+ *    `NextParamsSelected` holding 2026-08-11T15:08:58Z — exactly one epoch before its end. Without
+ *    it `epochArrival` falls back to a range ONE WHOLE EPOCH wide (fourteen days on mainnet), and
+ *    every surface that counts down to a deletion then says "as early as N days" — honest, and
+ *    useless to somebody deciding whether to pay for more time.
+ *
+ * ⛔ THIS IS AN ALLOW-LIST, NOT A DENY-LIST. `EpochChangeSync` carries a `u16`, which is finite and
+ *    would happily become a date in 1970; and a case this code has not been taught must report NO
+ *    anchor rather than guess. Losing precision costs a warning that comes early. Guessing costs a
+ *    deleted file.
+ */
+export const EPOCH_START_VARIANTS: readonly string[] = ["EpochChangeDone", "NextParamsSelected"];
+
+/**
+ * When the current epoch began, in ms — or null when this reading cannot say.
+ *
+ * ⭐ ONE OF IT, ON PURPOSE. Both the browser and the command-line tool read the same enum for the
+ * same reason, and a second narrowing elsewhere would be a second answer to "has this epoch
+ * settled" — the two would drift the day the protocol renames a case, and drift here is a wrong
+ * deletion date on a screen where somebody spends money.
+ *
+ * Read by name rather than cast: a shape change in the protocol has to surface as "no anchor",
+ * which costs precision, instead of as a NaN that becomes a date.
+ */
+export function epochStartedMs(epochState: unknown): number | null {
+  if (typeof epochState !== "object" || epochState === null) return null;
+  const kind: unknown = Reflect.get(epochState, "$kind");
+  if (typeof kind !== "string" || !EPOCH_START_VARIANTS.includes(kind)) return null;
+  const at = Number(Reflect.get(epochState, kind));
+  // 0 is not a moment any epoch began at, and a negative one is a corrupted reading.
+  return Number.isFinite(at) && at > 0 ? at : null;
 }
 
 /**

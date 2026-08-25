@@ -303,9 +303,12 @@ files without knowing anything about NMTS.
 - **Uploads and deletes need the spending agreement.** Without it the gateway serves the drive read
   only and refuses every write with a sentence naming the command that would change it. ⛔ That
   command is the person's to run, not yours.
-- ⛔ **An upload to a key that already exists is refused with `409`.** This drive does not replace
-  files. Delete it first if replacing is what was asked for — a delete is recoverable for thirty
-  days — and do not work around the refusal by inventing a second key.
+- **Re-uploading a file that is already there is free and answered `200`.** The gateway compares
+  the content, not the name, so offering the same bytes again costs nothing and is not an error.
+  ⛔ Do not build your own skip list to avoid re-offering files; that is this gateway's job.
+- ⛔ **A key holding a DIFFERENT file is refused with `409`.** This drive does not replace files.
+  Delete it first if replacing is what was asked for — a delete is recoverable for thirty days —
+  and do not work around the refusal by inventing a second key.
 - **Large files go up in pieces** and are put together here, in order, with each piece checked
   against the hash the client signed for. Nothing reaches the drive until every piece has arrived,
   so an upload that is interrupted stores nothing rather than half a file.

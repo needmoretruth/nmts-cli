@@ -16,6 +16,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import type { DriveWriter } from "./server.ts";
+import { isKeyConflict } from "./same-file.ts";
 import { completeUploadXml, initiateUploadXml } from "./xml.ts";
 
 /** S3's own ceiling, and a bound on what one client can stage on this machine. */
@@ -98,7 +99,15 @@ export async function handleMultipart(context: MultipartContext): Promise<boolea
       send(res, completeUploadXml(context.bucket, key, etag));
       context.log?.(`multipart complete ${key}`);
     } catch (error) {
-      context.fail(500, "InternalError", error instanceof Error ? error.message : String(error));
+      // ⛔ A KEY THAT HOLDS A DIFFERENT FILE IS A 409, NOT A 500 — the request was well formed and
+      //    the drive declined it. Told 500, a sync tool retries the whole upload forever; told 409
+      //    it records a conflict and moves on. The verdict itself is the writer's (`same-file.ts`),
+      //    reached only once the pieces are one file, because until then there is nothing to hash.
+      if (isKeyConflict(error)) {
+        context.fail(409, "InvalidRequest", error instanceof Error ? error.message : String(error));
+      } else {
+        context.fail(500, "InternalError", error instanceof Error ? error.message : String(error));
+      }
     }
     return true;
   }

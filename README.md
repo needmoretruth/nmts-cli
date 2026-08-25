@@ -464,16 +464,22 @@ $ nmts s3
   so a machine that has not run `nmts consent grant spend` serves the drive read only and says so
   — every write is refused with that sentence rather than answered.
 - **Deleting puts a file in the trash**, where it stays recoverable for thirty days.
-- ⛔ **An upload to a key that is already there is refused with `409`.** This drive does not replace
-  files: the same name arrives as a numbered copy, so answering 200 would tell a sync tool it had
-  updated a file it had duplicated. Delete it first, or upload under another key.
+- **A key that already holds the SAME file is answered `200`, and nothing is sent.** What is
+  compared is the file's content, not its name: every upload records a hash of the plaintext,
+  sealed so only this account can read it, and the gateway compares the arriving bytes against it.
+  So a backup that runs every night pays for the files that changed and nothing for the rest.
+- ⛔ **A key that holds a DIFFERENT file is refused with `409`.** This drive does not replace files:
+  the same name arrives as a numbered copy, so answering 200 would tell a sync tool it had updated
+  a file it had duplicated. Delete it first, or upload under another key. A file stored before
+  hashes were recorded has none to compare with, and is refused the same way with its own sentence.
 - **Large files go up in pieces**, the way S3 clients send them: the pieces arrive out of order and
   at the same time, and each one is checked against the hash the client signed for before it
-  becomes part of the file. Nothing is stored until every piece is in.
+  becomes part of the file. Nothing is stored until every piece is in. ⚠ The comparison above
+  happens once the pieces are one file — until then there is nothing to compare — so a large file
+  that turns out to be unchanged is sent across the loopback and then not uploaded.
 - ⚠ **The modification time is not carried across.** A file arrives with the time it was uploaded,
-  so a tool comparing timestamps decides an unchanged file has changed and tries to send it again
-  — and gets the `409` above. `rclone --size-only` compares sizes and skips it, which is what makes
-  a second run quiet.
+  so a tool comparing timestamps decides an unchanged file has changed and offers it again. That
+  now costs nothing: the content is compared and the upload is skipped.
 - **A file uploaded from another device can take five seconds to appear**, which is how long a
   file list is reused before it is fetched again.
 
