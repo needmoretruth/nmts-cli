@@ -392,8 +392,18 @@ what the work needs, say so and let the person do it.
 Arguments are checked against what each tool declares. A wrong one comes back as a refusal naming
 the problem, never as a guess — `"dry_run": "true"` is an error, not an upload.
 
+If the person is setting this up, it is one line in Claude Code and in Codex — the same line:
+
+```
+claude mcp add nmts -- nmts mcp --out /where/files/should/land
+codex mcp add nmts -- nmts mcp --out /where/files/should/land
+```
+
+opencode has no command for it and takes the entry in `opencode.json`; any other client takes the
+same command and arguments in whatever shape it uses:
+
 ```json
-{ "command": "nmts", "args": ["mcp", "--out", "/where/files/should/land"] }
+{ "mcp": { "nmts": { "type": "local", "command": ["nmts", "mcp", "--out", "/where/files/should/land"] } } }
 ```
 
 ⚠ **A sealed stored code is opened once, at startup, and held for as long as the server runs.**

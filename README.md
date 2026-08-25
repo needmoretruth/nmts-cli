@@ -496,9 +496,25 @@ $ rclone copy --size-only ./somewhere drive:drive
 
 ## For an agent that speaks MCP
 
-```json
-{ "command": "nmts", "args": ["mcp", "--out", "/where/files/should/land"] }
+`nmts mcp` is a local MCP server: it runs on this machine, over stdin and stdout, and speaks to
+whatever started it. Sign in first (`nmts login`) — it reads the account code this machine already
+keeps and never takes one on a command line.
+
+**Claude Code** and **Codex** both add it in one line, and the line is the same:
+
 ```
+$ claude mcp add nmts -- nmts mcp --out /where/files/should/land
+$ codex mcp add nmts -- nmts mcp --out /where/files/should/land
+```
+
+**opencode** has no command for it; put this in `opencode.json`:
+
+```json
+{ "mcp": { "nmts": { "type": "local", "command": ["nmts", "mcp", "--out", "/where/files/should/land"] } } }
+```
+
+Any other client that runs a local MCP server takes the same two things — the command `nmts` and
+the arguments `mcp --out <directory>`. Where it wants them written is that client's business.
 
 It offers twenty tools — reading the account (`nmts_whoami`, `nmts_list`, `nmts_usage`,
 `nmts_expiring`, `nmts_balance`, `nmts_shares`), fetching (`nmts_get`, `nmts_pull`,
