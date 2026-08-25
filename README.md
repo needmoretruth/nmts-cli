@@ -43,7 +43,7 @@ nmts --help
 That takes the default branch. To pin a version, name a tag:
 
 ```sh
-npm install -g github:needmoretruth/nmts-cli#v0.4.0
+npm install -g github:needmoretruth/nmts-cli#v0.5.0
 ```
 
 Or from the tarball on the [latest release](https://github.com/needmoretruth/nmts-cli/releases),
@@ -232,7 +232,7 @@ It cannot be rotated while keeping the account.
 | `nmts wallet` | The account's wallet address, and its SUI and WAL balances |
 | `nmts verify` | Ask a person to pass the check that opens this account's limits |
 | `nmts mcp` | Serve a subset of the above as tools over the Model Context Protocol |
-| `nmts s3` | Serve the drive to any S3 program, on this machine only. Read only |
+| `nmts s3` | Serve the drive to any S3 program, on this machine only |
 
 `ls` takes `--json` and `--all` (include the trash). Trashed entries are hidden by default and the
 count always says how many were hidden. `--find <text>` keeps only files whose name contains the
@@ -460,8 +460,20 @@ $ nmts s3
   when it stops.
 - **It listens on 127.0.0.1, and there is no option to change that.** One signature stands between
   a request and every file in the account, and the key it checks was printed on a terminal.
-- **Read only.** Listing and downloading work; uploading and deleting answer `501 NotImplemented`
-  rather than a success over nothing.
+- **Uploading and deleting work, and both need the spending agreement.** Uploading spends credits,
+  so a machine that has not run `nmts consent grant spend` serves the drive read only and says so
+  — every write is refused with that sentence rather than answered.
+- **Deleting puts a file in the trash**, where it stays recoverable for thirty days.
+- ⛔ **An upload to a key that is already there is refused with `409`.** This drive does not replace
+  files: the same name arrives as a numbered copy, so answering 200 would tell a sync tool it had
+  updated a file it had duplicated. Delete it first, or upload under another key.
+- ⚠ **Large files are not sent yet.** Clients switch to a multipart upload above their own size
+  threshold — rclone's is `--s3-upload-cutoff` — and this gateway refuses those, with a message
+  saying so. Raising that threshold sends the file in one request instead.
+- ⚠ **The modification time is not carried across.** A file arrives with the time it was uploaded,
+  so a tool comparing timestamps decides an unchanged file has changed and tries to send it again
+  — and gets the `409` above. `rclone --size-only` compares sizes and skips it, which is what makes
+  a second run quiet.
 - **A file uploaded from another device can take five seconds to appear**, which is how long a
   file list is reused before it is fetched again.
 
@@ -473,6 +485,7 @@ $ rclone config create drive s3 provider=Other region=us-east-1 \
     access_key_id=<the id printed above> secret_access_key=<the secret printed above>
 $ rclone lsf -R drive:drive
 $ rclone copy drive:drive ./somewhere
+$ rclone copy --size-only ./somewhere drive:drive
 ```
 
 ## For an agent that speaks MCP

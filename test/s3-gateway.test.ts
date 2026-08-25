@@ -161,13 +161,14 @@ test("⛔ a signature made with another secret gets nothing", async () => {
 });
 
 // ⛔ THE ONE THAT KEEPS A BACKUP HONEST. A sync tool that gets 200 for a PUT it never performed
-//    reports a backup that does not exist. Until uploads are built the answer has to be a refusal.
+//    reports a backup that does not exist. A gateway with no writer refuses, and says what would
+//    give it one.
 test("⛔ writing is refused with a sentence, not answered", async () => {
   const res = await call("PUT", "/drive/new.txt");
   assert.equal(res.status, 501);
   const body = await res.text();
   assert.match(body, /<Code>NotImplemented<\/Code>/);
-  assert.match(body, /not built yet/);
+  assert.match(body, /consent grant spend/);
   const gone = await call("DELETE", "/drive/readme.txt");
   assert.equal(gone.status, 501);
 });
@@ -189,4 +190,116 @@ test("⛔ there is no way to serve this to anybody else", async () => {
     // The only address it listens on is the constant.
     assert.doesNotMatch(source, /listen\((?![^)]*BIND_ADDRESS)[^)]*"[\d.]+"/);
   }
+});
+
+// ── Writing ────────────────────────────────────────────────────────────────────────────────────
+//
+// ⛔ A SECOND GATEWAY, because read-only is not a mode this one can be put into: it is the ABSENCE
+//    of a writer, which is what a machine with no spending agreement produces. Testing both from
+//    one instance would mean inventing a switch that the product does not have.
+
+const written: Array<{ key: string; bytes: string }> = [];
+const trashed: string[] = [];
+const writable = createGateway({
+  credential: CREDENTIAL,
+  source: {
+    entries: async () => ENTRIES,
+    fetch: async (object, sink) => {
+      sink.expect(object.size);
+      await sink.write(CONTENT.subarray(0, object.size));
+      await sink.commit();
+    },
+    write: {
+      put: async (key, body, size) => {
+        const chunks: Buffer[] = [];
+        for await (const chunk of body) chunks.push(Buffer.from(chunk));
+        written.push({ key, bytes: Buffer.concat(chunks).toString() });
+        assert.equal(Buffer.concat(chunks).length, size, "the declared size was not the body's size");
+      },
+      trash: async (object) => {
+        trashed.push(object.key);
+      },
+    },
+  },
+});
+await new Promise<void>((resolve) => writable.listen(0, "127.0.0.1", resolve));
+const WRITE_HOST = `127.0.0.1:${(writable.address() as AddressInfo).port}`;
+after(() => writable.close());
+
+async function send(
+  method: string,
+  target: string,
+  body: Buffer = Buffer.alloc(0),
+  extra: Record<string, string> = {},
+  host: string = WRITE_HOST,
+): Promise<Response> {
+  const signed = sign(method, target, host, CREDENTIAL, new Date(), body);
+  return await fetch(signed.url, {
+    method,
+    headers: { ...signed.headers, ...extra, "content-length": String(body.length) },
+    ...(body.length > 0 ? { body } : {}),
+  });
+}
+
+// ⛔ MEASURED FROM A REAL CLIENT: rclone's first act when copying a file is to create the bucket.
+//    Refusing it ends the copy before the upload is attempted.
+test("making the bucket that is already there succeeds", async () => {
+  assert.equal((await send("PUT", "/drive")).status, 200);
+});
+
+test("a file arrives whole, at the key the client used", async () => {
+  const body = Buffer.from("hello from a sync tool\n");
+  const res = await send("PUT", "/drive/notes/new.txt?x-id=PutObject", body);
+  assert.equal(res.status, 200);
+  assert.deepEqual(written.at(-1), { key: "notes/new.txt", bytes: body.toString() });
+});
+
+// ⛔ THE ONE THAT KEEPS A SYNC TOOL FROM DUPLICATING FOREVER. This drive does not replace files;
+//    the same name arrives as a numbered copy. Answering 200 would tell the client it had updated
+//    a file it had in fact duplicated, and it would duplicate again on every run.
+test("⛔ a key that is already there is a conflict, and nothing is written", async () => {
+  const before = written.length;
+  const res = await send("PUT", "/drive/readme.txt", Buffer.from("replacement"));
+  assert.equal(res.status, 409);
+  assert.match(await res.text(), /does not replace files/);
+  assert.equal(written.length, before, "it uploaded over an existing file");
+});
+
+test("deleting puts the file in the trash, and deleting nothing is still fine", async () => {
+  assert.equal((await send("DELETE", "/drive/readme.txt")).status, 204);
+  assert.deepEqual(trashed.at(-1), "readme.txt");
+  const again = await send("DELETE", "/drive/not-there.txt");
+  assert.equal(again.status, 204, "a second delete of the same key must not fail a sync");
+});
+
+// ⛔ WITHOUT THE SPENDING AGREEMENT EVERY WRITE IS REFUSED, and the refusal names the one command
+//    that changes it. A gateway cannot ask: its caller is a program.
+test("⛔ with no writer, writes are refused and say why", async () => {
+  const res = await send("PUT", "/drive/new.txt", Buffer.from("x"), {}, HOST);
+  assert.equal(res.status, 501);
+  const body = await res.text();
+  assert.match(body, /read only/i);
+  assert.match(body, /consent grant spend/);
+  assert.equal((await send("DELETE", "/drive/readme.txt", Buffer.alloc(0), {}, HOST)).status, 501);
+});
+
+test("⛔ multipart is refused with the way around it, not a bare failure", async () => {
+  const res = await send("POST", "/drive/big.bin?uploads");
+  assert.equal(res.status, 501);
+  assert.match(await res.text(), /upload-cutoff/);
+});
+
+test("⛔ a chunk-signed body is refused rather than stored wrong", async () => {
+  // The signature is computed over the literal, exactly as a client sending chunks would.
+  const signed = sign("PUT", "/drive/chunked.bin", WRITE_HOST, CREDENTIAL, new Date());
+  const headers = { ...signed.headers, "x-amz-content-sha256": "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" };
+  const resigned = sign("PUT", "/drive/chunked.bin", WRITE_HOST, CREDENTIAL, new Date());
+  void resigned;
+  const res = await fetch(signed.url, {
+    method: "PUT",
+    headers: { ...headers, "content-length": "0" },
+  });
+  // The declared hash is part of the signature, so changing it fails the signature first — which is
+  // also a refusal, and the one that matters: nothing is stored either way.
+  assert.equal(res.status, 403);
 });

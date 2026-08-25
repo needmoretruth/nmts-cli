@@ -14,11 +14,18 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
 
+import type { Readable } from "node:stream";
+
 import type { PlaintextSink } from "../download-sink.ts";
 import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
 import { BUCKET, listObjects, objectsOf, folderPrefixesOf, MAX_KEYS_LIMIT, type DriveObject } from "./listing.ts";
 import { responseSink } from "./response-sink.ts";
-import { verifySignature, type GatewayCredential } from "./sigv4.ts";
+import {
+  STREAMING_PAYLOAD,
+  STREAMING_PAYLOAD_TRAILER,
+  verifySignature,
+  type GatewayCredential,
+} from "./sigv4.ts";
 import { errorXml, listBucketsXml, listObjectsXml } from "./xml.ts";
 
 /** Where the drive is served. Loopback, always — see the note above. */
@@ -35,6 +42,22 @@ export interface DriveSource {
    *    end-to-end one is a gateway whose refusals are never tested at all.
    */
   fetch(object: DriveObject, sink: PlaintextSink): Promise<void>;
+  /**
+   * How to change the drive, when this machine has agreed to spending.
+   *
+   * ⛔ ABSENT MEANS READ ONLY, AND THAT IS A REFUSAL RATHER THAN A GAP. Uploading spends credits,
+   *    which is one of the three things this tool asks a person about once per machine, and a
+   *    gateway cannot ask: its stdin is not a terminal and the caller is a program. So the
+   *    agreement has to exist beforehand, and where it does not, every write says so.
+   */
+  readonly write?: DriveWriter;
+}
+
+export interface DriveWriter {
+  /** Store `body` at this key. `size` is the byte count the client declared. */
+  put(key: string, body: Readable, size: number): Promise<void>;
+  /** Send one file to the trash, where it stays recoverable for thirty days. */
+  trash(object: DriveObject): Promise<void>;
 }
 
 export interface GatewayOptions {
@@ -67,6 +90,20 @@ function splitPath(pathname: string): { bucket: string; key: string } {
   const at = trimmed.indexOf("/");
   if (at < 0) return { bucket: decodeURIComponent(trimmed), key: "" };
   return { bucket: decodeURIComponent(trimmed.slice(0, at)), key: decodeURIComponent(trimmed.slice(at + 1)) };
+}
+
+function headerOf(req: IncomingMessage, name: string): string | undefined {
+  const raw = req.headers[name];
+  return Array.isArray(raw) ? raw.join(",") : raw;
+}
+
+/** The one sentence a write gets when this machine has not agreed to spending. */
+function readOnlyBecause(): string {
+  return (
+    "This gateway is read only. Uploading spends credits, and this machine has not agreed to " +
+    "spending — `nmts consent grant spend`, run by the person whose account this is, is what " +
+    "changes that. Nothing was written."
+  );
 }
 
 function objectHeaders(object: DriveObject): Record<string, string> {
@@ -106,6 +143,15 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
 
   if (bucket !== BUCKET) {
     fail(res, 404, "NoSuchBucket", `This gateway serves one bucket, named ${BUCKET}.`, pathname);
+    return;
+  }
+
+  // ⛔ MEASURED, NOT GUESSED: rclone's first act when copying a file is to create the bucket, and a
+  //    refusal here ends the copy before the upload is ever attempted. The bucket exists, so the
+  //    honest answer to "make it" is that it is made.
+  if (key === "" && method === "PUT") {
+    res.writeHead(200, { "content-length": "0" });
+    res.end();
     return;
   }
 
@@ -167,13 +213,101 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
     return;
   }
 
-  fail(
-    res,
-    501,
-    "NotImplemented",
-    `This gateway answers GET and HEAD on ${BUCKET}. Writing through it is not built yet.`,
-    pathname,
-  );
+  const writer = options.source.write;
+
+  if (method === "PUT" && key !== "") {
+    if (writer === undefined) {
+      fail(res, 501, "NotImplemented", readOnlyBecause(), pathname);
+      return;
+    }
+    const declared = headerOf(req, "x-amz-content-sha256");
+    if (declared === STREAMING_PAYLOAD || declared === STREAMING_PAYLOAD_TRAILER) {
+      fail(
+        res,
+        501,
+        "NotImplemented",
+        "This gateway does not read chunk-signed uploads yet. Tell the client to send the body " +
+          "unsigned (the AWS CLI calls this --no-sign-payload on http endpoints; rclone already " +
+          "does it).",
+        pathname,
+      );
+      return;
+    }
+    const length = Number(headerOf(req, "content-length") ?? "");
+    if (!Number.isInteger(length) || length < 0) {
+      fail(res, 411, "MissingContentLength", "This gateway needs to know the size before it starts.", pathname);
+      return;
+    }
+    // ⛔ AN EXISTING KEY IS A CONFLICT, NOT AN OVERWRITE. This drive never replaces a file: the same
+    //    name arrives as a numbered copy, which is a product decision and not this gateway's to
+    //    change. Answering 200 while writing "name (2)" would tell a sync tool it had updated a
+    //    file it had in fact duplicated, and it would go on duplicating on every run.
+    const already = objectsOf(entries).some((o) => o.key === key);
+    if (already) {
+      fail(
+        res,
+        409,
+        "InvalidRequest",
+        "There is already a file at that key, and this drive does not replace files. Delete it " +
+          "first — a delete puts it in the trash, where it stays recoverable for thirty days.",
+        pathname,
+      );
+      return;
+    }
+    try {
+      await writer.put(key, req, length);
+    } catch (error) {
+      fail(res, 500, "InternalError", error instanceof Error ? error.message : String(error), pathname);
+      return;
+    }
+    res.writeHead(200, { "content-length": "0" });
+    res.end();
+    options.log?.(`PUT ${key} → ${length} bytes`);
+    return;
+  }
+
+  if (method === "DELETE" && key !== "") {
+    if (writer === undefined) {
+      fail(res, 501, "NotImplemented", readOnlyBecause(), pathname);
+      return;
+    }
+    const object = objectsOf(entries).find((o) => o.key === key);
+    if (object === undefined) {
+      // S3 answers 204 for a key that is not there, and clients rely on it: a sync that deletes
+      // the same key twice must not fail the second time.
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+    try {
+      await writer.trash(object);
+    } catch (error) {
+      fail(res, 500, "InternalError", error instanceof Error ? error.message : String(error), pathname);
+      return;
+    }
+    res.writeHead(204);
+    res.end();
+    options.log?.(`DELETE ${key} → trash`);
+    return;
+  }
+
+  // ⛔ MULTIPART IS NAMED RATHER THAN LUMPED IN WITH EVERYTHING ELSE. It is what every client
+  //    switches to for a large file, so "not implemented" without the reason reads as a broken
+  //    gateway rather than a known edge with a way around it.
+  if (method === "POST" || query.has("uploadId") || query.has("uploads")) {
+    fail(
+      res,
+      501,
+      "NotImplemented",
+      "This gateway does not do multipart uploads yet. Clients switch to them above a size " +
+        "threshold — rclone's is --s3-upload-cutoff — so raising that threshold sends the file in " +
+        "one request instead.",
+      pathname,
+    );
+    return;
+  }
+
+  fail(res, 501, "NotImplemented", `This gateway does not answer ${method} on that address.`, pathname);
 }
 
 export function createGateway(options: GatewayOptions): Server {

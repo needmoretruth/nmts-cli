@@ -62,7 +62,7 @@ export function helpText(version) {
         `  kit                   Recovery kit: that list AND your account code, together in one file`,
         `  verify                Ask a person to pass the check that opens this account's limits`,
         `  mcp                   Serve this account's commands as tools, for an agent that speaks MCP`,
-        `  s3                    Serve the drive to any S3 program, on this machine only. Read only`,
+        `  s3                    Serve the drive to any S3 program, on this machine only`,
         ``,
         `OPTIONS`,
         `  --server <url>        NMTS server (default ${SERVER_ENV_VAR} or the live one)`,

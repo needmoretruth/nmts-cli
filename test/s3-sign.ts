@@ -33,9 +33,13 @@ export function sign(
   const at = target.indexOf("?");
   const path = at < 0 ? target : target.slice(0, at);
   const rawQuery = at < 0 ? "" : target.slice(at + 1);
+  // A parameter with no value is signed as `name=`, which is what clients that send `?uploads`
+  // actually put in their canonical request. Leaving the `=` off produces a different signature
+  // from the server's and the request is refused for a reason nobody can see.
   const query = rawQuery
     .split("&")
     .filter((p) => p.length > 0)
+    .map((p) => (p.includes("=") ? p : `${p}=`))
     .sort()
     .join("&");
 

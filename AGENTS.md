@@ -172,7 +172,7 @@ nmts rename <path> <n>   give one thing a new name
 nmts verify              ask a person to pass the check that opens this account's limits
 nmts update              install the newest published release of THIS TOOL. See below
 nmts mcp                 serve this account's commands as MCP tools on stdin/stdout
-nmts s3                  serve the drive to any S3 program, on this machine only. Read only
+nmts s3                  serve the drive to any S3 program, on this machine only
 nmts --help              the current list
 nmts --version           the version
 ```
@@ -300,8 +300,14 @@ files without knowing anything about NMTS.
   common prefixes.
 - **The credentials it prints are made at start and stored nowhere.** Give them to the tool you are
   driving; they stop working when the command stops.
-- **It is read only.** Uploads and deletes answer `501 NotImplemented`. A tool that reports a
-  successful backup over this is reporting one that did not happen.
+- **Uploads and deletes need the spending agreement.** Without it the gateway serves the drive read
+  only and refuses every write with a sentence naming the command that would change it. ⛔ That
+  command is the person's to run, not yours.
+- ⛔ **An upload to a key that already exists is refused with `409`.** This drive does not replace
+  files. Delete it first if replacing is what was asked for — a delete is recoverable for thirty
+  days — and do not work around the refusal by inventing a second key.
+- ⚠ **Large files fail**: clients switch to multipart above their own threshold and this gateway
+  refuses those. The message says which setting sends the file in one request instead.
 - **It runs until it is stopped.** Start it in the background of the task that needs it and stop it
   when that task is over; do not leave it running because it might be useful later.
 - ⛔ **The address cannot be changed.** If a task needs the drive reachable from another machine,

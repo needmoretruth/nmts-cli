@@ -11,8 +11,18 @@
 // ⛔ READ ONLY, AND IT SAYS SO. Writing costs credits, and spending is one of the three things this
 //    tool asks a person about once per machine. Answering PUT before that agreement exists would
 //    spend somebody's money because a sync tool decided to. Uploads come next, behind that gate.
+import { createWriteStream } from "node:fs";
+import { rm as removeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pipeline } from "node:stream/promises";
+import { randomUUID } from "node:crypto";
+import { isGranted } from "../consent.js";
 import { fetchFile } from "../download.js";
 import { NmtsError } from "../errors.js";
+import { ensureFolderPath } from "./organise.js";
+import { put } from "./put.js";
+import { rm } from "./trash.js";
 import { readFileList } from "../manifest.js";
 import { resolveNetwork } from "../network.js";
 import { BINARY_NAME } from "../product.js";
@@ -56,10 +66,56 @@ export async function s3(options = {}) {
         cachedAt = Date.now();
         return cached;
     };
+    // ⛔ WRITING IS OFF UNLESS THIS MACHINE ALREADY AGREED TO SPENDING. A gateway cannot ask: its
+    //    caller is a program and its stdin is not a terminal. So the question is answered before it
+    //    starts, and where the answer is no every write says so and nothing is charged.
+    const writable = isGranted("spend");
     const server = createGateway({
         credential,
         source: {
             entries,
+            ...(writable
+                ? {
+                    write: {
+                        // ⛔ THE BODY IS SPOOLED TO A FILE FIRST, 0600, and deleted whatever happens. The
+                        //    upload path reserves storage, cuts parts and seals them from a file, and giving
+                        //    it a socket instead would mean either holding whole uploads in memory or
+                        //    writing a second upload path — and a second upload path is a second place for
+                        //    "what if the reservation succeeds and the part fails" to be got right.
+                        put: async (key, body, size) => {
+                            const at = key.lastIndexOf("/");
+                            const folder = at < 0 ? undefined : key.slice(0, at);
+                            const name = at < 0 ? key : key.slice(at + 1);
+                            const spool = join(tmpdir(), `nmts-s3-${randomUUID()}`);
+                            try {
+                                await pipeline(body, createWriteStream(spool, { mode: 0o600 }));
+                                if (folder !== undefined && folder !== "")
+                                    await ensureFolderPath(session, folder);
+                                await put(spool, {
+                                    server: options.server,
+                                    network: options.network,
+                                    ...(folder === undefined || folder === "" ? {} : { to: folder }),
+                                    name,
+                                    write: () => undefined,
+                                });
+                                cachedAt = 0;
+                            }
+                            finally {
+                                await removeFile(spool, { force: true });
+                            }
+                            void size;
+                        },
+                        trash: async (object) => {
+                            await rm([`/${object.key}`], {
+                                server: options.server,
+                                network: options.network,
+                                write: () => undefined,
+                            });
+                            cachedAt = 0;
+                        },
+                    },
+                }
+                : {}),
             // The real reader. The gateway takes it as a function so its own tests can be driven by a
             // real S3 client without an account, a network or anybody's credits.
             fetch: async (object, sink) => {
@@ -98,7 +154,7 @@ export async function s3(options = {}) {
             bucket: BUCKET,
             accessKeyId: credential.accessKeyId,
             secretAccessKey: credential.secretAccessKey,
-            readOnly: true,
+            readOnly: !writable,
             listCacheMs: LIST_CACHE_MS,
         }));
     }
@@ -111,7 +167,13 @@ export async function s3(options = {}) {
         say(`  secret key      ${credential.secretAccessKey}`);
         say(`  region          any — the signature carries whichever one the client used`);
         say(``);
-        say(`  ⛔ READ ONLY. Listing and downloading work; uploading and deleting do not yet.`);
+        say(writable
+            ? `  Listing, downloading, uploading and deleting all work. Uploading spends credits.`
+            : `  ⛔ READ ONLY — this machine has not agreed to spending, so uploads and deletes are` +
+                ` refused. \`${BINARY_NAME} consent grant spend\`, run by the person whose account this` +
+                ` is, changes that.`);
+        say(`  ⚠ Large files are not sent yet: a client switches to a multipart upload above its own`);
+        say(`     size threshold, and this gateway refuses those with a message saying so.`);
         say(`  ⛔ These credentials were made for this run and are stored nowhere. They stop working`);
         say(`     the moment this command does.`);
         say(`  ⚠ A file uploaded from another device can take ${LIST_CACHE_MS / 1000}s to appear here.`);
