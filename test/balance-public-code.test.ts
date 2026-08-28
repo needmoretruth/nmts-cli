@@ -143,7 +143,12 @@ test("the public code is printed in the form a person reads, and an unpublished 
     const lines: string[] = [];
     assert.equal(await publicCode({ write: (l) => lines.push(l) }), 0);
     const said = lines.join("\n");
-    assert.match(said, new RegExp((await mine(code)).shown), "the grouped form a person reads is missing");
+    // ⛔ A SUBSTRING, NOT A PATTERN BUILT FROM THE VALUE. The displayed code ends in a Crockford
+    //    check symbol, and three of the five (`*`, `$`, `~`) mean something to a regular
+    //    expression: a code ending in `$` compiled to an end-of-input anchor and the assertion
+    //    failed on output that plainly contained it. That is roughly one run in twenty, and it
+    //    failed a release rather than a commit.
+    assert.ok(said.includes((await mine(code)).shown), "the grouped form a person reads is missing");
     assert.match(said, /NOT published/);
     assert.match(said, /public-code --publish/);
     assert.equal(puts.length, 0, "reading it wrote to the server");
