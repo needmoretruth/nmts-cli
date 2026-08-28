@@ -18,7 +18,7 @@ export const BINARY_NAME = "nmts";
  *    beside it. Here rather than in `main.ts` because the MCP server has to say it too, and a
  *    command importing the entry point is a cycle waiting to bite.
  */
-export const VERSION = "0.9.0";
+export const VERSION = "0.10.0";
 /** Where the product lives, for messages that need to send somebody somewhere real. */
 export const HOME_URL = "https://nmts.me";
 /** The source, for the notices the AGPL asks a program to be able to print. */

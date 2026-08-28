@@ -329,6 +329,10 @@ export async function run(argv: readonly string[]): Promise<number> {
       const { mode } = await import("./commands/mode.ts");
       return mode(args.operands[0], { json: args.json, accepted: args.iAcceptTheRisk });
     }
+    case "on-collision": {
+      const { onCollision } = await import("./commands/on-collision.ts");
+      return onCollision(args.operands[0], { json: args.json });
+    }
     case "verify": {
       const { verify } = await import("./commands/verify.ts");
       return await verify({ server: args.server, json: args.json, status: args.status });

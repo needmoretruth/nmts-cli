@@ -324,6 +324,10 @@ export async function run(argv) {
             const { mode } = await import("./commands/mode.js");
             return mode(args.operands[0], { json: args.json, accepted: args.iAcceptTheRisk });
         }
+        case "on-collision": {
+            const { onCollision } = await import("./commands/on-collision.js");
+            return onCollision(args.operands[0], { json: args.json });
+        }
         case "verify": {
             const { verify } = await import("./commands/verify.js");
             return await verify({ server: args.server, json: args.json, status: args.status });

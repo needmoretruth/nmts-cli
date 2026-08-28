@@ -57,6 +57,7 @@ export function helpText(version) {
         `  env                   What this machine is, and what it means for the account code`,
         `  consent               See what this machine has agreed to, and change it`,
         `  mode                  How much an agent driving this tool may decide without asking`,
+        `  on-collision          What to do when an upload's name is already in use`,
         `  update                Install the newest published release of this tool`,
         `  recovery              Download the standalone program that reads files back without NMTS`,
         `  recovery-list         Write the file that finds your bytes without NMTS. Holds no code`,

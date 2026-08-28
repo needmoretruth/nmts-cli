@@ -45,8 +45,9 @@ import {
 import { requireConsent } from "../consent.ts";
 import { NmtsError } from "../errors.ts";
 import { firstRunNotice } from "../notice.ts";
-import { holdTerminal, promptSecret, stdinIsATerminal } from "../prompt.ts";
-import { BINARY_NAME, HOME_URL } from "../product.ts";
+import { holdTerminal, promptLine, promptSecret, stdinIsATerminal } from "../prompt.ts";
+import { ANSWER_NUMBER, COLLISION_MEANS, hasChosen, readAnswer, setChoice } from "../collision.ts";
+import { BINARY_NAME, HOME_URL, VERSION } from "../product.ts";
 import { resolveNetwork } from "../network.ts";
 import { resolveServer } from "../server.ts";
 
@@ -95,7 +96,7 @@ export async function login(options: LoginOptions = {}): Promise<number> {
   // ⛔ ONE HOLD OVER EVERY QUESTION THIS COMMAND ASKS. Between two prompts the terminal is back in
   //    line mode, where it echoes what is typed and swallows lines the next prompt never sees —
   //    and this command asks up to three things with a check in the middle.
-  return holdTerminal(async () => {
+  const exit = await holdTerminal(async () => {
     const code = await readTheCode(options);
 
     // ⛔ CHECKED BEFORE IT IS WRITTEN. The engine verifies the code's own check symbol offline, so
@@ -126,6 +127,32 @@ export async function login(options: LoginOptions = {}): Promise<number> {
     sayAboutTheKey(key, server, say);
     return exit;
   });
+
+  // ⛔ ASKED HERE, ONCE, BECAUSE THERE IS NOBODY TO ASK LATER (owner 2026-08-25: a backup program
+  //    has to ask at the start what to do about a name that is already in use). A prompt in the
+  //    middle of an upload is a prompt an unattended job never answers.
+  //
+  // ⛔ OUTSIDE `holdTerminal` ON PURPOSE. Inside it the terminal is in raw mode and a line prompt
+  //    never sees a line. Here it is back to normal, and this is also after everything that could
+  //    fail — a question asked before the sign-in worked would be a question about nothing.
+  //
+  // ⚠ Only when somebody is actually there and has not answered before. A scripted setup gets no
+  //   question and no answer, which reads as the default: rename, which destroys nothing.
+  if (exit === 0) await askAboutCollisions(say);
+  return exit;
+}
+
+/** The one question setup asks about uploads. Silent when it has been answered or nobody is there. */
+async function askAboutCollisions(say: (line: string) => void): Promise<void> {
+  if (hasChosen() || !stdinIsATerminal()) return;
+  say(``);
+  say(`When a file with that name is already in the drive:`);
+  say(`  ${ANSWER_NUMBER.rename}  ${COLLISION_MEANS.rename}`);
+  say(`  ${ANSWER_NUMBER.overwrite}  ${COLLISION_MEANS.overwrite}`);
+  // ⛔ What counts as which answer is decided in `collision.ts`, where a test can reach it.
+  const choice = readAnswer(await promptLine(`[${ANSWER_NUMBER.rename}] `));
+  setChoice(choice, VERSION, new Date());
+  say(`${choice} — ${COLLISION_MEANS[choice]}  Change it: ${BINARY_NAME} on-collision <rename|overwrite>`);
 }
 
 /**
