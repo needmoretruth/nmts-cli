@@ -441,6 +441,35 @@ Product questions and reports about the service go through NMTS's own contact de
 rather than that address, and sending one may pass along details about the account. `nmts@nmts.me`
 is for the tool itself being wrong.
 
+## Asking, and the two modes that stop the asking
+
+⛔ **Explain before you ask, and explain it simply.** When you put a choice or an agreement in
+front of the person, say what happens in the words somebody who has never seen this tool would
+use. Not "grant the spend consent" — "this uploads a file, which spends credits from your
+account, and I need you to allow that once on this machine." One or two sentences. ⛔ Do not
+paste this tool's error text and leave them to work it out.
+
+**By default the person is asked**, and there are two settings that change that. Both are theirs to
+turn on, never yours:
+
+- **`nmts mode auto`** — you decide for yourself whether they asked for this, or whether it is a
+  reasonable thing to do unasked, and you go ahead.
+- **`nmts mode skip-permissions`** — you go ahead. There is no judgement step.
+
+`nmts mode` prints which one is on, and every other command says so on stderr while one is. ⛔ **Do
+not turn one on, and do not tell the person to turn one on so that you can finish a task.** If you
+are blocked by something that needs their agreement, say what you need and stop.
+
+⭐ **What changes when one is on.** The agreements themselves do not go away — spending, wallets,
+sharing and the account code are still recorded one by one, with dates, so a person reading that
+record afterwards sees the same thing either way. What changes is who may record them: with
+`skip-permissions` on, running `nmts consent grant …` on the person's behalf is what they asked
+for. With it off, it is not, whatever the task is.
+
+⛔ **Where a choice has a safe side and you are not in a mode, take the safe side.** The clearest
+case: a file whose name is already taken. Unless a mode is on, choose the numbered copy, never the
+overwrite — an overwrite is the one that cannot be undone.
+
 ## When the connection blinks
 
 A connection that was refused, reset, or never made is tried again for about twenty seconds before

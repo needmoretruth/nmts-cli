@@ -48,6 +48,13 @@ export interface ParsedArgs {
   env: boolean;
   /** `verify`: report whether the human check is live and stop, asking for no new code. */
   status: boolean;
+  /**
+   * `mode`: turn an autonomy mode on.
+   *
+   * ⛔ Spelled out rather than short. It is the sentence that lets an agent stop asking, and the
+   *    length is the point — nobody types it by accident, and anybody reading a script sees it.
+   */
+  iAcceptTheRisk: boolean;
   /** `ls`: keep only files whose name contains this text, case-insensitively. */
   find?: string;
   /** `ls`: which order to list in — `name`, `size` or `date`. Absent = the path order. */
@@ -104,6 +111,7 @@ const FLAG_OPTIONS = {
   "--plain": "plain",
   "--env": "env",
   "--status": "status",
+  "--i-accept-the-risk": "iAcceptTheRisk",
   "--desc": "desc",
   "--hidden": "hidden",
 } as const satisfies Record<string, keyof ParsedArgs>;
@@ -136,6 +144,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     plain: false,
     env: false,
     status: false,
+    iAcceptTheRisk: false,
     desc: false,
     hidden: false,
   };

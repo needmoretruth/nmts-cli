@@ -56,6 +56,7 @@ export function helpText(version) {
         `  unshare <id>          Withdraw a share you sent, or remove one you were sent`,
         `  env                   What this machine is, and what it means for the account code`,
         `  consent               See what this machine has agreed to, and change it`,
+        `  mode                  How much an agent driving this tool may decide without asking`,
         `  update                Install the newest published release of this tool`,
         `  recovery              Download the standalone program that reads files back without NMTS`,
         `  recovery-list         Write the file that finds your bytes without NMTS. Holds no code`,

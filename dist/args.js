@@ -43,6 +43,7 @@ const FLAG_OPTIONS = {
     "--plain": "plain",
     "--env": "env",
     "--status": "status",
+    "--i-accept-the-risk": "iAcceptTheRisk",
     "--desc": "desc",
     "--hidden": "hidden",
 };
@@ -71,6 +72,7 @@ export function parseArgs(argv) {
         plain: false,
         env: false,
         status: false,
+        iAcceptTheRisk: false,
         desc: false,
         hidden: false,
     };

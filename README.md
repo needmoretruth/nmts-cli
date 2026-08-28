@@ -543,6 +543,27 @@ guessed at: a `dry_run` sent as the string `"true"` is an error, not a paid uplo
 
 Implemented directly rather than with an SDK, so it adds no dependency.
 
+## Letting an agent decide for itself
+
+By default the tool asks you before anything that has not been agreed to, and an agent driving it
+is told not to answer for you. Two settings change that, and both take a flag that says what it is:
+
+```
+$ nmts mode                                   # what is set now
+$ nmts mode auto --i-accept-the-risk          # the agent judges, and goes ahead
+$ nmts mode skip-permissions --i-accept-the-risk   # the agent goes ahead
+$ nmts mode off                               # back to asking
+```
+
+While one is on, **every command says so** on stderr. That is deliberate: this is the setting that
+decides whether anybody is asked before credits are spent, and a setting that stops announcing
+itself is one people forget they turned on.
+
+It does not remove the agreements. Spending, wallets, sharing and where the account code may go are
+still recorded one at a time, with dates, and `nmts consent` still lists them. What changes is who
+may record them — with `skip-permissions` on, an agent doing it on your behalf is what you asked
+for; with it off, the instructions it reads say it must not.
+
 ## When the connection blinks
 
 A request that could not be made — the connection refused, reset, or never established, which is

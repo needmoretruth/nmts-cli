@@ -50,6 +50,16 @@ export async function run(argv) {
         process.stdout.write(helpText(VERSION));
         return 0;
     }
+    // ⛔ A MODE THAT STOPPED ANNOUNCING ITSELF IS ONE PEOPLE FORGET THEY TURNED ON, and this one
+    //    decides whether anybody is asked before money is spent. So it is said on EVERY run, to
+    //    stderr — stdout belongs to whatever is reading this tool's output.
+    //    ⚠ `mode` itself is exempt: the command that prints the setting does not need it twice.
+    if (args.command !== "mode") {
+        const { announcement, currentMode } = await import("./autonomy.js");
+        const line = announcement(currentMode());
+        if (line !== null)
+            process.stderr.write(`${line}\n`);
+    }
     // ⛔ EVERY COMMAND IS LOADED ONLY WHEN IT IS THE COMMAND. `put` pulls in the storage network's
     //    SDK, which is the largest thing this package can load, and importing it at the top of this
     //    file made `nmts --help` pay for it: startup went from 0.13s to 0.20s the day `put` landed.
@@ -309,6 +319,10 @@ export async function run(argv) {
         case "consent": {
             const { consent } = await import("./commands/consent.js");
             return consent(args.operands[0], args.operands[1], { json: args.json });
+        }
+        case "mode": {
+            const { mode } = await import("./commands/mode.js");
+            return mode(args.operands[0], { json: args.json, accepted: args.iAcceptTheRisk });
         }
         case "verify": {
             const { verify } = await import("./commands/verify.js");
