@@ -316,17 +316,11 @@ export async function run(argv) {
             const { env } = await import("./commands/env.js");
             return env({ json: args.json });
         }
-        case "consent": {
-            const { consent } = await import("./commands/consent.js");
-            return consent(args.operands[0], args.operands[1], { json: args.json });
-        }
-        case "mode": {
-            const { mode } = await import("./commands/mode.js");
-            return mode(args.operands[0], { json: args.json, accepted: args.iAcceptTheRisk });
-        }
+        case "consent":
+        case "mode":
         case "on-collision": {
-            const { onCollision } = await import("./commands/on-collision.js");
-            return onCollision(args.operands[0], { json: args.json });
+            const { runSettings } = await import("./commands/settings.js");
+            return runSettings(args.command, args);
         }
         case "verify": {
             const { verify } = await import("./commands/verify.js");

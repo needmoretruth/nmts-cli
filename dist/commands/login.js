@@ -32,9 +32,9 @@ import { API_KEY_ENV_VAR, API_KEY_FILE_ENV_VAR, CODE_ENV_VAR, CODE_FILE_ENV_VAR,
 import { requireConsent } from "../consent.js";
 import { NmtsError } from "../errors.js";
 import { firstRunNotice } from "../notice.js";
-import { holdTerminal, promptLine, promptSecret, stdinIsATerminal } from "../prompt.js";
-import { ANSWER_NUMBER, COLLISION_MEANS, hasChosen, readAnswer, setChoice } from "../collision.js";
-import { BINARY_NAME, HOME_URL, VERSION } from "../product.js";
+import { holdTerminal, promptSecret, stdinIsATerminal } from "../prompt.js";
+import { askAboutCollisions } from "../setup-questions.js";
+import { BINARY_NAME, HOME_URL } from "../product.js";
 import { resolveNetwork } from "../network.js";
 import { resolveServer } from "../server.js";
 /**
@@ -89,32 +89,12 @@ export async function login(options = {}) {
         sayAboutTheKey(key, server, say);
         return exit;
     });
-    // ⛔ ASKED HERE, ONCE, BECAUSE THERE IS NOBODY TO ASK LATER (owner 2026-08-25: a backup program
-    //    has to ask at the start what to do about a name that is already in use). A prompt in the
-    //    middle of an upload is a prompt an unattended job never answers.
-    //
-    // ⛔ OUTSIDE `holdTerminal` ON PURPOSE. Inside it the terminal is in raw mode and a line prompt
-    //    never sees a line. Here it is back to normal, and this is also after everything that could
-    //    fail — a question asked before the sign-in worked would be a question about nothing.
-    //
-    // ⚠ Only when somebody is actually there and has not answered before. A scripted setup gets no
-    //   question and no answer, which reads as the default: rename, which destroys nothing.
+    // ⛔ AFTER THE HOLD, AND ONLY WHEN THE SIGN-IN WORKED. Inside the hold the terminal is in raw
+    //    mode and a line prompt never sees a line; before the end, this would be a question about a
+    //    setup that then failed. Why it is asked at all is in `setup-questions.ts`.
     if (exit === 0)
         await askAboutCollisions(say);
     return exit;
-}
-/** The one question setup asks about uploads. Silent when it has been answered or nobody is there. */
-async function askAboutCollisions(say) {
-    if (hasChosen() || !stdinIsATerminal())
-        return;
-    say(``);
-    say(`When a file with that name is already in the drive:`);
-    say(`  ${ANSWER_NUMBER.rename}  ${COLLISION_MEANS.rename}`);
-    say(`  ${ANSWER_NUMBER.overwrite}  ${COLLISION_MEANS.overwrite}`);
-    // ⛔ What counts as which answer is decided in `collision.ts`, where a test can reach it.
-    const choice = readAnswer(await promptLine(`[${ANSWER_NUMBER.rename}] `));
-    setChoice(choice, VERSION, new Date());
-    say(`${choice} — ${COLLISION_MEANS[choice]}  Change it: ${BINARY_NAME} on-collision <rename|overwrite>`);
 }
 /**
  * Where `login` gets the code to store.
