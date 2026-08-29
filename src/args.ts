@@ -38,6 +38,8 @@ export interface ParsedArgs {
   dryRun: boolean;
   /** `put`: how much of a file goes into one part. A byte count, optionally with a unit. */
   partSize?: string;
+  /** `put`/`push`: what THIS run does about a name already in use. Absent = this machine's setting. */
+  onCollision?: string;
   /** Answer yes to a warning this run would otherwise stop on. */
   yes: boolean;
   /** `public-code`: publish this account's public code on the server. Permanent. */
@@ -87,6 +89,7 @@ const VALUE_OPTIONS = {
   "--name": "name",
   "--to": "to",
   "--part-size": "partSize",
+  "--on-collision": "onCollision",
   "--find": "find",
   "--sort": "sort",
   "--epochs": "epochs",

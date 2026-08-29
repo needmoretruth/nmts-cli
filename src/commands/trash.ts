@@ -31,7 +31,7 @@
 //        is what an interrupted run leaves behind. Treating it as a failure would make the retry
 //        of a half-finished command impossible — the one moment the retry is needed.
 
-import { request, ServerError } from "../api.ts";
+import { setTrashed } from "../item-trash.ts";
 import { buildIndex, fullPathOf, isLive, KIND_FILE } from "../drive-paths.ts";
 import { NmtsError } from "../errors.ts";
 import { readFileList } from "../manifest.ts";
@@ -320,11 +320,5 @@ function filesUnder(entries: readonly ManifestEntry[], rootId: string): Manifest
 
 /** ⛔ 404 is "already in the state you asked for", which is what a half-finished run leaves. */
 async function tellServer(base: string, apiKey: string, verb: "rm" | "restore", id: string): Promise<void> {
-  try {
-    if (verb === "rm") await request(base, `/v1/items/${encodeURIComponent(id)}`, { method: "DELETE", token: apiKey });
-    else await request(base, `/v1/items/${encodeURIComponent(id)}/restore`, { method: "POST", token: apiKey, body: {} });
-  } catch (error) {
-    if (error instanceof ServerError && error.status === 404) return;
-    throw error;
-  }
+  await setTrashed(base, apiKey, id, verb === "rm");
 }

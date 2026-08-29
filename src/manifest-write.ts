@@ -23,7 +23,8 @@ import { AAD, DERIVED, loadCrypto } from "./crypto.ts";
 import { NmtsError } from "./errors.ts";
 import { readFileList, recordWrittenList } from "./manifest.ts";
 import { encodeManifest, type ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";
-import { entryAt, type FindOptions, namesIn } from "./drive-paths.ts";
+import { buildIndex, entryAt, type FindOptions, isLive, KIND_FILE, namesIn, normaliseName } from "./drive-paths.ts";
+import { decide, type OnCollision } from "./collision.ts";
 import { applyIntents, type ManifestIntent } from "./shared/lib/drive/manifest-ops.ts";
 import { uniqueFileName } from "./shared/lib/drive/unique-name.ts";
 
@@ -201,6 +202,11 @@ export function batchTargets(
 export interface AddEntryInput extends ListEditInput {
   /** The entry to add. Its `name` may be changed to avoid a collision — see the result. */
   entry: ManifestEntry;
+  /**
+   * What THIS run asked for when the name is already in use. Absent = whatever this machine is
+   * set to (`collision.ts`), which is what an ordinary upload wants.
+   */
+  onCollision?: OnCollision;
 }
 
 export interface AddEntryResult {
@@ -210,36 +216,117 @@ export interface AddEntryResult {
   name: string;
   /** True when the list was rebuilt because another device wrote first. */
   reappliedAfterConflict: boolean;
+  /**
+   * The file this one displaced, when the name was taken and the answer was to overwrite.
+   *
+   * ⛔ IT IS IN THE TRASH, NOT GONE. This tool cannot destroy a stored row: the endpoint that does
+   *    is closed to an API key on purpose (`item-trash.ts`). So the caller's remaining job is to
+   *    tell the SERVER to trash it too — and what the tool prints must say "trash", never "gone".
+   */
+  replaced?: { id: string; name: string };
+}
+
+/** What one addition turns into, worked out against the list as it stands on THIS attempt. */
+export interface AdditionPlan {
+  /** The name it will be stored under. */
+  name: string;
+  /** Set when this id is ALREADY in the list — then `intents` is empty and nothing is written. */
+  alreadyThere?: string;
+  /** The live file this displaces, when the name was taken and the answer was to overwrite. */
+  replaced?: { id: string; name: string };
+  intents: ManifestIntent[];
+}
+
+/**
+ * Decide what adding this entry does — the whole of the collision rule, with no server in it.
+ *
+ * ⛔ IT IS RE-RUN ON EVERY COMPARE-AND-SWAP ATTEMPT, so everything it looks at has to come from
+ *    the `entries` it is handed. A free name, a live holder and a folder id are all facts about
+ *    the version that was READ, and a retry happens against a version somebody else just wrote.
+ *
+ * ⛔ ONLY A LIVE FILE IS DISPLACED. A folder can hold the name, and replacing one would mean
+ *    deleting it and everything under it in order to store a single file. A trashed file holds its
+ *    name too, and displacing THAT would destroy something already on its way out for a name the
+ *    person can no longer see. Both are renamed around, with no answer consulted — which is what
+ *    happened to every collision before anything could be answered at all.
+ */
+export function planAddition(
+  entries: readonly ManifestEntry[],
+  entry: ManifestEntry,
+  /**
+   * The ANSWER, already settled — not what a run asked for.
+   *
+   * ⛔ WHO IS ALLOWED TO SAY "OVERWRITE" IS `collision.ts`'s JOB, not this one's. It weighs the
+   *    machine's stored answer, what the run asked for, and whether a mode lets an agent decide
+   *    for itself. Re-deriving any of that here would be a second place for the owner's rule to
+   *    live, and the copy nobody re-reads is the one that quietly disagrees.
+   */
+  choice: OnCollision,
+  now: number = Date.now(),
+): AdditionPlan {
+  // ⛔ An id already in the list is not added twice: the account would show two rows for one file
+  //    and the second would be unreachable. It is also how a re-run of an interrupted upload finds
+  //    its own work already done.
+  const existing = entries.find((e) => e.id === entry.id);
+  if (existing !== undefined) return { name: existing.name, alreadyThere: existing.name, intents: [] };
+
+  const folded = normaliseName(entry.name);
+  const index = buildIndex(entries);
+  const holder = entries.find(
+    (e) =>
+      e.parentId === entry.parentId &&
+      e.kind === KIND_FILE &&
+      normaliseName(e.name) === folded &&
+      isLive(index, e),
+  );
+  if (holder !== undefined && choice === "overwrite") {
+    return {
+      name: entry.name,
+      replaced: { id: holder.id, name: holder.name },
+      intents: [
+        { op: "trash", ids: [holder.id], at: now },
+        { op: "add", entry },
+      ],
+    };
+  }
+  const name = uniqueFileName(entry.name, namesIn(entries, entry.parentId));
+  return { name, intents: [{ op: "add", entry: { ...entry, name } }] };
 }
 
 /**
  * Add one entry to the account's sealed file list.
  *
  * ⛔ THE NAME IS CHOSEN AGAINST THE LIST AS IT IS ON THIS ATTEMPT. That is the reason this passes
- *    a function to `applyToList`: after a lost compare-and-swap the free names have changed, and
- *    a name picked against the old list could land on top of what the other device just added.
+ *    a function to `applyManyToList`: after a lost compare-and-swap the free names have changed,
+ *    and a name picked against the old list could land on top of what the other device just added.
+ *    The collision is judged again on every attempt for the same reason.
+ *
+ * ⛔ ONLY A LIVE FILE IS DISPLACED. A folder can hold the name, and replacing one would mean
+ *    deleting it and everything under it in order to store a single file. Those are renamed, with
+ *    no answer consulted, exactly as every collision was before anything could be answered at all.
  */
 export async function addEntry(input: AddEntryInput): Promise<AddEntryResult> {
   let name = input.entry.name;
   let alreadyThere: string | null = null;
+  let replaced: { id: string; name: string } | undefined;
 
-  const result = await applyToList(input, (entries) => {
-    // ⛔ An id already in the list is not added twice: the account would show two rows for one
-    //    file and the second would be unreachable. It is also how a re-run of an interrupted
-    //    upload finds its own work already done.
-    const existing = entries.find((e) => e.id === input.entry.id);
-    if (existing !== undefined) {
-      alreadyThere = existing.name;
-      return null;
-    }
-    name = uniqueFileName(input.entry.name, namesIn(entries, input.entry.parentId));
-    return { op: "add", entry: { ...input.entry, name } };
+  // ⛔ SETTLED ONCE, OUTSIDE THE RETRY LOOP. What the machine is set to and whether a mode is on
+  //    are facts about this run, not about the list version a compare-and-swap happened to read.
+  const choice = decide(input.onCollision).choice;
+
+  const result = await applyManyToList(input, (entries) => {
+    const plan = planAddition(entries, input.entry, choice);
+    alreadyThere = plan.alreadyThere ?? null;
+    name = plan.name;
+    replaced = plan.replaced;
+    return plan.intents;
   });
 
   return {
     seq: result.seq,
     name: alreadyThere ?? name,
     reappliedAfterConflict: result.reappliedAfterConflict,
+    ...(replaced ? { replaced } : {}),
   };
 }
 

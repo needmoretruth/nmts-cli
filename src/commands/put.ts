@@ -14,11 +14,13 @@ import { basename, resolve } from "node:path";
 import { identityOf } from "../account.ts";
 import { requireAccountCode } from "../code-access.ts";
 import { API_KEY_ENV_VAR, CODE_ENV_VAR, readCredentialsFile, resolveApiKey } from "../credentials.ts";
+import { parseAsked } from "../collision.ts";
 import { requireConsent } from "../consent.ts";
 import { DERIVED, loadCrypto } from "../crypto.ts";
 import { buildIndex, fullPathOf, isLive, KIND_FOLDER, normalisePath } from "../drive-paths.ts";
 import { NmtsError } from "../errors.ts";
 import { Progress, silentSink, stderrSink } from "../progress.ts";
+import { setTrashed } from "../item-trash.ts";
 import { addEntry } from "../manifest-write.ts";
 import { readFileList } from "../manifest.ts";
 import { resolveNetwork } from "../network.ts";
@@ -57,6 +59,8 @@ export interface PutOptions {
    * can hold should be able to say so.
    */
   partSize?: string | number | undefined;
+  /** What THIS run does about a name already in use. Absent = this machine's setting. */
+  onCollision?: string | undefined;
   json?: boolean;
   write?: (line: string) => void;
 }
@@ -140,6 +144,9 @@ export async function put(target: string | undefined, options: PutOptions = {}):
   //    changes how many bytes are stored, and therefore it changes the price. A quote worked out
   //    without it would be right for one account and wrong for the other, which is worse than
   //    being slower.
+  // ⛔ READ BEFORE ANYTHING IS SEALED OR PAID FOR. A misspelt answer that surfaced after the upload
+  //    would have cost real money to produce a message about a typo.
+  const asked = parseAsked(options.onCollision);
   const list = await readFileList(server, key.key, resolved.code, identity.accountId);
   const rule: PaddingRule = list.manifest?.settings?.paddingMode === "pow2" ? "pow2" : "padme";
 
@@ -259,6 +266,7 @@ export async function put(target: string | undefined, options: PutOptions = {}):
     apiKey: key.key,
     code: resolved.code,
     accountId: identity.accountId,
+    ...(asked !== undefined ? { onCollision: asked } : {}),
     entry: {
       id: result.itemId,
       // ⚠ The FRESHLY resolved folder, not the record's. The reservation key already covers the
@@ -281,6 +289,14 @@ export async function put(target: string | undefined, options: PutOptions = {}):
   clearItemRecord(result.fileKey);
   for (const record of partKeysOf(result.fileKey, result.parts)) clearReservation(record);
 
+  // ⛔ THE DISPLACED FILE IS TOLD TO THE SERVER ONLY NOW, and only after the new one is in the
+  //    list. Until this line the person still had the file they started with.
+  // ⚠ A failure here leaves it hidden in this account's trash while the server still counts it as
+  //   live. That is the harmless direction: it stays restorable, it still expires on its own, and
+  //   `nmts rm` on it again finishes the job. The other order — server first — would show a live
+  //   file the server has already trashed, which is the one state a person cannot act on.
+  if (added.replaced) await setTrashed(server, key.key, added.replaced.id, true);
+
   if (options.json) {
     say(
       JSON.stringify({
@@ -292,16 +308,21 @@ export async function put(target: string | undefined, options: PutOptions = {}):
         credits: result.resumed ? 0 : credits,
         resumed: result.resumed,
         renamed: added.name !== name,
+        ...(added.replaced ? { replacedIntoTrash: added.replaced.id } : {}),
         fileListVersion: added.seq,
       }),
     );
     return 0;
   }
   say(`  saved as ${added.name}`);
-  if (added.name !== name) {
+  if (added.replaced) {
+    say(``);
+    say(`  A file called ${name} was already there. It is in the trash now — ${BINARY_NAME} restore`);
+    say(`  brings it back for 30 days. This machine is set to overwrite: ${BINARY_NAME} on-collision`);
+  } else if (added.name !== name) {
     say(``);
     say(`  A file called ${name} was already there, so this one was numbered rather than`);
-    say(`  replacing it. NMTS keeps no previous versions, so replacing would have been permanent.`);
+    say(`  replacing it. This machine is set to rename: ${BINARY_NAME} on-collision`);
   }
   if (result.resumed) {
     say(``);

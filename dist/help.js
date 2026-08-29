@@ -92,6 +92,8 @@ export function helpText(version) {
         `                        would install, and stop (update). With \`extend\` nothing is`,
         `                        signed and the wallet key is never touched`,
         `  --part-size <n>       Bytes per part for a large upload (put, push). Default 64MiB.`,
+        `  --on-collision <what> rename | overwrite, for THIS run only (put, push). Without it the`,
+        `                        machine's own setting decides -- see \`${BINARY_NAME} on-collision\`.`,
         `                        a plain number, or one with KiB, MiB or GiB. Bigger parts mean`,
         `                        fewer purchases; smaller parts use less memory`,
         `  --yes                 Go ahead with something that cannot be taken back (sweep, rebuild),`,

@@ -6,9 +6,14 @@
 //    -- signing in -- and the answer is kept.
 //
 // ⛔ THE DEFAULT IS TO RENAME, AND IT IS THE DEFAULT ON PURPOSE. Renaming loses nothing: the old
-//    file stays and the new one arrives beside it. Overwriting cannot be taken back -- NMTS keeps
-//    no previous versions -- so the direction that is chosen when nobody has chosen is the one
-//    where nothing is destroyed.
+//    file stays and the new one arrives beside it. Overwriting takes a file away from where the
+//    person put it, so the direction chosen when nobody has chosen is the one that moves nothing.
+//
+// ⚠ AND OVERWRITING MEANS SOMETHING WEAKER HERE THAN IN THE BROWSER. There it is final: NMTS keeps
+//   no previous versions, and the browser can destroy the stored row. This tool cannot -- the
+//   endpoint that does is closed to an API key on purpose -- so what it can do is put the old file
+//   in the trash, which `nmts restore` undoes for thirty days. ⛔ Every line this tool prints about
+//   overwriting has to say that, and none of them may say "gone" or "cannot be brought back".
 //
 // ⛔ AN AGENT MAY NOT PICK OVERWRITE UNLESS A MODE SAYS IT MAY (owner, 2026-08-25: unless YOLO or
 //    auto mode is on, the agent picks rename; with one on it decides for itself). That rule is
@@ -22,6 +27,8 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync }
 import { join } from "node:path";
 
 import { currentMode, type Autonomy } from "./autonomy.ts";
+import { NmtsError } from "./errors.ts";
+import { BINARY_NAME } from "./product.ts";
 import { configDir, modesAreEnforced } from "./credentials.ts";
 
 /** What to do with a name that is already in use. Mirrors the browser's two buttons. */
@@ -32,8 +39,23 @@ export const COLLISION_CHOICES: readonly OnCollision[] = ["rename", "overwrite"]
 /** What each choice does, in the words the tool prints. One line each. */
 export const COLLISION_MEANS: Readonly<Record<OnCollision, string>> = {
   rename: "Store it beside the old one as `name (2).ext`. Nothing is lost. This is the default.",
-  overwrite: "Delete the file that is there and store this one. It cannot be brought back.",
+  overwrite: "Store this one and put the file that is there in the trash, restorable for 30 days.",
 };
+
+/**
+ * What a run asked for on the command line, or undefined for "use this machine's setting".
+ *
+ * ⛔ AN UNKNOWN WORD IS REFUSED, NOT ROUNDED DOWN. Silently reading `--on-collision overwite` as
+ *    the safe answer would look like it worked, and the person would find out from the drive.
+ */
+export function parseAsked(typed: string | undefined): OnCollision | undefined {
+  if (typed === undefined) return undefined;
+  const word = typed.trim().toLowerCase();
+  if (isChoice(word)) return word;
+  throw new NmtsError(`\`--on-collision\` takes ${COLLISION_CHOICES.join(" or ")}, not "${typed}".`, {
+    nextStep: `Leave it out to use what this machine is set to: ${BINARY_NAME} on-collision`,
+  });
+}
 
 /** What is written down when nobody has chosen. */
 export const DEFAULT_COLLISION: OnCollision = "rename";

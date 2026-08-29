@@ -20,6 +20,7 @@ const VALUE_OPTIONS = {
     "--name": "name",
     "--to": "to",
     "--part-size": "partSize",
+    "--on-collision": "onCollision",
     "--find": "find",
     "--sort": "sort",
     "--epochs": "epochs",

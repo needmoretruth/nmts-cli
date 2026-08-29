@@ -174,6 +174,7 @@ export async function run(argv) {
                 to: args.to,
                 dryRun: args.dryRun,
                 partSize: args.partSize,
+                onCollision: args.onCollision,
                 json: args.json,
             });
         }
@@ -186,6 +187,7 @@ export async function run(argv) {
                 dryRun: args.dryRun,
                 hidden: args.hidden,
                 partSize: args.partSize,
+                onCollision: args.onCollision,
                 json: args.json,
             });
         }

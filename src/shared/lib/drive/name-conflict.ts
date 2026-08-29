@@ -115,6 +115,16 @@ export async function settle(
   batch: readonly Incoming[],
   takenIn: (parentId: string | null) => ReadonlySet<string>,
   choiceFor: (conflict: Asked) => ConflictChoice | Promise<ConflictChoice>,
+  /**
+   * Can the thing holding this name be replaced at all?
+   *
+   * ⛔ A FOLDER CAN HOLD THE NAME. Offering "overwrite" then would offer to delete a folder and
+   *    everything under it in order to store one file, from a dialog that names a file. Nothing
+   *    asks; those are renamed, which is what happened before anything was asked at all.
+   * ⚠ Left out means everything is replaceable, which is right for callers whose names are all
+   *   files (the S3 gateway has no folders).
+   */
+  overwritable: (conflict: Conflict) => boolean = () => true,
 ): Promise<Settled[]> {
   const conflicts = new Map<number, Conflict>();
   const found = findConflicts(batch, takenIn);
@@ -152,6 +162,11 @@ export async function settle(
       continue;
     }
     const renamedTo = uniqueFileName(item.name, takenNow(item.parentId));
+    if (!overwritable(conflict)) {
+      given(item.parentId).add(renamedTo);
+      out.push({ name: renamedTo, parentId: item.parentId });
+      continue;
+    }
     asked += 1;
     const choice = await choiceFor({ ...conflict, renamedTo, remaining: found.length - asked });
     if (choice === "overwrite" && !overwritten(item.parentId).has(item.name)) {

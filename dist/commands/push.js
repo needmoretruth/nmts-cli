@@ -21,6 +21,8 @@ import { DERIVED, loadCrypto } from "../crypto.js";
 import { normaliseName, normalisePath } from "../drive-paths.js";
 import { NmtsError } from "../errors.js";
 import { addEntry } from "../manifest-write.js";
+import { parseAsked } from "../collision.js";
+import { setTrashed } from "../item-trash.js";
 import { readFileList } from "../manifest.js";
 import { BINARY_NAME } from "../product.js";
 import { Progress, silentSink, stderrSink } from "../progress.js";
@@ -66,6 +68,8 @@ export async function push(target, options = {}) {
     }
     const session = await openSession({ server: options.server, network: options.network });
     const partSize = partSizeFor(options.partSize);
+    // ⛔ READ BEFORE ANYTHING IS SEALED OR PAID FOR — a typo must not surface after the money.
+    const asked = parseAsked(options.onCollision);
     const list = await readFileList(session.server, session.apiKey, session.code, session.accountId);
     const rule = list.manifest?.settings?.paddingMode === "pow2" ? "pow2" : "padme";
     // ⛔ WHAT IS ALREADY THERE IS DECIDED BEFORE ANYTHING IS PRICED, so the number printed is what
@@ -130,6 +134,7 @@ export async function push(target, options = {}) {
                 say(`  ${one.folder}/${one.name}`);
             const send = options.send ??
                 (async (file, into) => sendOne(session, crypt, file, {
+                    ...(asked !== undefined ? { onCollision: asked } : {}),
                     parentId: into,
                     partSize,
                     rule,
@@ -193,6 +198,7 @@ async function sendOne(session, crypt, one, ctx) {
             apiKey: session.apiKey,
             code: session.code,
             accountId: session.accountId,
+            ...(ctx.onCollision !== undefined ? { onCollision: ctx.onCollision } : {}),
             entry: {
                 id: result.itemId,
                 parentId: ctx.parentId,
@@ -209,6 +215,9 @@ async function sendOne(session, crypt, one, ctx) {
         clearItemRecord(result.fileKey);
         for (const record of partKeysOf(result.fileKey, result.parts))
             clearReservation(record);
+        // The file this one displaced goes to the server's trash last — see the same note in `put.ts`.
+        if (added.replaced)
+            await setTrashed(session.server, session.apiKey, added.replaced.id, true);
         return added.name;
     }
     finally {

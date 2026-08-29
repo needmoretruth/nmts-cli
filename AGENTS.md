@@ -206,9 +206,16 @@ nmts put report.pdf --to notes     # into a folder that already exists
 nmts put report.pdf --json         # one JSON object, no progress output
 ```
 
-The price is one credit per started mebibyte, printed before the upload starts. A name already
-taken in that folder is numbered (`report (2).pdf`) rather than replacing what is there — NMTS
-keeps no previous versions, so replacing would be permanent.
+The price is one credit per started mebibyte, printed before the upload starts.
+
+A name already taken in that folder is decided by this machine's setting, which was chosen when
+somebody signed in and is printed by `nmts on-collision`. The default numbers the new file
+(`report (2).pdf`) and leaves what is there alone. `--on-collision overwrite` asks for the other
+answer **for one run** — and you only get it if a mode is on (`nmts mode`); with modes off the
+upload is renamed and says so, because choosing to displace somebody's file is not a decision an
+agent makes on its own. What overwriting does here is put the old file in the **trash**, where
+`nmts restore` brings it back for 30 days: this tool cannot destroy a stored file outright, and
+nothing it prints claims otherwise.
 
 If `put` fails, read whether the message says the account has already paid. When it has, running
 **the same command again finishes the job** and costs nothing more; it does not buy anything

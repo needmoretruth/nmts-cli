@@ -23,6 +23,8 @@ import { DERIVED, loadCrypto } from "../crypto.ts";
 import { normaliseName, normalisePath } from "../drive-paths.ts";
 import { NmtsError } from "../errors.ts";
 import { addEntry } from "../manifest-write.ts";
+import { parseAsked, type OnCollision } from "../collision.ts";
+import { setTrashed } from "../item-trash.ts";
 import { readFileList } from "../manifest.ts";
 import { BINARY_NAME } from "../product.ts";
 import { Progress, silentSink, stderrSink } from "../progress.ts";
@@ -46,6 +48,8 @@ export interface PushOptions {
   /** Include entries whose name begins with a dot. */
   hidden?: boolean;
   partSize?: string | number | undefined;
+  /** What THIS run does about a name already in use. Absent = this machine's setting. */
+  onCollision?: string | undefined;
   json?: boolean;
   write?: (line: string) => void;
   /**
@@ -104,6 +108,8 @@ export async function push(target: string | undefined, options: PushOptions = {}
 
   const session = await openSession({ server: options.server, network: options.network });
   const partSize = partSizeFor(options.partSize);
+  // ⛔ READ BEFORE ANYTHING IS SEALED OR PAID FOR — a typo must not surface after the money.
+  const asked = parseAsked(options.onCollision);
   const list = await readFileList(session.server, session.apiKey, session.code, session.accountId);
   const rule: PaddingRule = list.manifest?.settings?.paddingMode === "pow2" ? "pow2" : "padme";
 
@@ -177,6 +183,7 @@ export async function push(target: string | undefined, options: PushOptions = {}
         options.send ??
         (async (file: PlannedFile, into: string | null) =>
           sendOne(session, crypt, file, {
+            ...(asked !== undefined ? { onCollision: asked } : {}),
             parentId: into,
             partSize,
             rule,
@@ -222,6 +229,8 @@ async function sendOne(
     rule: PaddingRule;
     currentEpoch: number | null;
     progress: Progress;
+    /** What THIS run asked for about a taken name. Undefined = this machine's setting. */
+    onCollision?: OnCollision;
   },
 ): Promise<string> {
   const derived = crypt.kdf_derive(crypt.account_code_parse(session.code));
@@ -254,6 +263,7 @@ async function sendOne(
       apiKey: session.apiKey,
       code: session.code,
       accountId: session.accountId,
+      ...(ctx.onCollision !== undefined ? { onCollision: ctx.onCollision } : {}),
       entry: {
         id: result.itemId,
         parentId: ctx.parentId,
@@ -269,6 +279,8 @@ async function sendOne(
     // ⛔ ONLY NOW. Until the entry is in the list the file is paid for and invisible.
     clearItemRecord(result.fileKey);
     for (const record of partKeysOf(result.fileKey, result.parts)) clearReservation(record);
+    // The file this one displaced goes to the server's trash last — see the same note in `put.ts`.
+    if (added.replaced) await setTrashed(session.server, session.apiKey, added.replaced.id, true);
     return added.name;
   } finally {
     dataKey.fill(0);

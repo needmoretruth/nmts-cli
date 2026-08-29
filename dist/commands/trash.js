@@ -30,7 +30,7 @@
 //      · And a 404 from the server means the row is already in the state being asked for, which
 //        is what an interrupted run leaves behind. Treating it as a failure would make the retry
 //        of a half-finished command impossible — the one moment the retry is needed.
-import { request, ServerError } from "../api.js";
+import { setTrashed } from "../item-trash.js";
 import { buildIndex, fullPathOf, isLive, KIND_FILE } from "../drive-paths.js";
 import { NmtsError } from "../errors.js";
 import { readFileList } from "../manifest.js";
@@ -284,15 +284,5 @@ function filesUnder(entries, rootId) {
 }
 /** ⛔ 404 is "already in the state you asked for", which is what a half-finished run leaves. */
 async function tellServer(base, apiKey, verb, id) {
-    try {
-        if (verb === "rm")
-            await request(base, `/v1/items/${encodeURIComponent(id)}`, { method: "DELETE", token: apiKey });
-        else
-            await request(base, `/v1/items/${encodeURIComponent(id)}/restore`, { method: "POST", token: apiKey, body: {} });
-    }
-    catch (error) {
-        if (error instanceof ServerError && error.status === 404)
-            return;
-        throw error;
-    }
+    await setTrashed(base, apiKey, id, verb === "rm");
 }

@@ -5,7 +5,14 @@
 //    on deliberately, and that a person's own setting is not second-guessed.
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { ANSWER_NUMBER, COLLISION_MEANS, DEFAULT_COLLISION, decide, readAnswer } from "../src/collision.ts";
+import {
+  ANSWER_NUMBER,
+  COLLISION_MEANS,
+  DEFAULT_COLLISION,
+  decide,
+  parseAsked,
+  readAnswer,
+} from "../src/collision.ts";
 import { onCollision } from "../src/commands/on-collision.ts";
 
 test("nothing chosen means rename — the direction that destroys nothing", () => {
@@ -38,11 +45,30 @@ test("⛔ a mode never turns a rename into an overwrite — the override is one 
   assert.equal(decide("rename", "overwrite", "skip-permissions").choice, "rename");
 });
 
-test("each choice says what it does in one line, and the destructive one says it cannot be undone", () => {
+test("⛔ each choice says what it does in one line, and neither claims a permanence this tool has not got", () => {
   for (const line of Object.values(COLLISION_MEANS)) {
     assert.ok(line.length > 0 && line.length < 120, `not one line: ${line}`);
   }
-  assert.match(COLLISION_MEANS.overwrite, /cannot be brought back/);
+  // ⛔ THIS ASSERTION USED TO DEMAND THE OPPOSITE, and the sentence it demanded was false. The
+  //    endpoint that destroys a stored row for good is closed to an API key on purpose
+  //    (`api` domain/agent_routes.rs — `POST /v1/items/erase` is Reach::Never), so the strongest
+  //    thing this tool can do to the displaced file is trash it, which `nmts restore` undoes for
+  //    thirty days. Saying "gone" would have been a promise nothing in this package can keep.
+  assert.match(COLLISION_MEANS.overwrite, /trash/);
+  for (const line of Object.values(COLLISION_MEANS)) {
+    assert.doesNotMatch(line, /cannot be brought back|gone forever|permanent/i, `overclaims: ${line}`);
+  }
+});
+
+test("`--on-collision` is read strictly — an unknown word is refused, not rounded down to safe", () => {
+  // Silently reading `overwite` as rename would look like it worked, and the person would find out
+  // from the drive rather than from the message.
+  assert.equal(parseAsked(undefined), undefined);
+  assert.equal(parseAsked("overwrite"), "overwrite");
+  assert.equal(parseAsked(" RENAME "), "rename");
+  for (const typed of ["overwite", "yes", "2", "", "over write"]) {
+    assert.throws(() => parseAsked(typed), /--on-collision/, `"${typed}" was accepted`);
+  }
 });
 
 test("⛔ only the exact number means overwrite — everything else is the safe answer", () => {
