@@ -47,7 +47,7 @@ nmts --help
 That takes the default branch. To pin a version, name a tag:
 
 ```sh
-npm install -g github:needmoretruth/nmts-cli#v0.17.0
+npm install -g github:needmoretruth/nmts-cli#v0.17.1
 ```
 
 Or from the tarball on the [latest release](https://github.com/needmoretruth/nmts-cli/releases),

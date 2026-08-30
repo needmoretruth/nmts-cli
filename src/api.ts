@@ -101,6 +101,8 @@ function adviseFor(code: string): string | null {
       return "The credential is missing or expired. Check NMTS_API_KEY, or make a new key.";
     // ⛔ Each of these says something different on purpose, because the remedies are different
     //    and a program that cannot tell them apart will retry the one thing that cannot work.
+    case "SESSION_REVOKED":
+      return "That is a browser session somebody ended from another device, not an API key. A key is what a program should carry; NMTS_API_KEY is where it goes.";
     case "API_KEY_REVOKED":
       return "Somebody revoked this key. It will not start working again — make a new one.";
     case "API_KEY_EXPIRED":
