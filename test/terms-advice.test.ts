@@ -85,8 +85,26 @@ test("⛔ the refusal is returned once — nothing retries it and nothing tries 
 
 test("a refusal this tool has no advice for still arrives whole, with nothing invented", async () => {
   // ⛔ Discriminating: it proves the branch above is a branch and not a blanket sentence attached
-  //    to every refusal. `TERMS_VERSION_MISMATCH` is the acceptance route's own error and no
-  //    command here posts to that route.
+  //    to every refusal. `VALIDATION` is deliberately silent — the server's own message names the
+  //    field that was wrong, so advice would only repeat it — and `check:advice` holds that
+  //    decision written down beside the reason.
+  //
+  // ⚠ This used to use `TERMS_VERSION_MISMATCH`, which stopped being silent on 2026-08-30 when the
+  //   advice table went from 13 codes to 40. If this fails again because the code chosen here
+  //   gained advice, move it to another silent code — do not delete the test.
+  asked = 0;
+  answer = {
+    status: 400,
+    body: { error: { code: "VALIDATION", message: "terms_version must be 2026-08-11-v9" } },
+  };
+  const error = await refusal();
+  assert.equal(error.code, "VALIDATION");
+  assert.equal(error.nextStep, null);
+  assert.match(error.message, /2026-08-11-v9/);
+});
+
+test("and a refusal it does have advice for carries it — the two halves in one test", async () => {
+  // ⛔ Without this, the test above passes just as well if `adviseFor` returns null for everything.
   asked = 0;
   answer = {
     status: 422,
@@ -94,6 +112,5 @@ test("a refusal this tool has no advice for still arrives whole, with nothing in
   };
   const error = await refusal();
   assert.equal(error.code, "TERMS_VERSION_MISMATCH");
-  assert.equal(error.nextStep, null);
-  assert.match(error.message, /2026-08-11-v9/);
+  assert.match(error.nextStep ?? "", /versions/i, "the code gained advice and lost it again");
 });

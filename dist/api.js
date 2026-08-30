@@ -80,6 +80,89 @@ function adviseFor(code) {
                 "routes for a while.");
         case "ACCOUNT_BANNED":
             return "This account is suspended. Nothing here will succeed until that is lifted.";
+        // ── Getting to the starting line ──────────────────────────────────────────────────────────
+        case "ACCOUNT_EXISTS":
+            return "An account already exists for that. Use the one you have rather than making another.";
+        case "ALPHA_NOT_OPEN":
+            return ("This build asks the server for a channel it does not open. This is not something to " +
+                "retry or to fix with a different credential — use a release build.");
+        case "API_KEY_CAP":
+            return ("The account holds as many live keys as it is allowed. Nothing here can raise the limit: " +
+                "the person has to revoke a key they no longer use, on the account screen at nmts.me.");
+        case "API_KEY_CHANNEL":
+            return ("This account is enrolled on a preview build, and keys are not issued while it is. Ask " +
+                "the person to leave the preview on the account screen, then make the key.");
+        case "INVALID_CREDENTIALS":
+            return ("The server did not accept what was sent. Check the key rather than the account code — " +
+                "the code never goes to the server and cannot be the cause.");
+        case "LOCKED_OUT":
+            return ("Too many failed attempts, so this is shut for a while. Retrying now makes it longer, " +
+                "not shorter. The refusal carries the moment it lifts; wait for it.");
+        case "RATE_LIMITED":
+            return ("Too many requests too quickly. Wait and send fewer — the refusal carries how long. This " +
+                "is not a credential problem, so changing keys will not help.");
+        case "SURFACE_MISMATCH":
+            return ("This account acts through a different build than the one calling. The refusal names " +
+                "which; nothing on this machine can change it, and the person switches it at nmts.me.");
+        // ── The terms ─────────────────────────────────────────────────────────────────────────────
+        case "TERMS_VERSION_MISMATCH":
+            return ("The versions sent are not the ones in force; the refusal carries the ones that are. " +
+                "This is a stale copy, not a refusal to serve — read the current versions and send those.");
+        case "TERMS_NOT_IN_FORCE":
+            return ("There is nothing to accept, so accepting cannot be what is missing. This is a server " +
+                "condition; report it rather than retrying.");
+        // ── Credits and the free trial ────────────────────────────────────────────────────────────
+        case "CREDIT_FILE_CAP":
+            return ("One file may cost at most the published cap in credits, and this one costs more. The " +
+                "refusal carries both numbers. Splitting the file is the way through; more credits is not.");
+        case "CREDIT_DAILY_CAP":
+            return ("The account has spent its allowance for today. The refusal carries the cap and what is " +
+                "spent. Waiting for the day to turn is the only remedy — buying credits does not lift it.");
+        case "TRIAL_CLOSED":
+            return "The free trial is not open at all right now. Credits have to come from a funded wallet.";
+        case "TRIAL_FULL":
+            return "This week's free-trial places are taken. Applying again this week cannot succeed; next week can.";
+        case "TRIAL_ALREADY":
+            return "This account already took the free trial this week. It comes round weekly, not once.";
+        case "TRIAL_HELD":
+            return "Free-trial applications are paused pending review. Retrying does not move it.";
+        case "TRIAL_LINE_CAPPED":
+            return ("This internet connection has taken its share of this week's places today — the limit is " +
+                "on the connection, not on the account, so another account here hits it too.");
+        // ── Storage, the chain, and what is safe to retry ─────────────────────────────────────────
+        // ⛔ THE THREE OUTCOMES ARE DIFFERENT AND AN AGENT MUST NOT COLLAPSE THEM. Refused means it did
+        //    not happen. Failed means it did not finish. Uncertain means nobody knows — and that is the
+        //    one where retrying blindly can spend money twice.
+        case "CHAIN_REQUEST_REFUSED":
+            return ("The storage service refused the request itself, so nothing was spent and nothing was " +
+                "stored. Retrying the same request will be refused the same way.");
+        case "CHAIN_REGISTER_FAILED":
+            return "Registering the storage did not go through. Nothing is stored; the upload can be tried again.";
+        case "CHAIN_CERTIFY_FAILED":
+            return ("The bytes went out but the storage was never certified, so the file is not safely stored. " +
+                "Try the upload again.");
+        case "CHAIN_UNCERTAIN":
+            return ("⛔ Nobody knows whether the storage was registered. Do NOT simply retry: doing so can pay " +
+                "twice for the same file. Run `nmts ls` first and see whether the file is there.");
+        case "CHAIN_SPEND_CAP":
+            return ("The service has stopped spending on storage for today. This is not about this account " +
+                "and no credential or credit changes it. Try tomorrow.");
+        case "CHAIN_DELETE_FAILED":
+            return ("The storage could not be released. The file's record is gone from this side either way, " +
+                "so nothing here is stuck — the storage runs out on its own when its time is up.");
+        case "RELEASE_NOT_SPONSORED":
+            return ("This file's storage was not paid for with credits, so it is not the server's to release. " +
+                "Storage bought from a wallet is released by that wallet.");
+        case "SPONSORED_STATE":
+            return ("The upload is not at the step that call belongs to — the steps have an order and one was " +
+                "skipped or already done. Start the upload again rather than repeating this call.");
+        // ── Two callers, one drive ────────────────────────────────────────────────────────────────
+        case "VERSION_CONFLICT":
+            return ("Something else changed the drive since this was read. Nothing is lost and nothing is " +
+                "wrong with the credential: read the current state and apply the change to that.");
+        case "ERASE_BLOCKED":
+            return ("The account cannot be erased while retained records still point at it. This will not " +
+                "clear by retrying; the records have their own retention and it has to run out.");
         case "CREDITS_SHORT":
             return "The account does not have enough credits for this upload.";
         default:
