@@ -48,7 +48,7 @@ nmts --help
 그러면 기본 브랜치를 가져갑니다. 버전을 고정하시려면 태그를 적으십시오.
 
 ```sh
-npm install -g github:needmoretruth/nmts-cli#v0.6.0
+npm install -g github:needmoretruth/nmts-cli#v0.15.0
 ```
 
 또는 [최신 릴리스](https://github.com/needmoretruth/nmts-cli/releases)의 tarball에서. 같은
@@ -59,8 +59,8 @@ npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/downloa
 ```
 
 **꾸러미 저장소(npm registry)에 올라가 있지 않아서 `npm install -g nmts`로는 찾지 못합니다.** 그
-이름은 아직 아무도 가져가지 않았고 거기 올라간 것이 없습니다. 그것이 바뀌면 이 절이 그렇게 적고
-명령을 알려 드립니다. 설치에 대한 나머지는 바뀌지 않습니다 — 어느 쪽이든 정본은 이 저장소입니다.
+짧은 이름은 쓸 수도 없습니다 — 저장소가 이미 올라간 이름들과 너무 비슷하다며 거절합니다. 설치에
+대한 나머지는 바뀌지 않습니다 — 어느 쪽이든 정본은 이 저장소입니다.
 
 **설치할 때 컴파일하는 것이 없고**, `dist/`가 이 저장소에 들어 있는 이유가 그것입니다. 저장소에서
 바로 설치하는 것은 빌드를 못 합니다 — npm이 컴파일러가 없는 임시 복제본에서 준비하기 때문입니다.

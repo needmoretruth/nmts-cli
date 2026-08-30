@@ -47,7 +47,7 @@ nmts --help
 That takes the default branch. To pin a version, name a tag:
 
 ```sh
-npm install -g github:needmoretruth/nmts-cli#v0.6.0
+npm install -g github:needmoretruth/nmts-cli#v0.15.0
 ```
 
 Or from the tarball on the [latest release](https://github.com/needmoretruth/nmts-cli/releases),
@@ -57,9 +57,9 @@ which is the same package and needs no clone:
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
-**It is not on a package registry, and `npm install -g nmts` will not find it.** That name is
-unclaimed; nothing is published under it. If that changes, this section will say so and name the
-command. Nothing else about installing changes: the repository stays the source either way.
+**It is not on a package registry, and `npm install -g nmts` will not find it.** That short name
+is not available either: the registry refuses it as too close to names already published there.
+Nothing else about installing changes: the repository stays the source either way.
 
 **Nothing is compiled at install time**, and `dist/` is in this repository for that reason:
 installing straight from a repository cannot build, because npm prepares it in a staging clone
