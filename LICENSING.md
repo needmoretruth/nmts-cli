@@ -37,12 +37,12 @@ promised.
 
 ## Contributions
 
-**This repository does not merge outside code.** That is deliberate, and the reason is the section
-above: different terms can only be offered by whoever holds the copyright in all of the code.
-Merging a patch would move part of that copyright to its author, and the offer would stop being
-true for the whole program.
+**Outside code is merged, under the [Contributor License Agreement](CLA.md).** You keep the
+copyright in what you wrote; the licence that agreement gives is broad enough that the offer in the
+section above stays true for the whole program. Without it, different terms could only be offered
+by whoever holds the copyright in every line, and one merged patch would end that.
 
-Bug reports, questions and ideas are welcome — those cost nothing and change everything.
+Bug reports, questions and ideas are welcome too — those cost nothing and change everything.
 
 ## Copyright
 

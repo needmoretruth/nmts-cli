@@ -649,7 +649,8 @@ Apache-2.0. The full text is in [LICENSE](LICENSE), verbatim. It moved here from
 program; redistributing it carries the licence and copyright notices with it. If you still need
 different terms, write to **nmts@nmts.me** and say why — see [LICENSING.md](LICENSING.md).
 
-This repository does not merge outside code, and [LICENSING.md](LICENSING.md) says why. Bug
-reports, questions and ideas are welcome.
+Code is welcome — [CONTRIBUTING.md](CONTRIBUTING.md) says how it reaches here, and the
+[Contributor License Agreement](CLA.md) is what keeps the offer above true for the whole program.
+Bug reports, questions and ideas are welcome too.
 
 Copyright © 2026 needmoretruth.

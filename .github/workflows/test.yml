@@ -1,7 +1,13 @@
-# ⛔ IT REACTS TO `push` ONLY — never to `pull_request`. A workflow that runs on pull requests
-#    executes a stranger's code with this repository's token, and this repository does not merge
-#    outside code in any case: a merged patch would move part of the copyright to its author, and
-#    the separate-licence offer in LICENSING.md can only be made by whoever holds all of it.
+# ⛔ IT REACTS TO `push` AND TO `pull_request` — never to `pull_request_target`. The difference is
+#    the whole security story and it is one word wide: a `pull_request` run of a fork's branch gets
+#    a READ-ONLY token and NO secrets, and GitHub holds a first-time contributor's run until a
+#    maintainer approves it; `pull_request_target` runs that same stranger's code WITH this
+#    repository's token. The publish gate refuses the second and every other externally startable
+#    trigger — see deploy/lib/workflow-triggers.mjs in the source this file is exported from.
+#
+# ⚠ Outside code is merged here now, under the Contributor License Agreement. Accepting a patch
+#    and running nothing on it would be worse than refusing patches, which is why this reacts to
+#    pull requests at all.
 #
 # ⚠ Three operating systems because that is the claim the README makes. Plain JavaScript with no
 #    native build step should run wherever Node runs, and "should" is not something a reader can
@@ -10,6 +16,8 @@ name: test
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
 
 permissions:
