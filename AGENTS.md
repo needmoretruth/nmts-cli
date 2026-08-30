@@ -170,8 +170,20 @@ found. If you were not told, ask.
 
 **4. Do not invent commands.** `nmts --help` is the list.
 
-**5. Read stderr before deciding what went wrong.** Failures are written to be acted on. A refusal
-is not a transient error and must not be retried in a loop.
+**5. Read stderr before deciding what went wrong.** Failures are written to be acted on: a refusal
+from the server carries its own code, and most of them also carry one line naming the next step.
+Forty of the fifty-six the server can send do; the rest are silent because there is nothing useful
+to add — the message already names the field, or there is no next step to name. A refusal is not a
+transient error and must not be retried in a loop.
+
+⛔ **`CHAIN_UNCERTAIN` is the one refusal where retrying can cost money.** It means nobody knows
+whether the storage was registered, so sending the upload again can pay for the same file twice.
+Run `nmts ls` first and look for the file. The other two storage failures say plainly that nothing
+was stored, and those are safe to try again.
+
+⛔ **A refusal is almost never about the credential.** If the message does not say so, do not go
+looking for a new API key — `SPONSORED_STATE`, `RATE_LIMITED`, `VERSION_CONFLICT` and the credit
+caps all look like permission problems from a distance and none of them is one.
 
 ## What needs the person's decision
 

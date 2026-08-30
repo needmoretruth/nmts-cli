@@ -616,7 +616,8 @@ silently: the wait is announced.
 What is **not** retried, and why each one is out:
 
 - **A refusal.** The server saying no — wrong key, no credits, not found — is an answer. Asking
-  again spends the wait to hear the same thing later.
+  again spends the wait to hear the same thing later. Most refusals also print one line naming what
+  to do instead; where they do not, it is because there is nothing to add.
 - **A request that ran out of time.** It already had its thirty seconds, and that deadline exists so
   that an agent running this in a loop is not left waiting.
 - ⛔ **A write with no idempotency key.** A request that reached the server and died on the way back
