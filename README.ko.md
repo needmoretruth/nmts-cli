@@ -48,7 +48,7 @@ nmts --help
 그러면 기본 브랜치를 가져갑니다. 버전을 고정하시려면 태그를 적으십시오.
 
 ```sh
-npm install -g github:needmoretruth/nmts-cli#v0.15.0
+npm install -g github:needmoretruth/nmts-cli#v0.16.0
 ```
 
 또는 [최신 릴리스](https://github.com/needmoretruth/nmts-cli/releases)의 tarball에서. 같은
