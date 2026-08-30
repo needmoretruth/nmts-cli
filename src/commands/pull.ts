@@ -188,18 +188,33 @@ function filesUnder(
  *    otherwise write outside the directory that was asked for, which is a file appearing somewhere
  *    nobody chose.
  */
-function safeJoin(base: string, drivePath: string): string {
+/**
+ * Where one drive path lands under `base`, or a refusal.
+ *
+ * ⚠ `platform` exists so the Windows branch can be exercised from any machine. Without it the
+ *   ordering below is only ever checked by the Windows runner, and it was wrong there for one
+ *   release.
+ */
+export function safeJoin(
+  base: string,
+  drivePath: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
   const segments = drivePath.split("/").filter((s) => s !== "");
   for (const segment of segments) {
-    // ⛔ A name this machine cannot hold is refused BEFORE anything is fetched — on Windows some of
-    //    them are accepted by the operating system and then keep nothing (see `safe-path.ts`).
-    refuseUnwritableName(segment);
+    // ⛔ THE ORDER OF THESE TWO IS LOAD-BEARING. A segment that climbs — `..` — also ends in a dot,
+    //    which is one of the shapes Windows will not keep, so putting the platform check first made
+    //    a path-traversal attempt report itself as a naming problem, and only on Windows. The
+    //    reason a refusal gives has to be the same reason on every machine.
     if (segment === "." || segment === ".." || segment.includes(sep) || isAbsolute(segment)) {
       throw new NmtsError(`"${drivePath}" cannot be written to a path on this machine.`, {
         exitCode: 4,
         nextStep: "Nothing was written. Rename it in the drive, then pull again.",
       });
     }
+    // A name this machine cannot hold is refused BEFORE anything is fetched — on Windows some of
+    // them are accepted by the operating system and then keep nothing (see `safe-path.ts`).
+    refuseUnwritableName(segment, platform);
   }
   const full = resolve(base, ...segments);
   const inside = relative(base, full);

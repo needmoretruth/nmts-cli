@@ -1,6 +1,6 @@
 // A name that is legal in the drive is not always a name this machine can hold.
 //
-// ⛔ WHY THIS IS WORTH CODE (2026-08-30 · queue F54). Windows keeps `NUL`, `CON`, `COM1` and a few
+// ⛔ WHY THIS IS WORTH CODE (2026-08-30). Windows keeps `NUL`, `CON`, `COM1` and a few
 //    more for devices. Opening one SUCCEEDS: every byte written is accepted and nothing is stored.
 //    So a drive holding a file called `NUL`, pulled onto Windows, printed a success line and left
 //    the person with nothing — the failure mode this product exists to prevent, arriving through
@@ -15,6 +15,7 @@ import { strict as assert } from "node:assert";
 import test from "node:test";
 
 import { refuseUnwritableName, unwritableOn } from "../src/safe-path.ts";
+import { safeJoin } from "../src/commands/pull.ts";
 
 test("the device names Windows keeps are refused there and nowhere else", () => {
   for (const name of ["NUL", "nul", "CON", "aux", "COM1", "LPT9", "NUL.txt", "con.tar.gz", "aux.iliary", "com0"]) {
@@ -62,4 +63,24 @@ test("the refusal says what was not written and what to do instead", () => {
   );
   // On this machine the same name is fine, and the rule must not fire.
   assert.doesNotThrow(() => refuseUnwritableName("NUL", "linux"));
+});
+
+// ⛔ THE FAILURE THIS PINS HAPPENED. A climbing segment — `..` — also ends in a dot, and a dot at
+//    the end is one of the shapes Windows silently drops. With the platform check running first,
+//    an attempt to escape the destination reported itself as a naming problem, and only on
+//    Windows: on Linux the same input took the other branch and the test that covers it passed.
+//    So this drives the Windows branch from any machine, which is what was missing.
+test("⛔ climbing out is refused for climbing out, on Windows too", () => {
+  for (const platform of ["win32", "linux"] as const) {
+    assert.throws(
+      () => safeJoin("/tmp/dest", "a/../../etc/passwd", platform),
+      /cannot be written to a path/,
+      `on ${platform}`,
+    );
+  }
+});
+
+test("a name Windows cannot keep is still refused for that reason", () => {
+  assert.throws(() => safeJoin("/tmp/dest", "notes/CON.txt", "win32"), /cannot be written on this system/);
+  assert.doesNotThrow(() => safeJoin("/tmp/dest", "notes/CON.txt", "linux"));
 });
