@@ -97,7 +97,11 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm -v nmts-config:/config nmts consent grant spend
-          docker run --rm -v nmts-config:/config nmts consent list | grep -q 'agreed *spend'
+          # ⚠ NOT PIPED INTO `grep -q`. That closes the pipe on the first match, the container
+          #   writing into it dies of a broken pipe, and `pipefail` turns a passing check into a
+          #   failing step — intermittently, because it depends on which side finishes first.
+          granted=$(docker run --rm -v nmts-config:/config nmts consent list)
+          printf '%s\n' "$granted" | grep -q 'agreed *spend'
 
       - name: Podman builds it and the command runs, rootless
         run: |
