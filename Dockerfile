@@ -19,11 +19,17 @@ FROM node:24-slim
 #    anything: it leaves a symlink pointing back at that directory, so deleting the sources
 #    afterwards leaves a command that exists on PATH and cannot run — "executable file not found",
 #    from an image that built without a single warning. Packing first makes the install a copy.
+#
+# ⛔ THE TARBALL'S NAME COMES FROM `npm pack`, NOT FROM A GLOB. A scoped package packs as
+#    `<scope>-<name>-<version>.tgz`, so a pattern written against the bare name matches nothing,
+#    the shell hands `npm install` the unexpanded pattern, and the build dies — which is exactly
+#    what happened the day this package took its scoped name. `--silent` makes `npm pack` print
+#    the file name and nothing else.
 COPY . /src
 RUN cd /src \
- && npm pack --pack-destination /tmp \
- && npm install -g /tmp/nmts-*.tgz \
- && rm -rf /src /tmp/nmts-*.tgz
+ && tarball="$(npm pack --pack-destination /tmp --silent | tail -n 1)" \
+ && npm install -g "/tmp/$tarball" \
+ && rm -rf /src "/tmp/$tarball"
 
 # ⛔ THIS DIRECTORY EXISTS SO THAT MOUNTING A VOLUME ON IT WORKS. A named volume takes its owner
 #    from the directory already at that path in the image; if the path does not exist, the volume
