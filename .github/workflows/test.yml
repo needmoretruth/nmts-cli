@@ -70,8 +70,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm pack
-          npm install -g ./nmts-*.tgz
+          # ⛔ ASK npm FOR THE NAME; DO NOT GUESS IT. This was `./nmts-*.tgz`, and the day the
+          #    package took a scoped name the glob stopped matching — npm flattens the scope into
+          #    the filename, so the file became `needmoretruth-nmts-cli-<version>.tgz` and this
+          #    step failed with ENOENT on a path containing a literal asterisk. `--silent` makes
+          #    npm print the filename and nothing else.
+          TARBALL="$(npm pack --silent | tail -1)"
+          npm install -g "./$TARBALL"
           test -n "$(nmts --version)"
           nmts --version
           nmts env

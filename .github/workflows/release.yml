@@ -90,9 +90,12 @@ jobs:
       # it — the package contents are the registry's rules to apply, not ours to assume.
       - name: What goes out
         run: |
+          set -euo pipefail
           npm run compile
           npm pack --dry-run
-          npm pack
+          # ⛔ ASK npm FOR THE NAME; DO NOT GUESS IT — see the same note in test.yml. The release
+          #    step below attaches this file, so a wrong guess here means a tag with no download.
+          echo "TARBALL=$(npm pack --silent | tail -1)" >> "$GITHUB_ENV"
 
       # ⛔ The notes are written with the tag substituted AFTERWARDS rather than by the shell.
       #    They contain backticks, and a shell heredoc that expands variables also runs those.
@@ -117,8 +120,8 @@ jobs:
           # ⛔ TWO COPIES OF ONE FILE, ON PURPOSE. The version-stamped name is what somebody pins
           #    to. The plain one is what `…/releases/latest/download/nmts.tgz` resolves to, and
           #    that URL is the only install line that does not have to be edited every release.
-          cp ./nmts-*.tgz nmts.tgz
-          gh release create "$GITHUB_REF_NAME" ./nmts-*.tgz ./nmts.tgz \
+          cp "./$TARBALL" nmts.tgz
+          gh release create "$GITHUB_REF_NAME" "./$TARBALL" ./nmts.tgz \
             --title "$GITHUB_REF_NAME" \
             --notes-file notes.md
 
