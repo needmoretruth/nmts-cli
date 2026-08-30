@@ -1,9 +1,8 @@
 # Stops npm from consulting .gitignore when it decides what goes into the package.
 #
-# WHAT WAS MEASURED (npm 11.16.0, 2026-08-24): with the .gitignore beside this file — which
-# ignores `dist/`, because build output does not belong in source control — and with no
-# .npmignore at all, `npm pack` STILL included `dist/main.js`. The `files` list in package.json
-# won. So this file is not fixing a failure that happens today.
+# WHAT WAS MEASURED (npm 11.16.0, 2026-08-24): with no .npmignore at all, `npm pack` included
+# `dist/main.js`. The `files` list in package.json decided it. So this file is not fixing a
+# failure that happens today.
 #
 # It is here because of what that failure WOULD be. `dist/main.js` is exactly what the `bin`
 # entry names, npm's precedence between `files` and `.gitignore` has moved between major

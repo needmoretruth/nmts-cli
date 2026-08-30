@@ -1,0 +1,6 @@
+# What never needs to reach the build. `node_modules` in particular is a working directory's
+# leftovers — the image installs its own, for the platform it is being built for.
+node_modules
+.git
+.github
+*.tgz

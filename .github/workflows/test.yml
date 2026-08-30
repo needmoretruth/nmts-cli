@@ -67,3 +67,41 @@ jobs:
           test -n "$(nmts --version)"
           nmts --version
           nmts env
+
+  # ──────────────────────────────────────────────────────────────────────────────────────────────
+  # ⛔ THE README SAYS THIS RUNS IN DOCKER AND PODMAN, ROOTLESS. That sentence was in it before
+  #    anything built an image, and the `Dockerfile` beside it was three lines a reader had to copy
+  #    correctly — the first version of which installed a symlink and produced a command that
+  #    exited "executable file not found" from an image that built with no warning at all.
+  #
+  # ⚠ Both tools, not one. They differ in exactly the place this image cares about: who the process
+  #   is, and who owns a volume mounted onto it.
+  # ──────────────────────────────────────────────────────────────────────────────────────────────
+  containers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Docker builds it and the command runs
+        run: |
+          set -euo pipefail
+          docker build -t nmts .
+          test -n "$(docker run --rm nmts --version)"
+          docker run --rm nmts env
+
+      # ⛔ A VOLUME ON `/config`, BECAUSE THAT IS THE ONE THING AN IMAGE CAN GET WRONG SILENTLY.
+      #    A named volume takes its owner from the directory already at that path in the image. If
+      #    the image has no such directory the volume is created owned by root, the unprivileged
+      #    user cannot write into it, and every upload fails on a machine where listing worked.
+      - name: A mounted volume is writable by the user the image runs as
+        run: |
+          set -euo pipefail
+          docker run --rm -v nmts-config:/config nmts consent grant spend
+          docker run --rm -v nmts-config:/config nmts consent list | grep -q 'agreed *spend'
+
+      - name: Podman builds it and the command runs, rootless
+        run: |
+          set -euo pipefail
+          podman build -t nmts .
+          test -n "$(podman run --rm nmts --version)"
+          podman run --rm nmts env

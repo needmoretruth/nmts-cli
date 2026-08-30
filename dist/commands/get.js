@@ -33,6 +33,7 @@ import { buildIndex, entryAt, fullPathOf, KIND_FILE, normalisePath } from "../dr
 import { NmtsError } from "../errors.js";
 import { readFileList } from "../manifest.js";
 import { resolveNetwork } from "../network.js";
+import { refuseUnwritableName } from "../safe-path.js";
 import { BINARY_NAME } from "../product.js";
 import { openSession } from "../session.js";
 import { processStdout, STDOUT_TARGET } from "../stdout.js";
@@ -78,6 +79,10 @@ export async function get(target, options = {}) {
             nextStep: "Without it nothing can open the stored bytes. Open the account in a browser.",
         });
     }
+    // ⛔ Only the name that came FROM THE DRIVE is judged. `--out` is the person naming a path on
+    //    their own machine, and they are allowed to mean it.
+    if (!toStdout && options.out === undefined)
+        refuseUnwritableName(basename(entry.name));
     const destination = toStdout ? null : resolve(options.out ?? basename(entry.name));
     // ⛔ `--force` has nothing to overwrite on the stdout branch and is ignored there on purpose:
     //    there is no file to protect, and refusing the combination would only make a wrapper script

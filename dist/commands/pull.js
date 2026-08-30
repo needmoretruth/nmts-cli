@@ -26,6 +26,7 @@ import { buildIndex, entryAt, fullPathOf, isLive, KIND_FILE, KIND_FOLDER, normal
 import { NmtsError } from "../errors.js";
 import { readFileList } from "../manifest.js";
 import { resolveNetwork } from "../network.js";
+import { refuseUnwritableName } from "../safe-path.js";
 import { BINARY_NAME } from "../product.js";
 import { openSession } from "../session.js";
 export async function pull(target, options = {}) {
@@ -154,6 +155,9 @@ function filesUnder(index, entries, parentId) {
 function safeJoin(base, drivePath) {
     const segments = drivePath.split("/").filter((s) => s !== "");
     for (const segment of segments) {
+        // ⛔ A name this machine cannot hold is refused BEFORE anything is fetched — on Windows some of
+        //    them are accepted by the operating system and then keep nothing (see `safe-path.ts`).
+        refuseUnwritableName(segment);
         if (segment === "." || segment === ".." || segment.includes(sep) || isAbsolute(segment)) {
             throw new NmtsError(`"${drivePath}" cannot be written to a path on this machine.`, {
                 exitCode: 4,

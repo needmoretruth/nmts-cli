@@ -395,19 +395,23 @@ nmts restore photos/2026
 
 도커와 포드맨에서 루트 없이, 고친 것 없이 돕니다.
 
-공개된 이미지는 없습니다. 필요한 것이 Node뿐이라 이미지는 세 줄입니다.
-
-```dockerfile
-FROM node:24-slim
-RUN npm install -g github:needmoretruth/nmts-cli
-ENTRYPOINT ["nmts"]
-```
+어디에도 공개된 이미지는 없지만, 이 저장소에 `Dockerfile`이 있어서 만드는 것은 명령 하나입니다.
+두 컨테이너 도구 모두 이 저장소에 밀어 넣을 때마다 실제로 빌드하고 실행하므로, 이것은 믿고 넘어갈
+말이 아니라 확인할 수 있는 말입니다.
 
 ```sh
-docker build -t nmts .
+docker build -t nmts .        # 또는: podman build -t nmts .
+docker run --rm nmts --version
+```
+
+이 이미지는 보통 사용자로 돌고, 저장하는 것은 `/config`에 씁니다 — 그 사용자 몫으로 만들어 둔
+폴더라서 거기에 볼륨을 붙이면 그대로 됩니다. 이미지에 없는 경로에 볼륨을 붙이면 root 소유의
+볼륨이 생기고 도구는 한 바이트도 못 씁니다.
+
+```sh
 printf '%s' "$CODE" > /tmp/nmts-code && chmod 600 /tmp/nmts-code
 printf '%s' "$KEY"  > /tmp/nmts-key  && chmod 600 /tmp/nmts-key
-docker run --rm -u 1000:1000 \
+docker run --rm \
   -v /tmp/nmts-code:/run/secrets/nmts:ro \
   -v /tmp/nmts-key:/run/secrets/api-key:ro \
   -e NMTS_ACCOUNT_CODE_FILE=/run/secrets/nmts \
@@ -430,12 +434,13 @@ docker run --rm -u 1000:1000 \
 RUN nmts consent grant spend
 
 # 설정 폴더를 컨테이너 밖에 두거나
-docker run --rm -u 1000:1000 -v nmts-config:/config -e NMTS_CONFIG_DIR=/config … nmts put file
+docker run --rm -v nmts-config:/config … nmts put file
 ```
 
-`NMTS_CONFIG_DIR`은 이 도구가 쓰는 것 전부 — 동의, 저장된 자격, 하루 한 번의 새 버전 확인 — 를
-지정하신 폴더로 옮깁니다. `nmts env`가 그것이 어디에 자리 잡았는지, 그리고 그 폴더가 컨테이너가
-지워져도 남는지 알려 줍니다.
+이 이미지는 이미 `/config`를 보고 있어서, 뒤엣것은 거기에 볼륨 하나만 붙이면 됩니다. 직접 만드신
+이미지에서는 `NMTS_CONFIG_DIR`이 이 도구가 쓰는 것 전부 — 동의, 저장된 자격, 하루 한 번의 새 버전
+확인 — 를 지정하신 폴더로 옮깁니다. `nmts env`가 그것이 어디에 자리 잡았는지, 그리고 그 폴더가
+컨테이너가 지워져도 남는지 알려 줍니다.
 
 **컨테이너 안에서 계정 코드를 환경변수에 넣지 마십시오.** 환경 전체는 그것을 들여다볼 수 있는
 사람에게 다 보입니다 — `docker inspect`가 찍습니다. **경로**를 담은 변수는 그 사람에게 파일 이름

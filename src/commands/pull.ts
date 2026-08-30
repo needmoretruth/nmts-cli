@@ -38,6 +38,7 @@ import {
 import { NmtsError } from "../errors.ts";
 import { readFileList } from "../manifest.ts";
 import { resolveNetwork } from "../network.ts";
+import { refuseUnwritableName } from "../safe-path.ts";
 import { BINARY_NAME } from "../product.ts";
 import { openSession } from "../session.ts";
 import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
@@ -190,6 +191,9 @@ function filesUnder(
 function safeJoin(base: string, drivePath: string): string {
   const segments = drivePath.split("/").filter((s) => s !== "");
   for (const segment of segments) {
+    // ⛔ A name this machine cannot hold is refused BEFORE anything is fetched — on Windows some of
+    //    them are accepted by the operating system and then keep nothing (see `safe-path.ts`).
+    refuseUnwritableName(segment);
     if (segment === "." || segment === ".." || segment.includes(sep) || isAbsolute(segment)) {
       throw new NmtsError(`"${drivePath}" cannot be written to a path on this machine.`, {
         exitCode: 4,

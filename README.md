@@ -405,19 +405,23 @@ moves, so a retry pushes exactly the blob that was bought rather than buying a s
 
 It runs unchanged in Docker and Podman, rootless.
 
-There is no published image. Node is all it needs, so an image is three lines:
-
-```dockerfile
-FROM node:24-slim
-RUN npm install -g github:needmoretruth/nmts-cli
-ENTRYPOINT ["nmts"]
-```
+There is no image published anywhere, but this repository has a `Dockerfile`, so building one is a
+single command. Both container tools are built and run on every push to this repository, so this is
+a claim you can check rather than one you have to take.
 
 ```sh
-docker build -t nmts .
+docker build -t nmts .        # or: podman build -t nmts .
+docker run --rm nmts --version
+```
+
+The image runs as an ordinary user, and it writes what it stores to `/config` — a directory it
+creates for that user, so mounting a volume there works. Mounting a volume on a path an image does
+not have gets you a root-owned volume and a tool that cannot write one byte into it.
+
+```sh
 printf '%s' "$CODE" > /tmp/nmts-code && chmod 600 /tmp/nmts-code
 printf '%s' "$KEY"  > /tmp/nmts-key  && chmod 600 /tmp/nmts-key
-docker run --rm -u 1000:1000 \
+docker run --rm \
   -v /tmp/nmts-code:/run/secrets/nmts:ro \
   -v /tmp/nmts-key:/run/secrets/api-key:ro \
   -e NMTS_ACCOUNT_CODE_FILE=/run/secrets/nmts \
@@ -440,12 +444,13 @@ upload, every time. Two ways round it, and both are ordinary:
 RUN nmts consent grant spend
 
 # or keep the config directory outside the container
-docker run --rm -u 1000:1000 -v nmts-config:/config -e NMTS_CONFIG_DIR=/config … nmts put file
+docker run --rm -v nmts-config:/config … nmts put file
 ```
 
-`NMTS_CONFIG_DIR` moves everything this tool writes — the agreements, the stored credentials, the
-once-a-day update check — to a directory you choose. `nmts env` reports where it landed and whether
-that directory survives the container being removed.
+The image already points this tool at `/config`, so a volume mounted there is all the second one
+needs. On an image of your own, `NMTS_CONFIG_DIR` moves everything this tool writes — the
+agreements, the stored credentials, the once-a-day update check — to a directory you choose.
+`nmts env` reports where it landed and whether that directory survives the container being removed.
 
 **Do not put the account code in an environment variable inside a container.** The whole
 environment is visible to anyone who can inspect it — `docker inspect` prints it. A variable

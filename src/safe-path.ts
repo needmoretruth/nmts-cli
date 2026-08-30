@@ -30,10 +30,67 @@ export function destinationFor(outDir: string, accountPath: string): string {
   if (name === "" || name === "." || name === "..") {
     throw new NmtsError(`"${accountPath}" does not name a file that can be written here.`);
   }
+  refuseUnwritableName(name);
   const root = resolve(outDir);
   const full = resolve(root, name);
   if (full !== root && !full.startsWith(root + sep)) {
     throw new NmtsError(`"${accountPath}" would be written outside ${root}.`);
   }
   return full;
+}
+
+/**
+ * Windows keeps a handful of names for devices, and writing to one succeeds while storing nothing.
+ *
+ * ⛔ THE FAILURE IS SILENT, WHICH IS WHY IT IS WORTH CODE. A drive holding a file called `NUL`
+ *    pulled onto Windows opens the null device: every byte is accepted, nothing is kept, and the
+ *    tool says it wrote the file. A name containing a colon is worse than silent — it writes an
+ *    alternate data stream on a DIFFERENT file, where nothing lists it. And a name ending in a dot
+ *    or a space is not the name it looks like: Win32 strips those before opening, so two files can
+ *    quietly become one.
+ *
+ * ⚠ The check is per PLATFORM, not universal. `NUL` is an ordinary, legal file name on Linux and
+ *   macOS, and refusing it there would take a file away from somebody who can hold it perfectly
+ *   well. The platform is a parameter so a test on any machine can ask the Windows question.
+ *
+ * Returns the reason it cannot be written, or null when it can.
+ */
+export function unwritableOn(name: string, platform: NodeJS.Platform): string | null {
+  if (platform !== "win32") return null;
+  // ⚠ THE EXTENSION DOES NOT SAVE IT. `NUL.txt` and `AUX.iliary` open the device just as `NUL`
+  //   does — Windows reads the part before the first dot. Judging the whole name instead would
+  //   let every one of these through.
+  const stem = (name.split(".")[0] ?? "").trim();
+  if (/^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i.test(stem)) {
+    return `Windows keeps "${stem}" for a device, so writing this name would store nothing`;
+  }
+  // eslint-disable-next-line no-control-regex
+  if (/[<>:"|?*\u0000-\u001f]/.test(name)) {
+    return `Windows does not allow < > : " | ? * in a file name, and a colon writes a hidden stream instead`;
+  }
+  if (/[. ]$/.test(name)) {
+    return "Windows drops a dot or a space at the end of a name, so this file would not keep its name";
+  }
+  return null;
+}
+
+/**
+ * Refuse a name that this platform cannot hold, saying what to do about it.
+ *
+ * ⛔ A REFUSAL, NOT A RENAME. Renaming quietly would hand somebody a file under a name they did not
+ *    choose and cannot predict, and the one thing worse than not getting a file is thinking you got
+ *    it. The person can rename it in the drive, or name it themselves on the way out.
+ */
+export function refuseUnwritableName(
+  name: string,
+  platform: NodeJS.Platform = process.platform,
+): void {
+  const why = unwritableOn(name, platform);
+  if (why === null) return;
+  throw new NmtsError(`"${name}" cannot be written on this system: ${why}.`, {
+    exitCode: 4,
+    nextStep:
+      "Nothing was written. Rename it in the drive, or fetch this one file on its own and choose " +
+      "the name it lands under.",
+  });
 }

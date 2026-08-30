@@ -1,6 +1,6 @@
 {
   "name": "nmts",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Command-line access to NMTS end-to-end encrypted storage, for people and for their agents.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/needmoretruth/nmts-cli",
