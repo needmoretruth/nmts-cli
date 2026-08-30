@@ -395,14 +395,47 @@ nmts restore photos/2026
 
 도커와 포드맨에서 루트 없이, 고친 것 없이 돕니다.
 
+공개된 이미지는 없습니다. 필요한 것이 Node뿐이라 이미지는 세 줄입니다.
+
+```dockerfile
+FROM node:24-slim
+RUN npm install -g github:needmoretruth/nmts-cli
+ENTRYPOINT ["nmts"]
+```
+
 ```sh
+docker build -t nmts .
 printf '%s' "$CODE" > /tmp/nmts-code && chmod 600 /tmp/nmts-code
+printf '%s' "$KEY"  > /tmp/nmts-key  && chmod 600 /tmp/nmts-key
 docker run --rm -u 1000:1000 \
   -v /tmp/nmts-code:/run/secrets/nmts:ro \
+  -v /tmp/nmts-key:/run/secrets/api-key:ro \
   -e NMTS_ACCOUNT_CODE_FILE=/run/secrets/nmts \
   -e NMTS_API_KEY_FILE=/run/secrets/api-key \
   nmts ls
 ```
+
+⚠ **컨테이너에 없는 자격 파일을 가리키면 그냥 멈춥니다.** `NMTS_API_KEY_FILE`이 없는 파일을
+가리키면 요청을 하나도 보내기 전에 종료 코드 3으로 끝납니다 — 그것이 옳은 동작이고, 위에서 두
+파일을 다 붙인 이유입니다.
+
+### 컨테이너에서 업로드하려면 하나가 더 필요합니다
+
+이 도구가 한 번만 묻는 동의는 설정 폴더 안의 파일이고, 지워지는 컨테이너는 그 파일을 데리고
+갑니다 — 그래서 새 컨테이너는 목록도 보고 다운로드도 하지만 **업로드는 매번 거절합니다.** 두
+가지 길이 있고 둘 다 평범합니다.
+
+```sh
+# 이미지에 동의를 구워 넣거나
+RUN nmts consent grant spend
+
+# 설정 폴더를 컨테이너 밖에 두거나
+docker run --rm -u 1000:1000 -v nmts-config:/config -e NMTS_CONFIG_DIR=/config … nmts put file
+```
+
+`NMTS_CONFIG_DIR`은 이 도구가 쓰는 것 전부 — 동의, 저장된 자격, 하루 한 번의 새 버전 확인 — 를
+지정하신 폴더로 옮깁니다. `nmts env`가 그것이 어디에 자리 잡았는지, 그리고 그 폴더가 컨테이너가
+지워져도 남는지 알려 줍니다.
 
 **컨테이너 안에서 계정 코드를 환경변수에 넣지 마십시오.** 환경 전체는 그것을 들여다볼 수 있는
 사람에게 다 보입니다 — `docker inspect`가 찍습니다. **경로**를 담은 변수는 그 사람에게 파일 이름

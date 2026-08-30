@@ -36,8 +36,9 @@ Two things have to be present, and they do different jobs:
 | **account code** | Opens the files. Never leaves the machine. | `NMTS_ACCOUNT_CODE_FILE`, `nmts login`, or `NMTS_ACCOUNT_CODE` |
 | **API key** | Makes the server answer. Opens nothing. | `NMTS_API_KEY`, `NMTS_API_KEY_FILE`, or `nmts login` |
 
-If either is missing, `nmts env` says so. If the key is missing, stop and say so — the sign-in it
-would replace needs a person at a browser, and there is nothing here you can substitute.
+If either is missing, `nmts env` says so. If the key is missing, stop and say so, and point the
+person at [what only they can do](#what-only-a-person-can-do-once) below — the sign-in a key
+replaces needs a person at a browser, and there is nothing here you can substitute.
 
 A key is not always enough on its own: see [when the server says a person has to check
 in](#when-the-server-says-a-person-has-to-check-in).
@@ -61,6 +62,68 @@ in](#when-the-server-says-a-person-has-to-check-in).
 - `nmts login` — writes down whichever of those it finds, after checking it with the server, and
   asks for one at a terminal when there is none. It prints the key's public handle, never the key,
   and a key already stored is not replaced unless the run says so.
+
+## What only a person can do, once
+
+**Everything this tool is for is open to you, and getting to the starting line is not.** Four
+things need a person, they are all at the beginning, and after them nothing in ordinary use asks
+for one. If you are being set up, this is the list to hand back — and it is worth handing back in
+full at once, because a person who does three of these still cannot upload.
+
+| Step | Who | Where | How often |
+|---|---|---|---|
+| 1. Make the account | a person | nmts.me | once |
+| 2. Make an API key for you | a person | the account screen at nmts.me | once, and again if it is revoked |
+| 3. Pass the check that says a person is here | a person | nmts.me, one short code | **every week** |
+| 4. Get credits into the account | a person | nmts.me — the free trial, or a funded wallet | once, then as they run out |
+
+Then, on the machine you run on, one thing is yours:
+
+```sh
+nmts consent grant spend      # once per machine. Uploading spends credits.
+```
+
+**After that, and until the week turns, none of this asks for anybody**: listing, downloading,
+uploading, folders, renaming, the trash, sharing, the recovery files, the wallet's balances.
+
+### Step 3 is the one that comes back
+
+The server keeps "has a person checked in lately" as a separate question from "is this a valid
+key", and the answer expires. While it is no, the account still works, under tighter limits, and
+some requests are refused outright.
+
+```sh
+nmts verify --status   # is it live, and until when?
+nmts verify            # prints a short code for a person to type at nmts.me, then waits
+```
+
+You cannot pass it. That is what it is for. What you can do is notice it is about to lapse and say
+so before the person is somewhere else: `--status` prints the moment it ends, not a number of days,
+because the window closes on a boundary of the server's own weeks.
+
+### You can make further accounts, once a person has done step 3
+
+This is the one door that opens for you rather than for them. With a key that carries `files:write`
+and a live human check behind it, `nmts create` works with no browser and no person:
+
+```sh
+nmts create --out ./new-account-code.txt
+```
+
+**Two a day and five a week**, counted by the server against the account whose key you used, across
+restarts. The code it prints is printed once and cannot be printed again by anything.
+
+⚠ **A new account starts with no credits, and you cannot get it any.** The free trial runs its own
+human check on every application, and nothing else issues credit. So an account you make can hold
+files only once the person has put credits or a funded wallet behind it — make one when you need a
+separate drive, not as a way around step 4.
+
+### What to say when you are blocked
+
+Name the step. "I cannot upload" sends a person looking through settings; "the account has no
+credits, which is step 4 — the free trial at nmts.me, or a funded wallet" is something they can act
+on in a minute. The refusals carry their own codes and `nmts env` reports what is present, so you
+do not have to guess which step is missing.
 
 ## Start by asking where you are
 

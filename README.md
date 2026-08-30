@@ -405,14 +405,47 @@ moves, so a retry pushes exactly the blob that was bought rather than buying a s
 
 It runs unchanged in Docker and Podman, rootless.
 
+There is no published image. Node is all it needs, so an image is three lines:
+
+```dockerfile
+FROM node:24-slim
+RUN npm install -g github:needmoretruth/nmts-cli
+ENTRYPOINT ["nmts"]
+```
+
 ```sh
+docker build -t nmts .
 printf '%s' "$CODE" > /tmp/nmts-code && chmod 600 /tmp/nmts-code
+printf '%s' "$KEY"  > /tmp/nmts-key  && chmod 600 /tmp/nmts-key
 docker run --rm -u 1000:1000 \
   -v /tmp/nmts-code:/run/secrets/nmts:ro \
+  -v /tmp/nmts-key:/run/secrets/api-key:ro \
   -e NMTS_ACCOUNT_CODE_FILE=/run/secrets/nmts \
   -e NMTS_API_KEY_FILE=/run/secrets/api-key \
   nmts ls
 ```
+
+⚠ **Naming a credential file the container does not have is a hard stop, not a fall-through.**
+`NMTS_API_KEY_FILE` pointing at nothing exits 3 before any request — which is the right behaviour
+and the reason both mounts are above.
+
+### Uploading from a container needs one more thing
+
+The agreements this tool asks for once are a file in its config directory, and a container that is
+removed takes that file with it — so a fresh container can list and download and will refuse to
+upload, every time. Two ways round it, and both are ordinary:
+
+```sh
+# either bake the agreement into the image
+RUN nmts consent grant spend
+
+# or keep the config directory outside the container
+docker run --rm -u 1000:1000 -v nmts-config:/config -e NMTS_CONFIG_DIR=/config … nmts put file
+```
+
+`NMTS_CONFIG_DIR` moves everything this tool writes — the agreements, the stored credentials, the
+once-a-day update check — to a directory you choose. `nmts env` reports where it landed and whether
+that directory survives the container being removed.
 
 **Do not put the account code in an environment variable inside a container.** The whole
 environment is visible to anyone who can inspect it — `docker inspect` prints it. A variable
