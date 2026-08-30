@@ -1,7 +1,12 @@
 # Contributing
 
+*[한국어](CONTRIBUTING.ko.md)*
+
 `nmts` is the command-line tool for [NMTS](https://nmts.me) — end-to-end encrypted storage on the
 Walrus network. This file says what is welcome here and what cannot be accepted.
+
+**Talk about NMTS — [Discord](https://discord.gg/pcmRkVmVZk).** Questions, ideas, and what
+people are building with it. English or Korean; both are read.
 
 ## Building it yourself
 
@@ -23,6 +28,8 @@ nothing — a good first command somewhere unfamiliar.
 - **Ideas**, including ones that say the current design is wrong.
 - **Independent verification.** Build it yourself, run the tests, read the format documents, and
   say where the code and the documents disagree. That is the most useful thing anyone can send.
+
+**Write in English or in Korean.** Both are read.
 
 ## What cannot be accepted, and why
 

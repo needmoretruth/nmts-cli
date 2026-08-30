@@ -3,6 +3,11 @@
 Command-line access to [NMTS](https://nmts.me) — end-to-end encrypted storage on the Walrus
 network. For people at a terminal, and for the agents they run.
 
+> **[한국어 문서](README.ko.md)**
+>
+> **Talk about NMTS — [Discord](https://discord.gg/pcmRkVmVZk).** Questions, ideas, and
+> what people are building with it. English or Korean; both are read.
+
 > **If you are an AI agent, read [AGENTS.md](AGENTS.md) instead.** It says the same things in the
 > order a program needs them, and it is the file to follow when a person points you at this tool.
 
