@@ -18,13 +18,13 @@ export const BINARY_NAME = "nmts";
  *    beside it. Here rather than in `main.ts` because the MCP server has to say it too, and a
  *    command importing the entry point is a cycle waiting to bite.
  */
-export const VERSION = "0.11.0";
+export const VERSION = "0.12.0";
 /** Where the product lives, for messages that need to send somebody somewhere real. */
 export const HOME_URL = "https://nmts.me";
-/** The source, for the notices the AGPL asks a program to be able to print. */
+/** The source, so a person holding only the built program can find what it was built from. */
 export const SOURCE_URL = "https://github.com/needmoretruth/nmts-cli";
 /** Who holds the copyright. One place, because it is also the answer to "who can license this". */
-export const COPYRIGHT = "Copyright (C) 2026 needmoretruth";
+export const COPYRIGHT = "Copyright 2026 needmoretruth";
 /**
  * Where to write about a fault, a confusing message, or anything that got in the way.
  *

@@ -499,9 +499,8 @@ sending it again.
 
 ## Licence
 
-AGPL-3.0-only. **Calling this program from your own code does not put your code under the AGPL** —
-running a separate program is not building a derived work out of it. See
-[LICENSING.md](LICENSING.md) if you are asked.
+Apache-2.0 (it was AGPL-3.0-only until 2026-08-30). **Calling this program from your own code puts
+no obligation on your code at all.** See [LICENSING.md](LICENSING.md) if you are asked.
 
 ## Source
 

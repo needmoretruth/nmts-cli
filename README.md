@@ -6,8 +6,7 @@ network. For people at a terminal, and for the agents they run.
 > **If you are an AI agent, read [AGENTS.md](AGENTS.md) instead.** It says the same things in the
 > order a program needs them, and it is the file to follow when a person points you at this tool.
 
-> **Status: early.** Version 0.1.0, built in the open, and the interface may still change before
-> 1.0. Nothing here is a promise about a shipped feature — `nmts --help` is the current truth
+> **Status: early.** Built in the open, and the interface may still change before 1.0. Nothing here is a promise about a shipped feature — `nmts --help` is the current truth
 > about what exists.
 
 ## What NMTS is
@@ -600,11 +599,12 @@ about content, go through the contact desk on [nmts.me](https://nmts.me).
 
 ## Licence
 
-AGPL-3.0-only. The full text is in [LICENSE](LICENSE), verbatim.
+Apache-2.0. The full text is in [LICENSE](LICENSE), verbatim. It moved here from AGPL-3.0-only on
+2026-08-30; copies already held under the AGPL stay under it.
 
-**Running `nmts` from your own script or agent does not put your code under the AGPL** — that is
-one program calling another, not one program built out of the other. If the AGPL does not fit what
-you are building, a separate licence can be arranged: see [LICENSING.md](LICENSING.md).
+**Build on it, ship it, sell what you build with it.** Nothing is asked of you for using the
+program; redistributing it carries the licence and copyright notices with it. If you still need
+different terms, write to **nmts@nmts.me** and say why — see [LICENSING.md](LICENSING.md).
 
 This repository does not merge outside code, and [LICENSING.md](LICENSING.md) says why. Bug
 reports, questions and ideas are welcome.
