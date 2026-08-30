@@ -74,7 +74,7 @@ full at once, because a person who does three of these still cannot upload.
 |---|---|---|---|
 | 1. Make the account | a person | nmts.me | once |
 | 2. Make an API key for you | a person | the account screen at nmts.me | once, and again if it is revoked |
-| 3. Pass the check that says a person is here | a person | nmts.me, one short code | **every week** |
+| 3. Pass the check that says a person is here | a person | nmts.me, one short code | **every four weeks**, and only for step 1, step 4 and sharing |
 | 4. Get credits into the account | a person | nmts.me — the free trial, or a funded wallet | once, then as they run out |
 
 Then, on the machine you run on, one thing is yours:
@@ -83,14 +83,23 @@ Then, on the machine you run on, one thing is yours:
 nmts consent grant spend      # once per machine. Uploading spends credits.
 ```
 
-**After that, and until the week turns, none of this asks for anybody**: listing, downloading,
-uploading, folders, renaming, the trash, sharing, the recovery files, the wallet's balances.
+**After that, none of this asks for anybody**: listing, downloading, uploading, folders, renaming,
+the trash, the recovery files, the wallet's balances. ⚠ Sharing is the exception — it is on the
+short list that step 3 gates, along with making another account and the free trial.
 
 ### Step 3 is the one that comes back
 
 The server keeps "has a person checked in lately" as a separate question from "is this a valid
-key", and the answer expires. While it is no, the account still works, under tighter limits, and
-some requests are refused outright.
+key", and the answer expires after four weeks.
+
+⭐ **It does not gate the work.** Reading, writing, listing, folders, renaming, the trash, the
+recovery files and the wallet's balances do not ask about it at all. Exactly three things do:
+making another account, anything to do with the free trial, and creating a share. So a lapsed check
+does not stop an agent storing and fetching files — it stops it growing the account. Do not hand
+back to a person because of it unless one of those three is what you were asked for.
+
+⚠ While it is lapsed the account also runs in a tighter rate tier, so requests are slower to be
+allowed, not refused.
 
 ```sh
 nmts verify --status   # is it live, and until when?

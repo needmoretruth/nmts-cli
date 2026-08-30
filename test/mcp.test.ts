@@ -115,6 +115,31 @@ test("⛔ a tool that fails is a failed TOOL, not a failed session", async () =>
   assert.match(body.result?.content[0]?.text ?? "", /nothing was written/);
 });
 
+test("⛔ and the failure carries what to do next — the model has no terminal to read", async () => {
+  // ⛔ DISCRIMINATING. This path used to send `error.message` alone, so every next-step line the
+  //    tool writes was thrown away for exactly the reader who cannot see anything else. A test
+  //    asserting only `isError` passes just as well with the advice missing, which is why this
+  //    matches the ADVICE and not the message.
+  const stuck: ToolDefinition = {
+    name: "stuck",
+    description: "fails with something to do about it",
+    inputSchema: { type: "object", properties: {} },
+    run: async () => {
+      throw new NmtsError("the account has no credits", {
+        nextStep: "Ask the person for the free trial at nmts.me, or a funded wallet.",
+      });
+    },
+  };
+  const out = await handle(
+    { jsonrpc: "2.0", id: 41, method: "tools/call", params: { name: "stuck" } },
+    [stuck],
+    INFO,
+  );
+  const text = (out as { result: { content: { text: string }[] } }).result.content[0]?.text ?? "";
+  assert.match(text, /no credits/, "the message itself is gone");
+  assert.match(text, /free trial at nmts\.me/, "the next step was thrown away");
+});
+
 test("an unknown tool is an error the model can act on", async () => {
   const out = await handle(
     { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "nope" } },

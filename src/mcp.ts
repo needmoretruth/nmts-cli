@@ -16,6 +16,7 @@
 import { createInterface } from "node:readline";
 
 import { checkArgs } from "./mcp-args.ts";
+import { renderError } from "./errors.ts";
 
 /** JSON-RPC 2.0, the subset MCP uses. `id` absent means a notification: no answer is sent. */
 export interface Request {
@@ -122,8 +123,16 @@ export async function handle(
       } catch (error) {
         // ⛔ A failed TOOL is not a failed SESSION. The model is told what went wrong and can try
         //    something else; a JSON-RPC error would look to some clients like the server broke.
-        const message = error instanceof Error ? error.message : "the tool failed";
-        return reply({ content: [{ type: "text", text: message }], isError: true });
+        //
+        // ⛔ AND IT IS TOLD WHAT TO DO NEXT. This used to send `error.message` alone, which threw
+        //    away the one line the refusal carries for exactly this reader — the model here has no
+        //    terminal to look at and no other source. Forty of the server's fifty-six refusals
+        //    carry that line, and none of them reached this path until 2026-08-30. `renderError`
+        //    is the same shaping the terminal gets, so the two cannot drift apart.
+        return reply({
+          content: [{ type: "text", text: renderError(error, "nmts") }],
+          isError: true,
+        });
       }
     }
     default:
