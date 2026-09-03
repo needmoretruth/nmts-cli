@@ -27,6 +27,8 @@ const VALUE_OPTIONS = {
     "--port": "port",
     "--accept-terms": "acceptTerms",
     "--accept-privacy": "acceptPrivacy",
+    "--recheck": "recheck",
+    "--dismiss": "dismiss",
 };
 /** Which field a flag sets to true. */
 const FLAG_OPTIONS = {

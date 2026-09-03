@@ -10,7 +10,15 @@
 //    this disk. `nmts_get` keeps only the last segment of the account path; `nmts_pull` builds its
 //    tree under that directory and refuses a stored name that would climb out; `nmts_receive` uses
 //    the sender's name the same way. The only path a model may choose is one INSIDE the account.
+//
+// ⛔ AND ONE THAT CHANGES SOMETHING WITHOUT SPENDING ANYTHING IS HERE RATHER THAN IN `reads.ts`.
+//    `nmts_loss_recheck` asks the chain about one storage object now, and a chain that serves it
+//    takes the line off server-side — so it writes. `reads.ts` states that none of its tools
+//    write, and that sentence is what makes the whole read surface safe to call in a loop; a tool
+//    that quietly broke it would cost the other six their guarantee. It is listed first because a
+//    model scanning this file should meet the costless one before the two that spend.
 import { get } from "../commands/get.js";
+import { losses } from "../commands/losses.js";
 import { pull } from "../commands/pull.js";
 import { push } from "../commands/push.js";
 import { put } from "../commands/put.js";
@@ -23,6 +31,23 @@ const SPENDS = "⛔ THIS SPENDS THE ACCOUNT'S CREDITS — one credit per started
     "agreeing for them.";
 export function fileTools(ctx) {
     return [
+        {
+            name: "nmts_loss_recheck",
+            description: "Ask the chain right now about one storage object listed by nmts_losses. Costs nothing. " +
+                "Answers found, still missing, or unread.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    blob_object_id: {
+                        type: "string",
+                        description: "The chain object id, exactly as nmts_losses printed it.",
+                    },
+                },
+                required: ["blob_object_id"],
+                additionalProperties: false,
+            },
+            run: (args) => say((write) => losses({ ...common(ctx), json: true, recheck: needString(args, "blob_object_id"), write })),
+        },
         {
             name: "nmts_get",
             description: `Fetch one file from the NMTS account, decrypt it, and write it into ${ctx.outDir}. Takes ` +

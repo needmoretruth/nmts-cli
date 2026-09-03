@@ -128,6 +128,16 @@ export async function run(argv) {
             const { expiring } = await import("./commands/expiring.js");
             return await expiring({ server: args.server, network: args.network, json: args.json });
         }
+        case "losses": {
+            const { losses } = await import("./commands/losses.js");
+            return await losses({
+                server: args.server,
+                network: args.network,
+                json: args.json,
+                recheck: args.recheck,
+                dismiss: args.dismiss,
+            });
+        }
         case "extend": {
             const { extend } = await import("./commands/extend.js");
             return await extend(args.operands[0], {

@@ -46,7 +46,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.18.0    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.19.0    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -154,6 +154,7 @@ nmts get x     # 파일 하나 다운로드
 | `nmts label <name> <files>` | 파일에 이름표를 붙입니다. `unlabel`이 뗍니다 |
 | `nmts on-collision` | 업로드할 이름이 이미 있을 때 무엇을 하는가 |
 | `nmts expiring` | 산 저장 기간이 곧 끝나는 파일과 그 시각 |
+| `nmts losses` | 크레딧으로 산 저장 가운데 날마다 도는 확인이 체인에서 찾지 못한 것. `--recheck <id>`는 다시 묻고, `--dismiss <id>`는 줄을 내립니다 |
 | `nmts extend <path>` | 파일 하나의 저장 기간을 더 삽니다 — **지갑으로 서명하고 씁니다** |
 | `nmts wallet` | 계정의 지갑 주소와 SUI·WAL 잔액. 서명하지 않습니다 |
 | `nmts trial` | 이번 주 무료 크레딧이 얼마나 남았는지. `trial apply`가 신청합니다 |
@@ -252,6 +253,10 @@ nmts restore photos/2026
 체크섬 파일과 대조한 뒤에야 실행 가능하게 만들고, PATH에는 아무것도 넣지 않습니다. `rebuild`는
 목록을 잃은 계정의 파일 목록을 서버의 줄로 다시 짓습니다. 열쇠·해시·날짜·크기는 돌아오고 이름과
 폴더는 돌아오지 않습니다.
+
+### 저장이 사라졌을 때
+
+`nmts losses`는 크레딧으로 산 저장 객체 가운데 날마다 도는 확인이 체인에서 찾지 못한 것을 적습니다 — 객체 id와 확인이 처음 찾지 못한 날. 파일 이름은 없습니다: 서버가 둘을 짝짓지 못하고, NMTS는 파일 안을 볼 수 없습니다. `nmts losses --recheck <id>`는 지금 체인에 다시 묻습니다. `nmts losses --dismiss <id>`는 읽으신 뒤 줄을 내립니다. 이것은 사람이 하는 일이라 `mode auto`에서는 거절합니다. 사고는 아무도 가리키지 않는 기록에 남고, 같은 결과가 공지 게시판에 날짜별로 게시됩니다.
 
 ### 사람이 지나야 하는 확인
 
@@ -364,10 +369,11 @@ Hermes와 OpenClaw는 인자를 하나씩 넘깁니다(Hermes는 `--args`, OpenC
 { "mcp": { "nmts": { "type": "local", "command": ["nmts", "mcp", "--out", "/where/files/should/land"] } } }
 ```
 
-도구 스무 개를 내줍니다. 계정 읽기(`nmts_whoami`, `nmts_list`, `nmts_usage`, `nmts_expiring`,
-`nmts_balance`, `nmts_shares`), 받기(`nmts_get`, `nmts_pull`, `nmts_receive`), 올리기(`nmts_put`,
-`nmts_push`), 정리(`nmts_mkdir`, `nmts_move`, `nmts_rename`, `nmts_mark`, `nmts_trash`,
-`nmts_restore`), 공유(`nmts_public_code`, `nmts_share`, `nmts_unshare`).
+도구 스물두 개를 내줍니다. 계정 읽기(`nmts_whoami`, `nmts_list`, `nmts_usage`, `nmts_expiring`,
+`nmts_balance`, `nmts_shares`), 확인이 찾지 못한 저장(`nmts_losses`, `nmts_loss_recheck`),
+받기(`nmts_get`, `nmts_pull`, `nmts_receive`), 올리기(`nmts_put`, `nmts_push`),
+정리(`nmts_mkdir`, `nmts_move`, `nmts_rename`, `nmts_mark`, `nmts_trash`, `nmts_restore`),
+공유(`nmts_public_code`, `nmts_share`, `nmts_unshare`).
 
 자격과 동의, 사람이 지나야 하는 확인, 영구 삭제, 잃은 파일 목록 다시 짓기, 복구 파일 쓰기는
 일부러 내주지 않습니다. 그것은 사람의 몫입니다. 내주는 어떤 도구도 지정한 디렉터리 밖에는 쓰지

@@ -133,6 +133,16 @@ export async function run(argv: readonly string[]): Promise<number> {
       const { expiring } = await import("./commands/expiring.ts");
       return await expiring({ server: args.server, network: args.network, json: args.json });
     }
+    case "losses": {
+      const { losses } = await import("./commands/losses.ts");
+      return await losses({
+        server: args.server,
+        network: args.network,
+        json: args.json,
+        recheck: args.recheck,
+        dismiss: args.dismiss,
+      });
+    }
     case "extend": {
       const { extend } = await import("./commands/extend.ts");
       return await extend(args.operands[0], {

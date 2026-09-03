@@ -36,6 +36,8 @@ test("⛔ nothing a machine must not do is in the surface, and the reads that ar
     "nmts_expiring",
     "nmts_get",
     "nmts_list",
+    "nmts_loss_recheck",
+    "nmts_losses",
     "nmts_mark",
     "nmts_mkdir",
     "nmts_move",

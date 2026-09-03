@@ -7,6 +7,7 @@
 import { publicCode } from "../commands/public-code.js";
 import { balance } from "../commands/balance.js";
 import { expiring } from "../commands/expiring.js";
+import { losses } from "../commands/losses.js";
 import { ls } from "../commands/ls.js";
 import { shares } from "../commands/share.js";
 import { usage } from "../commands/usage.js";
@@ -58,6 +59,15 @@ export function readTools(ctx) {
                 "network's own clock, so it refuses rather than guessing when it cannot reach it.",
             inputSchema: NO_ARGS,
             run: () => say((write) => expiring({ ...common(ctx), json: true, write })),
+        },
+        {
+            name: "nmts_losses",
+            description: "Storage objects paid with this account's credits that NMTS's daily check could not find " +
+                "on the chain, newest first. Read-only; costs nothing. Each row is a public chain object " +
+                "id and the day a check first missed it — no file name, because the server cannot pair " +
+                "them.",
+            inputSchema: NO_ARGS,
+            run: () => say((write) => losses({ ...common(ctx), json: true, write })),
         },
         {
             name: "nmts_balance",

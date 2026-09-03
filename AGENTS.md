@@ -220,6 +220,7 @@ nmts mv <paths> <folder> move things into a folder. `/` is the top of the drive
 nmts rename <path> <n>   give one thing a new name
 nmts usage               what the account holds
 nmts balance             credits left, what they buy, and the ceilings on spending
+nmts losses              storage the daily check could not find on the chain — read it, recheck one, or (a person) dismiss one
 nmts expiring            which files run out of bought storage soon, and when
 nmts extend <path>       buy more time for one stored file — SIGNS AND SPENDS FROM THE WALLET
 nmts wallet              the wallet address and its SUI and WAL balances. Never signs
@@ -395,9 +396,9 @@ request; other commands may still work.
 ## If your client speaks MCP
 
 `nmts mcp` serves most of this document as tools: `nmts_whoami` `nmts_list` `nmts_usage`
-`nmts_expiring` `nmts_balance` `nmts_shares` · `nmts_get` `nmts_pull` `nmts_receive` · `nmts_put`
-`nmts_push` · `nmts_public_code` · `nmts_mkdir` `nmts_move` `nmts_rename` `nmts_mark` `nmts_trash`
-`nmts_restore` · `nmts_share` `nmts_unshare`. Prefer them over shelling out: the person chose the
+`nmts_expiring` `nmts_balance` `nmts_shares` · `nmts_losses` `nmts_loss_recheck` · `nmts_get`
+`nmts_pull` `nmts_receive` · `nmts_put` `nmts_push` · `nmts_public_code` · `nmts_mkdir`
+`nmts_move` `nmts_rename` `nmts_mark` `nmts_trash` `nmts_restore` · `nmts_share` `nmts_unshare`. Prefer them over shelling out: the person chose the
 directory files land in when they started the server, and the tools cannot write anywhere else.
 
 Five things are deliberately absent, and asking a shell to do them instead is working around a

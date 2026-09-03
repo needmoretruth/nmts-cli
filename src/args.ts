@@ -79,6 +79,16 @@ export interface ParsedArgs {
   acceptTerms?: string;
   /** `create`: the version of the Privacy Policy accepted in the same act. */
   acceptPrivacy?: string;
+  /** `losses`: ask the chain about ONE listed storage object now, instead of listing. */
+  recheck?: string;
+  /**
+   * `losses`: take ONE line off this account's own drive, instead of listing.
+   *
+   * ⛔ IT IS A VALUE AND NOT A FLAG, so that the line being put down is named on the command line
+   *    rather than implied by it. There is no "dismiss what is listed": a person reads one line
+   *    and puts that one down.
+   */
+  dismiss?: string;
 }
 
 /** Which field a value-taking option fills. */
@@ -96,6 +106,8 @@ const VALUE_OPTIONS = {
   "--port": "port",
   "--accept-terms": "acceptTerms",
   "--accept-privacy": "acceptPrivacy",
+  "--recheck": "recheck",
+  "--dismiss": "dismiss",
 } as const satisfies Record<string, keyof ParsedArgs>;
 
 /** Which field a flag sets to true. */

@@ -47,7 +47,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.18.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.19.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -156,6 +156,7 @@ rotated while keeping the account. **Use an account you would be willing to lose
 | `nmts label <name> <files>` | Put one label on files. `unlabel` takes it off |
 | `nmts on-collision` | What an upload does when its name is already taken |
 | `nmts expiring` | Which files run out of bought storage soon, and when |
+| `nmts losses` | Storage NMTS bought for you that the daily check could not find on the chain. `--recheck <id>` asks again; `--dismiss <id>` takes a line off |
 | `nmts extend <path>` | Buy more storage time for one file — **signs and spends from the wallet** |
 | `nmts wallet` | The account's wallet address, and its SUI and WAL balances. Never signs |
 | `nmts trial` | What is left of this week's free credits. `trial apply` asks for some |
@@ -258,6 +259,10 @@ holds a kit holds the account. `recovery` downloads the standalone recovery prog
 machine, checks it against the release's checksum file before making it runnable, and never puts
 anything on your PATH. `rebuild` reconstructs a file list from the server's rows for an account
 that has lost its own: keys, hashes, dates and sizes come back; names and folders do not.
+
+### When storage goes missing
+
+`nmts losses` lists the storage objects NMTS bought with your credits that the daily check could not find on the chain — the object id and the day a check first missed it. There is no file name: the server cannot pair the two, and NMTS cannot see the file. `nmts losses --recheck <id>` asks the chain again now. `nmts losses --dismiss <id>` takes a line off once you have read it; that is a person's act, and the tool refuses it in `mode auto`. The incident stays in a record that names nobody; the same finding is posted on the notice board by day.
 
 ### The check a person has to pass
 
@@ -373,11 +378,12 @@ the arguments `mcp --out <directory>`, for example in opencode's own file:
 { "mcp": { "nmts": { "type": "local", "command": ["nmts", "mcp", "--out", "/where/files/should/land"] } } }
 ```
 
-It offers twenty tools: reading the account (`nmts_whoami`, `nmts_list`, `nmts_usage`,
-`nmts_expiring`, `nmts_balance`, `nmts_shares`), fetching (`nmts_get`, `nmts_pull`,
-`nmts_receive`), uploading (`nmts_put`, `nmts_push`), rearranging (`nmts_mkdir`, `nmts_move`,
-`nmts_rename`, `nmts_mark`, `nmts_trash`, `nmts_restore`) and sharing (`nmts_public_code`,
-`nmts_share`, `nmts_unshare`).
+It offers twenty-two tools: reading the account (`nmts_whoami`, `nmts_list`, `nmts_usage`,
+`nmts_expiring`, `nmts_balance`, `nmts_shares`), storage the daily check could not find
+(`nmts_losses`, `nmts_loss_recheck`), fetching (`nmts_get`, `nmts_pull`, `nmts_receive`),
+uploading (`nmts_put`, `nmts_push`), rearranging (`nmts_mkdir`, `nmts_move`, `nmts_rename`,
+`nmts_mark`, `nmts_trash`, `nmts_restore`) and sharing (`nmts_public_code`, `nmts_share`,
+`nmts_unshare`).
 
 It deliberately does not offer credentials and agreements, the check a person has to pass,
 permanent destruction, rebuilding a lost file list, or writing the recovery files — those are

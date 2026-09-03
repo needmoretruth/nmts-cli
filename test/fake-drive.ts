@@ -28,6 +28,17 @@ export interface ExpiringRow {
   expiry_epoch: number;
 }
 
+/** One row of `GET /v1/storage-loss`, in the server's own spelling. */
+export interface LossRow {
+  blob_object_id: string;
+  first_seen: string;
+  required_notice: boolean;
+  restricted: boolean;
+}
+
+/** The three answers `POST /v1/storage-loss/recheck` gives, and no fourth. */
+export type RecheckResult = "found" | "still_missing" | "unread";
+
 export interface FakeDrive {
   readonly base: string;
   /** Item ids the server still holds a row for, in `GET /v1/objects` order. */
@@ -64,6 +75,17 @@ export interface FakeDrive {
    *    storage is already bought, so what the tool says here decides whether somebody pays twice.
    */
   extendRecordFails: boolean;
+  /**
+   * The rows `GET /v1/storage-loss` answers with, newest first.
+   *
+   * ⛔ HELD HERE RATHER THAN ANSWERED FROM A CONSTANT, because the two writes act on this list: a
+   *    re-check that finds the object takes its row off, and a dismiss takes one off, and a fake
+   *    whose list never changed could not fail for a tool that reported either as having happened
+   *    when it had not.
+   */
+  losses: LossRow[];
+  /** What the next re-check answers. `found` also takes the row out of the list above. */
+  recheckResult: RecheckResult;
   /** Every request the tool made, in order. */
   calls: string[];
   /** Every sealed list the tool successfully wrote. */
@@ -91,6 +113,8 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     extendPreview: null as unknown,
     extendRecorded: [] as { epochs: unknown; tx_digest: unknown }[],
     extendRecordFails: false,
+    losses: [] as LossRow[],
+    recheckResult: "still_missing" as RecheckResult,
     calls: [] as string[],
     written: [] as string[],
   };
@@ -168,6 +192,41 @@ export async function startFakeDrive(): Promise<FakeDrive> {
         next_cursor: more ? (page.at(-1) ?? null) : null,
       });
     }
+    if (method === "GET" && url === "/v1/storage-loss") {
+      return json(200, { losses: state.losses });
+    }
+    if (method === "POST" && url === "/v1/storage-loss/recheck") {
+      let raw = "";
+      req.on("data", (c: Buffer) => (raw += c.toString("utf8")));
+      req.on("end", () => {
+        const body: unknown = raw === "" ? {} : JSON.parse(raw);
+        const id: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "blob_object_id") : null;
+        // ⛔ 404 UNLESS THIS ACCOUNT ALREADY HOLDS THE LOSS, exactly as the route does it: without
+        //    that the real one would be a free chain oracle, and a fake that answered anything
+        //    could not fail for a tool that asked about an id it was never shown.
+        if (typeof id !== "string" || !state.losses.some((l) => l.blob_object_id === id)) {
+          return json(404, { error: { code: "NOT_FOUND", message: "no such loss" } });
+        }
+        if (state.recheckResult === "found") {
+          state.losses = state.losses.filter((l) => l.blob_object_id !== id);
+        }
+        json(200, { result: state.recheckResult });
+      });
+      return;
+    }
+    if (method === "DELETE" && url.startsWith("/v1/storage-loss/")) {
+      const id = decodeURIComponent(url.slice("/v1/storage-loss/".length));
+      const before = state.losses.length;
+      state.losses = state.losses.filter((l) => l.blob_object_id !== id);
+      if (state.losses.length === before) {
+        return json(404, { error: { code: "NOT_FOUND", message: "no such loss" } });
+      }
+      // 204, with no body — the shape the real route answers, and the one a reader that assumes
+      // JSON on every success falls over.
+      res.writeHead(204);
+      res.end();
+      return;
+    }
     return json(404, { error: { code: "NOT_FOUND", message: "no such route" } });
   });
 
@@ -223,6 +282,18 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     set extendRecordFails(v: boolean) {
       state.extendRecordFails = v;
     },
+    get losses() {
+      return state.losses;
+    },
+    set losses(v: LossRow[]) {
+      state.losses = v;
+    },
+    get recheckResult() {
+      return state.recheckResult;
+    },
+    set recheckResult(v: RecheckResult) {
+      state.recheckResult = v;
+    },
     get calls() {
       return state.calls;
     },
@@ -258,6 +329,8 @@ export async function startFakeDrive(): Promise<FakeDrive> {
       state.extendPreview = null;
       state.extendRecorded = [];
       state.extendRecordFails = false;
+      state.losses = [];
+      state.recheckResult = "still_missing";
       state.calls = [];
       state.written = [];
     },
