@@ -36,10 +36,17 @@ export const RELAY_HOSTS = {
  *    the storage network currently has, which the erasure coding needs. A wrong answer produces a
  *    blob id the storage network refuses, so it fails loudly at the relay rather than quietly
  *    storing something unreadable. No key is ever sent to one of these, and nothing is signed.
+ *
+ * ⭐ 2026-09-01 — a LIST per network, two operators, first-that-answers. It used to be one host,
+ *    and the testnet one was measured dead that morning: `rpc-testnet.suiscan.xyz` completes the
+ *    TCP handshake in 31 ms and then sends nothing for 12 seconds, three times running. It had
+ *    been that way for eleven days, so every `nmts` command that needed the shard count on testnet
+ *    simply stopped. Each host below answered `sui_getChainIdentifier` with the right value the
+ *    same morning, 8/8 on a burst.
  */
 export const SUI_RPC_HOSTS = {
-    testnet: "https://rpc-testnet.suiscan.xyz",
-    mainnet: "https://rpc-mainnet.suiscan.xyz",
+    testnet: ["https://sui-testnet-rpc.publicnode.com", "https://testnet.suiet.app"],
+    mainnet: ["https://rpc-mainnet.suiscan.xyz", "https://sui-rpc.publicnode.com"],
 };
 /** How long one host gets before the next is tried. A read that stalls is a read that failed. */
 export const READ_TIMEOUT_MS = 60_000;
@@ -72,18 +79,29 @@ export function relayHost(network) {
     }
     return host;
 }
-/** The Sui JSON-RPC node this run asks about shard count. */
-export function suiRpcHost(network) {
+/**
+ * Every Sui JSON-RPC node this run may ask, in order.
+ *
+ * ⛔ Naming one in the environment REPLACES the list rather than adding to it — the same rule the
+ *    aggregator override follows, and for the same reason: somebody who names a node is saying
+ *    *that one*, and quietly reaching a public mirror instead would send their traffic somewhere
+ *    they did not choose.
+ */
+export function suiRpcHosts(network) {
     const named = process.env[SUI_RPC_ENV_VAR]?.trim();
     if (named)
-        return named;
-    const host = SUI_RPC_HOSTS[network];
-    if (host === undefined) {
+        return [named];
+    const hosts = SUI_RPC_HOSTS[network];
+    if (hosts === undefined || hosts.length === 0) {
         throw new NmtsError(`No Sui RPC endpoint is known for the ${network} network.`, {
             nextStep: `Name one in ${SUI_RPC_ENV_VAR} to upload anyway.`,
         });
     }
-    return host;
+    return hosts;
+}
+/** The node whose address gets RECORDED — the first one, since that is the one normally asked. */
+export function suiRpcHost(network) {
+    return suiRpcHosts(network)[0] ?? "";
 }
 function fromEnvironment() {
     const raw = process.env[AGGREGATOR_ENV_VAR];

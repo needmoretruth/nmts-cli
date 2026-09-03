@@ -11,7 +11,7 @@
 //    same question about the same address — so nothing about this run leaves that was not already
 //    published by the chain itself.
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
-import { suiRpcHost } from "./walrus.js";
+import { suiRpcTransport } from "./sui-rpc.js";
 /**
  * How long one balance question gets.
  *
@@ -31,7 +31,7 @@ export const BALANCE_TIMEOUT_MS = 20_000;
 export function chainReader(network, address) {
     // The network name reaches the SDK as well as the URL, which is what keeps a mirror pointed at
     // the wrong chain from being discovered later, as an answer that quietly made no sense.
-    const client = new SuiJsonRpcClient({ network, url: suiRpcHost(network) });
+    const client = new SuiJsonRpcClient({ network, transport: suiRpcTransport(network) });
     return {
         async totalOf(coinType) {
             const { totalBalance } = await client.getBalance({

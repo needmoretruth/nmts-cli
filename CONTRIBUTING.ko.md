@@ -13,7 +13,9 @@ Node 22 이상.
 
 ```
 npm install
-npm run compile   # tsc. 커밋된 dist/ 는 푸시마다 다시 빌드해 한 바이트라도 다르면 거절합니다
+npm run compile   # tsc. 커밋된 dist/ 는 푸시마다 다시 빌드해 한 바이트라도 다르면 거절합니다.
+                  # 이름이 build가 아니라 compile인 이유: npm 11은 build 스크립트가 있는 git 꾸러미를
+                  # 자기 임시 복제본에 링크했다가 지워 버리고도 성공이라고 말합니다
 npm test
 ```
 

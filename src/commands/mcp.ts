@@ -37,6 +37,7 @@ import { requireAccountCode } from "../code-access.ts";
 import { API_KEY_ENV_VAR, CODE_ENV_VAR, readCredentialsFile, resolveApiKey } from "../credentials.ts";
 import { NmtsError } from "../errors.ts";
 import { serve, type ToolDefinition } from "../mcp.ts";
+import { describeSighting } from "../agent-host.ts";
 // ⚠ Re-exported so callers that knew it here keep working; the rule itself lives one level up now.
 import { destinationFor } from "../safe-path.ts";
 export { destinationFor };
@@ -47,6 +48,8 @@ import { fileTools } from "../mcp-tools/files.ts";
 import { organiseTools } from "../mcp-tools/organise.ts";
 import { readTools } from "../mcp-tools/reads.ts";
 import { shareTools } from "../mcp-tools/share.ts";
+import { currentMode } from "../autonomy.ts";
+import type { Asker } from "../mcp-ask.ts";
 import type { ToolContext } from "../mcp-tools/context.ts";
 
 export interface McpOptions {
@@ -94,7 +97,13 @@ function whoami(ctx: ToolContext): ToolDefinition {
  *    The context here is a placeholder — no tool reads it while its schema is being looked at.
  */
 export function mcpToolSchemas(): { name: string; inputSchema: Record<string, unknown> }[] {
-  const ctx: ToolContext = { server: "https://example.invalid", network: "testnet", outDir: "/", accountId: "-" };
+  const ctx: ToolContext = {
+    server: "https://example.invalid",
+    network: "testnet",
+    outDir: "/",
+    accountId: "-",
+    asker: () => null,
+  };
   const all = [whoami(ctx), ...readTools(ctx), ...fileTools(ctx), ...organiseTools(ctx), ...shareTools(ctx)];
   return all.map((t) => ({ name: t.name, inputSchema: t.inputSchema }));
 }
@@ -130,7 +139,21 @@ export async function mcp(options: McpOptions = {}): Promise<number> {
     throw new NmtsError(`${outDir} is not a directory.`, { exitCode: 2 });
   }
 
-  const ctx: ToolContext = { server, network, outDir, accountId: identity.accountId };
+  /**
+   * How this session asks the person a question, filled in when the client says whether it can.
+   *
+   * ⛔ IT STARTS AS "NO WAY TO ASK" AND THAT IS THE RIGHT STARTING POINT. A tool call cannot
+   *    arrive before `initialize`, so this is only ever read after the client has spoken; if a
+   *    client somehow skipped that, the tools that need an answer refuse rather than assume one.
+   */
+  let asker: Asker = null;
+  const ctx: ToolContext = {
+    server,
+    network,
+    outDir,
+    accountId: identity.accountId,
+    asker: () => asker,
+  };
 
   /**
    * The whole surface, in one place.
@@ -158,6 +181,28 @@ export async function mcp(options: McpOptions = {}): Promise<number> {
     output: options.output ?? ((line: string) => process.stdout.write(`${line}\n`)),
     tools,
     info: { name: BINARY_NAME, version: VERSION },
+    // ⛔ WHO CONNECTED, SAID ONCE, TO STDERR. It is the only moment this is knowable: the name
+    //    travels in `initialize` rather than in the environment, which is why it survives the
+    //    three hosts that clear the environment before starting a server. A person reading the
+    //    log of a server they did not start themselves has nowhere else to learn it.
+    onClient: (client) => {
+      if (client.host !== null) note(`Client: ${describeSighting(client.host)}`);
+      else if (client.name !== null) note(`Client: ${client.name} — not an agent this version knows by name`);
+    },
+    // ⛔ AND WHETHER IT CAN BE ASKED ANYTHING, said once for the same reason. A person watching
+    //    this log needs to know before the first share, not when it is refused.
+    onAsker: (built) => {
+      asker = built;
+      // ⚠ A MODE THAT IS ON DECIDES THIS, so it is read here rather than assumed. Saying "every
+      //   share will ask you" to somebody who turned a mode on would be telling them the opposite
+      //   of what their own setting does.
+      if (currentMode() !== "off") return;
+      note(
+        built === null
+          ? "This client cannot show you a question, so sharing is refused here. Share from a terminal."
+          : "This client can show you a question; every share will ask you first.",
+      );
+    },
   });
   return 0;
 }

@@ -13,7 +13,7 @@
 
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import type { Network } from "./network.ts";
-import { suiRpcHost } from "./walrus.ts";
+import { suiRpcTransport } from "./sui-rpc.ts";
 import type { ChainReader } from "./wallet.ts";
 
 /**
@@ -36,7 +36,7 @@ export const BALANCE_TIMEOUT_MS = 20_000;
 export function chainReader(network: Network, address: string): ChainReader {
   // The network name reaches the SDK as well as the URL, which is what keeps a mirror pointed at
   // the wrong chain from being discovered later, as an answer that quietly made no sense.
-  const client = new SuiJsonRpcClient({ network, url: suiRpcHost(network) });
+  const client = new SuiJsonRpcClient({ network, transport: suiRpcTransport(network) });
   return {
     async totalOf(coinType: string): Promise<bigint> {
       const { totalBalance } = await client.getBalance({

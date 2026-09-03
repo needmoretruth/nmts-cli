@@ -4,6 +4,7 @@
 //    on a machine it has never seen, and a command that needed to be signed in to say "there is
 //    nowhere safe to keep the code here" would say it too late.
 import { adviseFor, readEnvironment } from "../environment.js";
+import { describeSighting } from "../agent-host.js";
 import { PASSPHRASE_ENV_VAR, resolveAccountCode, resolveApiKey, } from "../credentials.js";
 import { BINARY_NAME, SUPPORT_EMAIL, VERSION } from "../product.js";
 import { checkingIsOff, NO_CHECK_ENV_VAR, readCheck } from "../update-check.js";
@@ -107,6 +108,13 @@ export function env(options = {}) {
     say(`  config        ${environment.configDir}`);
     say(`  terminal      ${environment.interactive ? "yes" : "no — nothing here can be typed"}`);
     say(`  browser       ${environment.browserReachable ? "reachable" : "not reachable"}`);
+    // ⛔ "none found" IS NOT "no agent". Three of the five hosts this tool knows clear the
+    //    environment before starting an MCP server, so an empty line here is exactly what running
+    //    inside one of them looks like. The wording has to leave room for that or it reports a
+    //    measurement as a conclusion.
+    say(`  agent host    ${environment.agentHosts.length === 0
+        ? "no marker in this environment — some agents clear it, so this is not proof there is none"
+        : environment.agentHosts.map(describeSighting).join("; ")}`);
     const found = (got, problem) => (got !== null ? `found — ${sourceWords(got.source)}` : problem !== null ? `⛔ REFUSED — ${problem}` : "not found");
     say(`  account code  ${found(code, codeProblem)}`);
     if (code?.source === "file-locked") {

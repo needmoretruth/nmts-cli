@@ -24,7 +24,7 @@ import { epochClock } from "./expiry.ts";
 import type { BlobLease, ExtendReads, ExtendWindow } from "./extend-plan.ts";
 import { isRecord } from "./guards.ts";
 import { epochStartedMs } from "./walrus-write.ts";
-import { suiRpcHost } from "./walrus.ts";
+import { suiRpcTransport } from "./sui-rpc.ts";
 
 /** How long one chain question gets. A read that stalls is a read that failed. */
 export const EXTEND_READ_TIMEOUT_MS = 20_000;
@@ -43,7 +43,7 @@ export function walrusClient(network: string): ReturnType<typeof build> {
 function build(network: string) {
   return new SuiJsonRpcClient({
     network: network === "mainnet" ? "mainnet" : "testnet",
-    url: suiRpcHost(network),
+    transport: suiRpcTransport(network),
   }).$extend(walrus({}));
 }
 

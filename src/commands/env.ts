@@ -5,6 +5,7 @@
 //    nowhere safe to keep the code here" would say it too late.
 
 import { adviseFor, readEnvironment } from "../environment.ts";
+import { describeSighting } from "../agent-host.ts";
 import {
   PASSPHRASE_ENV_VAR,
   resolveAccountCode,
@@ -123,6 +124,17 @@ export function env(options: EnvOptions = {}): number {
   say(`  config        ${environment.configDir}`);
   say(`  terminal      ${environment.interactive ? "yes" : "no — nothing here can be typed"}`);
   say(`  browser       ${environment.browserReachable ? "reachable" : "not reachable"}`);
+  // ⛔ "none found" IS NOT "no agent". Three of the five hosts this tool knows clear the
+  //    environment before starting an MCP server, so an empty line here is exactly what running
+  //    inside one of them looks like. The wording has to leave room for that or it reports a
+  //    measurement as a conclusion.
+  say(
+    `  agent host    ${
+      environment.agentHosts.length === 0
+        ? "no marker in this environment — some agents clear it, so this is not proof there is none"
+        : environment.agentHosts.map(describeSighting).join("; ")
+    }`,
+  );
   const found = (
     got: { source: CredentialSource } | null,
     problem: string | null,

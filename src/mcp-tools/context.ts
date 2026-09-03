@@ -6,6 +6,7 @@
 //    this surface safe to widen: adding a tool cannot add a way out of that directory, because
 //    there is nowhere in a tool declaration to put one.
 
+import type { Asker } from "../mcp-ask.ts";
 import type { ToolDefinition } from "../mcp.ts";
 
 export interface ToolContext {
@@ -14,6 +15,14 @@ export interface ToolContext {
   /** Where anything fetched lands. Chosen by the person, never by the model. */
   outDir: string;
   accountId: string;
+  /**
+   * How to put a question in front of the person, or `null` when this client declared no way.
+   *
+   * ⛔ A FUNCTION, NOT A VALUE. The tools are built when the server starts and the answer is not
+   *    known until the client has spoken, so reading it early would freeze in a `null` that was
+   *    only ever "not yet".
+   */
+  asker: () => Asker;
 }
 
 /** The server and network every command takes, in the shape they take it. */

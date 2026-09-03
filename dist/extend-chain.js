@@ -21,7 +21,7 @@ import { NmtsError } from "./errors.js";
 import { epochClock } from "./expiry.js";
 import { isRecord } from "./guards.js";
 import { epochStartedMs } from "./walrus-write.js";
-import { suiRpcHost } from "./walrus.js";
+import { suiRpcTransport } from "./sui-rpc.js";
 /** How long one chain question gets. A read that stalls is a read that failed. */
 export const EXTEND_READ_TIMEOUT_MS = 20_000;
 /**
@@ -37,7 +37,7 @@ export function walrusClient(network) {
 function build(network) {
     return new SuiJsonRpcClient({
         network: network === "mainnet" ? "mainnet" : "testnet",
-        url: suiRpcHost(network),
+        transport: suiRpcTransport(network),
     }).$extend(walrus({}));
 }
 /** A number off the wire, whether it arrived as a number or as one of Sui's 64-bit strings. */

@@ -18,7 +18,8 @@ import { epochStartedMs as readEpochStart } from "./shared/lib/extend/epochs.ts"
 import { NmtsError } from "./errors.ts";
 import type { BlobMeta, BlobProtocol, Certificate } from "./upload-wire.ts";
 import { countingFetch } from "./progress.ts";
-import { relayHost, suiRpcHost } from "./walrus.ts";
+import { relayHost } from "./walrus.ts";
+import { suiRpcTransport } from "./sui-rpc.ts";
 
 /**
  * How long the relay gets for one blob PUT, sized to the body.
@@ -57,7 +58,7 @@ function extend(
     // ⛔ The network name reaches the SDK as well as the URL. A mirror pointed at the wrong chain
     //    would otherwise be discovered as a blob the storage nodes refuse, after the money moved.
     network: network === "mainnet" ? "mainnet" : "testnet",
-    url: suiRpcHost(network),
+    transport: suiRpcTransport(network),
   });
   return base.$extend(
     walrus({
@@ -149,7 +150,7 @@ export async function readCurrentEpoch(network: string): Promise<number | null> 
   try {
     const base = new SuiJsonRpcClient({
       network: network === "mainnet" ? "mainnet" : "testnet",
-      url: suiRpcHost(network),
+      transport: suiRpcTransport(network),
     }).$extend(walrus({}));
     // The epoch lives on the COMMITTEE, not beside it: the system state describes capacity and
     // the deny lists as well, and only the committee is stamped with which epoch it serves.
@@ -180,7 +181,7 @@ export async function readEpochWindow(network: string): Promise<EpochClock | nul
   try {
     const base = new SuiJsonRpcClient({
       network: network === "mainnet" ? "mainnet" : "testnet",
-      url: suiRpcHost(network),
+      transport: suiRpcTransport(network),
     }).$extend(walrus({}));
     const [system, staking] = await Promise.all([base.walrus.systemState(), base.walrus.stakingState()]);
     // Both numbers can arrive as strings — Sui reports 64-bit values that way — so they are

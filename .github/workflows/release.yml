@@ -105,7 +105,11 @@ jobs:
         run: |
           set -euo pipefail
           cat > notes.md <<'NOTES'
-          Install straight from this repository. No package registry is involved:
+          From the registry:
+
+              npm install -g @needmoretruth/nmts-cli@VERSION
+
+          Or straight from this repository, without the registry:
 
               npm install -g github:needmoretruth/nmts-cli#TAG
 
@@ -117,6 +121,7 @@ jobs:
           step; the encryption engine is a WebAssembly module carried in the package.
           NOTES
           sed -i "s|#TAG|#$GITHUB_REF_NAME|" notes.md
+          sed -i "s|@VERSION|@${GITHUB_REF_NAME#v}|" notes.md
           # ⛔ TWO COPIES OF ONE FILE, ON PURPOSE. The version-stamped name is what somebody pins
           #    to. The plain one is what `…/releases/latest/download/nmts.tgz` resolves to, and
           #    that URL is the only install line that does not have to be edited every release.

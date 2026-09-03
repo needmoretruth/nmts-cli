@@ -14,7 +14,9 @@ Node 22 or newer.
 
 ```
 npm install
-npm run compile   # tsc; the committed dist/ is rebuilt and checked on every push
+npm run compile   # tsc; the committed dist/ is rebuilt and checked on every push. The script is
+                  # named compile, not build: npm 11 installs a git package with a build script
+                  # by linking its own temporary clone and deleting it, and reports success
 npm test
 ```
 

@@ -17,6 +17,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { platform, release, tmpdir, userInfo } from "node:os";
 import { configDir, codeStorageIsPrivate, modesAreEnforced } from "./credentials.ts";
+import { HOST_NAMES, hostsInEnvironment, washingHosts, type HostSighting } from "./agent-host.ts";
+import { BINARY_NAME } from "./product.ts";
 
 /** How this process is contained, as far as it can tell. */
 export type Containment = "docker" | "podman" | "container" | "none" | "unknown";
@@ -45,6 +47,15 @@ export interface Environment {
   interactive: boolean;
   /** Could a browser be opened here — needed for anything behind a human check. */
   browserReachable: boolean;
+  /**
+   * Which agent hosts left a marker in this environment.
+   *
+   * ⚠ EVERY ONE OF THESE IS AN ANCESTOR, NOT NECESSARILY THE PARENT — markers are inherited, so a
+   *   tool started by an agent that was itself started by another agent sees both. The direct
+   *   parent is only knowable over the protocol, and that lives in the MCP server, not here.
+   *   Empty means no marker was found, which includes every host that clears the environment.
+   */
+  agentHosts: HostSighting[];
 }
 
 /**
@@ -128,6 +139,7 @@ export function readEnvironment(): Environment {
     configDir: configDir(),
     interactive: process.stdin.isTTY === true,
     browserReachable: canOpenBrowser(),
+    agentHosts: hostsInEnvironment(),
   };
 }
 
@@ -229,6 +241,25 @@ export function adviseFor(env: Environment, hasStoredCode: boolean): Advice[] {
     out.push({
       level: "warn",
       text: `The configuration directory is inside the temporary directory and may be cleared at any time.`,
+    });
+  }
+
+  // ⛔ THE ONE THING THAT SURPRISES PEOPLE. Three of the five agents this tool knows clear the
+  //    environment before starting an MCP server and put back a fixed list of names — none of
+  //    which is ours. So a person who exported the account code, attached the tool, and watched
+  //    it say "not found" did everything right; the value was dropped between the two. Saying so
+  //    while the marker is still visible (in the shell, where nothing has been cleared yet) is the
+  //    only moment it can be said before the failure rather than after it.
+  const washing = washingHosts(env.agentHosts);
+  if (washing.length > 0) {
+    const names = washing.map((id) => HOST_NAMES[id]).join(" and ");
+    out.push({
+      level: "warn",
+      text:
+        `${names} clears the environment before starting an MCP server and restores only a fixed ` +
+        `list of names, which does not include NMTS_ACCOUNT_CODE or NMTS_ACCOUNT_CODE_FILE. Those ` +
+        `work in a terminal here and will not reach the tool once it is attached. Sign in once ` +
+        `with \`${BINARY_NAME} login\` so the code is in this tool's own file instead.`,
     });
   }
 
