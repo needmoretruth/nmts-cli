@@ -50,6 +50,86 @@ export async function label(name, paths, options = {}) {
 export async function unlabel(name, paths, options = {}) {
     return run("unlabel", paths, name, options);
 }
+/**
+ * `nmts label --rename <old> <new>` — one label's name, changed on every file that wears it.
+ *
+ * ⛔ IT IS A SWEEP, AND IT NAMES NO PATHS. A label has no registry to rename it in (see `label`
+ *    above): it exists on the files, so renaming it means touching every file that wears it. That
+ *    is why this is a different entry point rather than a switch on `label` — one takes the files
+ *    it is given, and this one takes whatever the account holds.
+ *
+ * ⛔ RENAMING ONTO A LABEL THAT ALREADY EXISTS MERGES THE TWO. A file wearing both would otherwise
+ *    end up wearing one label twice, which shows a doubled row and counts the file twice. The
+ *    intent does that; it is written down here because it is the behaviour somebody has to be able
+ *    to predict before typing this.
+ */
+export async function labelRename(from, to, options = {}) {
+    const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
+    // ⚠ Trimmed here as well as inside the intent, so the text compared against what a file wears
+    //   is the same text that gets stored. `  work  ` and `work` are one label.
+    const old = from === undefined ? "" : from.trim();
+    const fresh = to === undefined ? "" : to.trim();
+    if (old === "" || fresh === "") {
+        throw new NmtsError("`nmts label --rename` needs the label to rename, then its new name.", {
+            exitCode: 2,
+            nextStep: "For example: nmts label --rename work archive",
+        });
+    }
+    const session = await openSession(options);
+    const at = Date.now();
+    let files = 0;
+    // ⛔ COUNTED INSIDE THE ATTEMPT, like every other question about the list. On a lost
+    //    compare-and-swap the list is read again, and how many files wear a label is a fact about
+    //    the version that was read — another device may have added one since.
+    await applyToList(session, (now) => {
+        files = now.filter((e) => (e.labels ?? []).includes(old)).length;
+        return { op: "labelRename", from: old, to: fresh, at };
+    });
+    if (options.json) {
+        say(JSON.stringify({ label: old, renamed_to: fresh, files }));
+        return 0;
+    }
+    if (files === 0) {
+        say(`No file carries the label "${old}".`);
+        return 0;
+    }
+    say(`Renamed the label "${old}" to "${fresh}" on ${files} ${files === 1 ? "file" : "files"}.`);
+    return 0;
+}
+/**
+ * `nmts unlabel <name> --all` — one label, taken off every file that wears it.
+ *
+ * ⛔ THIS IS WHAT MAKES A LABEL STOP EXISTING, and it is the whole reason the sweep is worth a
+ *    flag: a label with no registry can only be removed by finding every file wearing it, and
+ *    doing that by hand is how one file keeps a label nobody can see any more.
+ */
+export async function unlabelAll(name, options = {}) {
+    const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
+    const text = name === undefined ? "" : name.trim();
+    if (text === "") {
+        throw new NmtsError("`nmts unlabel --all` needs the label to take off.", {
+            exitCode: 2,
+            nextStep: "For example: nmts unlabel work --all",
+        });
+    }
+    const session = await openSession(options);
+    const at = Date.now();
+    let files = 0;
+    await applyToList(session, (now) => {
+        files = now.filter((e) => (e.labels ?? []).includes(text)).length;
+        return { op: "labelDelete", label: text, at };
+    });
+    if (options.json) {
+        say(JSON.stringify({ label: text, removed_from: files }));
+        return 0;
+    }
+    if (files === 0) {
+        say(`No file carries the label "${text}".`);
+        return 0;
+    }
+    say(`Took the label "${text}" off ${files} ${files === 1 ? "file" : "files"}.`);
+    return 0;
+}
 async function run(verb, paths, name, options) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const on = !verb.startsWith("un");

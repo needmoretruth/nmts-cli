@@ -12,8 +12,9 @@
 // ⛔ SIX MARK VERBS ARE ONE TOOL, NOT SIX. A model choosing between `nmts_star` and `nmts_unstar`
 //    is choosing between two spellings of the same decision, and the pair that gets forgotten is
 //    the "un" one. One tool with the mark named and a switch says what is actually being decided.
-import { label, pin, star, unlabel, unpin, unstar } from "../commands/marks.js";
+import { label, labelRename, pin, star, unlabel, unlabelAll, unpin, unstar } from "../commands/marks.js";
 import { mkdir, mv, rename } from "../commands/organise.js";
+import { padding } from "../commands/padding.js";
 import { restore, rm } from "../commands/trash.js";
 import { common, needPaths, needString, say } from "./context.js";
 export function organiseTools(ctx) {
@@ -98,6 +99,57 @@ export function organiseTools(ctx) {
                     return on ? label(name, paths, opts) : unlabel(name, paths, opts);
                 });
             },
+        },
+        {
+            name: "nmts_label_rename",
+            description: "Rename a label on every file that carries it. Changes only the file list; costs nothing.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    old: { type: "string", description: "The label as it is now." },
+                    new: { type: "string", description: "What it should be called instead." },
+                },
+                required: ["old", "new"],
+                additionalProperties: false,
+            },
+            run: (args) => say((write) => labelRename(needString(args, "old"), needString(args, "new"), {
+                ...common(ctx),
+                json: true,
+                write,
+            })),
+        },
+        {
+            name: "nmts_unlabel_all",
+            description: "Take one label off every file that carries it. Changes only the file list; costs nothing.",
+            inputSchema: {
+                type: "object",
+                properties: { name: { type: "string", description: "The label to take off." } },
+                required: ["name"],
+                additionalProperties: false,
+            },
+            run: (args) => say((write) => unlabelAll(needString(args, "name"), { ...common(ctx), json: true, write })),
+        },
+        {
+            name: "nmts_padding",
+            description: "Read or set how file sizes are hidden on the storage network: standard (a few fixed " +
+                "sizes per doubling) or pow2 (one per doubling, hides more, costs more storage on " +
+                "average). Applies to the next uploads from every device.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    mode: {
+                        type: "string",
+                        enum: ["standard", "pow2"],
+                        description: "Leave it out to read the setting rather than change it.",
+                    },
+                },
+                additionalProperties: false,
+            },
+            run: (args) => say((write) => padding(typeof args["mode"] === "string" ? args["mode"] : undefined, {
+                ...common(ctx),
+                json: true,
+                write,
+            })),
         },
         {
             name: "nmts_trash",

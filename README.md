@@ -47,7 +47,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.19.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.20.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -97,6 +97,9 @@ They do different jobs and they are not interchangeable.
 and never the key itself, and does not replace a stored key unless the run says so. `nmts logout`
 clears what is stored.
 
+`nmts whoami --reveal` prints the account code itself. That is a person's act: the tool refuses it
+in `mode auto`, and anything that logs your terminal has the code from then on.
+
 **Neither credential is ever accepted as a command-line argument.** Any process can read another
 process's command line, and shells record it in history. There is no flag for either.
 
@@ -137,7 +140,7 @@ rotated while keeping the account. **Use an account you would be willing to lose
 |---|---|
 | `nmts env` | Where this is running, and what that means. Needs nothing. |
 | `nmts login` / `logout` | Keep or remove an account code and API key on this machine |
-| `nmts whoami` | Which account the stored code belongs to — offline |
+| `nmts whoami` | Which account the stored code belongs to — offline. `--reveal` prints the code |
 | `nmts ls` | List the files |
 | `nmts usage` | What the account holds: counts, bytes, the largest files, the trash |
 | `nmts balance` | Credits left, what they buy, and the ceilings on spending |
@@ -153,8 +156,9 @@ rotated while keeping the account. **Use an account you would be willing to lose
 | `nmts rename <path> <name>` | Give one thing a new name |
 | `nmts star` / `unstar` | Star files, or take the star off |
 | `nmts pin` / `unpin` | Hold files at the top of their folder, or let them fall back |
-| `nmts label <name> <files>` | Put one label on files. `unlabel` takes it off |
+| `nmts label <name> <files>` | Put one label on files. `unlabel` takes it off; `--rename` and `--all` sweep the whole list |
 | `nmts on-collision` | What an upload does when its name is already taken |
+| `nmts padding [mode]` | How file sizes are hidden on the storage network, and change it for the next uploads |
 | `nmts expiring` | Which files run out of bought storage soon, and when |
 | `nmts losses` | Storage NMTS bought for you that the daily check could not find on the chain. `--recheck <id>` asks again; `--dismiss <id>` takes a line off |
 | `nmts extend <path>` | Buy more storage time for one file — **signs and spends from the wallet** |
@@ -164,10 +168,11 @@ rotated while keeping the account. **Use an account you would be willing to lose
 | `nmts verify` | Ask a person to pass the check that opens this account's limits |
 | `nmts public-code` | The code other accounts send files to. `--publish` makes it reachable |
 | `nmts share <path> <address>` | Give one file to another account — **withdrawing does not recall it** |
-| `nmts shares` | What was shared with this account |
+| `nmts shares` | What was shared with this account; `--sent <path>` shows who one file went to |
 | `nmts receive <id>` | Download one file somebody shared with this account |
 | `nmts unshare <id>` | Withdraw a share you sent, or remove one you were sent |
 | `nmts rebuild` | Build a file list from the server's rows, for an account with none |
+| `nmts rollback` | Put the previous version of the file list back — a person's act |
 | `nmts listfile` | Write this machine's copy of the sealed file list out as a file |
 | `nmts recovery-list` | Write the file that finds this account's bytes without NMTS |
 | `nmts kit` | Recovery kit: that list **and the account code**, together in one file |
@@ -212,6 +217,11 @@ interrupted upload: the retry costs nothing more.
 Files whose name is already in the destination are skipped, so running it again is safe. Names
 beginning with a dot are left alone unless `--hidden` is given, and symbolic links are not followed.
 
+`nmts padding` shows how file sizes are hidden, and `nmts padding standard` or `nmts padding pow2`
+changes it for every device's next uploads. Anyone can read the size of a piece on the storage
+network; blank bytes make that size one of a set of fixed values. Powers of two hide more and cost
+more storage on average.
+
 ### Names, folders and the trash
 
 ```sh
@@ -228,6 +238,9 @@ file keeps its own thirty-day clock. The command that erases for good is deliber
 tool. A path is matched whole (`photos/a.jpg` is not `a.jpg`), and a path that matches two entries
 is refused rather than resolved. `rm`, `restore` and `mv` take several paths in one write; a path
 that names nothing stops the whole run before anything is touched.
+
+`nmts label --rename <old> <new>` renames a label on every file that carries it, and
+`nmts unlabel <name> --all` takes it off all of them. Both change only the file list.
 
 ### Money and time
 
@@ -251,6 +264,9 @@ Until it is published nobody can send to you. `--publish` writes it, permanently
 your account code, so it cannot be chosen or changed. It is not your account code, and it opens
 nothing on its own.
 
+`nmts shares --sent <path>` lists who one file was shared with — the recipient address, since when,
+and the share id `unshare` takes.
+
 ### Recovery
 
 `recovery-list` writes the encrypted file that locates your bytes on the storage network; it holds
@@ -259,6 +275,11 @@ holds a kit holds the account. `recovery` downloads the standalone recovery prog
 machine, checks it against the release's checksum file before making it runnable, and never puts
 anything on your PATH. `rebuild` reconstructs a file list from the server's rows for an account
 that has lost its own: keys, hashes, dates and sizes come back; names and folders do not.
+
+`nmts rollback` puts the previous version of the file list back as the current one, for the case
+where the current one will not open. Files the newer version added are out of the list afterwards —
+their bytes are still stored, and `nmts rebuild` finds files the list does not name. It is a
+person's act and refused in `mode auto`.
 
 ### When storage goes missing
 
@@ -378,16 +399,16 @@ the arguments `mcp --out <directory>`, for example in opencode's own file:
 { "mcp": { "nmts": { "type": "local", "command": ["nmts", "mcp", "--out", "/where/files/should/land"] } } }
 ```
 
-It offers twenty-two tools: reading the account (`nmts_whoami`, `nmts_list`, `nmts_usage`,
-`nmts_expiring`, `nmts_balance`, `nmts_shares`), storage the daily check could not find
-(`nmts_losses`, `nmts_loss_recheck`), fetching (`nmts_get`, `nmts_pull`, `nmts_receive`),
-uploading (`nmts_put`, `nmts_push`), rearranging (`nmts_mkdir`, `nmts_move`, `nmts_rename`,
-`nmts_mark`, `nmts_trash`, `nmts_restore`) and sharing (`nmts_public_code`, `nmts_share`,
-`nmts_unshare`).
+It offers twenty-six tools: reading the account (`nmts_whoami`, `nmts_list`, `nmts_usage`,
+`nmts_expiring`, `nmts_balance`, `nmts_shares`, `nmts_shares_sent`), storage the daily check could
+not find (`nmts_losses`, `nmts_loss_recheck`), fetching (`nmts_get`, `nmts_pull`, `nmts_receive`),
+uploading (`nmts_put`, `nmts_push`, `nmts_padding`), rearranging (`nmts_mkdir`, `nmts_move`,
+`nmts_rename`, `nmts_mark`, `nmts_label_rename`, `nmts_unlabel_all`, `nmts_trash`, `nmts_restore`)
+and sharing (`nmts_public_code`, `nmts_share`, `nmts_unshare`).
 
 It deliberately does not offer credentials and agreements, the check a person has to pass,
-permanent destruction, rebuilding a lost file list, or writing the recovery files — those are
-yours. Nothing it offers can write outside the directory you name, and a wrong argument is refused
+permanent destruction, rebuilding a lost file list or putting the previous one back, or writing the
+recovery files — those are yours. Nothing it offers can write outside the directory you name, and a wrong argument is refused
 rather than guessed at. It is implemented directly, with no MCP SDK dependency.
 
 ## Letting an agent decide for itself

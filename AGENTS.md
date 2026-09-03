@@ -207,6 +207,7 @@ nmts env                 where this is running, and what that means. Needs nothi
 nmts login               keep an account code on this machine, and take an API key
 nmts logout              remove the stored credentials
 nmts whoami              which account the stored code belongs to — offline
+nmts whoami --reveal     print the account code itself — a person's act, refused in mode auto
 nmts consent             what this machine has agreed to
 nmts ls                  list the files
 nmts get <path>          fetch one file, decrypt it, check it, write it
@@ -218,6 +219,8 @@ nmts restore <paths>     bring things back out of the trash
 nmts mkdir <path>        make a folder, and any folder above it that is missing
 nmts mv <paths> <folder> move things into a folder. `/` is the top of the drive
 nmts rename <path> <n>   give one thing a new name
+nmts label --rename a b  rename a label on every file that carries it; unlabel <n> --all takes it off all
+nmts padding [mode]      how file sizes are hidden: standard or pow2. Applies to the next uploads, every device
 nmts usage               what the account holds
 nmts balance             credits left, what they buy, and the ceilings on spending
 nmts losses              storage the daily check could not find on the chain — read it, recheck one, or (a person) dismiss one
@@ -229,10 +232,12 @@ nmts create              make a NEW account and print its code once
 nmts public-code         the code other accounts send files to; `--publish` makes it reachable
 nmts share / shares / receive / unshare
                          give one file to another account, and the other direction
+nmts shares --sent <p>   who one file was shared with
 nmts recovery-list       write the file that finds this account's bytes without NMTS
 nmts kit                 recovery kit — that list AND the account code, together in one file
 nmts recovery            download the standalone program that reads files back without NMTS
 nmts rebuild             build a file list from the server's rows, for an account with none
+nmts rollback            put the previous file list back — a person's act, refused in mode auto
 nmts sweep               drop trash entries past 30 days. CANNOT BE UNDONE — asks every run
 nmts verify              ask a person to pass the check that opens this account's limits
 nmts mode                how much an agent may decide without asking. See below
@@ -396,15 +401,16 @@ request; other commands may still work.
 ## If your client speaks MCP
 
 `nmts mcp` serves most of this document as tools: `nmts_whoami` `nmts_list` `nmts_usage`
-`nmts_expiring` `nmts_balance` `nmts_shares` · `nmts_losses` `nmts_loss_recheck` · `nmts_get`
-`nmts_pull` `nmts_receive` · `nmts_put` `nmts_push` · `nmts_public_code` · `nmts_mkdir`
-`nmts_move` `nmts_rename` `nmts_mark` `nmts_trash` `nmts_restore` · `nmts_share` `nmts_unshare`. Prefer them over shelling out: the person chose the
+`nmts_expiring` `nmts_balance` `nmts_shares` `nmts_shares_sent` · `nmts_losses`
+`nmts_loss_recheck` · `nmts_get` `nmts_pull` `nmts_receive` · `nmts_put` `nmts_push`
+`nmts_padding` · `nmts_public_code` · `nmts_mkdir` `nmts_move` `nmts_rename` `nmts_mark`
+`nmts_label_rename` `nmts_unlabel_all` `nmts_trash` `nmts_restore` · `nmts_share` `nmts_unshare`. Prefer them over shelling out: the person chose the
 directory files land in when they started the server, and the tools cannot write anywhere else.
 
 Five things are deliberately absent, and asking a shell to do them instead is working around a
 decision: signing in or out and anything to do with keys or agreements; the check a person has to
-pass; permanent destruction; rebuilding a lost file list; and writing the recovery files or
-fetching the recovery program. If one of those is what the work needs, say so and let the person
+pass; permanent destruction; rebuilding a lost file list or putting the previous one back; and
+writing the recovery files or fetching the recovery program. If one of those is what the work needs, say so and let the person
 do it.
 
 Arguments are checked against what each tool declares; a wrong one comes back as a refusal naming

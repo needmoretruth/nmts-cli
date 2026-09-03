@@ -9,9 +9,9 @@ import { balance } from "../commands/balance.js";
 import { expiring } from "../commands/expiring.js";
 import { losses } from "../commands/losses.js";
 import { ls } from "../commands/ls.js";
-import { shares } from "../commands/share.js";
+import { shares, sharesSent } from "../commands/share.js";
 import { usage } from "../commands/usage.js";
-import { common, say } from "./context.js";
+import { common, needString, say } from "./context.js";
 const NO_ARGS = { type: "object", properties: {}, additionalProperties: false };
 export function readTools(ctx) {
     return [
@@ -94,6 +94,20 @@ export function readTools(ctx) {
                 "nmts_unshare takes.",
             inputSchema: NO_ARGS,
             run: () => say((write) => shares({ ...common(ctx), json: true, write })),
+        },
+        {
+            name: "nmts_shares_sent",
+            description: "Who one file in the account was shared with: recipient address, since when, and the " +
+                "share id. Read-only; costs nothing.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    path: { type: "string", description: "The file, as nmts_list prints it." },
+                },
+                required: ["path"],
+                additionalProperties: false,
+            },
+            run: (args) => say((write) => sharesSent(needString(args, "path"), { ...common(ctx), json: true, write })),
         },
     ];
 }

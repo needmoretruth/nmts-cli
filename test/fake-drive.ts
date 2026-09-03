@@ -39,6 +39,14 @@ export interface LossRow {
 /** The three answers `POST /v1/storage-loss/recheck` gives, and no fourth. */
 export type RecheckResult = "found" | "still_missing" | "unread";
 
+/** One row of `GET /v1/shares/sent`, in the server's own spelling. */
+export interface SentShareRow {
+  id: string;
+  item_id: string;
+  recipient_address: string;
+  created_at: string;
+}
+
 export interface FakeDrive {
   readonly base: string;
   /** Item ids the server still holds a row for, in `GET /v1/objects` order. */
@@ -86,12 +94,29 @@ export interface FakeDrive {
   losses: LossRow[];
   /** What the next re-check answers. `found` also takes the row out of the list above. */
   recheckResult: RecheckResult;
+  /**
+   * Every share this account has sent, across all files.
+   *
+   * ⛔ THE ROUTE FILTERS BY `item_id` AND SO DOES THIS. A fake that answered the whole list
+   *    whatever was asked could not fail for a tool that forgot to name the file, and the answer
+   *    would look right for the one-file tests that are most of them.
+   */
+  sentShares: SentShareRow[];
   /** Every request the tool made, in order. */
   calls: string[];
   /** Every sealed list the tool successfully wrote. */
   written: string[];
-  /** Put a list on the server at version 1. */
-  serve(code: string, entries: ManifestEntry[]): Promise<void>;
+  /** Put a list on the server. Version 1 unless a later one is asked for. */
+  serve(code: string, entries: ManifestEntry[], seq?: number): Promise<void>;
+  /**
+   * Put a list on the server as the version the current one REPLACED.
+   *
+   * ⛔ RETAINED SEPARATELY, exactly as the server retains it: `GET /v1/manifest/previous` answers
+   *    from its own row and is absent for an account that has only ever written once. A write
+   *    through this harness moves the version it replaced here too, so a test can reach the same
+   *    state by either road.
+   */
+  servePrevious(code: string, entries: ManifestEntry[], seq?: number): Promise<void>;
   /** Let another device win the next write, exactly once, with this list. */
   otherDeviceWrites(code: string, entries: ManifestEntry[]): Promise<void>;
   /** The entries inside the last list the tool wrote. */
@@ -103,6 +128,7 @@ export interface FakeDrive {
 
 export async function startFakeDrive(): Promise<FakeDrive> {
   let served: { seq: number; ct: string } | null = null;
+  let previous: { seq: number; ct: string } | null = null;
   let steal: string | null = null;
   const state = {
     objects: [] as string[],
@@ -115,6 +141,7 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     extendRecordFails: false,
     losses: [] as LossRow[],
     recheckResult: "still_missing" as RecheckResult,
+    sentShares: [] as SentShareRow[],
     calls: [] as string[],
     written: [] as string[],
   };
@@ -128,6 +155,17 @@ export async function startFakeDrive(): Promise<FakeDrive> {
       res.end(JSON.stringify(body));
     };
 
+    // ⛔ BEFORE THE ONE BELOW, because that one matches on a prefix and this address begins with
+    //    it. A fake that answered the current list here would make a rollback look like a no-op.
+    if (method === "GET" && url === "/v1/manifest/previous") {
+      if (previous === null) return json(200, { state: "absent" });
+      return json(200, {
+        state: "present",
+        seq: previous.seq,
+        ct: previous.ct,
+        updated_at: "2026-08-22T00:00:00Z",
+      });
+    }
     if (method === "GET" && url.startsWith("/v1/manifest")) {
       if (served === null) return json(200, { state: "absent" });
       return json(200, { state: "present", seq: served.seq, ct: served.ct, updated_at: "2026-08-23T00:00:00Z" });
@@ -151,6 +189,8 @@ export async function startFakeDrive(): Promise<FakeDrive> {
         }
         state.written.push(ct);
         const seq = (served?.seq ?? 0) + 1;
+        // The version this write replaced is retained, which is what makes a rollback possible.
+        if (served !== null) previous = served;
         served = { seq, ct };
         json(200, { seq });
       });
@@ -191,6 +231,10 @@ export async function startFakeDrive(): Promise<FakeDrive> {
         objects: page.map((id) => ({ id, size: 1, visibility: 0 })),
         next_cursor: more ? (page.at(-1) ?? null) : null,
       });
+    }
+    if (method === "GET" && url.startsWith("/v1/shares/sent")) {
+      const item = new URL(url, "http://x").searchParams.get("item_id");
+      return json(200, { shares: state.sentShares.filter((r) => r.item_id === item) });
     }
     if (method === "GET" && url === "/v1/storage-loss") {
       return json(200, { losses: state.losses });
@@ -294,14 +338,23 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     set recheckResult(v: RecheckResult) {
       state.recheckResult = v;
     },
+    get sentShares() {
+      return state.sentShares;
+    },
+    set sentShares(v: SentShareRow[]) {
+      state.sentShares = v;
+    },
     get calls() {
       return state.calls;
     },
     get written() {
       return state.written;
     },
-    async serve(code: string, entries: ManifestEntry[]): Promise<void> {
-      served = { seq: 1, ct: await sealFileList(code, await encodeManifest(entries, 1)) };
+    async serve(code: string, entries: ManifestEntry[], seq = 1): Promise<void> {
+      served = { seq, ct: await sealed(code, entries, seq) };
+    },
+    async servePrevious(code: string, entries: ManifestEntry[], seq = 1): Promise<void> {
+      previous = { seq, ct: await sealed(code, entries, seq) };
     },
     async otherDeviceWrites(code: string, entries: ManifestEntry[]): Promise<void> {
       const held = served;
@@ -320,6 +373,7 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     },
     reset(): void {
       served = null;
+      previous = null;
       steal = null;
       state.objects = [];
       state.objectsPageSize = 100;
@@ -331,6 +385,7 @@ export async function startFakeDrive(): Promise<FakeDrive> {
       state.extendRecordFails = false;
       state.losses = [];
       state.recheckResult = "still_missing";
+      state.sentShares = [];
       state.calls = [];
       state.written = [];
     },
@@ -375,6 +430,19 @@ export async function withSandbox(
       else process.env[n] = v;
     }
   }
+}
+
+/**
+ * Seal a list at a version, naming something as the version it was built on when it needs to.
+ *
+ * ⚠ THE NAMED PREDECESSOR IS A PLACEHOLDER, and it is allowed to be: the codec requires any
+ *   version above the first to name one, and nothing on the read path compares it against a blob
+ *   this harness ever served. A test that needs the fork check itself uses `otherDeviceWrites`,
+ *   which names the real one.
+ */
+async function sealed(code: string, entries: ManifestEntry[], seq: number): Promise<string> {
+  const body = seq > 1 ? await encodeManifest(entries, seq, "cHJldmlvdXM") : await encodeManifest(entries, seq);
+  return sealFileList(code, body);
 }
 
 /** One file entry, with the fields a test does not care about filled in. */

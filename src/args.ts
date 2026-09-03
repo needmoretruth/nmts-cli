@@ -89,6 +89,25 @@ export interface ParsedArgs {
    *    and puts that one down.
    */
   dismiss?: string;
+  /** `shares`: who ONE file was shared with, instead of what was shared with this account. */
+  sent?: string;
+  /**
+   * `label`: the label to rename. The NEW name follows as the operand.
+   *
+   * ⛔ ONE VALUE, NOT TWO, because the table above gives every option exactly one — and a second
+   *    spelling of "how many values does this take" is how an option ends up parsed one way and
+   *    tested another. What a person types is still `label --rename <old> <new>`: the new name is
+   *    read from the operands, which is where `label <name> <files>` already reads a name from.
+   */
+  rename?: string;
+  /**
+   * `whoami`: print the account code itself.
+   *
+   * ⛔ A FLAG AND NOT A VALUE — it names no secret, it asks for the one this machine already
+   *    holds. The option table is checked for names that look like credentials; this one carries
+   *    nothing and says what it does.
+   */
+  reveal: boolean;
 }
 
 /** Which field a value-taking option fills. */
@@ -108,6 +127,8 @@ const VALUE_OPTIONS = {
   "--accept-privacy": "acceptPrivacy",
   "--recheck": "recheck",
   "--dismiss": "dismiss",
+  "--sent": "sent",
+  "--rename": "rename",
 } as const satisfies Record<string, keyof ParsedArgs>;
 
 /** Which field a flag sets to true. */
@@ -129,6 +150,7 @@ const FLAG_OPTIONS = {
   "--i-accept-the-risk": "iAcceptTheRisk",
   "--desc": "desc",
   "--hidden": "hidden",
+  "--reveal": "reveal",
 } as const satisfies Record<string, keyof ParsedArgs>;
 
 // ⛔ Derived from the tables, not written again. A hand-kept list is how an option ends up tested
@@ -162,6 +184,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     iAcceptTheRisk: false,
     desc: false,
     hidden: false,
+    reveal: false,
   };
   let index = 0;
   // ⛔ EVERYTHING AFTER `--` IS A NAME, NOT AN OPTION. Files in a drive are named by people and by

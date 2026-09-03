@@ -24,7 +24,7 @@ import { readFileList, recordWrittenList } from "./manifest.js";
 import { encodeManifest } from "./shared/lib/drive/manifest-codec.js";
 import { buildIndex, entryAt, isLive, KIND_FILE, namesIn, normaliseName } from "./drive-paths.js";
 import { decide } from "./collision.js";
-import { applyIntents } from "./shared/lib/drive/manifest-ops.js";
+import { applyIntents, applySettingsPatch, } from "./shared/lib/drive/manifest-ops.js";
 import { uniqueFileName } from "./shared/lib/drive/unique-name.js";
 /** How many times a lost compare-and-swap is re-applied before giving up. */
 const CONFLICT_RETRIES = 3;
@@ -68,8 +68,15 @@ export async function applyToList(input, make) {
  *    working copy it built on the attempt before.
  *
  * An empty run means there is nothing to do; nothing is written and `changed` is false.
+ *
+ * ⛔ AND THE ACCOUNT'S SETTINGS RIDE IN THE SAME WRITE. They live in this blob or nowhere (see the
+ *    header), so a caller that wanted to change one and did it in a second write would spend two
+ *    version bumps and two chances to lose the compare-and-swap on one edit. `patch` is DESIRED
+ *    STATE per field, like every intent above, so replaying it after a lost swap lands the same
+ *    answer. Absent means "carry the settings forward untouched", which is what every caller but
+ *    one wants.
  */
-export async function applyManyToList(input, make) {
+export async function applyManyToList(input, make, patch) {
     const crypt = await loadCrypto();
     const [from, to] = DERIVED.fileListKey;
     const derived = crypt.kdf_derive(crypt.account_code_parse(input.code));
@@ -80,18 +87,20 @@ export async function applyManyToList(input, make) {
         for (let attempt = 0; attempt <= CONFLICT_RETRIES; attempt += 1) {
             const current = await readFileList(input.server, input.apiKey, input.code, input.accountId);
             const entries = current.manifest ? current.manifest.entries : [];
+            // ⛔ THE SAME REFERENCE COMES BACK WHEN NOTHING CHANGED, which is what the no-op test below
+            //    reads. `applySettingsPatch` promises that, and the empty object stands in for an
+            //    account that has never written a setting so that the comparison has something to hold.
+            const held = current.manifest?.settings ?? {};
+            const settings = patch === undefined ? held : applySettingsPatch(held, patch);
             const intents = make(entries);
+            const next = intents.length === 0 ? entries : applyIntents(entries, intents);
             // ⛔ A no-op is a SUCCESS, not a failure. Renaming a file to the name it already has, or
             //    trashing something already in the trash, must not cost a version bump every other
             //    device then has to download.
-            if (intents.length === 0) {
+            if (next === entries && settings === held) {
                 return { seq: current.seq ?? 0, reappliedAfterConflict: conflicted, changed: false, entries };
             }
-            const next = applyIntents(entries, intents);
-            if (next === entries) {
-                return { seq: current.seq ?? 0, reappliedAfterConflict: conflicted, changed: false, entries };
-            }
-            const body = await encodeManifest(next, (current.seq ?? 0) + 1, current.fingerprint, current.manifest?.settings);
+            const body = await encodeManifest(next, (current.seq ?? 0) + 1, current.fingerprint, settings);
             const sealed = crypt.envelope_seal(key, new TextEncoder().encode(AAD.fileList), body);
             body.fill(0);
             const ct = Buffer.from(sealed).toString("base64url");

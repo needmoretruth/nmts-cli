@@ -10,10 +10,10 @@ import { balance } from "../commands/balance.ts";
 import { expiring } from "../commands/expiring.ts";
 import { losses } from "../commands/losses.ts";
 import { ls } from "../commands/ls.ts";
-import { shares } from "../commands/share.ts";
+import { shares, sharesSent } from "../commands/share.ts";
 import { usage } from "../commands/usage.ts";
 import type { ToolDefinition } from "../mcp.ts";
-import { common, say, type ToolContext } from "./context.ts";
+import { common, needString, say, type ToolContext } from "./context.ts";
 
 const NO_ARGS = { type: "object", properties: {}, additionalProperties: false } as const;
 
@@ -108,6 +108,22 @@ export function readTools(ctx: ToolContext): ToolDefinition[] {
         "nmts_unshare takes.",
       inputSchema: NO_ARGS,
       run: () => say((write) => shares({ ...common(ctx), json: true, write })),
+    },
+    {
+      name: "nmts_shares_sent",
+      description:
+        "Who one file in the account was shared with: recipient address, since when, and the " +
+        "share id. Read-only; costs nothing.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "The file, as nmts_list prints it." },
+        },
+        required: ["path"],
+        additionalProperties: false,
+      },
+      run: (args) =>
+        say((write) => sharesSent(needString(args, "path"), { ...common(ctx), json: true, write })),
     },
   ];
 }

@@ -29,6 +29,8 @@ const VALUE_OPTIONS = {
     "--accept-privacy": "acceptPrivacy",
     "--recheck": "recheck",
     "--dismiss": "dismiss",
+    "--sent": "sent",
+    "--rename": "rename",
 };
 /** Which field a flag sets to true. */
 const FLAG_OPTIONS = {
@@ -49,6 +51,7 @@ const FLAG_OPTIONS = {
     "--i-accept-the-risk": "iAcceptTheRisk",
     "--desc": "desc",
     "--hidden": "hidden",
+    "--reveal": "reveal",
 };
 // ⛔ Derived from the tables, not written again. A hand-kept list is how an option ends up tested
 //    for one property and accepted with another.
@@ -78,6 +81,7 @@ export function parseArgs(argv) {
         iAcceptTheRisk: false,
         desc: false,
         hidden: false,
+        reveal: false,
     };
     let index = 0;
     // ⛔ EVERYTHING AFTER `--` IS A NAME, NOT AN OPTION. Files in a drive are named by people and by

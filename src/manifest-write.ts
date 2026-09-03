@@ -25,7 +25,13 @@ import { readFileList, recordWrittenList } from "./manifest.ts";
 import { encodeManifest, type ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";
 import { buildIndex, entryAt, type FindOptions, isLive, KIND_FILE, namesIn, normaliseName } from "./drive-paths.ts";
 import { decide, type OnCollision } from "./collision.ts";
-import { applyIntents, type ManifestIntent } from "./shared/lib/drive/manifest-ops.ts";
+import {
+  applyIntents,
+  applySettingsPatch,
+  type ManifestIntent,
+  type SettingsPatch,
+} from "./shared/lib/drive/manifest-ops.ts";
+import type { AccountSettings } from "./shared/lib/drive/manifest-settings.ts";
 import { uniqueFileName } from "./shared/lib/drive/unique-name.ts";
 
 /** How many times a lost compare-and-swap is re-applied before giving up. */
@@ -98,10 +104,18 @@ export async function applyToList(
  *    working copy it built on the attempt before.
  *
  * An empty run means there is nothing to do; nothing is written and `changed` is false.
+ *
+ * ⛔ AND THE ACCOUNT'S SETTINGS RIDE IN THE SAME WRITE. They live in this blob or nowhere (see the
+ *    header), so a caller that wanted to change one and did it in a second write would spend two
+ *    version bumps and two chances to lose the compare-and-swap on one edit. `patch` is DESIRED
+ *    STATE per field, like every intent above, so replaying it after a lost swap lands the same
+ *    answer. Absent means "carry the settings forward untouched", which is what every caller but
+ *    one wants.
  */
 export async function applyManyToList(
   input: ListEditInput,
   make: (entries: readonly ManifestEntry[]) => readonly ManifestIntent[],
+  patch?: SettingsPatch,
 ): Promise<ListEditResult> {
   const crypt = await loadCrypto();
   const [from, to] = DERIVED.fileListKey;
@@ -115,24 +129,21 @@ export async function applyManyToList(
       const current = await readFileList(input.server, input.apiKey, input.code, input.accountId);
       const entries: readonly ManifestEntry[] = current.manifest ? current.manifest.entries : [];
 
+      // ⛔ THE SAME REFERENCE COMES BACK WHEN NOTHING CHANGED, which is what the no-op test below
+      //    reads. `applySettingsPatch` promises that, and the empty object stands in for an
+      //    account that has never written a setting so that the comparison has something to hold.
+      const held: AccountSettings = current.manifest?.settings ?? {};
+      const settings = patch === undefined ? held : applySettingsPatch(held, patch);
       const intents = make(entries);
+      const next = intents.length === 0 ? entries : applyIntents(entries, intents);
       // ⛔ A no-op is a SUCCESS, not a failure. Renaming a file to the name it already has, or
       //    trashing something already in the trash, must not cost a version bump every other
       //    device then has to download.
-      if (intents.length === 0) {
-        return { seq: current.seq ?? 0, reappliedAfterConflict: conflicted, changed: false, entries };
-      }
-      const next = applyIntents(entries, intents);
-      if (next === entries) {
+      if (next === entries && settings === held) {
         return { seq: current.seq ?? 0, reappliedAfterConflict: conflicted, changed: false, entries };
       }
 
-      const body = await encodeManifest(
-        next,
-        (current.seq ?? 0) + 1,
-        current.fingerprint,
-        current.manifest?.settings,
-      );
+      const body = await encodeManifest(next, (current.seq ?? 0) + 1, current.fingerprint, settings);
       const sealed = crypt.envelope_seal(key, new TextEncoder().encode(AAD.fileList), body);
       body.fill(0);
       const ct = Buffer.from(sealed).toString("base64url");

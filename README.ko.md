@@ -46,7 +46,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.19.0    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.20.0    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -96,6 +96,9 @@ nmts get x     # 파일 하나 다운로드
 않으며, 그렇게 하라고 하지 않은 실행은 이미 저장된 키를 덮어쓰지 않습니다. `nmts logout`이 저장된
 것을 지웁니다.
 
+`nmts whoami --reveal`은 계정 코드 자체를 찍습니다. 사람이 하는 일이라 `mode auto`에서는
+거절하고, 터미널을 기록하는 무엇이든 그때부터 코드를 갖게 됩니다.
+
 **어느 자격도 명령줄 인자로는 받지 않습니다.** 어떤 프로세스든 다른 프로세스의 명령줄을 읽을 수
 있고, 셸은 그것을 기록에 남깁니다. 둘 다 그런 옵션이 없습니다.
 
@@ -135,7 +138,7 @@ nmts get x     # 파일 하나 다운로드
 |---|---|
 | `nmts env` | 이것이 어디서 돌고 있고 그것이 무슨 뜻인지. 아무것도 필요 없음 |
 | `nmts login` / `logout` | 이 기계에 계정 코드와 API 키를 두거나 지웁니다 |
-| `nmts whoami` | 저장된 코드가 어느 계정의 것인지 — 오프라인 |
+| `nmts whoami` | 저장된 코드가 어느 계정의 것인지 — 오프라인. `--reveal`은 코드를 찍습니다 |
 | `nmts ls` | 파일 목록 |
 | `nmts usage` | 계정이 갖고 있는 것: 개수, 바이트, 가장 큰 파일들, 휴지통 |
 | `nmts balance` | 남은 크레딧, 그것으로 살 수 있는 양, 지출 상한 |
@@ -151,8 +154,9 @@ nmts get x     # 파일 하나 다운로드
 | `nmts rename <path> <name>` | 하나에 새 이름을 줍니다 |
 | `nmts star` / `unstar` | 별을 달거나 뗍니다 |
 | `nmts pin` / `unpin` | 폴더 맨 위에 붙들거나 놓아 줍니다 |
-| `nmts label <name> <files>` | 파일에 이름표를 붙입니다. `unlabel`이 뗍니다 |
+| `nmts label <name> <files>` | 파일에 라벨 하나를 붙입니다. `unlabel`이 뗍니다. `--rename`과 `--all`은 목록 전체를 훑습니다 |
 | `nmts on-collision` | 업로드할 이름이 이미 있을 때 무엇을 하는가 |
+| `nmts padding [모드]` | 저장 네트워크에서 파일 크기를 어떻게 가리는지 보고, 다음 업로드부터 바꿉니다 |
 | `nmts expiring` | 산 저장 기간이 곧 끝나는 파일과 그 시각 |
 | `nmts losses` | 크레딧으로 산 저장 가운데 날마다 도는 확인이 체인에서 찾지 못한 것. `--recheck <id>`는 다시 묻고, `--dismiss <id>`는 줄을 내립니다 |
 | `nmts extend <path>` | 파일 하나의 저장 기간을 더 삽니다 — **지갑으로 서명하고 씁니다** |
@@ -162,10 +166,11 @@ nmts get x     # 파일 하나 다운로드
 | `nmts verify` | 이 계정의 한도를 여는 사람 확인을 부탁합니다 |
 | `nmts public-code` | 다른 계정이 파일을 보내는 코드. `--publish`가 받을 수 있게 합니다 |
 | `nmts share <path> <address>` | 파일 하나를 다른 계정에 줍니다 — **거둬도 이미 받아 간 사본은 못 되돌립니다** |
-| `nmts shares` | 이 계정에 공유된 것 |
+| `nmts shares` | 이 계정에 공유된 것. `--sent <경로>`는 파일 하나가 누구에게 갔는지 |
 | `nmts receive <id>` | 누군가 이 계정에 공유한 파일 하나를 다운로드합니다 |
 | `nmts unshare <id>` | 보낸 공유를 거두거나, 받은 공유를 지웁니다 |
 | `nmts rebuild` | 목록이 없는 계정에서, 서버의 줄로 파일 목록을 다시 짓습니다 |
+| `nmts rollback` | 파일 목록의 이전 버전을 되돌립니다 — 사람이 하는 일 |
 | `nmts listfile` | 이 기계가 가진 암호화된 파일 목록을 파일로 씁니다 |
 | `nmts recovery-list` | NMTS 없이 이 계정의 바이트를 찾아내는 파일을 씁니다 |
 | `nmts kit` | 복구 키트: 그 목록**과 계정 코드**를 한 파일에 |
@@ -208,6 +213,11 @@ nmts put film.mov --part-size 256MiB   # 조각을 키우면: 구매 횟수는 �
 이름이 이미 있는 파일은 건너뛰므로 다시 돌려도 안전합니다. 점으로 시작하는 이름은 `--hidden`을
 주지 않는 한 건드리지 않고, 심볼릭 링크는 따라가지 않습니다.
 
+`nmts padding`은 파일 크기를 어떻게 가리는지 보여 주고, `nmts padding standard`나
+`nmts padding pow2`는 모든 기기의 다음 업로드부터 바꿉니다. 저장 네트워크에 놓인 조각의 크기는
+누구나 읽을 수 있고, 빈 바이트가 그 크기를 정해진 값 중 하나로 만듭니다. 2의 거듭제곱은 더 많이
+가리고 저장 공간이 평균적으로 더 듭니다.
+
 ### 이름과 폴더와 휴지통
 
 ```sh
@@ -224,6 +234,9 @@ nmts restore photos/2026
 `a.jpg`는 다른 것). 둘에 맞는 경로는 하나를 고르지 않고 거절합니다. `rm`·`restore`·`mv`는 경로
 여럿을 한 번의 쓰기로 처리하고, 아무것도 가리키지 않는 경로가 하나라도 있으면 아무것도 건드리기
 전에 전체를 멈춥니다.
+
+`nmts label --rename <옛 이름> <새 이름>`은 그 라벨을 단 모든 파일에서 이름을 바꾸고,
+`nmts unlabel <이름> --all`은 모든 파일에서 뗍니다. 둘 다 파일 목록만 바꿉니다.
 
 ### 돈과 시간
 
@@ -245,6 +258,9 @@ nmts restore photos/2026
 보낼 수 없습니다. `--publish`가 그것을 영구히 씁니다. 계정 코드에서 나오므로 고를 수도 바꿀 수도
 없습니다. 계정 코드가 아니고, 그것만으로는 아무것도 열지 못합니다.
 
+`nmts shares --sent <경로>`는 파일 하나를 누구에게 공유했는지 적습니다 — 받는 주소, 언제부터,
+그리고 `unshare`가 받는 공유 id.
+
 ### 복구
 
 `recovery-list`는 저장 네트워크에서 내 바이트가 어디 있는지 찾아내는 암호화된 파일을 씁니다.
@@ -253,6 +269,10 @@ nmts restore photos/2026
 체크섬 파일과 대조한 뒤에야 실행 가능하게 만들고, PATH에는 아무것도 넣지 않습니다. `rebuild`는
 목록을 잃은 계정의 파일 목록을 서버의 줄로 다시 짓습니다. 열쇠·해시·날짜·크기는 돌아오고 이름과
 폴더는 돌아오지 않습니다.
+
+`nmts rollback`은 파일 목록의 이전 버전을 현재 버전으로 되돌립니다 — 현재 목록이 열리지 않을
+때를 위한 것입니다. 새 버전이 더한 파일은 그 뒤 목록에서 빠지지만 바이트는 그대로 저장돼 있고,
+`nmts rebuild`가 목록에 없는 파일을 찾습니다. 사람이 하는 일이라 `mode auto`에서는 거절합니다.
 
 ### 저장이 사라졌을 때
 
@@ -369,14 +389,15 @@ Hermes와 OpenClaw는 인자를 하나씩 넘깁니다(Hermes는 `--args`, OpenC
 { "mcp": { "nmts": { "type": "local", "command": ["nmts", "mcp", "--out", "/where/files/should/land"] } } }
 ```
 
-도구 스물두 개를 내줍니다. 계정 읽기(`nmts_whoami`, `nmts_list`, `nmts_usage`, `nmts_expiring`,
-`nmts_balance`, `nmts_shares`), 확인이 찾지 못한 저장(`nmts_losses`, `nmts_loss_recheck`),
-받기(`nmts_get`, `nmts_pull`, `nmts_receive`), 올리기(`nmts_put`, `nmts_push`),
-정리(`nmts_mkdir`, `nmts_move`, `nmts_rename`, `nmts_mark`, `nmts_trash`, `nmts_restore`),
+도구 스물여섯 개를 내줍니다. 계정 읽기(`nmts_whoami`, `nmts_list`, `nmts_usage`, `nmts_expiring`,
+`nmts_balance`, `nmts_shares`, `nmts_shares_sent`), 확인이 찾지 못한 저장(`nmts_losses`,
+`nmts_loss_recheck`), 받기(`nmts_get`, `nmts_pull`, `nmts_receive`), 올리기(`nmts_put`,
+`nmts_push`, `nmts_padding`), 정리(`nmts_mkdir`, `nmts_move`, `nmts_rename`, `nmts_mark`,
+`nmts_label_rename`, `nmts_unlabel_all`, `nmts_trash`, `nmts_restore`),
 공유(`nmts_public_code`, `nmts_share`, `nmts_unshare`).
 
-자격과 동의, 사람이 지나야 하는 확인, 영구 삭제, 잃은 파일 목록 다시 짓기, 복구 파일 쓰기는
-일부러 내주지 않습니다. 그것은 사람의 몫입니다. 내주는 어떤 도구도 지정한 디렉터리 밖에는 쓰지
+자격과 동의, 사람이 지나야 하는 확인, 영구 삭제, 잃은 파일 목록 다시 짓기와 이전 목록 되돌리기,
+복구 파일 쓰기는 일부러 내주지 않습니다. 그것은 사람의 몫입니다. 내주는 어떤 도구도 지정한 디렉터리 밖에는 쓰지
 못하고, 잘못된 인자는 짐작하지 않고 거절합니다. MCP SDK 없이 직접 구현해 의존성이 없습니다.
 
 ## 에이전트가 스스로 판단하게 두기

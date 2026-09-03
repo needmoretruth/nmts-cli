@@ -85,7 +85,12 @@ export async function run(argv) {
         }
         case "whoami": {
             const { whoami } = await import("./commands/whoami.js");
-            return await whoami({ server: args.server, network: args.network });
+            return await whoami({
+                server: args.server,
+                network: args.network,
+                reveal: args.reveal,
+                json: args.json,
+            });
         }
         case "ls": {
             const { ls } = await import("./commands/ls.js");
@@ -231,6 +236,23 @@ export async function run(argv) {
                 force: args.force,
             });
         }
+        case "padding": {
+            const { padding } = await import("./commands/padding.js");
+            return await padding(args.operands[0], {
+                server: args.server,
+                network: args.network,
+                json: args.json,
+            });
+        }
+        case "rollback": {
+            const { rollback } = await import("./commands/rollback.js");
+            return await rollback({
+                server: args.server,
+                network: args.network,
+                json: args.json,
+                yes: args.yes,
+            });
+        }
         case "listfile": {
             const { listfile } = await import("./commands/listfile.js");
             return await listfile({ out: args.out, force: args.force });
@@ -282,20 +304,26 @@ export async function run(argv) {
             return await unpin(args.operands, { server: args.server, network: args.network, json: args.json });
         }
         case "label": {
+            const options = { server: args.server, network: args.network, json: args.json };
+            // ⛔ `--rename` IS A DIFFERENT COMMAND WEARING THE SAME VERB, and it is dispatched here so
+            //    that the label sweep cannot be reached by accident: `label <name> <files>` puts a mark
+            //    on the files it names, and `label --rename <old> <new>` touches every file in the
+            //    account. One takes paths and the other refuses them.
+            if (args.rename !== undefined) {
+                const { labelRename } = await import("./commands/marks.js");
+                return await labelRename(args.rename, args.operands[0], options);
+            }
             const { label } = await import("./commands/marks.js");
-            return await label(args.operands[0], args.operands.slice(1), {
-                server: args.server,
-                network: args.network,
-                json: args.json,
-            });
+            return await label(args.operands[0], args.operands.slice(1), options);
         }
         case "unlabel": {
+            const options = { server: args.server, network: args.network, json: args.json };
+            if (args.all) {
+                const { unlabelAll } = await import("./commands/marks.js");
+                return await unlabelAll(args.operands[0], options);
+            }
             const { unlabel } = await import("./commands/marks.js");
-            return await unlabel(args.operands[0], args.operands.slice(1), {
-                server: args.server,
-                network: args.network,
-                json: args.json,
-            });
+            return await unlabel(args.operands[0], args.operands.slice(1), options);
         }
         case "share": {
             const { share } = await import("./commands/share.js");
@@ -306,8 +334,13 @@ export async function run(argv) {
             });
         }
         case "shares": {
+            const options = { server: args.server, network: args.network, json: args.json };
+            if (args.sent !== undefined) {
+                const { sharesSent } = await import("./commands/share.js");
+                return await sharesSent(args.sent, options);
+            }
             const { shares } = await import("./commands/share.js");
-            return await shares({ server: args.server, network: args.network, json: args.json });
+            return await shares(options);
         }
         case "unshare": {
             const { unshare } = await import("./commands/share.js");
