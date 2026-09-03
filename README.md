@@ -416,6 +416,15 @@ Write to **nmts@nmts.me** — a fault, a confusing message, a missing feature, a
 the way. Say what you ran and what it said. Questions about the service itself, and reports about
 content, go through the contact desk on [nmts.me](https://nmts.me).
 
+## Built on this?
+
+If you built something on this code — a service, a fork, a port to another language, a lighter
+client — you owe us nothing: Apache-2.0 asks for the notices and nothing more. We would still like
+to know. Write to **nmts@nmts.me**, or open an issue here if public is fine with you. If you want
+it listed, say so: [SHOWCASE.md](SHOWCASE.md) carries a link and up to ten lines about each
+project, in English ([SHOWCASE.ko.md](SHOWCASE.ko.md) in Korean), written by the people who made it. A listing is not an
+endorsement, and we may decline or remove one without giving a reason.
+
 ## Licence
 
 Apache-2.0 — the full text is in [LICENSE](LICENSE). It moved here from AGPL-3.0-only on
