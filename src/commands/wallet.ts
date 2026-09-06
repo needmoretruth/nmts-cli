@@ -179,6 +179,8 @@ export async function wallet(what: string | undefined, options: WalletOptions = 
   }
   say(`  Nothing here signs or spends. \`${BINARY_NAME} extend\` is the one command that signs, and it`);
   say(`  asks for a separate agreement before it does.`);
+  say(`  Storing needs no coin here: credits pay the network. \`${BINARY_NAME} help wallet\` says where`);
+  say(`  SUI comes from when you want to pay the network yourself.`);
   return exitCodeFor(balances);
 }
 

@@ -8,6 +8,21 @@ offline (`--qr` draws it); `wallet activity` lists recent transactions, named on
 proves it; `wallet storage` lists storage resources (size × time) held outside any file. None of
 these signs.
 
+## Where SUI comes from, and why it is SUI
+
+You can store without any coin here: credits pay the network for you (the weekly free trial at
+nmts.me, or credits somebody gave you), and `nmts balance` shows them. The wallet matters only when
+you pay the network yourself.
+
+The files live on Walrus, and Walrus is paid on the Sui chain in WAL, with gas in SUI. That is why
+this wallet holds SUI and WAL and nothing else — not a preference, the chain the storage runs on.
+Fiat is not taken because taking it would make NMTS hold your money, which it never does.
+
+Getting SUI (as of 2026-09-06): buy it on an exchange that lists it (Binance and Upbit did on that
+date — a statement of fact, not a recommendation) and send it to `wallet address`; or, if you hold
+SUI or WAL already, `wallet swap` exchanges one for the other on a public venue. `wallet address
+--qr` draws the address for a phone.
+
 `wallet storage` also reshapes what it lists, and each of these signs (storage control — the
 resources are the person's, in their wallet, and every step is their signature):
 
