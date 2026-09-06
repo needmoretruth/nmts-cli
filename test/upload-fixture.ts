@@ -123,6 +123,7 @@ export function inputFor(api: UploadApi, protocol: BlobProtocol, key: string): U
     sealed: SEALED,
     relayUrl: "https://relay.example",
     epochs: 2,
+    depositCredits: 64,
     currentEpoch: 40,
     part: { index: 0, total: 1, plaintextLen: 4 },
     entry: {

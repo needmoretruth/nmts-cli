@@ -3,6 +3,17 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.31.0 — 2026-09-06
+
+- The credit deposit is now a choice: `nmts deposit [credits]` reads and sets what this account
+  sets aside per credit-paid file (0 to 64, default 64), and `put --deposit <n>` / `push --deposit
+  <n>` set it for one run. `0` sets nothing aside, and a release of that file costs twice the fee
+  from the balance instead.
+- `nmts balance` names the default and the ceiling the server states, and what each file with a
+  deposit set aside and has spent; `nmts erase --release-storage` says what the release cost and
+  whether it came out of the deposit, and refuses with both numbers when the balance cannot cover
+  a doubled fee.
+
 ## 0.30.0 — 2026-09-06
 
 - The package now declares its MCP server for the official registry (`server.json`, `mcpName`),

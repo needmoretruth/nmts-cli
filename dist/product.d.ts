@@ -9,7 +9,7 @@ export declare const BINARY_NAME = "nmts";
  *    beside it. Here rather than in `main.ts` because the MCP server has to say it too, and a
  *    command importing the entry point is a cycle waiting to bite.
  */
-export declare const VERSION = "0.30.0";
+export declare const VERSION = "0.31.0";
 /** Where the product lives, for messages that need to send somebody somewhere real. */
 export declare const HOME_URL = "https://nmts.me";
 /** The source, so a person holding only the built program can find what it was built from. */

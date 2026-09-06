@@ -117,12 +117,7 @@ export async function run(argv: readonly string[]): Promise<number> {
     }
     case "public-code": {
       const { publicCode } = await import("./commands/public-code.ts");
-      return await publicCode({
-        server: args.server,
-        network: args.network,
-        publish: args.publish,
-        json: args.json,
-      });
+      return await publicCode({ server: args.server, network: args.network, publish: args.publish, json: args.json });
     }
     case "wallet": {
       const { wallet } = await import("./commands/wallet.ts");
@@ -170,11 +165,7 @@ export async function run(argv: readonly string[]): Promise<number> {
     }
     case "trial": {
       const { trial } = await import("./commands/trial.ts");
-      return await trial(args.operands[0], {
-        server: args.server,
-        network: args.network,
-        json: args.json,
-      });
+      return await trial(args.operands[0], { server: args.server, network: args.network, json: args.json });
     }
     case "get": {
       const { get } = await import("./commands/get.ts");
@@ -196,6 +187,7 @@ export async function run(argv: readonly string[]): Promise<number> {
         dryRun: args.dryRun,
         partSize: args.partSize,
         onCollision: args.onCollision,
+        deposit: args.deposit,
         pay: args.pay,
         epochs: args.epochs,
         storage: args.storage,
@@ -212,6 +204,7 @@ export async function run(argv: readonly string[]): Promise<number> {
         hidden: args.hidden,
         partSize: args.partSize,
         onCollision: args.onCollision,
+        deposit: args.deposit,
         pay: args.pay,
         epochs: args.epochs,
         storage: args.storage,
@@ -250,11 +243,11 @@ export async function run(argv: readonly string[]): Promise<number> {
     }
     case "padding": {
       const { padding } = await import("./commands/padding.ts");
-      return await padding(args.operands[0], {
-        server: args.server,
-        network: args.network,
-        json: args.json,
-      });
+      return await padding(args.operands[0], { server: args.server, network: args.network, json: args.json });
+    }
+    case "deposit": {
+      const { deposit } = await import("./commands/deposit.ts");
+      return await deposit(args.operands[0], { server: args.server, network: args.network, json: args.json });
     }
     case "rollback": {
       const { rollback } = await import("./commands/rollback.ts");

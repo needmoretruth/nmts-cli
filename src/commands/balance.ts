@@ -31,10 +31,35 @@ export interface BalanceOptions {
 
 /** What the narrow read answers. Everything is optional here because a server may be older. */
 interface Summary {
-  credits: { remaining: number; soonest_expiry: string | null; file_cap: number; daily_cap: number; held: number; deposits: number };
+  credits: {
+    remaining: number;
+    soonest_expiry: string | null;
+    file_cap: number;
+    daily_cap: number;
+    held: number;
+    deposits: number;
+    /**
+     * The deposit's two numbers, as the SERVER states them: the most one file may set aside, and
+     * what a file sets aside when nobody chose.
+     *
+     * ⛔ READ FROM THE ACCOUNT VIEW, NOT FROM A CONSTANT HERE, for the same reason the two
+     *    ceilings above are: this build can be older than the server, and a number printed from a
+     *    constant would be this tool's opinion rather than what the ledger will actually do.
+     */
+    deposit_max: number;
+    deposit_default: number;
+  };
   quota: { granted: number; used: number };
   storage: { parts: number; earliest_expiry_epoch: number | null };
   terms: { acceptance_required: boolean };
+  /** One row per stored file that has a deposit: what it set aside, and what has been spent of it. */
+  deposits: DepositRow[];
+}
+
+/** One file's deposit, as the account view lists it. */
+interface DepositRow {
+  deposit_credits: number;
+  spent_credits: number;
 }
 
 function num(value: unknown, field: string): number {
@@ -68,6 +93,11 @@ function asSummary(value: unknown): Summary {
       // Deposits arrived with the server that returns them; an older server simply has none.
       held: typeof credits["held"] === "number" ? credits["held"] : 0,
       deposits: typeof credits["deposits_held"] === "number" ? credits["deposits_held"] : 0,
+      // ⛔ THE SERVER'S TWO NUMBERS, or none. A build that filled these in from a constant of its
+      //    own would print what it believes rather than what the ledger will do, which is exactly
+      //    the mistake the two ceilings above are read this way to avoid.
+      deposit_max: typeof credits["deposit_max"] === "number" ? credits["deposit_max"] : 0,
+      deposit_default: typeof credits["deposit_default"] === "number" ? credits["deposit_default"] : 0,
     },
     quota: { granted: num(quota["granted"], "quota.granted"), used: num(quota["used"], "quota.used") },
     storage: {
@@ -75,7 +105,29 @@ function asSummary(value: unknown): Summary {
       earliest_expiry_epoch: typeof epoch === "number" ? epoch : null,
     },
     terms: { acceptance_required: isRecord(terms) && terms["acceptance_required"] === true },
+    deposits: depositRows(credits["deposits"]),
   };
+}
+
+/**
+ * The per-file deposit rows, when the answer carries them.
+ *
+ * ⛔ ABSENCE IS NOT ZERO ROWS DRESSED UP. The narrow read this command makes answers with the two
+ *    totals and no list, so nothing is printed rather than a list claiming this account has no
+ *    deposits. A row this version cannot read is dropped for the same reason: a file whose
+ *    set-aside is a string is a file this build cannot say anything true about.
+ */
+function depositRows(value: unknown): DepositRow[] {
+  if (!Array.isArray(value)) return [];
+  const rows: DepositRow[] = [];
+  for (const row of value) {
+    if (!isRecord(row)) continue;
+    const set = row["deposit_credits"];
+    const spent = row["spent_credits"];
+    if (typeof set !== "number" || typeof spent !== "number") continue;
+    rows.push({ deposit_credits: set, spent_credits: spent });
+  }
+  return rows;
 }
 
 function plural(n: number, one: string, many: string): string {
@@ -108,6 +160,17 @@ export async function balance(options: BalanceOptions = {}): Promise<number> {
   if (credits.held > 0) {
     // Tied up, not spent: each credit-paid file puts a deposit down, returned when its period ends.
     say(`deposits   ${plural(credits.held, "credit", "credits")} held on ${plural(credits.deposits, "stored file", "stored files")} — back when the storage period ends`);
+    // ⚠ Per file, and what has already gone out of it. A deposit is spent a fee at a time, so
+    //   "set aside" and "spent" are two different numbers about the same file.
+    for (const row of summary.deposits) {
+      say(`           ${row.deposit_credits} set aside · ${row.spent_credits} spent`);
+    }
+  }
+  if (credits.deposit_max > 0) {
+    say(
+      `           an upload sets ${credits.deposit_default} aside by default — ` +
+        `0 to ${credits.deposit_max}, \`${BINARY_NAME} deposit\` or --deposit for one upload`,
+    );
   }
   say(`holding    ${humanSize(quota.used)} across ${plural(storage.parts, "stored piece", "stored pieces")}`);
   if (storage.earliest_expiry_epoch !== null) {

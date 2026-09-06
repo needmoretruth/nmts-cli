@@ -37,6 +37,20 @@ export interface AccountSettings {
    */
   paddingMode?: "pow2" | "none";
   /**
+   * DEFAULT DEPOSIT — how many credits ride with each credit-paid upload as its deposit, in whole
+   * credits. Absent = the full deposit (`DEPOSIT_MAX_CREDITS`), which is what a person who has
+   * never touched this gets. `0` is a real answer and is written: it means "hold nothing back".
+   *
+   * The deposit pays the network fee when a file is released early; a file with no deposit pays
+   * that fee twice, from the balance. The payment screen opens on this number and the person can
+   * move it for that one upload.
+   *
+   * Here, in the sealed list, for the reason the padding rule beside it is: the server must not
+   * learn it, and it follows the account, so the browser and the `nmts` command both open on the
+   * same figure.
+   */
+  depositDefault?: number;
+  /**
    * STANDING TIP — the share of every storage payment sent to the developer as a gift, in tenths
    * of a percent (25 = 2.5 %). Absent = 0 = nothing is sent. Set by the person, once, on the
    * wallet screen or with the CLI; from then on every payment sends it without a question, in
@@ -74,6 +88,13 @@ export interface WireSettings {
    * is declared; it is saved because both functions below name it.
    */
   pd?: "pow2" | "none";
+  /**
+   * depositDefault, present only when it is NOT the full deposit.
+   *
+   * ⚠ `0` is written and read here, unlike every optional field beside it: a person who wants no
+   * deposit held has chosen something, and dropping a 0 would silently give them the full 64.
+   */
+  dd?: number;
   /** tipTenths, present only above 0. */
   tp?: number;
   /** tipConsentAt. */
@@ -82,6 +103,23 @@ export interface WireSettings {
 
 /** The most a standing tip can be: the whole payment. Above the dial's 10 % it is typed and confirmed. */
 export const TIP_TENTHS_MAX = 1000;
+
+/**
+ * The deposit range this format carries: whole credits, 0 to 64.
+ *
+ * ⚠ The SERVER's own ceiling rides on the account view (`deposit_max`) and is what the payment
+ * screen holds the chosen figure inside. This pair is the format's bound, so a value written by
+ * some other build is read back only when it is one this build can also write.
+ */
+export const DEPOSIT_MAX_CREDITS = 64;
+/** What an account's deposit is when nobody chose. Not written to the wire — absence spells it. */
+export const DEPOSIT_DEFAULT_CREDITS = DEPOSIT_MAX_CREDITS;
+
+/** The default deposit in force for an account, in credits. Absence is the full deposit, not 0. */
+export function depositDefaultOf(settings: AccountSettings | null | undefined): number {
+  const stored = settings?.depositDefault;
+  return typeof stored === "number" ? stored : DEPOSIT_DEFAULT_CREDITS;
+}
 
 
 /** Settings → wire, or null when every field is at its default (then nothing is written). */
@@ -99,13 +137,28 @@ export function settingsToWire(s: AccountSettings | undefined): WireSettings | n
     w.tx = Math.round(s.textScalePct);
   }
   if (s.paddingMode === "pow2" || s.paddingMode === "none") w.pd = s.paddingMode;
+  if (
+    typeof s.depositDefault === "number" &&
+    Number.isInteger(s.depositDefault) &&
+    s.depositDefault >= 0 &&
+    s.depositDefault < DEPOSIT_MAX_CREDITS
+  ) {
+    w.dd = s.depositDefault;
+  }
   if (typeof s.tipTenths === "number" && Number.isInteger(s.tipTenths) && s.tipTenths > 0 && s.tipTenths <= TIP_TENTHS_MAX) {
     w.tp = s.tipTenths;
   }
   if (typeof s.tipConsentAt === "number" && Number.isFinite(s.tipConsentAt) && s.tipConsentAt > 0) {
     w.tc = Math.round(s.tipConsentAt);
   }
-  return w.dm !== undefined || w.tx !== undefined || w.pd !== undefined || w.tp !== undefined || w.tc !== undefined ? w : null;
+  return w.dm !== undefined ||
+    w.tx !== undefined ||
+    w.pd !== undefined ||
+    w.dd !== undefined ||
+    w.tp !== undefined ||
+    w.tc !== undefined
+    ? w
+    : null;
 }
 
 /**
@@ -120,6 +173,7 @@ export function settingsFromWire(w: unknown): AccountSettings | undefined {
   const dm: unknown = Reflect.get(w, "dm");
   const tx: unknown = Reflect.get(w, "tx");
   const pd: unknown = Reflect.get(w, "pd");
+  const dd: unknown = Reflect.get(w, "dd");
   const tp: unknown = Reflect.get(w, "tp");
   const tc: unknown = Reflect.get(w, "tc");
   const s: AccountSettings = {};
@@ -136,6 +190,11 @@ export function settingsFromWire(w: unknown): AccountSettings | undefined {
   // An unknown rule is DROPPED, not guessed at: padding a file by a rule this build does not know
   // would give it a size no reader here can undo. Falling back to the default is always readable.
   if (pd === "pow2" || pd === "none") s.paddingMode = pd;
+  // A deposit outside the range is DROPPED, not clamped: holding back a number some other build
+  // miswrote is worse than holding back the full deposit, which is what every account starts at.
+  if (typeof dd === "number" && Number.isInteger(dd) && dd >= 0 && dd < DEPOSIT_MAX_CREDITS) {
+    s.depositDefault = dd;
+  }
   // A tip outside the bounds is DROPPED, not clamped: sending a share some other build miswrote is
   // worse than sending nothing, which is always what 0 means.
   if (typeof tp === "number" && Number.isInteger(tp) && tp > 0 && tp <= TIP_TENTHS_MAX) s.tipTenths = tp;
@@ -143,10 +202,19 @@ export function settingsFromWire(w: unknown): AccountSettings | undefined {
   return s.developerMode !== undefined ||
     s.textScalePct !== undefined ||
     s.paddingMode !== undefined ||
+    s.depositDefault !== undefined ||
     s.tipTenths !== undefined ||
     s.tipConsentAt !== undefined
     ? s
     : undefined;
+}
+
+/** Folds a deposit patch into a settings copy: out-of-range is clamped, the full deposit clears. */
+export function applyDepositPatch(next: AccountSettings, depositDefault?: number): void {
+  if (depositDefault === undefined || !Number.isFinite(depositDefault)) return;
+  const credits = Math.round(Math.min(DEPOSIT_MAX_CREDITS, Math.max(0, depositDefault)));
+  if (credits === DEPOSIT_DEFAULT_CREDITS) delete next.depositDefault;
+  else next.depositDefault = credits;
 }
 
 /** Folds a tip patch into a settings copy: 0 clears, above the cap is capped, fractions are rounded. */

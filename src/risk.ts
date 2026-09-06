@@ -85,6 +85,7 @@ export const ACTS = {
   consent: { tier: "none" },
   "on-collision": { tier: "none" },
   padding: { tier: "none" },
+  deposit: { tier: "none" },
   notices: { tier: "none" },
   terms: { tier: "none" },
   privacy: { tier: "none" },
@@ -100,6 +101,7 @@ export const ACTS = {
   "tip.set": { tier: "none" },
   "on-collision.set": { tier: "low", what: "Change what an upload does when its name is already taken." },
   "padding.set": { tier: "low", what: "Change how file sizes are hidden for the next uploads." },
+  "deposit.set": { tier: "low", what: "Change how many credits the next uploads set aside as a deposit." },
   update: { tier: "low", what: "Replace this program with the newest published release." },
   "trial.apply": { tier: "low", what: "Ask for this week's free credits." },
   "support.send": { tier: "low", what: "Send this message to the developer of NMTS.", asksItself: true },
@@ -195,6 +197,8 @@ export function actOf(args: ParsedArgs): ActId | null {
       return sub === "" ? "on-collision" : "on-collision.set";
     case "padding":
       return sub === "" ? "padding" : "padding.set";
+    case "deposit":
+      return sub === "" ? "deposit" : "deposit.set";
     case "erase":
       return args.releaseStorage ? "erase.release" : "erase";
     case "tip":

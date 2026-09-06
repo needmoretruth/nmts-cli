@@ -224,6 +224,7 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
       // on are the same sealed bytes.
       size: sealed.length,
       epochs: input.epochs,
+      deposit_credits: input.depositCredits,
       relay: {
         host: input.relayUrl,
         blob_digest_b64: Buffer.from(meta.blobDigest).toString("base64url"),

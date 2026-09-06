@@ -56,6 +56,7 @@ export const TOOL_TIERS: Readonly<Record<string, ToolTier>> = {
   nmts_label_rename: { act: "label" },
   nmts_unlabel_all: { act: "unlabel" },
   nmts_padding: { act: (args) => (typeof args["mode"] === "string" ? "padding.set" : "padding") },
+  nmts_deposit: { act: (args) => (typeof args["credits"] === "number" ? "deposit.set" : "deposit") },
   nmts_trash: { act: "rm" },
   nmts_restore: { act: "restore" },
   nmts_share: {

@@ -117,6 +117,24 @@ test("credits held as deposits get their own line, said as tied up rather than s
   });
 });
 
+// ⛔ TWO NUMBERS PER FILE, because a deposit is spent a fee at a time. "64 held" says nothing
+//    about whether any of it has gone, and a person deciding whether to release a file needs to
+//    know how much of that file's own deposit is still there.
+test("a file's deposit is listed as what it set aside and what has been spent of it", async () => {
+  await sandbox("balance-deposit-rows", async () => {
+    summary.credits.held = 61;
+    summary.credits.deposits_held = 1;
+    summary.credits.deposit_max = 64;
+    summary.credits.deposit_default = 64;
+    summary.credits.deposits = [{ deposit_credits: 64, spent_credits: 3 }];
+    const lines: string[] = [];
+    assert.equal(await balance({ write: (l) => lines.push(l) }), 0);
+    const said = lines.join("\n");
+    assert.match(said, /64 set aside · 3 spent/);
+    assert.match(said, /an upload sets 64 aside by default — 0 to 64/);
+  });
+});
+
 test("--json hands back the shape and prints nothing else", async () => {
   await sandbox("balance-json", async () => {
     const lines: string[] = [];

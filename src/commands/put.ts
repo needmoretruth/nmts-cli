@@ -17,6 +17,7 @@ import { identityOf } from "../account.ts";
 import { requireAccountCode } from "../code-access.ts";
 import { API_KEY_ENV_VAR, CODE_ENV_VAR, readCredentialsFile, resolveApiKey } from "../credentials.ts";
 import { parseAsked } from "../collision.ts";
+import { depositDefaultOf, depositLines, parseDeposit, refuseDepositWithWallet } from "../deposit.ts";
 import { DERIVED, loadCrypto } from "../crypto.ts";
 import { buildIndex, fullPathOf, isLive, KIND_FOLDER, normalisePath } from "../drive-paths.ts";
 import { NmtsError } from "../errors.ts";
@@ -62,6 +63,11 @@ export interface PutOptions {
   partSize?: string | number | undefined;
   /** What THIS run does about a name already in use. Absent = this machine's setting. */
   onCollision?: string | undefined;
+  /**
+   * How many credits THIS upload sets aside as a deposit on the file, 0 to 64. Absent = the
+   * account's own default (`nmts deposit`), which is 64 until somebody sets another.
+   */
+  deposit?: string | number | undefined;
   /**
    * Who pays for the storage: `credits` (absent) or `wallet`.
    *
@@ -144,9 +150,13 @@ export async function put(target: string | undefined, options: PutOptions = {}):
   // ⛔ DECIDED BEFORE ANYTHING IS READ. The wallet path prices in WAL and signs; nothing below this
   //    line knows how to do either, and it must not learn.
   if (payerOf(options.pay) === "wallet") {
+    refuseDepositWithWallet(options.deposit);
     return (await import("./put-wallet.ts")).putWithWallet(target, options);
   }
   refuseWalletOnlyOptions(options);
+  // ⛔ BEFORE THE FILE IS EVEN MEASURED. A deposit outside the range is a command line to fix, and
+  //    a typo that surfaced after the upload would have cost real money to produce.
+  const askedDeposit = parseDeposit(options.deposit);
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));
   if (target === undefined || target === "") {
     throw new NmtsError("Say which file to put.", {
@@ -193,6 +203,9 @@ export async function put(target: string | undefined, options: PutOptions = {}):
   const asked = parseAsked(options.onCollision);
   const list = await readFileList(server, key.key, resolved.code, identity.accountId);
   const rule: PaddingRule = paddingRuleOf(list.manifest?.settings);
+  // The flag if it was given, otherwise the account's own default. Always a number, never left to
+  // the server to pick: the price printed below names it, and a server default could differ.
+  const deposit = askedDeposit ?? depositDefaultOf(list.manifest?.settings);
 
   // ⛔ THE PRICE IS ARITHMETIC, NOT A MEASUREMENT: quoting it by sealing would mean reading and
   //    encrypting a very large file to answer `--dry-run`. Every part rounds up to a whole credit
@@ -216,12 +229,14 @@ export async function put(target: string | undefined, options: PutOptions = {}):
           parts: plan.length,
           partSize,
           credits,
+          deposit,
           epochs: UPLOAD_EPOCHS,
         }),
       );
       return 0;
     }
     say(`${name}  ${size} bytes  →  ${credits} credit${credits === 1 ? "" : "s"}`);
+    for (const line of depositLines(deposit)) say(line);
     if (plan.length > 1) say(`  in ${plan.length} parts of up to ${partSize} bytes`);
     say(``);
     say(`  Nothing was sent and nothing was charged. Run the same command without --dry-run`);
@@ -247,6 +262,7 @@ export async function put(target: string | undefined, options: PutOptions = {}):
 
   if (!options.json) {
     say(`${name}  ${size} bytes  →  ${credits} credit${credits === 1 ? "" : "s"}`);
+    for (const line of depositLines(deposit)) say(line);
     if (plan.length > 1) {
       say(`  in ${plan.length} parts — each one is bought separately and can be finished later`);
     }
@@ -291,6 +307,7 @@ export async function put(target: string | undefined, options: PutOptions = {}):
       currentEpoch,
       partSize,
       padding: { rule, unitBytes: CREDIT_BYTES },
+      depositCredits: deposit,
       onStep,
     });
   } finally {
@@ -349,6 +366,7 @@ export async function put(target: string | undefined, options: PutOptions = {}):
         sealedBytes,
         parts: plan.length,
         credits: result.resumed ? 0 : credits,
+        deposit,
         resumed: result.resumed,
         renamed: added.name !== name,
         ...(added.replaced ? { replacedIntoTrash: added.replaced.id } : {}),

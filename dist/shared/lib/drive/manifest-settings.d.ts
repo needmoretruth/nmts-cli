@@ -25,6 +25,20 @@ export interface AccountSettings {
      */
     paddingMode?: "pow2" | "none";
     /**
+     * DEFAULT DEPOSIT — how many credits ride with each credit-paid upload as its deposit, in whole
+     * credits. Absent = the full deposit (`DEPOSIT_MAX_CREDITS`), which is what a person who has
+     * never touched this gets. `0` is a real answer and is written: it means "hold nothing back".
+     *
+     * The deposit pays the network fee when a file is released early; a file with no deposit pays
+     * that fee twice, from the balance. The payment screen opens on this number and the person can
+     * move it for that one upload.
+     *
+     * Here, in the sealed list, for the reason the padding rule beside it is: the server must not
+     * learn it, and it follows the account, so the browser and the `nmts` command both open on the
+     * same figure.
+     */
+    depositDefault?: number;
+    /**
      * STANDING TIP — the share of every storage payment sent to the developer as a gift, in tenths
      * of a percent (25 = 2.5 %). Absent = 0 = nothing is sent. Set by the person, once, on the
      * wallet screen or with the CLI; from then on every payment sends it without a question, in
@@ -59,6 +73,13 @@ export interface WireSettings {
      * is declared; it is saved because both functions below name it.
      */
     pd?: "pow2" | "none";
+    /**
+     * depositDefault, present only when it is NOT the full deposit.
+     *
+     * ⚠ `0` is written and read here, unlike every optional field beside it: a person who wants no
+     * deposit held has chosen something, and dropping a 0 would silently give them the full 64.
+     */
+    dd?: number;
     /** tipTenths, present only above 0. */
     tp?: number;
     /** tipConsentAt. */
@@ -66,6 +87,18 @@ export interface WireSettings {
 }
 /** The most a standing tip can be: the whole payment. Above the dial's 10 % it is typed and confirmed. */
 export declare const TIP_TENTHS_MAX = 1000;
+/**
+ * The deposit range this format carries: whole credits, 0 to 64.
+ *
+ * ⚠ The SERVER's own ceiling rides on the account view (`deposit_max`) and is what the payment
+ * screen holds the chosen figure inside. This pair is the format's bound, so a value written by
+ * some other build is read back only when it is one this build can also write.
+ */
+export declare const DEPOSIT_MAX_CREDITS = 64;
+/** What an account's deposit is when nobody chose. Not written to the wire — absence spells it. */
+export declare const DEPOSIT_DEFAULT_CREDITS = 64;
+/** The default deposit in force for an account, in credits. Absence is the full deposit, not 0. */
+export declare function depositDefaultOf(settings: AccountSettings | null | undefined): number;
 /** Settings → wire, or null when every field is at its default (then nothing is written). */
 export declare function settingsToWire(s: AccountSettings | undefined): WireSettings | null;
 /**
@@ -74,5 +107,7 @@ export declare function settingsToWire(s: AccountSettings | undefined): WireSett
  * to the device's own size, which is always readable.
  */
 export declare function settingsFromWire(w: unknown): AccountSettings | undefined;
+/** Folds a deposit patch into a settings copy: out-of-range is clamped, the full deposit clears. */
+export declare function applyDepositPatch(next: AccountSettings, depositDefault?: number): void;
 /** Folds a tip patch into a settings copy: 0 clears, above the cap is capped, fractions are rounded. */
 export declare function applyTipPatch(next: AccountSettings, tipTenths?: number, tipConsentAt?: number): void;

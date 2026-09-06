@@ -23,6 +23,7 @@ import { normaliseName, normalisePath } from "../drive-paths.js";
 import { NmtsError } from "../errors.js";
 import { addEntry } from "../manifest-write.js";
 import { parseAsked } from "../collision.js";
+import { depositDefaultOf, depositLines, parseDeposit, refuseDepositWithWallet } from "../deposit.js";
 import { setTrashed } from "../item-trash.js";
 import { paddingRuleOf, readFileList } from "../manifest.js";
 import { BINARY_NAME } from "../product.js";
@@ -44,8 +45,12 @@ export async function push(target, options = {}) {
         });
     }
     const payer = payerOf(options.pay);
+    if (payer === "wallet")
+        refuseDepositWithWallet(options.deposit);
     if (payer === "credits")
         refuseWalletOnlyOptions(options);
+    // ⛔ BEFORE ANYTHING IS WALKED, SEALED OR PAID FOR — a typo must not surface after the money.
+    const askedDeposit = parseDeposit(options.deposit);
     if (options.storage !== undefined) {
         throw new NmtsError("--storage is for `put`: a held storage resource holds one blob, and a directory is many.", {
             exitCode: 2,
@@ -101,6 +106,8 @@ export async function push(target, options = {}) {
     }
     const credits = todo.reduce((sum, one) => sum + planAndPrice(one.size, partSize, rule).credits, 0);
     const bytes = todo.reduce((sum, one) => sum + one.size, 0);
+    // Per FILE, not per run: every file in the tree sets the same amount aside.
+    const deposit = askedDeposit ?? depositDefaultOf(list.manifest?.settings);
     if (payer === "wallet") {
         // ⛔ THE WALLET PATH PRICES AND AGREES PER FILE, in `put-wallet.ts`: each file is its own review
         //    against the chain's quote, and `--dry-run` prints every review and signs nothing.
@@ -115,11 +122,14 @@ export async function push(target, options = {}) {
                 skipped: already.length,
                 bytes,
                 credits,
+                deposit,
                 epochs: UPLOAD_EPOCHS,
             }));
             return 0;
         }
         say(`${todo.length} file${todo.length === 1 ? "" : "s"}  ${bytes} bytes  →  ${credits} credit${credits === 1 ? "" : "s"}`);
+        for (const line of depositLines(deposit, todo.length))
+            say(line);
         if (already.length > 0) {
             say(`  ${already.length} already in the drive, which this would not send again`);
         }
@@ -139,6 +149,8 @@ export async function push(target, options = {}) {
     };
     if (!options.json) {
         say(`${todo.length} file${todo.length === 1 ? "" : "s"}  →  ${credits} credit${credits === 1 ? "" : "s"}`);
+        for (const line of depositLines(deposit, todo.length))
+            say(line);
         if (already.length > 0)
             say(`  ${already.length} already there, not sent again`);
     }
@@ -154,6 +166,7 @@ export async function push(target, options = {}) {
                     parentId: into,
                     partSize,
                     rule,
+                    deposit,
                     currentEpoch: await currentEpoch(),
                     progress,
                 }));
@@ -177,7 +190,7 @@ export async function push(target, options = {}) {
         progress.done();
     }
     if (options.json) {
-        say(JSON.stringify({ files: found.length, uploaded: uploaded.length, skipped: already.length, bytes, credits }));
+        say(JSON.stringify({ files: found.length, uploaded: uploaded.length, skipped: already.length, bytes, credits, deposit }));
         return 0;
     }
     say(``);
@@ -205,6 +218,7 @@ async function sendOne(session, crypt, one, ctx) {
             currentEpoch: ctx.currentEpoch,
             partSize: ctx.partSize,
             padding: { rule: ctx.rule, unitBytes: CREDIT_BYTES },
+            depositCredits: ctx.deposit,
         });
         const now = Date.now();
         // ⛔ FROM THE RESULT, NOT FROM THIS RUN. The key that opens the stored bytes is the key they

@@ -130,6 +130,7 @@ export async function uploadFile(input) {
                 currentEpoch: input.currentEpoch,
                 // ⚠ The length the STREAM declares, which for a padded last part is more than the file
                 //   contributes. The list entry keeps the file's real size; this is what was sealed.
+                depositCredits: input.depositCredits ?? 0,
                 part: { index: range.partIndex, total: plan.length, plaintextLen: sealFrom },
                 entry,
                 onStep: (step) => onStep?.({ ...step, partIndex: range.partIndex, parts: plan.length }),

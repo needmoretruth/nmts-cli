@@ -50,7 +50,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.30.0    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.31.0    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -148,8 +148,8 @@ nmts get x     # 파일 하나 다운로드
 | `nmts balance` | 남은 크레딧, 그것으로 살 수 있는 양, 지출 상한 |
 | `nmts get <path>` | 파일 하나를 다운로드하고 복호화하고 확인합니다 |
 | `nmts pull [folder]` | 폴더 하나 또는 계정 전체를 모양 그대로 다운로드합니다 |
-| `nmts put <file>` | 파일 하나를 암호화해 업로드합니다 — **크레딧을 씁니다** |
-| `nmts push <directory>` | 디렉터리 하나를 모양 그대로 업로드합니다 — **크레딧을 씁니다** |
+| `nmts put <file>` | 파일 하나를 암호화해 업로드합니다 — **크레딧을 씁니다**. `--deposit <n>`은 이 업로드의 보증금을 정합니다 |
+| `nmts push <directory>` | 디렉터리 하나를 모양 그대로 업로드합니다 — **크레딧을 씁니다**. `--deposit <n>`은 안의 모든 파일에 적용됩니다 |
 | `nmts rm <paths>` | 휴지통으로 옮깁니다 — 30일 동안 되살릴 수 있습니다 |
 | `nmts restore <paths>` | 휴지통에서 도로 꺼냅니다 |
 | `nmts sweep` | 30일이 지난 휴지통 항목을 버립니다. **되돌릴 수 없어** 실행마다 묻습니다 |
@@ -162,6 +162,7 @@ nmts get x     # 파일 하나 다운로드
 | `nmts label <name> <files>` | 파일에 라벨 하나를 붙입니다. `unlabel`이 뗍니다. `--rename`과 `--all`은 목록 전체를 훑습니다 |
 | `nmts on-collision` | 업로드할 이름이 이미 있을 때 무엇을 하는가 |
 | `nmts padding [모드]` | 저장 네트워크에서 파일 크기를 어떻게 가리는지 보고, 다음 업로드부터 바꿉니다 |
+| `nmts deposit [크레딧]` | 크레딧으로 내는 업로드가 파일마다 보증금으로 얼마를 잡아 두는지 보고 바꿉니다(0~64, 기본 64) |
 | `nmts tip [퍼센트\|off]` | WAL로 내는 모든 결제의 일정 비율을 개발자에게 후원으로 보냅니다(기본 0). 정하려면 `nmts unlock donate`가 필요하고, 동의는 한 번만 묻습니다 |
 | `nmts expiring` | 산 저장 기간이 곧 끝나는 파일과 그 시각 |
 | `nmts losses` | 크레딧으로 산 저장 가운데 날마다 도는 확인이 체인에서 찾지 못한 것. `--recheck <id>`는 다시 묻고, `--dismiss <id>`는 줄을 내립니다 |
@@ -255,6 +256,13 @@ nmts put film.mov --pay wallet --storage fit        # 지갑이 이미 든 저�
 `push`는 디렉터리를 올리고 **첫 실패에서 멈추며**, 이미 올라간 것을 말합니다. 목적지에 같은
 이름이 이미 있는 파일은 건너뛰므로 다시 돌려도 안전합니다. 점으로 시작하는 이름은 `--hidden`을
 주지 않는 한 건드리지 않고, 심볼릭 링크는 따라가지 않습니다.
+
+`nmts deposit`은 크레딧으로 내는 업로드가 파일마다 보증금으로 얼마를 잡아 두는지 보여 주고,
+`nmts deposit <n>`은 모든 기기의 다음 업로드부터 그 값을 바꿉니다(0~64, 기본 64). 보증금은 그 파일에
+나중에 일어나는 체인 작업(예: 저장을 일찍 해제하는 것)의 수수료를 재서 그만큼만 내고, 남은 것은 저장
+기간이 끝날 때 돌아옵니다. `put --deposit <n>`과 `push --deposit <n>`은 그 실행에만 적용됩니다.
+`--deposit 0`은 아무것도 잡아 두지 않습니다. 그 파일도 해제되지만 같은 수수료의 2배를 그때의 잔액에서
+내고, 잔액이 모자라면 두 숫자를 적어 거절합니다.
 
 `nmts padding`은 파일 크기를 어떻게 가리는지 보여 주고, `nmts padding standard`·`nmts padding pow2`·
 `nmts padding off`는 모든 기기의 다음 업로드부터 바꿉니다(`off`는 정확한 크기로 저장합니다. 파일의 길이가
@@ -466,7 +474,7 @@ Hermes와 OpenClaw는 인자를 하나씩 넘깁니다(Hermes는 `--args`, OpenC
 `nmts_balance`, `nmts_shares`, `nmts_shares_sent`), 지갑 읽기(`nmts_wallet_activity`,
 `nmts_wallet_storage`), 로그인된 기기(`nmts_devices`), 확인이 찾지 못한 저장(`nmts_losses`,
 `nmts_loss_recheck`), 받기(`nmts_get`, `nmts_pull`, `nmts_receive`), 올리기(`nmts_put`,
-`nmts_push`, `nmts_padding`), 정리(`nmts_mkdir`, `nmts_move`, `nmts_rename`, `nmts_mark`,
+`nmts_push`, `nmts_padding`, `nmts_deposit`), 정리(`nmts_mkdir`, `nmts_move`, `nmts_rename`, `nmts_mark`,
 `nmts_label_rename`, `nmts_unlabel_all`, `nmts_trash`, `nmts_restore`),
 공유(`nmts_public_code`, `nmts_share`, `nmts_unshare`),
 개발자에게 쓰기(`nmts_support_send`, `nmts_support_list`, `nmts_support_show`, `nmts_support_reply`), 그리고 이 서비스가 게시하는 문서(`nmts_notices`, `nmts_notice`, `nmts_terms`,

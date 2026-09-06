@@ -1,6 +1,6 @@
 // Runtime import (relative + .ts — the header's node --test rule) for the bounds the patch obeys.
 import { TEXT_SCALE_DEFAULT_PCT, TEXT_SCALE_MAX_PCT, TEXT_SCALE_MIN_PCT, } from "./manifest-codec.js";
-import { applyTipPatch } from "./manifest-settings.js";
+import { applyDepositPatch, applyTipPatch } from "./manifest-settings.js";
 /**
  * Apply one intent, returning a new list. The input is never mutated: the store keeps the
  * pre-save snapshot around to rebuild from after a version conflict.
@@ -189,9 +189,10 @@ export function applySettingsPatch(settings, patch) {
         else
             next.textScalePct = pct;
     }
+    applyDepositPatch(next, patch.depositDefault);
     applyTipPatch(next, patch.tipTenths, patch.tipConsentAt);
     const same = (next.developerMode === true) === (settings.developerMode === true) &&
-        next.paddingMode === settings.paddingMode &&
+        next.paddingMode === settings.paddingMode && next.depositDefault === settings.depositDefault &&
         next.textScalePct === settings.textScalePct &&
         next.tipTenths === settings.tipTenths &&
         next.tipConsentAt === settings.tipConsentAt;

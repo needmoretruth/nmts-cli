@@ -15,6 +15,7 @@ import { identityOf } from "../account.js";
 import { requireAccountCode } from "../code-access.js";
 import { API_KEY_ENV_VAR, CODE_ENV_VAR, readCredentialsFile, resolveApiKey } from "../credentials.js";
 import { parseAsked } from "../collision.js";
+import { depositDefaultOf, depositLines, parseDeposit, refuseDepositWithWallet } from "../deposit.js";
 import { DERIVED, loadCrypto } from "../crypto.js";
 import { buildIndex, fullPathOf, isLive, KIND_FOLDER, normalisePath } from "../drive-paths.js";
 import { NmtsError } from "../errors.js";
@@ -91,9 +92,13 @@ export async function put(target, options = {}) {
     // ⛔ DECIDED BEFORE ANYTHING IS READ. The wallet path prices in WAL and signs; nothing below this
     //    line knows how to do either, and it must not learn.
     if (payerOf(options.pay) === "wallet") {
+        refuseDepositWithWallet(options.deposit);
         return (await import("./put-wallet.js")).putWithWallet(target, options);
     }
     refuseWalletOnlyOptions(options);
+    // ⛔ BEFORE THE FILE IS EVEN MEASURED. A deposit outside the range is a command line to fix, and
+    //    a typo that surfaced after the upload would have cost real money to produce.
+    const askedDeposit = parseDeposit(options.deposit);
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     if (target === undefined || target === "") {
         throw new NmtsError("Say which file to put.", {
@@ -135,6 +140,9 @@ export async function put(target, options = {}) {
     const asked = parseAsked(options.onCollision);
     const list = await readFileList(server, key.key, resolved.code, identity.accountId);
     const rule = paddingRuleOf(list.manifest?.settings);
+    // The flag if it was given, otherwise the account's own default. Always a number, never left to
+    // the server to pick: the price printed below names it, and a server default could differ.
+    const deposit = askedDeposit ?? depositDefaultOf(list.manifest?.settings);
     // ⛔ THE PRICE IS ARITHMETIC, NOT A MEASUREMENT: quoting it by sealing would mean reading and
     //    encrypting a very large file to answer `--dry-run`. Every part rounds up to a whole credit
     //    on its own, exactly as the server charges each reservation, so a file in several parts is
@@ -155,11 +163,14 @@ export async function put(target, options = {}) {
                 parts: plan.length,
                 partSize,
                 credits,
+                deposit,
                 epochs: UPLOAD_EPOCHS,
             }));
             return 0;
         }
         say(`${name}  ${size} bytes  →  ${credits} credit${credits === 1 ? "" : "s"}`);
+        for (const line of depositLines(deposit))
+            say(line);
         if (plan.length > 1)
             say(`  in ${plan.length} parts of up to ${partSize} bytes`);
         say(``);
@@ -180,6 +191,8 @@ export async function put(target, options = {}) {
     const currentEpoch = await readCurrentEpoch(network);
     if (!options.json) {
         say(`${name}  ${size} bytes  →  ${credits} credit${credits === 1 ? "" : "s"}`);
+        for (const line of depositLines(deposit))
+            say(line);
         if (plan.length > 1) {
             say(`  in ${plan.length} parts — each one is bought separately and can be finished later`);
         }
@@ -231,6 +244,7 @@ export async function put(target, options = {}) {
             currentEpoch,
             partSize,
             padding: { rule, unitBytes: CREDIT_BYTES },
+            depositCredits: deposit,
             onStep,
         });
     }
@@ -288,6 +302,7 @@ export async function put(target, options = {}) {
             sealedBytes,
             parts: plan.length,
             credits: result.resumed ? 0 : credits,
+            deposit,
             resumed: result.resumed,
             renamed: added.name !== name,
             ...(added.replaced ? { replacedIntoTrash: added.replaced.id } : {}),

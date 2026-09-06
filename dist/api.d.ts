@@ -10,6 +10,14 @@ export declare class ServerError extends NmtsError {
     readonly code: string;
     /** Seconds to wait. ⛔ `Retry-After` is the only place the server sends it — never the body. */
     readonly retryAfter: number | null;
+    /**
+     * Whatever the refusal carried beside its words — the two credit amounts a doubled release fee
+     * is refused with, a limit that was hit, an address to go to.
+     *
+     * ⚠ NOT VALIDATED HERE. It arrives from the network and every reader checks the one field it
+     *   wants before printing it; a narrower type would be a claim rather than a check.
+     */
+    readonly details: Readonly<Record<string, string | number>>;
     constructor(status: number, refusal: ServerRefusal, nextStep: string | null, retryAfter?: number | null);
 }
 /**

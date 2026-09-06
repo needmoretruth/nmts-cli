@@ -29,6 +29,8 @@ import { openSession } from "../session.js";
 import { filesUnder } from "./trash.js";
 /** The server takes at most this many ids in one erase (`ERASE_BATCH_MAX`). */
 const BATCH = 200;
+/** The refusal a no-deposit release gets when the balance cannot cover the doubled fee. */
+const FEE_INSUFFICIENT = "DEPOSIT_FEE_INSUFFICIENT";
 export async function erase(paths, options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     if (paths.length === 0) {
@@ -90,14 +92,27 @@ export async function erase(paths, options = {}) {
                     token: session.apiKey,
                     accountProof,
                 });
-                releases.push({ path, refused: null, ...counts(reply) });
+                releases.push({ path, refused: null, ...counts(reply), ...fee(reply) });
             }
             catch (error) {
+                // ⛔ THE ONE REFUSAL THAT STOPS THE RUN. A file with no deposit pays twice the chain fee
+                //    out of the balance, and a balance that cannot cover it means the release did not
+                //    happen — erasing behind it would destroy the account's key to bytes that are still
+                //    being served and still being paid for. Nothing is erased, and the two numbers say
+                //    exactly how far short the balance is.
+                if (error instanceof ServerError && error.code === FEE_INSUFFICIENT) {
+                    throw new NmtsError(`${path}: releasing its storage costs ${amount(error, "needed_credits")} credits and this ` +
+                        `account has ${amount(error, "balance_credits")}. It has no deposit, so the fee comes out of the balance.`, {
+                        exitCode: 4,
+                        nextStep: `Nothing was erased. Buy credits and run this again, or leave --release-storage off ` +
+                            `to erase the file and let its storage run out on its own.`,
+                    });
+                }
                 // ⚠ "Not ours to destroy" is an answer, not a failure: the storage was bought by the
                 //   wallet, and the erase goes on. A refusal of the KEY or the proof, and anything the
                 //   server could not do, stops the run before a row is touched.
                 if (error instanceof ServerError && error.status !== 401 && error.status !== 403 && error.status < 500) {
-                    releases.push({ path, released: 0, alreadyReleased: 0, failed: 0, refused: error.message });
+                    releases.push({ path, released: 0, alreadyReleased: 0, failed: 0, feeCredits: 0, fromDeposit: false, refused: error.message });
                     continue;
                 }
                 throw error;
@@ -135,8 +150,20 @@ export async function erase(paths, options = {}) {
             say(`  ${r.path}: ${r.released} released, ${r.failed} could not be — those bytes are still being served.`);
         else
             say(`  ${r.path}: storage released (${r.released} destroyed${r.alreadyReleased > 0 ? `, ${r.alreadyReleased} already gone` : ""}).`);
+        // ⛔ ONLY WHEN THE SERVER NAMED A NUMBER. Every release the new ledger charges costs at least
+        //    one credit, so a zero here is a server that did not say rather than a release that was
+        //    free — and "no credits were charged" is the wrong sentence to invent about money.
+        if (r.refused === null && r.feeCredits > 0)
+            say(`  ${r.path}: ${feeLine(r)}`);
     }
     return 0;
+}
+/** What the release cost and where it came from, in one clause. */
+function feeLine(r) {
+    const credits = `${r.feeCredits} credit${r.feeCredits === 1 ? "" : "s"}`;
+    return r.fromDeposit
+        ? `${credits} taken from that file's deposit — nothing came out of the balance`
+        : `${credits} taken from the balance — that file had no deposit, so the fee is doubled`;
 }
 /** The three counts a release answers with, read defensively. */
 function counts(reply) {
@@ -145,6 +172,20 @@ function counts(reply) {
         return typeof v === "number" ? v : 0;
     };
     return { released: n("released"), alreadyReleased: n("already_released"), failed: n("failed") };
+}
+/** What it cost, read the same defensive way. An older server says neither, which reads as 0. */
+function fee(reply) {
+    const at = (name) => typeof reply === "object" && reply !== null ? Reflect.get(reply, name) : undefined;
+    const charged = at("fee_credits");
+    return {
+        feeCredits: typeof charged === "number" ? charged : 0,
+        fromDeposit: at("from_deposit") === true,
+    };
+}
+/** One credit amount out of a refusal's details, or `?` when the server did not name it. */
+function amount(error, field) {
+    const value = error.details[field];
+    return typeof value === "number" ? String(value) : "?";
 }
 function uniqueById(list) {
     const seen = new Set();

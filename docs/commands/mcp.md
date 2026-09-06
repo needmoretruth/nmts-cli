@@ -13,7 +13,7 @@ MCP elicitation — or refused, naming the way round it, when the client cannot 
 The tools: `nmts_whoami` `nmts_list` `nmts_usage` `nmts_expiring` `nmts_balance` `nmts_shares`
 `nmts_shares_sent` · `nmts_wallet_activity` `nmts_wallet_storage` · `nmts_devices` · `nmts_notices`
 `nmts_notice` `nmts_terms` `nmts_privacy` · `nmts_losses` `nmts_loss_recheck` · `nmts_get`
-`nmts_pull` `nmts_receive` · `nmts_put` `nmts_push` `nmts_padding` · `nmts_public_code` ·
+`nmts_pull` `nmts_receive` · `nmts_put` `nmts_push` `nmts_padding` `nmts_deposit` · `nmts_public_code` ·
 `nmts_mkdir` `nmts_move` `nmts_rename` `nmts_mark` `nmts_label_rename` `nmts_unlabel_all`
 `nmts_trash` `nmts_restore` · `nmts_share` `nmts_unshare` · `nmts_support_send`
 `nmts_support_list` `nmts_support_show` `nmts_support_reply`.

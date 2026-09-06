@@ -20,6 +20,11 @@ export interface PutOptions {
     /** What THIS run does about a name already in use. Absent = this machine's setting. */
     onCollision?: string | undefined;
     /**
+     * How many credits THIS upload sets aside as a deposit on the file, 0 to 64. Absent = the
+     * account's own default (`nmts deposit`), which is 64 until somebody sets another.
+     */
+    deposit?: string | number | undefined;
+    /**
      * Who pays for the storage: `credits` (absent) or `wallet`.
      *
      * ⛔ A VALUE, NOT A FLAG, so that a command line says which money it spends. Everything about the

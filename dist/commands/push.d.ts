@@ -11,6 +11,8 @@ export interface PushOptions {
     partSize?: string | number | undefined;
     /** What THIS run does about a name already in use. Absent = this machine's setting. */
     onCollision?: string | undefined;
+    /** Credits EACH file in this run sets aside as a deposit, 0 to 64. Absent = the account's own. */
+    deposit?: string | number | undefined;
     /** Who pays: `credits` (absent) or `wallet`. See `put.ts`. */
     pay?: string | undefined;
     /** `--pay wallet`: how many epochs to buy for every file. */

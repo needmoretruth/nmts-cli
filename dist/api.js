@@ -23,12 +23,21 @@ export class ServerError extends NmtsError {
     code;
     /** Seconds to wait. ⛔ `Retry-After` is the only place the server sends it — never the body. */
     retryAfter;
+    /**
+     * Whatever the refusal carried beside its words — the two credit amounts a doubled release fee
+     * is refused with, a limit that was hit, an address to go to.
+     *
+     * ⚠ NOT VALIDATED HERE. It arrives from the network and every reader checks the one field it
+     *   wants before printing it; a narrower type would be a claim rather than a check.
+     */
+    details;
     constructor(status, refusal, nextStep, retryAfter = null) {
         super(refusal.message, { exitCode: 1, nextStep });
         this.name = "ServerError";
         this.status = status;
         this.code = refusal.code;
         this.retryAfter = retryAfter;
+        this.details = refusal.details ?? {};
     }
 }
 /**

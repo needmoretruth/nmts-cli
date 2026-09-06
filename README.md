@@ -52,7 +52,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.30.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.31.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -152,8 +152,8 @@ rotated while keeping the account. **Use an account you would be willing to lose
 | `nmts balance` | Credits left, what they buy, and the ceilings on spending |
 | `nmts get <path>` | Download one file, decrypt it, check it |
 | `nmts pull [folder]` | Download a whole folder, or the whole account, keeping its shape |
-| `nmts put <file>` | Encrypt one file and upload it — **spends credits** |
-| `nmts push <directory>` | Upload a whole directory, keeping its shape — **spends credits** |
+| `nmts put <file>` | Encrypt one file and upload it — **spends credits**. `--deposit <n>` sets the deposit for this upload |
+| `nmts push <directory>` | Upload a whole directory, keeping its shape — **spends credits**. `--deposit <n>` applies to every file in it |
 | `nmts rm <paths>` | Move things to the trash — restorable for 30 days |
 | `nmts restore <paths>` | Bring things back out of the trash |
 | `nmts sweep` | Drop trash entries past their 30 days. **Cannot be undone** — asks every run |
@@ -166,6 +166,7 @@ rotated while keeping the account. **Use an account you would be willing to lose
 | `nmts label <name> <files>` | Put one label on files. `unlabel` takes it off; `--rename` and `--all` sweep the whole list |
 | `nmts on-collision` | What an upload does when its name is already taken |
 | `nmts padding [mode]` | How file sizes are hidden on the storage network, and change it for the next uploads |
+| `nmts deposit [credits]` | How many credits each credit-paid upload sets aside as a deposit (0 to 64, default 64), and change it |
 | `nmts tip [percent\|off]` | A standing share of every WAL payment sent to the developer as a gift (default 0). Setting it needs `nmts unlock donate`; the agreement is asked once |
 | `nmts expiring` | Which files run out of bought storage soon, and when |
 | `nmts losses` | Storage NMTS bought for you that the daily check could not find on the chain. `--recheck <id>` asks again; `--dismiss <id>` takes a line off |
@@ -263,6 +264,14 @@ whichever way the account's switch is set — today only the browser's small-fil
 `push` uploads a directory and **stops at the first failure**, saying what is already uploaded.
 Files whose name is already in the destination are skipped, so running it again is safe. Names
 beginning with a dot are left alone unless `--hidden` is given, and symbolic links are not followed.
+
+`nmts deposit` shows how many credits each credit-paid upload sets aside as a deposit, and `nmts
+deposit <n>` changes it for every device's next uploads (0 to 64, default 64). The deposit pays the
+chain fee of a later operation on that file — releasing its storage early, for instance — measured
+rather than spent whole, and what is left comes back when the storage period ends. `put --deposit
+<n>` and `push --deposit <n>` set it for one run. `--deposit 0` sets nothing aside: that file still
+releases, but pays twice the same fee out of the balance at that moment, and is refused with both
+numbers named when the balance cannot cover it.
 
 `nmts padding` shows how file sizes are hidden, and `nmts padding standard`, `nmts padding pow2` or
 `nmts padding off` changes it for every device's next uploads (`off` stores the exact size: the
@@ -487,7 +496,7 @@ It offers thirty-seven tools: reading the account (`nmts_whoami`, `nmts_list`, `
 `nmts_expiring`, `nmts_balance`, `nmts_shares`, `nmts_shares_sent`), the wallet's own reads
 (`nmts_wallet_activity`, `nmts_wallet_storage`), the signed-in devices (`nmts_devices`), storage the daily check could
 not find (`nmts_losses`, `nmts_loss_recheck`), fetching (`nmts_get`, `nmts_pull`, `nmts_receive`),
-uploading (`nmts_put`, `nmts_push`, `nmts_padding`), rearranging (`nmts_mkdir`, `nmts_move`,
+uploading (`nmts_put`, `nmts_push`, `nmts_padding`, `nmts_deposit`), rearranging (`nmts_mkdir`, `nmts_move`,
 `nmts_rename`, `nmts_mark`, `nmts_label_rename`, `nmts_unlabel_all`, `nmts_trash`, `nmts_restore`),
 sharing (`nmts_public_code`, `nmts_share`, `nmts_unshare`), writing to the developer
 (`nmts_support_send`, `nmts_support_list`, `nmts_support_show`, `nmts_support_reply`) and the

@@ -12,10 +12,12 @@
 // ⛔ SIX MARK VERBS ARE ONE TOOL, NOT SIX. A model choosing between `nmts_star` and `nmts_unstar`
 //    is choosing between two spellings of the same decision, and the pair that gets forgotten is
 //    the "un" one. One tool with the mark named and a switch says what is actually being decided.
+import { deposit } from "../commands/deposit.js";
 import { label, labelRename, pin, star, unlabel, unlabelAll, unpin, unstar } from "../commands/marks.js";
 import { mkdir, mv, rename } from "../commands/organise.js";
 import { padding } from "../commands/padding.js";
 import { restore, rm } from "../commands/trash.js";
+import { DEPOSIT_CREDITS_MAX } from "../deposit.js";
 import { common, needPaths, needString, say } from "./context.js";
 export function organiseTools(ctx) {
     return [
@@ -148,6 +150,30 @@ export function organiseTools(ctx) {
                 additionalProperties: false,
             },
             run: (args) => say((write) => padding(typeof args["mode"] === "string" ? args["mode"] : undefined, {
+                ...common(ctx),
+                json: true,
+                write,
+            })),
+        },
+        {
+            name: "nmts_deposit",
+            description: "Read or set how many credits this account sets aside as a deposit on each credit-paid " +
+                `upload, 0 to ${DEPOSIT_CREDITS_MAX}. Nothing here spends: it records what the next uploads will ` +
+                "set aside, from every device. The deposit pays the chain fee of a later operation on " +
+                "that file, measured rather than spent whole, and what is left comes back when the " +
+                "storage period ends. 0 is a real answer — a file with no deposit still releases, but " +
+                "pays twice the same fee out of the balance at that moment.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    credits: {
+                        type: "integer",
+                        description: `0 to ${DEPOSIT_CREDITS_MAX}. Leave it out to read the setting rather than change it.`,
+                    },
+                },
+                additionalProperties: false,
+            },
+            run: (args) => say((write) => deposit(typeof args["credits"] === "number" ? String(args["credits"]) : undefined, {
                 ...common(ctx),
                 json: true,
                 write,

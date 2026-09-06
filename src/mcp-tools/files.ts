@@ -24,6 +24,7 @@ import { pull } from "../commands/pull.ts";
 import { push } from "../commands/push.ts";
 import { put } from "../commands/put.ts";
 import { receive } from "../commands/receive.ts";
+import { DEPOSIT_CREDITS_MAX } from "../deposit.ts";
 import type { ToolDefinition } from "../mcp.ts";
 import { destinationFor } from "../safe-path.ts";
 import { common, needString, say, type ToolContext } from "./context.ts";
@@ -33,6 +34,12 @@ const SPENDS =
   "credits are not refundable. Pass dry_run to be told the price without spending it. The first " +
   "upload on a machine stops and asks the person to agree; show them what it says rather than " +
   "agreeing for them.";
+
+const DEPOSIT_HINT =
+  `Credits each uploaded file sets aside as a deposit, 0 to ${DEPOSIT_CREDITS_MAX}. Leave it out to use ` +
+  "the account's own default (nmts_deposit reads it). The deposit pays the chain fee of a later " +
+  "operation on that file and comes back when its storage period ends; 0 means a later release " +
+  "costs twice that fee out of the balance instead.";
 
 export function fileTools(ctx: ToolContext): ToolDefinition[] {
   return [
@@ -132,6 +139,7 @@ export function fileTools(ctx: ToolContext): ToolDefinition[] {
           file: { type: "string", description: "Path to a file ON THIS MACHINE to upload." },
           name: { type: "string", description: "The name it gets in the account. Defaults to the file's own." },
           to: { type: "string", description: "An existing folder in the account, as nmts_list prints it." },
+          deposit_credits: { type: "integer", description: DEPOSIT_HINT },
           dry_run: { type: "boolean", description: "Say what it would cost and stop. Nothing is sent or charged." },
         },
         required: ["file"],
@@ -144,6 +152,7 @@ export function fileTools(ctx: ToolContext): ToolDefinition[] {
             json: true,
             ...(typeof args["name"] === "string" ? { name: args["name"] } : {}),
             ...(typeof args["to"] === "string" ? { to: args["to"] } : {}),
+            ...(typeof args["deposit_credits"] === "number" ? { deposit: args["deposit_credits"] } : {}),
             ...(args["dry_run"] === true ? { dryRun: true } : {}),
             write,
           }),
@@ -165,6 +174,7 @@ export function fileTools(ctx: ToolContext): ToolDefinition[] {
           directory: { type: "string", description: "Path to a directory ON THIS MACHINE." },
           to: { type: "string", description: "An existing folder in the account to put it under." },
           include_hidden: { type: "boolean", description: "Also send names beginning with a dot." },
+          deposit_credits: { type: "integer", description: DEPOSIT_HINT },
           dry_run: { type: "boolean", description: "Price the whole tree and stop. Nothing is sent or charged." },
         },
         required: ["directory"],
@@ -177,6 +187,7 @@ export function fileTools(ctx: ToolContext): ToolDefinition[] {
             json: true,
             ...(typeof args["to"] === "string" ? { to: args["to"] } : {}),
             ...(args["include_hidden"] === true ? { hidden: true } : {}),
+            ...(typeof args["deposit_credits"] === "number" ? { deposit: args["deposit_credits"] } : {}),
             ...(args["dry_run"] === true ? { dryRun: true } : {}),
             write,
           }),

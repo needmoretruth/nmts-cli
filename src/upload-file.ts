@@ -114,6 +114,14 @@ export interface FileUploadInput {
    *    browser would be worse than not rounding: it would say which program uploaded the file.
    */
   padding: { rule: PaddingRule; unitBytes: number };
+  /**
+   * How many credits this file sets aside as a deposit, 0 to 64. Absent on the wallet rail, which
+   * buys its own storage and has no treasury deposit to set aside against it.
+   *
+   * ⛔ ONE NUMBER FOR THE WHOLE FILE, sent with every part's reservation, because the deposit is a
+   *    property of the FILE the person chose it for — not of how many parts it happened to need.
+   */
+  depositCredits?: number;
   onStep?: (step: FileUploadStep) => void;
   /**
    * Who buys ONE part and gets its bytes onto the network. Absent = the credit rail
@@ -210,6 +218,7 @@ export async function uploadFile(input: FileUploadInput): Promise<UploadResult> 
           currentEpoch: input.currentEpoch,
           // ⚠ The length the STREAM declares, which for a padded last part is more than the file
           //   contributes. The list entry keeps the file's real size; this is what was sealed.
+          depositCredits: input.depositCredits ?? 0,
           part: { index: range.partIndex, total: plan.length, plaintextLen: sealFrom },
           entry,
           onStep: (step) => onStep?.({ ...step, partIndex: range.partIndex, parts: plan.length }),

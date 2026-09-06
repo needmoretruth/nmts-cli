@@ -28,7 +28,7 @@ import {
   TEXT_SCALE_MAX_PCT,
   TEXT_SCALE_MIN_PCT,
 } from "./manifest-codec.ts";
-import { applyTipPatch } from "./manifest-settings.ts";
+import { applyDepositPatch, applyTipPatch } from "./manifest-settings.ts";
 
 /** One drive edit, in a form that can be replayed onto a newer list. */
 export type ManifestIntent =
@@ -243,13 +243,6 @@ function withShares(
 }
 
 /**
- * One account-settings edit, as DESIRED STATE per field.
- *
- * Same replay discipline as the intents above: a patch says what the field should BE, never
- * "toggle", so replaying it onto a list another device wrote lands the same answer. `false` /
- * `100` mean "back to the default", which the codec spells as absence.
- */
-/**
  * Which size-padding rule an account seals its next upload under.
  *
  * ⛔ DECLARED BESIDE THE PATCH THAT CARRIES IT, not in `lib/crypto/padding.ts` where the padding
@@ -259,11 +252,17 @@ function withShares(
  */
 export type PaddingMode = "padme" | "pow2" | "none";
 
+/**
+ * One account-settings edit, as DESIRED STATE per field — never "toggle", so replaying it onto a
+ * list another device wrote lands the same answer. A default value means absence in the codec.
+ */
 export interface SettingsPatch {
   developerMode?: boolean;
   textScalePct?: number;
   /** Which rule seals future uploads: `"padme"` = the default, `"none"` = the file's exact length. */
   paddingMode?: PaddingMode;
+  /** Credits held back with each credit-paid upload, 0 to `DEPOSIT_MAX_CREDITS`. */
+  depositDefault?: number;
   /** The standing tip in tenths of a percent (0 = none) and the instant its terms were agreed to (0 clears). */
   tipTenths?: number;
   tipConsentAt?: number;
@@ -298,10 +297,11 @@ export function applySettingsPatch(
     if (pct === TEXT_SCALE_DEFAULT_PCT) delete next.textScalePct;
     else next.textScalePct = pct;
   }
+  applyDepositPatch(next, patch.depositDefault);
   applyTipPatch(next, patch.tipTenths, patch.tipConsentAt);
   const same =
     (next.developerMode === true) === (settings.developerMode === true) &&
-    next.paddingMode === settings.paddingMode &&
+    next.paddingMode === settings.paddingMode && next.depositDefault === settings.depositDefault &&
     next.textScalePct === settings.textScalePct &&
     next.tipTenths === settings.tipTenths &&
     next.tipConsentAt === settings.tipConsentAt;

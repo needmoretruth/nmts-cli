@@ -17,6 +17,7 @@ const VALUE_OPTIONS = {
     "--to": "to",
     "--part-size": "partSize",
     "--on-collision": "onCollision",
+    "--deposit": "deposit",
     "--find": "find",
     "--sort": "sort",
     "--epochs": "epochs",

@@ -137,7 +137,7 @@ folders, marks), **low** (reversible but worth a word: the trash, a setting, a r
 | the account | `usage` / `balance` / `expiring` · `losses` · `trial` · `public-code` · `create` · `delete-account` · `accept-terms` |
 | paying and the wallet | `extend` · `wallet` (address · activity · storage · send · swap · donate · hall) |
 | other accounts | `share` / `shares` / `receive` / `unshare` |
-| settings | `on-collision` · `padding` · `tip` |
+| settings | `on-collision` · `padding` · `deposit` · `tip` |
 | for the day NMTS is not there | `recovery` / `recovery-list` / `kit` · `rebuild` / `rollback` |
 | the service | `notices` / `terms` / `privacy` · `support` · `update` |
 | for programs | `mcp` · `s3` |

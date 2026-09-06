@@ -16,6 +16,21 @@ export const TEXT_SCALE_MAX_PCT = 160;
 export const TEXT_SCALE_DEFAULT_PCT = 100;
 /** The most a standing tip can be: the whole payment. Above the dial's 10 % it is typed and confirmed. */
 export const TIP_TENTHS_MAX = 1000;
+/**
+ * The deposit range this format carries: whole credits, 0 to 64.
+ *
+ * ⚠ The SERVER's own ceiling rides on the account view (`deposit_max`) and is what the payment
+ * screen holds the chosen figure inside. This pair is the format's bound, so a value written by
+ * some other build is read back only when it is one this build can also write.
+ */
+export const DEPOSIT_MAX_CREDITS = 64;
+/** What an account's deposit is when nobody chose. Not written to the wire — absence spells it. */
+export const DEPOSIT_DEFAULT_CREDITS = DEPOSIT_MAX_CREDITS;
+/** The default deposit in force for an account, in credits. Absence is the full deposit, not 0. */
+export function depositDefaultOf(settings) {
+    const stored = settings?.depositDefault;
+    return typeof stored === "number" ? stored : DEPOSIT_DEFAULT_CREDITS;
+}
 /** Settings → wire, or null when every field is at its default (then nothing is written). */
 export function settingsToWire(s) {
     if (!s)
@@ -32,13 +47,26 @@ export function settingsToWire(s) {
     }
     if (s.paddingMode === "pow2" || s.paddingMode === "none")
         w.pd = s.paddingMode;
+    if (typeof s.depositDefault === "number" &&
+        Number.isInteger(s.depositDefault) &&
+        s.depositDefault >= 0 &&
+        s.depositDefault < DEPOSIT_MAX_CREDITS) {
+        w.dd = s.depositDefault;
+    }
     if (typeof s.tipTenths === "number" && Number.isInteger(s.tipTenths) && s.tipTenths > 0 && s.tipTenths <= TIP_TENTHS_MAX) {
         w.tp = s.tipTenths;
     }
     if (typeof s.tipConsentAt === "number" && Number.isFinite(s.tipConsentAt) && s.tipConsentAt > 0) {
         w.tc = Math.round(s.tipConsentAt);
     }
-    return w.dm !== undefined || w.tx !== undefined || w.pd !== undefined || w.tp !== undefined || w.tc !== undefined ? w : null;
+    return w.dm !== undefined ||
+        w.tx !== undefined ||
+        w.pd !== undefined ||
+        w.dd !== undefined ||
+        w.tp !== undefined ||
+        w.tc !== undefined
+        ? w
+        : null;
 }
 /**
  * Wire → settings, dropping anything unusable. A text scale outside the bounds is DROPPED, not
@@ -53,6 +81,7 @@ export function settingsFromWire(w) {
     const dm = Reflect.get(w, "dm");
     const tx = Reflect.get(w, "tx");
     const pd = Reflect.get(w, "pd");
+    const dd = Reflect.get(w, "dd");
     const tp = Reflect.get(w, "tp");
     const tc = Reflect.get(w, "tc");
     const s = {};
@@ -69,6 +98,11 @@ export function settingsFromWire(w) {
     // would give it a size no reader here can undo. Falling back to the default is always readable.
     if (pd === "pow2" || pd === "none")
         s.paddingMode = pd;
+    // A deposit outside the range is DROPPED, not clamped: holding back a number some other build
+    // miswrote is worse than holding back the full deposit, which is what every account starts at.
+    if (typeof dd === "number" && Number.isInteger(dd) && dd >= 0 && dd < DEPOSIT_MAX_CREDITS) {
+        s.depositDefault = dd;
+    }
     // A tip outside the bounds is DROPPED, not clamped: sending a share some other build miswrote is
     // worse than sending nothing, which is always what 0 means.
     if (typeof tp === "number" && Number.isInteger(tp) && tp > 0 && tp <= TIP_TENTHS_MAX)
@@ -78,10 +112,21 @@ export function settingsFromWire(w) {
     return s.developerMode !== undefined ||
         s.textScalePct !== undefined ||
         s.paddingMode !== undefined ||
+        s.depositDefault !== undefined ||
         s.tipTenths !== undefined ||
         s.tipConsentAt !== undefined
         ? s
         : undefined;
+}
+/** Folds a deposit patch into a settings copy: out-of-range is clamped, the full deposit clears. */
+export function applyDepositPatch(next, depositDefault) {
+    if (depositDefault === undefined || !Number.isFinite(depositDefault))
+        return;
+    const credits = Math.round(Math.min(DEPOSIT_MAX_CREDITS, Math.max(0, depositDefault)));
+    if (credits === DEPOSIT_DEFAULT_CREDITS)
+        delete next.depositDefault;
+    else
+        next.depositDefault = credits;
 }
 /** Folds a tip patch into a settings copy: 0 clears, above the cap is capped, fractions are rounded. */
 export function applyTipPatch(next, tipTenths, tipConsentAt) {

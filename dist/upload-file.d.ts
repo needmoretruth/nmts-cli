@@ -48,6 +48,14 @@ export interface FileUploadInput {
         rule: PaddingRule;
         unitBytes: number;
     };
+    /**
+     * How many credits this file sets aside as a deposit, 0 to 64. Absent on the wallet rail, which
+     * buys its own storage and has no treasury deposit to set aside against it.
+     *
+     * ⛔ ONE NUMBER FOR THE WHOLE FILE, sent with every part's reservation, because the deposit is a
+     *    property of the FILE the person chose it for — not of how many parts it happened to need.
+     */
+    depositCredits?: number;
     onStep?: (step: FileUploadStep) => void;
     /**
      * Who buys ONE part and gets its bytes onto the network. Absent = the credit rail

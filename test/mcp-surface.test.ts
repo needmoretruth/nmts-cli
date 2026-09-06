@@ -33,6 +33,7 @@ test("⛔ nothing a machine must not do is in the surface, and the reads that ar
   const names = mcpToolSchemas().map((t) => t.name).sort();
   assert.deepEqual(names, [
     "nmts_balance",
+    "nmts_deposit",
     "nmts_devices",
     "nmts_expiring",
     "nmts_get",

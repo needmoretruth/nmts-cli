@@ -24,6 +24,8 @@ export interface ParsedArgs {
     partSize?: string;
     /** `put`/`push`: what THIS run does about a name already in use. Absent = this machine's setting. */
     onCollision?: string;
+    /** `put`/`push`: credits THIS upload sets aside per file, 0 to 64. Absent = the account's default. */
+    deposit?: string;
     /** Answer yes to a warning this run would otherwise stop on. */
     yes: boolean;
     /** `public-code`: publish this account's public code on the server. Permanent. */
@@ -50,10 +52,8 @@ export interface ParsedArgs {
     pay?: string;
     /** `put --pay wallet`: `fit`, `whole`, or a held storage resource's object id. */
     storage?: string;
-    /**
-     * `consent grant wallet`: how long the grant lasts (days, at most 30), or until a date.
-     * `key new`: how many days the new API key lasts. The server clamps at its own ceiling.
-     */
+    /** `consent grant wallet`: how long the grant lasts (days, at most 30), or until a date.
+     *  `key new`: how many days the new API key lasts. The server clamps at its own ceiling. */
     days?: string;
     until?: string;
     /** `consent grant wallet`: `storage` or `all`. */
@@ -85,10 +85,8 @@ export interface ParsedArgs {
     acceptPrivacy?: string;
     /** `losses`: ask the chain about ONE listed storage object now, instead of listing. */
     recheck?: string;
-    /**
-     * `losses`: take ONE line off this account's own drive, instead of listing. ⛔ A VALUE AND NOT A
-     * FLAG, so the line put down is named on the command line: a person reads one and puts it down.
-     */
+    /** `losses`: take ONE line off this account's own drive, instead of listing. ⛔ A VALUE AND NOT
+     *  A FLAG, so the line put down is named on the command line: a person reads one and puts it down. */
     dismiss?: string;
     /** `shares`: who ONE file was shared with, instead of what was shared with this account. */
     sent?: string;

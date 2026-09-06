@@ -128,6 +128,9 @@ export declare const ACTS: {
     readonly padding: {
         readonly tier: "none";
     };
+    readonly deposit: {
+        readonly tier: "none";
+    };
     readonly notices: {
         readonly tier: "none";
     };
@@ -174,6 +177,10 @@ export declare const ACTS: {
     readonly "padding.set": {
         readonly tier: "low";
         readonly what: "Change how file sizes are hidden for the next uploads.";
+    };
+    readonly "deposit.set": {
+        readonly tier: "low";
+        readonly what: "Change how many credits the next uploads set aside as a deposit.";
     };
     readonly update: {
         readonly tier: "low";

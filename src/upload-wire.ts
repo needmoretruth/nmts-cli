@@ -63,6 +63,15 @@ export interface UploadApi {
     root_hash_b64: string;
     size: number;
     epochs: number;
+    /**
+     * How many credits this file sets aside as a deposit, 0 to 64.
+     *
+     * ⛔ ALWAYS SENT, NEVER LEFT TO THE SERVER'S DEFAULT. The number is a choice — the upload's
+     *    own `--deposit`, or the account's sealed default — and the price this tool printed named
+     *    it. A request that omitted it would let a server default decide an amount the person had
+     *    already been told, which is how a screen and a ledger come to disagree.
+     */
+    deposit_credits: number;
     relay: { host: string; blob_digest_b64: string; nonce_b64: string };
   }): Promise<ReserveReply>;
   status(ledgerId: number): Promise<StatusReply>;
@@ -150,6 +159,8 @@ export interface UploadInput extends CommitInput {
    *    register. `upload-store.ts` keeps them for exactly this.
    */
   sealed: Uint8Array;
+  /** How many credits this file sets aside as a deposit, 0 to 64. Passed straight to the reserve. */
+  depositCredits: number;
   /**
    * The relay this run writes through when the reservation is new.
    *
