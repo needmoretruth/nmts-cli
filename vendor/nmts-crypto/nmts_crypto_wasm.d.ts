@@ -150,6 +150,24 @@ export function account_code_parse(input: string): Uint8Array;
 export function b64_encode(data: Uint8Array): string;
 
 /**
+ * The ACCOUNT CODE of AI account number `index` (1-based) from the 32-byte `ai_account_root`
+ * (NCF-3 §1.5), in the same display form `account_code_generate` returns.
+ *
+ * ⛔ It takes the ROOT rather than the parent's code for the same reason `wallet_seed_for` does:
+ * the browser derives once at sign-in and keeps only the roots, so by the time somebody asks for
+ * an AI account the account code is long gone from memory and re-running Argon2id would mean
+ * asking them to type it again.
+ *
+ * The 20 bytes it returns are an ordinary account code — the child derives its own chain from
+ * them, including its own AI-account root, so the tree carries on downward under one rule. The
+ * expansion is one-way: a child's code reveals nothing about the parent's.
+ *
+ * Rejects `index` 0: AI accounts are numbered from 1, so that walking `1..=n` from the top code
+ * reaches every code that can exist beneath it.
+ */
+export function derive_ai_account_code(ai_account_root: Uint8Array, index: number): string;
+
+/**
  * Derives the 32-byte wrapping key for a passphrase-protected "remember this device" record.
  *
  * `salt` is 16 bytes the CALLER generated fresh for that record and stores beside the
@@ -206,7 +224,7 @@ export function header_plaintext_len(header: Uint8Array): number;
 /**
  * Derives the account keys from the 20 raw account-code bytes (NCF-3 §1).
  *
- * Returns one concatenated buffer (`KDF_DERIVE_LEN` = 256 bytes) the caller slices:
+ * Returns one concatenated buffer (`KDF_DERIVE_LEN` = 288 bytes) the caller slices:
  * ```text
  *   0.. 16  account_id         public — the server's lookup key
  *  16.. 48  auth_secret        secret — sent to the server over TLS at login
@@ -217,11 +235,13 @@ export function header_plaintext_len(header: Uint8Array): number;
  * 176..208  wallet_root        secret — parent of EVERY wallet, including the first
  * 208..224  share_address      public — the address a user hands out to be shared with
  * 224..256  share_sig_seed     secret — ML-DSA-44 seed; its key IS the identity root (§5.2a)
+ * 256..288  ai_account_root    secret — parent of every AI-account code (§1.5, the product rule of 2026-09-06)
  * ```
  * Every secret region above must be retained inside the crypto worker and never cross the
  * postMessage boundary.
  *
- * ⚠ **This layout only ever grows at the TAIL.** `share_sig_seed` was appended in 2026-08-02
+ * ⚠ **This layout only ever grows at the TAIL**, and `ai_account_root` was appended on 2026-09-06
+ * under the same rule. `share_sig_seed` was appended in 2026-08-02
  * rather than filed beside the other two share secrets, where it would read better, because
  * inserting it there would shift `wallet_root` and `share_address` and every constant on the
  * JS side would be silently wrong about which 32 bytes it was holding. Readability loses to
@@ -399,6 +419,7 @@ export interface InitOutput {
     readonly account_code_generate: () => [number, number];
     readonly account_code_parse: (a: number, b: number) => [number, number, number, number];
     readonly b64_encode: (a: number, b: number) => [number, number];
+    readonly derive_ai_account_code: (a: number, b: number, c: number) => [number, number, number, number];
     readonly device_wrap_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly envelope_open: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly envelope_seal: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];

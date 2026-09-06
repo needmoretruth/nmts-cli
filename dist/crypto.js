@@ -90,6 +90,14 @@ export const DERIVED = {
     walletRoot: [176, 208],
     shareAddress: [208, 224],
     shareSigSeed: [224, 256],
+    /**
+     * The root every one of this account's AI-account CODES is expanded from (NCF-3 §1.5).
+     *
+     * ⚠ Appended at the TAIL on 2026-09-06, for the reason `shareSigSeed` was: filing it anywhere
+     *   else would have shifted frozen offsets. Like `walletRoot` it is an HKDF PRK, expanded from
+     *   directly — and what it expands to is 20 bytes that ARE an account code, not a seed.
+     */
+    aiAccountRoot: [256, 288],
 };
 export function engineDir() {
     const here = dirname(fileURLToPath(import.meta.url));

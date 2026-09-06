@@ -8,6 +8,7 @@ export const account_code_display: (a: number, b: number) => [number, number, nu
 export const account_code_generate: () => [number, number];
 export const account_code_parse: (a: number, b: number) => [number, number, number, number];
 export const b64_encode: (a: number, b: number) => [number, number];
+export const derive_ai_account_code: (a: number, b: number, c: number) => [number, number, number, number];
 export const device_wrap_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const envelope_open: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const envelope_seal: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
