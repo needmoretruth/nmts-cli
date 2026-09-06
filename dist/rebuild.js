@@ -21,6 +21,14 @@
 //    would then agree those files do not exist — while the account goes on paying for them. An
 //    account left un-rebuilt is recoverable; a short list written over nothing is not.
 //
+// ⛔ AND NO PAIR IS WRITTEN DOWN UNCHECKED. A row's wrapped key is sealed under a fixed separator,
+//    not under the row's id, so every one of an account's keys opens under the same account key —
+//    which means a server that returned row A's key beside row B's id would produce a list whose
+//    pairs are wrong and that nothing on this side would notice. Each key is therefore tried
+//    against its own row's first sealed part (`rebuild-key-check.ts`) before the pair is sealed. A
+//    pair that does not open keeps its entry and loses its key: the entry is what says the file was
+//    there, and a key written beside the wrong file is a claim this tool cannot make.
+//
 // ⛔ THE TRASH IS PART OF IT. Trashed files are still stored, still charged for and still
 //    restorable, so a list built from the live rows alone would empty the trash of an account that
 //    rebuilt. ⚠ The server's trash view ends at the restore window: something thrown away longer
@@ -29,6 +37,7 @@
 import { request } from "./api.js";
 import { NmtsError } from "./errors.js";
 import { KIND_FILE } from "./shared/lib/drive/manifest-index.js";
+import { mayCarryKey, verifyKeyPairings, } from "./shared/lib/drive/rebuild-verify.js";
 import { uniqueFileName } from "./shared/lib/drive/unique-name.js";
 /**
  * How many pages of one listing a rebuild will read.
@@ -206,11 +215,15 @@ async function serverRowIds(base, apiKey) {
  *    lookup this tool refuses rather than resolves — a file nobody can fetch. Numbering the second
  *    one costs nothing and the person is going to rename both anyway.
  */
-export function entriesFrom(items) {
+export function entriesFrom(items, verdicts) {
     const taken = new Set();
     return items.map((item) => {
         const name = uniqueFileName(placeholderName(item.id), taken);
         taken.add(name);
+        // ⛔ THE KEY AND THE HASH TRAVEL TOGETHER OR NOT AT ALL. Both were filed beside this id by the
+        //    server, so a swap that moved one moved the other; keeping the hash without its key would
+        //    only move the failure somewhere less informative than here.
+        const paired = mayCarryKey(item.id, verdicts);
         return {
             id: item.id,
             parentId: null,
@@ -220,8 +233,8 @@ export function entriesFrom(items) {
             createdAt: item.createdAt,
             updatedAt: item.updatedAt,
             ...(item.deletedAt === undefined ? {} : { deletedAt: item.deletedAt }),
-            ...(item.dekWrapped === undefined ? {} : { dekWrapped: item.dekWrapped }),
-            ...(item.contentHashCt === undefined ? {} : { contentHashCt: item.contentHashCt }),
+            ...(!paired || item.dekWrapped === undefined ? {} : { dekWrapped: item.dekWrapped }),
+            ...(!paired || item.contentHashCt === undefined ? {} : { contentHashCt: item.contentHashCt }),
         };
     });
 }
@@ -242,7 +255,14 @@ export async function rebuildFromServer(input) {
     for (const item of trashed)
         byId.set(item.id, item);
     const items = [...byId.values()];
-    const entries = entriesFrom(items);
+    // ⛔ BEFORE ANY PAIR IS WRITTEN DOWN. Once a pairing is sealed it is carried by every later edit
+    //    and copied into the recovery list, so this is the last moment it can still be checked.
+    const verdicts = await verifyKeyPairings({
+        rows: items,
+        openFirstPartHeader: (item) => input.verify(item),
+        ...(input.onVerifyProgress === undefined ? {} : { onProgress: input.onVerifyProgress }),
+    });
+    const entries = entriesFrom(items, verdicts);
     const held = await serverRowIds(input.server, input.apiKey);
     const unaccounted = held === null ? null : [...held].filter((id) => !byId.has(id)).length;
     return {
@@ -250,6 +270,8 @@ export async function rebuildFromServer(input) {
         live: items.filter((item) => item.deletedAt === undefined).length,
         trashed: items.filter((item) => item.deletedAt !== undefined).length,
         keyless: items.filter((item) => item.dekWrapped === undefined).length,
+        verified: verdicts.verified.size,
+        unverified: verdicts.unverified,
         unaccounted,
     };
 }

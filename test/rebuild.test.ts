@@ -18,14 +18,28 @@ import { createFirstList } from "../src/manifest-create.ts";
 import { entry } from "./fake-drive.ts";
 import { lines, row, startFakeItems, withAccount } from "./fake-items.ts";
 import { identityOf } from "../src/account.ts";
+import type { SourceItem } from "../src/rebuild.ts";
+import type { PairVerdict } from "../src/shared/lib/drive/rebuild-verify.ts";
 
 const fake = await startFakeItems();
 after(() => fake.close());
+
+/**
+ * A key check that answers "yes" without looking.
+ *
+ * ⚠ EVERY TEST BELOW BUT THE LAST TWO IS ABOUT SOMETHING ELSE — paging, refusals, the trash, what
+ *   is written. The fake server's rows carry made-up key strings and no stored bytes, so the real
+ *   check has nothing to open; a stub keeps those tests measuring what they were written to
+ *   measure. The check itself is proved against a fake storage network in
+ *   `web/test/rebuild-key-check.test.ts`, on the module both programs share.
+ */
+const opensAlways = async (): Promise<PairVerdict> => ({ ok: true });
 
 const opts = (out: { write: (line: string) => void }, over: Record<string, unknown> = {}) => ({
   server: fake.base,
   network: "testnet",
   write: out.write,
+  verify: opensAlways,
   ...over,
 });
 
@@ -230,5 +244,48 @@ test("rows the server holds that no listing returned are counted, not passed ove
     const said = lines();
     await rebuild(opts(said));
     assert.match(said.out.join("\n"), /1 row the server holds/, "it did not say a row was left out");
+  });
+});
+
+// ── it says which keys it could show belong to their files ────────────────────────────────────
+
+test("the counts say how many keys opened their own file, and name the ones that did not", async () => {
+  // The pairing is the one thing a rebuild cannot check by reading the listing: every key of an
+  // account opens under the same account key, so a swapped pair looks exactly like a right one.
+  // What the command owes somebody is the number and the ids — a count alone leaves nobody able
+  // to act on it.
+  await withAccount(fake, "rebuild-key-counts", async (code) => {
+    fake.items = [
+      row({ id: "aaaaaaaa-1111-2222-3333-444444444444" }),
+      row({ id: "bbbbbbbb-1111-2222-3333-444444444444" }),
+    ];
+    const wrong = "bbbbbbbb-1111-2222-3333-444444444444";
+    const verify = async (item: SourceItem): Promise<PairVerdict> =>
+      item.id === wrong ? { ok: false, reason: "wrong-key" } : { ok: true };
+
+    const out = lines();
+    assert.equal(await rebuild(opts(out, { yes: true, verify })), 0, out.out.join("\n"));
+    const text = out.out.join("\n");
+    assert.match(text, /1 verified, 1 not/, "it did not print how many pairs it could show");
+    assert.match(text, new RegExp(wrong), "it did not name the file whose key was not verified");
+
+    const written = await fake.lastWritten(code);
+    assert.equal(written.find((e) => e.id === wrong)?.dekWrapped, undefined, "it sealed a key it could not show belongs to that file");
+    assert.ok(written.find((e) => e.id === wrong), "the entry itself was dropped, losing the only record the file is stored");
+  });
+});
+
+test("⛔ an account where NOT ONE key opened its own file is refused rather than sealed", async () => {
+  // A wholly wrong key set is a different thing from one unreachable aggregator: sealing it would
+  // put a list on the server naming every file and opening none of them.
+  await withAccount(fake, "rebuild-key-none", async () => {
+    fake.items = [row({ id: "aaaaaaaa-1111-2222-3333-444444444444" })];
+    const verify = async (): Promise<PairVerdict> => ({ ok: false, reason: "wrong-key" });
+
+    const out = lines();
+    const error = await refusal(rebuild(opts(out, { yes: true, verify })));
+    assert.equal(error.exitCode, 4);
+    assert.match(error.message, /Not one of this account's keys/);
+    assert.equal(fake.written.length, 0, "it sealed a list built from a key set that opens nothing");
   });
 });

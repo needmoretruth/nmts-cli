@@ -125,6 +125,15 @@ export interface ReadOptions {
   hosts?: readonly string[];
   timeoutMs?: number;
   signal?: AbortSignal | undefined;
+  /**
+   * Read only these bytes: inclusive start, EXCLUSIVE end. Absent reads the whole object.
+   *
+   * ⛔ IT IS A REQUEST, NOT A GUARANTEE. An aggregator is free to ignore `Range` and answer 200
+   *    with everything, so what comes back is cut to the asked-for length here. Without that cut
+   *    the one caller that uses this — the rebuild's 72-byte key check — would quietly become a
+   *    download of the whole account.
+   */
+  range?: { start: number; end: number };
 }
 
 function hostsFor(network: string, options: ReadOptions): readonly string[] {
@@ -162,12 +171,22 @@ async function readFrom(
     const signal =
       options.signal === undefined ? timer : AbortSignal.any([timer, options.signal]);
     try {
-      const response = await fetch(url, { signal, redirect: "follow" });
+      const response = await fetch(url, { signal, redirect: "follow", ...headersFor(options) });
       if (!response.ok) {
         tried.push(`${host} → ${response.status}`);
         continue;
       }
-      return new Uint8Array(await response.arrayBuffer());
+      const body = new Uint8Array(await response.arrayBuffer());
+      const range = options.range;
+      if (range === undefined) return body;
+      const want = range.end - range.start;
+      // A 206 already holds exactly the asked-for bytes; a 200 holds the object from byte zero.
+      if (body.length === want) return body;
+      if (body.length < range.end) {
+        tried.push(`${host} → answered ${body.length} bytes for a ${want}-byte range`);
+        continue;
+      }
+      return body.subarray(range.start, range.end);
     } catch (error) {
       // ⛔ The reason is kept, not flattened to "failed". A timeout and a refused connection mean
       //    different things, and the last host's reason is what the person reads.
@@ -180,6 +199,14 @@ async function readFrom(
       `Tried: ${tried.join(" · ")}. If every host answered 404, either the bytes are gone or ` +
       `this is the wrong network — the same identifier does not exist on both.`,
   });
+}
+
+/** The `Range` header for a partial read, or nothing at all for a whole one. */
+function headersFor(options: ReadOptions): { headers?: Record<string, string> } {
+  const range = options.range;
+  if (range === undefined) return {};
+  // HTTP ranges are inclusive at both ends; this one is exclusive at the end.
+  return { headers: { Range: `bytes=${range.start}-${range.end - 1}` } };
 }
 
 /** Whole-blob read: `GET {aggregator}/v1/blobs/{blobId}`. */

@@ -1,4 +1,5 @@
 import type { ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";
+import { type PairingVerdicts, type PairVerdict, type UnverifiedPair } from "./shared/lib/drive/rebuild-verify.ts";
 /**
  * Stand-in name for a file the server can no longer name. Deliberately not a sentence and
  * deliberately language-neutral: it sits in the field a person's own file names sit in, and the
@@ -31,6 +32,16 @@ export interface RebuiltList {
      * point of counting them.
      */
     keyless: number;
+    /** How many keys were shown to open their own file. Only these entries carry a key. */
+    verified: number;
+    /**
+     * Every file whose key was not shown to belong to it, with why, in listing order.
+     *
+     * ⛔ NOT A FAILURE ON ITS OWN. One unreadable aggregator is a file whose key is withheld until
+     *    the next rebuild; the whole account failing is a different thing, and the command tells
+     *    them apart rather than treating a bad afternoon on the network as a wrong key set.
+     */
+    unverified: readonly UnverifiedPair[];
     /**
      * Rows the server says it holds that this rebuild has no entry for, or null when that could not
      * be checked. Not a failure: something thrown away before the restore window closed is exactly
@@ -49,12 +60,22 @@ export interface RebuiltList {
  *    lookup this tool refuses rather than resolves — a file nobody can fetch. Numbering the second
  *    one costs nothing and the person is going to rename both anyway.
  */
-export declare function entriesFrom(items: readonly SourceItem[]): ManifestEntry[];
+export declare function entriesFrom(items: readonly SourceItem[], verdicts: PairingVerdicts): ManifestEntry[];
 export interface RebuildInput {
     server: string;
     apiKey: string;
     /** Called as pages arrive, so a large account is not a silent wait. */
     onProgress?: (read: number) => void;
+    /**
+     * Show that ONE row's key opens ONE row's own first sealed part — `rebuild-key-check.ts`.
+     *
+     * ⛔ REQUIRED, AND NOT OPTIONAL FOR A REASON. An optional check is a check some caller skips, and
+     *    a wrong pairing is invisible when it is written: the entry looks ordinary, seals into the
+     *    list, and is only found years later as a file that will not open.
+     */
+    verify(item: SourceItem): Promise<PairVerdict>;
+    /** Ticks while the headers are being read, so the second half is not a silent wait either. */
+    onVerifyProgress?: (checked: number, total: number) => void;
 }
 /**
  * Read the whole account and work out the list it would be sealed as. Writes nothing.

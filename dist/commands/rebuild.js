@@ -19,12 +19,21 @@
 //        exists — so a list that appears while this runs comes back as a refusal rather than as a
 //        replacement.
 //
+// ⛔ AND IT DOES NOT SEAL A PAIRING IT HAS NOT CHECKED. Every key the server hands back is tried
+//    against its own row's first sealed part before the list is written; a key that does not open
+//    its file is left off the entry and reported by id. Only an account where NOT ONE key opened
+//    is a failure — that is a wrong key set, and going ahead would seal a list that opens nothing.
+//    One file whose aggregator was down is not that, and refusing the whole rebuild over it would
+//    leave somebody with no list at all.
+//
 // ⚠ A THIRD CASE IS NOT A MISSING LIST AT ALL: this machine has a record of a list for this
 //   account and the server now says there is none. That is a list that WENT missing — the shape a
 //   server would take to make a device throw away its real names — so it stops, and `--force` is
 //   how somebody who knows their list was genuinely lost goes ahead anyway.
+import { loadCrypto } from "../crypto.js";
 import { NmtsError } from "../errors.js";
 import { createFirstList } from "../manifest-create.js";
+import { accountKeyCheck } from "../rebuild-key-check.js";
 import { readFileList } from "../manifest.js";
 import { BINARY_NAME } from "../product.js";
 import { rebuildFromServer } from "../rebuild.js";
@@ -37,6 +46,8 @@ function summary(built, wrote, extra = {}) {
         live: built.live,
         trashed: built.trashed,
         keyless: built.keyless,
+        verified: built.verified,
+        unverified: built.unverified.map((u) => ({ id: u.id, reason: u.reason })),
         unaccounted: built.unaccounted,
         namesRecovered: false,
         foldersRecovered: false,
@@ -70,16 +81,45 @@ export async function rebuild(options = {}) {
     //   enough to show movement and rare enough not to bury what comes after it. The machine-readable
     //   run stays silent: its output is one object, and a progress line on that stream would break it.
     let announced = 0;
-    const built = await rebuildFromServer({
-        server: session.server,
-        apiKey: session.apiKey,
-        onProgress: (read) => {
-            if (options.json === true || read < announced + 1000)
-                return;
-            announced = read;
-            say(`  read ${read} stored files so far...`);
-        },
-    });
+    // ⛔ THE CHECKER HOLDS THIS ACCOUNT'S DATA KEY until `done()`, so every path out of the read —
+    //    including a refusal from the listing — has to reach it.
+    let checker = null;
+    let verify = options.verify;
+    if (verify === undefined) {
+        const real = accountKeyCheck({
+            server: session.server,
+            apiKey: session.apiKey,
+            accountCode: session.code,
+            chain: session.network,
+            crypt: await loadCrypto(),
+        });
+        checker = real;
+        verify = (item) => real.check(item);
+    }
+    let built;
+    try {
+        let checkedAnnounced = 0;
+        built = await rebuildFromServer({
+            server: session.server,
+            apiKey: session.apiKey,
+            verify,
+            onProgress: (read) => {
+                if (options.json === true || read < announced + 1000)
+                    return;
+                announced = read;
+                say(`  read ${read} stored files so far...`);
+            },
+            onVerifyProgress: (checked, total) => {
+                if (options.json === true || checked < checkedAnnounced + 1000)
+                    return;
+                checkedAnnounced = checked;
+                say(`  checked ${checked} of ${total} keys against their own files...`);
+            },
+        });
+    }
+    finally {
+        checker?.done();
+    }
     if (built.entries.length === 0) {
         if (options.json) {
             say(summary(built, false));
@@ -88,6 +128,17 @@ export async function rebuild(options = {}) {
         say(`This account has no file list, and the server holds no stored files for it either.`);
         say(`There is nothing to rebuild from. Nothing was changed.`);
         return 0;
+    }
+    // ⛔ NOT ONE KEY OPENED ITS OWN FILE, and at least one row had a key to try. That is not a bad
+    //    afternoon on the network — it is a key set that belongs to something else, and sealing it
+    //    would put a list on the server whose every entry names bytes it cannot open.
+    if (built.verified === 0 && built.keyless < built.entries.length) {
+        throw new NmtsError(`Not one of this account's keys opened the file it was filed beside.`, {
+            exitCode: 4,
+            nextStep: `Nothing was changed. Either this is not this account's code, or the storage network could ` +
+                `not be reached at all — ${describeReasons(built)}. A list sealed from these pairs would ` +
+                `name every file and open none of them.`,
+        });
     }
     if (options.yes !== true) {
         if (options.json) {
@@ -111,6 +162,7 @@ export async function rebuild(options = {}) {
     say(`  Every file is at the top of the drive under a placeholder name — the server had no name,`);
     say(`  no folder and no placement to give back.`);
     say(`  \`${BINARY_NAME} ls\` shows them; \`${BINARY_NAME} rename\` and \`${BINARY_NAME} mv\` put them back.`);
+    reportKeys(say, built);
     reportGaps(say, built);
     return 0;
 }
@@ -133,7 +185,53 @@ function describe(say, built) {
     say(``);
     say(`  None of that is a fault: the server was built not to know it. It keeps a row per stored`);
     say(`  file and the key that opens it, and nothing about what the file is called.`);
+    reportKeys(say, built);
     reportGaps(say, built);
+}
+/**
+ * Which keys were shown to open their own file, and which were not.
+ *
+ * ⛔ THE UNVERIFIED ONES ARE NAMED, one line each. A count alone would say "some of your files came
+ *    back without a key" and leave nobody able to act on it; the id is what `nmts ls` shows and
+ *    what a second run can be compared against.
+ */
+function reportKeys(say, built) {
+    const checked = built.entries.length - built.keyless;
+    if (checked === 0)
+        return;
+    say(``);
+    const notVerified = countUnverified(built);
+    say(`  Keys checked against their own files: ${built.verified} verified, ${notVerified} not.`);
+    if (notVerified === 0)
+        return;
+    say(`  A file whose key was not verified keeps its entry and no key — nothing else on this side`);
+    say(`  can say that key belongs to that file, and a wrong pairing would be sealed for good.`);
+    for (const one of built.unverified) {
+        if (one.reason === "no-key")
+            continue;
+        say(`    ${one.id}  ${WHY[one.reason]}`);
+    }
+}
+/** How many pairs were left unverified, not counting rows that never had a key to check. */
+function countUnverified(built) {
+    return built.unverified.filter((u) => u.reason !== "no-key").length;
+}
+/** One plain line per reason a pair was not shown to belong together. */
+const WHY = {
+    "no-key": "the server holds no key for it",
+    "no-parts": "the server names no stored bytes for it",
+    unreadable: "its stored bytes could not be read, so the key could not be tried",
+    "wrong-key": "this key does not open this file",
+};
+/** The reasons behind a wholly unverified account, most common first, for the refusal's next step. */
+function describeReasons(built) {
+    const counts = new Map();
+    for (const one of built.unverified)
+        counts.set(one.reason, (counts.get(one.reason) ?? 0) + 1);
+    return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([reason, n]) => `${n} × ${WHY[reason]}`)
+        .join(", ");
 }
 /** The parts of the account this rebuild could not account for. Printed on both paths. */
 function reportGaps(say, built) {

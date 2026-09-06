@@ -140,12 +140,24 @@ async function readFrom(network, pathOf, what, options) {
         const timer = AbortSignal.timeout(options.timeoutMs ?? READ_TIMEOUT_MS);
         const signal = options.signal === undefined ? timer : AbortSignal.any([timer, options.signal]);
         try {
-            const response = await fetch(url, { signal, redirect: "follow" });
+            const response = await fetch(url, { signal, redirect: "follow", ...headersFor(options) });
             if (!response.ok) {
                 tried.push(`${host} → ${response.status}`);
                 continue;
             }
-            return new Uint8Array(await response.arrayBuffer());
+            const body = new Uint8Array(await response.arrayBuffer());
+            const range = options.range;
+            if (range === undefined)
+                return body;
+            const want = range.end - range.start;
+            // A 206 already holds exactly the asked-for bytes; a 200 holds the object from byte zero.
+            if (body.length === want)
+                return body;
+            if (body.length < range.end) {
+                tried.push(`${host} → answered ${body.length} bytes for a ${want}-byte range`);
+                continue;
+            }
+            return body.subarray(range.start, range.end);
         }
         catch (error) {
             // ⛔ The reason is kept, not flattened to "failed". A timeout and a refused connection mean
@@ -158,6 +170,14 @@ async function readFrom(network, pathOf, what, options) {
         nextStep: `Tried: ${tried.join(" · ")}. If every host answered 404, either the bytes are gone or ` +
             `this is the wrong network — the same identifier does not exist on both.`,
     });
+}
+/** The `Range` header for a partial read, or nothing at all for a whole one. */
+function headersFor(options) {
+    const range = options.range;
+    if (range === undefined)
+        return {};
+    // HTTP ranges are inclusive at both ends; this one is exclusive at the end.
+    return { headers: { Range: `bytes=${range.start}-${range.end - 1}` } };
 }
 /** Whole-blob read: `GET {aggregator}/v1/blobs/{blobId}`. */
 export function readBlob(network, blobId, options = {}) {

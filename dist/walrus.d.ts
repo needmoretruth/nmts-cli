@@ -62,6 +62,18 @@ export interface ReadOptions {
     hosts?: readonly string[];
     timeoutMs?: number;
     signal?: AbortSignal | undefined;
+    /**
+     * Read only these bytes: inclusive start, EXCLUSIVE end. Absent reads the whole object.
+     *
+     * ⛔ IT IS A REQUEST, NOT A GUARANTEE. An aggregator is free to ignore `Range` and answer 200
+     *    with everything, so what comes back is cut to the asked-for length here. Without that cut
+     *    the one caller that uses this — the rebuild's 72-byte key check — would quietly become a
+     *    download of the whole account.
+     */
+    range?: {
+        start: number;
+        end: number;
+    };
 }
 /** Whole-blob read: `GET {aggregator}/v1/blobs/{blobId}`. */
 export declare function readBlob(network: string, blobId: string, options?: ReadOptions): Promise<Uint8Array>;

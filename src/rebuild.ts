@@ -21,6 +21,14 @@
 //    would then agree those files do not exist — while the account goes on paying for them. An
 //    account left un-rebuilt is recoverable; a short list written over nothing is not.
 //
+// ⛔ AND NO PAIR IS WRITTEN DOWN UNCHECKED. A row's wrapped key is sealed under a fixed separator,
+//    not under the row's id, so every one of an account's keys opens under the same account key —
+//    which means a server that returned row A's key beside row B's id would produce a list whose
+//    pairs are wrong and that nothing on this side would notice. Each key is therefore tried
+//    against its own row's first sealed part (`rebuild-key-check.ts`) before the pair is sealed. A
+//    pair that does not open keeps its entry and loses its key: the entry is what says the file was
+//    there, and a key written beside the wrong file is a claim this tool cannot make.
+//
 // ⛔ THE TRASH IS PART OF IT. Trashed files are still stored, still charged for and still
 //    restorable, so a list built from the live rows alone would empty the trash of an account that
 //    rebuilt. ⚠ The server's trash view ends at the restore window: something thrown away longer
@@ -31,6 +39,13 @@ import { request } from "./api.ts";
 import { NmtsError } from "./errors.ts";
 import type { ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";
 import { KIND_FILE } from "./shared/lib/drive/manifest-index.ts";
+import {
+  mayCarryKey,
+  verifyKeyPairings,
+  type PairingVerdicts,
+  type PairVerdict,
+  type UnverifiedPair,
+} from "./shared/lib/drive/rebuild-verify.ts";
 import { uniqueFileName } from "./shared/lib/drive/unique-name.ts";
 
 /**
@@ -79,6 +94,16 @@ export interface RebuiltList {
    * point of counting them.
    */
   keyless: number;
+  /** How many keys were shown to open their own file. Only these entries carry a key. */
+  verified: number;
+  /**
+   * Every file whose key was not shown to belong to it, with why, in listing order.
+   *
+   * ⛔ NOT A FAILURE ON ITS OWN. One unreadable aggregator is a file whose key is withheld until
+   *    the next rebuild; the whole account failing is a different thing, and the command tells
+   *    them apart rather than treating a bad afternoon on the network as a wrong key set.
+   */
+  unverified: readonly UnverifiedPair[];
   /**
    * Rows the server says it holds that this rebuild has no entry for, or null when that could not
    * be checked. Not a failure: something thrown away before the restore window closed is exactly
@@ -256,11 +281,18 @@ async function serverRowIds(base: string, apiKey: string): Promise<Set<string> |
  *    lookup this tool refuses rather than resolves — a file nobody can fetch. Numbering the second
  *    one costs nothing and the person is going to rename both anyway.
  */
-export function entriesFrom(items: readonly SourceItem[]): ManifestEntry[] {
+export function entriesFrom(
+  items: readonly SourceItem[],
+  verdicts: PairingVerdicts,
+): ManifestEntry[] {
   const taken = new Set<string>();
   return items.map((item) => {
     const name = uniqueFileName(placeholderName(item.id), taken);
     taken.add(name);
+    // ⛔ THE KEY AND THE HASH TRAVEL TOGETHER OR NOT AT ALL. Both were filed beside this id by the
+    //    server, so a swap that moved one moved the other; keeping the hash without its key would
+    //    only move the failure somewhere less informative than here.
+    const paired = mayCarryKey(item.id, verdicts);
     return {
       id: item.id,
       parentId: null,
@@ -270,8 +302,8 @@ export function entriesFrom(items: readonly SourceItem[]): ManifestEntry[] {
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
       ...(item.deletedAt === undefined ? {} : { deletedAt: item.deletedAt }),
-      ...(item.dekWrapped === undefined ? {} : { dekWrapped: item.dekWrapped }),
-      ...(item.contentHashCt === undefined ? {} : { contentHashCt: item.contentHashCt }),
+      ...(!paired || item.dekWrapped === undefined ? {} : { dekWrapped: item.dekWrapped }),
+      ...(!paired || item.contentHashCt === undefined ? {} : { contentHashCt: item.contentHashCt }),
     };
   });
 }
@@ -281,6 +313,16 @@ export interface RebuildInput {
   apiKey: string;
   /** Called as pages arrive, so a large account is not a silent wait. */
   onProgress?: (read: number) => void;
+  /**
+   * Show that ONE row's key opens ONE row's own first sealed part — `rebuild-key-check.ts`.
+   *
+   * ⛔ REQUIRED, AND NOT OPTIONAL FOR A REASON. An optional check is a check some caller skips, and
+   *    a wrong pairing is invisible when it is written: the entry looks ordinary, seals into the
+   *    list, and is only found years later as a file that will not open.
+   */
+  verify(item: SourceItem): Promise<PairVerdict>;
+  /** Ticks while the headers are being read, so the second half is not a silent wait either. */
+  onVerifyProgress?: (checked: number, total: number) => void;
 }
 
 /**
@@ -302,7 +344,15 @@ export async function rebuildFromServer(input: RebuildInput): Promise<RebuiltLis
   for (const item of trashed) byId.set(item.id, item);
   const items = [...byId.values()];
 
-  const entries = entriesFrom(items);
+  // ⛔ BEFORE ANY PAIR IS WRITTEN DOWN. Once a pairing is sealed it is carried by every later edit
+  //    and copied into the recovery list, so this is the last moment it can still be checked.
+  const verdicts = await verifyKeyPairings({
+    rows: items,
+    openFirstPartHeader: (item) => input.verify(item),
+    ...(input.onVerifyProgress === undefined ? {} : { onProgress: input.onVerifyProgress }),
+  });
+
+  const entries = entriesFrom(items, verdicts);
   const held = await serverRowIds(input.server, input.apiKey);
   const unaccounted = held === null ? null : [...held].filter((id) => !byId.has(id)).length;
 
@@ -311,6 +361,8 @@ export async function rebuildFromServer(input: RebuildInput): Promise<RebuiltLis
     live: items.filter((item) => item.deletedAt === undefined).length,
     trashed: items.filter((item) => item.deletedAt !== undefined).length,
     keyless: items.filter((item) => item.dekWrapped === undefined).length,
+    verified: verdicts.verified.size,
+    unverified: verdicts.unverified,
     unaccounted,
   };
 }
