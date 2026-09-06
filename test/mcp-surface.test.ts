@@ -75,10 +75,11 @@ test("⛔ nothing a machine must not do is in the surface, and the reads that ar
   //    tool's answer goes straight into a model's context and whatever transcript is kept of it —
   //    the one place this program spends its whole design keeping that value out of. The account
   //    it would create is also recorded as accepting two documents, and a model calling a tool is
-  //    not a person consenting. The free TRIAL is the giveaway's own surface: the server asks
-  //    every application for a fresh browser check no tool can produce, so a model could only ever
-  //    drive it into a refusal, and asking for something for nothing on somebody's behalf is not a
-  //    step to take without them. Both stay commands a person runs.
+  //    not a person consenting. The free TRIAL is the giveaway's own surface: asking
+  //    for something for nothing on somebody's behalf is not a step to take without them, and
+  //    that reason is untouched by the server dropping its per-application browser check for
+  //    verified keys (the 2026-09-06 decision) — what changed is that a model could now SUCCEED at it, which is
+  //    the case for leaving it out, not against. Both stay commands a person runs.
   // ⛔ AND `key` IS THE SHARPEST OF THEM (2026-09-05). `nmts key new` mints a credential out of
   //    the account code, and a tool for it would hand a model the one thing the server refuses a
   //    key at: a key that can make keys makes revoking one meaningless, because revoking it leaves

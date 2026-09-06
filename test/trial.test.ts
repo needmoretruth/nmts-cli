@@ -30,6 +30,8 @@ let week = {
 };
 /** When set, `POST /v1/trial/apply` refuses with this code instead of granting. */
 let refuseApplyWith: string | null = null;
+/** What each application actually put in its body — the token question, asked of the wire. */
+let applyBodies: unknown[] = [];
 let calls: string[] = [];
 let base = "";
 
@@ -50,10 +52,17 @@ const server: Server = createServer((req, res) => {
   }
   if (method === "GET" && path === "/v1/trial") return send(200, week);
   if (method === "POST" && path === "/v1/trial/apply") {
-    if (refuseApplyWith !== null) {
-      return send(403, { error: { code: refuseApplyWith, message: "refused by the test" } });
-    }
-    return send(201, { credits: 64, expires_at: "2026-09-21T00:00:00Z", round: week.round });
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      const raw = Buffer.concat(chunks).toString("utf8");
+      applyBodies.push(raw === "" ? null : JSON.parse(raw));
+      if (refuseApplyWith !== null) {
+        return send(403, { error: { code: refuseApplyWith, message: "refused by the test" } });
+      }
+      send(201, { credits: 64, expires_at: "2026-09-21T00:00:00Z", round: week.round });
+    });
+    return;
   }
   send(404, { error: { code: "NOT_FOUND", message: "no such route" } });
 });
@@ -71,6 +80,7 @@ async function withSandbox(name: string, body: () => Promise<void>): Promise<voi
   process.env[API_KEY_ENV_VAR] = KEY;
   verified = true;
   refuseApplyWith = null;
+  applyBodies = [];
   calls = [];
   week = {
     live: true,
@@ -145,6 +155,19 @@ test("⛔ applying reports the grant, and asks once", async () => {
   });
 });
 
+// ⛔⭐ THE APPLICATION CARRIES NO BROWSER-CHECK TOKEN, and it is granted anyway (decided
+//    2026-09-06). Before it, the route asked every application for one and this tool could not
+//    produce it, so the whole command was unusable against the live service. What stands in for it
+//    is the account's four-week check, which `GET /v1/agent/verify` above already reported live.
+test("⛔ the application sends no browser-check token and is granted", async () => {
+  await withSandbox("trial-apply-no-token", async () => {
+    const out = collect();
+    assert.equal(await trial("apply", { server: base, network: "testnet", write: out.write }), 0);
+    assert.deepEqual(applyBodies, [{}], `the application carried a token: ${JSON.stringify(applyBodies)}`);
+    assert.match(out.lines.join("\n"), /Granted: 64 credits/u);
+  });
+});
+
 test("⛔ an account that already has its place is told so, and does not apply again", async () => {
   await withSandbox("trial-already", async () => {
     week = { ...week, already: true };
@@ -156,17 +179,17 @@ test("⛔ an account that already has its place is told so, and does not apply a
   });
 });
 
-test("⛔ the browser check this tool cannot pass is named as itself, not as a credential problem", async () => {
+test("⛔ a server that still asks for a browser check sends the caller to `nmts verify`", async () => {
   await withSandbox("trial-turnstile", async () => {
     refuseApplyWith = "TURNSTILE_FAILED";
     const failed = await refusalFrom("apply");
     const said = `${failed.message}\n${failed.nextStep}`;
-    assert.match(said, /browser/u);
-    // ⛔ THE ADVICE `api.ts` CARRIES FOR THIS CODE IS WRONG HERE — it says an API key waives the
-    //    check, which is true of signing in and false of this route. A caller that read it would
-    //    make a key and be refused again.
+    // ⛔ THE ADVICE `api.ts` CARRIES FOR THIS CODE IS WRONG HERE — it says a machine credential
+    //    waives the check. What waives it on this route is the account's four-week check, so a
+    //    caller that read the generic advice would make another key and be refused again.
     assert.ok(!/API key/iu.test(said), `it blamed the credential: ${said}`);
-    assert.match(said, /nmts verify.+does not stand\s+in for this one/su);
+    assert.match(said, /nmts verify/u);
+    assert.match(said, /four-week check/u);
   });
 });
 

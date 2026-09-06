@@ -17,13 +17,13 @@
 //    person — which sends an agent to make another key, the one thing that cannot help. So the
 //    standing check is asked about first, and the answer names `nmts verify`.
 //
-// ⛔ AND APPLYING ASKS FOR SOMETHING THIS TOOL CANNOT PRODUCE. `POST /v1/trial/apply` runs a
-//    fresh browser check of its own on every application — it is the one request in this API that
-//    hands out credits, so the check is made per application rather than once per session. A
-//    command line has no browser and no token, so on any deployment configured with that check
-//    the application is refused however good the credentials are. That is reported as what it is,
-//    with the place a person can apply from, rather than as a credential problem. `nmts verify`
-//    is a DIFFERENT check and does not stand in for this one.
+// ⛔ AND APPLYING ASKS FOR NO BROWSER TOKEN OF ITS OWN (2026-09-06). `POST
+//    /v1/trial/apply` used to run a fresh browser check on every application, which closed the
+//    route to this tool completely: a command line has no browser, so the application was refused
+//    however good the credentials were. The server now reads the account's four-week check as the
+//    human evidence a key carries, so applying works exactly while that check is live — the same
+//    condition the pre-check above already asks about, and the one `nmts verify` renews. Nothing
+//    here produces a token, and nothing here needs to.
 
 import { request, ServerError } from "../api.ts";
 import { readCredentialsFile } from "../credentials.ts";
@@ -171,19 +171,17 @@ function explain(error: unknown, week: Week): unknown {
     //   screen that is refusing for the same reason.
     case "TURNSTILE_FAILED":
       // ⛔ THE ADVICE `api.ts` CARRIES FOR THIS CODE IS THE WRONG ONE HERE, and that is why this
-      //    case exists. It says an API key is what waives the check — true for signing in, and
-      //    false for this route, which runs its own check on every application no matter what
-      //    credential arrived. A caller told to go and make a key would make one and be refused
-      //    again.
-      return new NmtsError("This server asks every application for a browser check, and a command line has none.", {
+      //    case exists. It says a machine credential is what waives the check; on this route what
+      //    waives it is the account's four-week check, and a caller sent to make another
+      //    credential would make one and be refused again.
+      return new NmtsError("This server asked this application for a browser check of its own.", {
         exitCode: 4,
         nextStep:
-          `Nothing was taken and this account's place for week ${week.round} is untouched. The ` +
-          `check is a puzzle solved in a browser, and it is asked for on every application ` +
-          `rather than once, because this is the one request that hands out credits. Apply on ` +
-          `the account screen at ` +
-          `${HOME_URL} instead. \`${BINARY_NAME} verify\` is a different check and does not stand ` +
-          `in for this one.`,
+          `Nothing was taken and this account's place for week ${week.round} is untouched. ` +
+          `Applying needs the account's four-week check to be live, and \`${BINARY_NAME} verify\` ` +
+          `is what renews it: it prints a short code for a person to type at a browser. A server ` +
+          `that asks for a check on every application is an older build than this expects — ` +
+          `there, a person applies on the account screen at ${HOME_URL}.`,
       });
     case "TRIAL_FULL":
       return new NmtsError("Every place in this week is taken.", {

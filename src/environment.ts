@@ -224,7 +224,7 @@ export function adviseFor(env: Environment, hasStoredCode: boolean): Advice[] {
       level: "note",
       text:
         `No browser can be opened here. Anything that needs a human check — making an account, ` +
-        `applying for the free trial — has to be done on a machine that has one.`,
+        `renewing the account's four-week check — has to be done on a machine that has one.`,
     });
   }
 
