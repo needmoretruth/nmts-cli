@@ -1,7 +1,7 @@
 // AWS Signature Version 4, the verifying half.
 //
 // ⛔ WHY A LOCAL SERVER CHECKS SIGNATURES AT ALL. This gateway listens on the loopback address of a
-//    machine that already holds an account code, and a request that reaches it can upload, read and
+//    machine that already holds an NMTS key, and a request that reaches it can upload, read and
 //    delete that account's files. "It is only local" is not an argument: every other program on the
 //    machine, and every page a browser on it loads, can also reach 127.0.0.1. The signature is the
 //    one thing that separates the tool the person started from everything else running as them.

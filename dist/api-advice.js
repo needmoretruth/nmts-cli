@@ -39,8 +39,8 @@ export function adviseFor(code) {
             return ("What was sent is not a well-formed key. Check that the whole string was copied, with " +
                 "no quotes or line break — it is one line of exactly 65 characters.");
         case "ACCOUNT_CODE_NOT_A_CREDENTIAL":
-            return ("That was an account code, not an API key. The code never goes to the server; it stays " +
-                "on this machine and opens the files. Put the code in NMTS_ACCOUNT_CODE and the key in " +
+            return ("That was an NMTS key, not an API key. An NMTS key never goes to the server; it stays " +
+                "on this machine and opens the files. Put the NMTS key in NMTS_ACCOUNT_CODE and the API key in " +
                 "NMTS_API_KEY.");
         case "AGENT_VERIFY_REQUIRED":
             return ("This was refused because nothing has checked lately that a person is behind this " +
@@ -72,9 +72,9 @@ export function adviseFor(code) {
         //    An agent that reads this as "my key is wrong" starts making new keys, which is the one
         //    remedy that cannot work.
         case "ACCOUNT_PROOF_REQUIRED":
-            return ("This request needs proof of the account code as well as the key, and what was sent was " +
-                "missing or did not match. Check that the code this machine is holding belongs to the " +
-                "same account as the key. Wrong attempts are counted, and three of them lock these " +
+            return ("This request needs proof of the NMTS key as well as the API key, and what was sent was " +
+                "missing or did not match. Check that the NMTS key this machine is holding belongs to the " +
+                "same account as the API key. Wrong attempts are counted, and three of them lock these " +
                 "routes for a while.");
         case "ACCOUNT_BANNED":
             return "This account is suspended. Nothing here will succeed until that is lifted.";
@@ -91,9 +91,9 @@ export function adviseFor(code) {
             return ("This account is enrolled on a preview build, and keys are not issued while it is. Ask " +
                 "the person to leave the preview on the account screen, then make the key.");
         case "INVALID_CREDENTIALS":
-            return ("The server did not accept what was sent. For a key: check the key. For `key new`: the " +
-                "server checked the proof derived from the account code, and it did not match a registered " +
-                "account — the code itself never goes to the server.");
+            return ("The server did not accept what was sent. For an API key: check that key. For `key new`: the " +
+                "server checked the proof derived from the NMTS key, and it did not match a registered " +
+                "account — the NMTS key itself never goes to the server.");
         case "LOCKED_OUT":
             return ("Too many failed attempts, so this is shut for a while. Retrying now makes it longer, " +
                 "not shorter. The refusal carries the moment it lifts; wait for it.");

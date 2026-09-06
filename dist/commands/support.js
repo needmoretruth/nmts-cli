@@ -17,7 +17,7 @@
 //    what will actually travel rather than what was typed. A preview that showed the original and
 //    sent something else would be the wrong way round.
 //
-// ⛔ THE ACCOUNT CODE IS NOT NEEDED AND IS NOT OPENED. This command talks to the server with the
+// ⛔ THE NMTS KEY IS NOT NEEDED AND IS NOT OPENED. This command talks to the server with the
 //    API key alone, like `verify` and `trial`. A report is not worth asking somebody for a
 //    passphrase, and a command that never holds the code cannot leak it.
 import { NmtsError } from "../errors.js";

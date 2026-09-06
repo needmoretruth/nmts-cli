@@ -47,7 +47,7 @@ export interface FetchInput {
 /**
  * Fetch, decrypt and verify one file.
  *
- * The account code is used and not kept: the data key is derived, unwrapped keys are zeroed, and
+ * The NMTS key is used and not kept: the data key is derived, unwrapped keys are zeroed, and
  * the derivation output — which holds every other key in the account — never outlives this call.
  */
 /**

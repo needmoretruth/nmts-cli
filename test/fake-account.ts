@@ -1,4 +1,4 @@
-// The account's own two doors, answered for a test: minting a key from the account code, and the
+// The account's own two doors, answered for a test: minting a key from the NMTS key, and the
 // signed-in device list.
 //
 // ⛔ ITS OWN FILE FOR THE REASON `fake-docs.ts` HAS ONE: `check:size` measures `fake-drive.ts` and
@@ -147,7 +147,7 @@ export function serveAccount(
     const proof = typeof proofHeader === "string" ? proofHeader : null;
     accountState.erasures.push({ proof });
     if (proof === null) {
-      json(403, { error: { code: "ACCOUNT_PROOF_REQUIRED", message: "the account code's proof is needed" } });
+      json(403, { error: { code: "ACCOUNT_PROOF_REQUIRED", message: "the NMTS key's proof is needed" } });
       return true;
     }
     res.writeHead(204);
@@ -161,7 +161,7 @@ export function serveAccount(
     accountState.signOuts.push({ url, proof });
     // The real server refuses a bare key before it looks at the id.
     if (proof === null) {
-      json(403, { error: { code: "ACCOUNT_PROOF_REQUIRED", message: "the account code's proof is needed" } });
+      json(403, { error: { code: "ACCOUNT_PROOF_REQUIRED", message: "the NMTS key's proof is needed" } });
       return true;
     }
     if (url === "/v1/account/sessions") {

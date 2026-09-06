@@ -2,7 +2,7 @@
 //
 // ⛔ THE SERVER NEVER SEES THE FILE, AND NOTHING HERE TRUSTS IT WITH ONE. It says which stored
 //    objects a file is made of and how big the file is; every byte that becomes the file is
-//    decrypted here under a key derived from the account code, and the whole thing is checked
+//    decrypted here under a key derived from the NMTS key, and the whole thing is checked
 //    against a hash the account sealed for itself. A server that lies about the parts, or an
 //    aggregator that returns the wrong bytes, produces a refusal — never a quietly wrong file.
 //
@@ -34,7 +34,7 @@ import { NmtsError } from "./errors.js";
 /**
  * Fetch, decrypt and verify one file.
  *
- * The account code is used and not kept: the data key is derived, unwrapped keys are zeroed, and
+ * The NMTS key is used and not kept: the data key is derived, unwrapped keys are zeroed, and
  * the derivation output — which holds every other key in the account — never outlives this call.
  */
 /**
@@ -74,7 +74,7 @@ export async function fetchFile(input) {
     catch {
         dataKey.fill(0);
         throw new NmtsError("This file's key did not open with this account's key.", {
-            nextStep: "Either the account code belongs to somebody else, or the file list has been altered.",
+            nextStep: "Either the NMTS key belongs to somebody else, or the file list has been altered.",
         });
     }
     let expected = null;

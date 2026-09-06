@@ -51,7 +51,7 @@ function b64(bytes: Uint8Array): string {
 /**
  * Make sure this account has published the identity other people encrypt to.
  *
- * ⛔ IT IS THE SAME BYTES EVERY TIME. The identity is derived from the account code, so a browser
+ * ⛔ IT IS THE SAME BYTES EVERY TIME. The identity is derived from the NMTS key, so a browser
  *    and this tool publish something identical for one account — which is why publishing from here
  *    cannot claim a different account's place or overwrite anything meaningful.
  */

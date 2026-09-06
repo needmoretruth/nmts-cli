@@ -8,7 +8,7 @@
 // ⛔ ONLY MODULES THAT NEVER TOUCH A TERMINAL ARE HERE. `code-access.ts`, `api-key.ts`,
 //    `session.ts` and every `commands/*` file can stop to ask a person something, and a library
 //    that stops to ask on somebody's server is a library that hangs. A program that wants the
-//    account code from the environment reads `credentials.ts` and decides for itself.
+//    NMTS key from the environment reads `credentials.ts` and decides for itself.
 //
 // ⚠ THE PACKAGE'S `exports` MAP NAMES THIS FILE AND A FEW OF THE MODULES BELOW BY SUBPATH. A
 //   module not named there is reachable through this file only; adding a subpath is a promise
@@ -41,7 +41,7 @@ export { createBlobProtocol, readCurrentEpoch } from "./walrus-write.js";
 export { fetchFile, fetchWithKey } from "./download.js";
 export { fileSink } from "./download-sink.js";
 export { AGGREGATOR_ENV_VAR, readBlob, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./walrus.js";
-// The wallet the account code derives: reading it, and signing with it.
+// The wallet the NMTS key derives: reading it, and signing with it.
 export { coinAmount, readBalances, walletAddress } from "./wallet.js";
 export { chainReader } from "./wallet-chain.js";
 export { signerAddress, signExtension, signTransfer } from "./wallet-sign.js";

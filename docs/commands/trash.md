@@ -16,7 +16,7 @@ mode is the answer.
 its shares) and this account's key to it in the file list. It is the one act above high besides
 erasing the account: in the default mode a person types the sentence `I UNDERSTAND THIS IS
 PERMANENT` at the terminal; in both auto modes it is refused whatever is unlocked; under
-skip-permissions it runs only with `--reason "<why>"` and `--yes`. It needs the account code
+skip-permissions it runs only with `--reason "<why>"` and `--yes`. It needs the NMTS key
 beside the key. The bytes on the storage network are not touched — they stay, unreadable, until
 their term ends. `--release-storage` first asks the server to destroy the storage bought with
 credits under each file, on the chain, and is locked until a person runs `nmts unlock

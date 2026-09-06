@@ -1,7 +1,7 @@
 // The gateway itself: an S3 request in, this account's drive out.
 //
-// ⛔ LOOPBACK ONLY, AND NO OPTION TO CHANGE IT. The machine running this already holds the account
-//    code, and one signature is all that stands between a request and every file in the account.
+// ⛔ LOOPBACK ONLY, AND NO OPTION TO CHANGE IT. The machine running this already holds the NMTS
+//    key, and one signature is all that stands between a request and every file in the account.
 //    Bound to an address other people can reach, that one signature becomes the whole lock on the
 //    account -- and the key it checks was printed on somebody's terminal. This is the same call the
 //    rest of the system made on 2026-08-20 when every container port was pulled back to loopback.

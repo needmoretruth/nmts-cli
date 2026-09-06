@@ -3,7 +3,7 @@
 Commands: extend
 Tiers: extend=high(wallet)
 
-Signs and spends WAL from the wallet the account code derives. It is a standing choice: locked
+Signs and spends WAL from the wallet your NMTS key derives. It is a standing choice: locked
 until a person runs `nmts unlock wallet` at a terminal (scope `storage` is enough, with an expiry
 and, if they want one, a spending ceiling), and asked nothing afterwards while that unlock lasts.
 

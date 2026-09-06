@@ -1,7 +1,7 @@
 // `nmts key new` against a real local server: what it sends, what it stores, and what it prints.
 //
 // ⛔ THE FIRST TEST IS THE ONE THAT MATTERS MOST. What travels is the DERIVED PROOF — the same
-//    value a sign-in sends — and never the account code, which opens every file in the account.
+//    value a sign-in sends — and never the NMTS key, which opens every file in the account.
 //    A regression there would not fail anything else: the server would answer, the key would work,
 //    and the one promise this product is built on would be gone.
 
@@ -27,7 +27,7 @@ function storedHere(code: string): void {
   writeCredentials({ accountCode: code, server: drive.base, network: "testnet" });
 }
 
-test("it sends the derived proof and the account id — and never the account code", async () => {
+test("it sends the derived proof and the account id — and never the NMTS key", async () => {
   await withSandbox(drive, "key-new-sends", async (code) => {
     const out = collect();
     assert.equal(await keyNew({ server: drive.base, write: out.write }), 0);
@@ -41,8 +41,8 @@ test("it sends the derived proof and the account id — and never the account co
     assert.equal(body["auth_secret"], await accountProof(code), "the proof is not the sign-in one");
     // ⛔ The code itself, in any spelling, must not be anywhere in what left this machine.
     const raw = JSON.stringify(body);
-    assert.ok(!raw.includes(code), "the account code was sent to the server");
-    assert.ok(!raw.includes(code.replace(/[\s-]/gu, "")), "the account code was sent, ungrouped");
+    assert.ok(!raw.includes(code), "the NMTS key was sent to the server");
+    assert.ok(!raw.includes(code.replace(/[\s-]/gu, "")), "the NMTS key was sent, ungrouped");
   });
 });
 

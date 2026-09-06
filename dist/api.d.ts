@@ -78,7 +78,7 @@ export interface RequestOptions {
      */
     idempotencyKey?: string;
     /**
-     * Proof that this run holds the account code, for the three routes that ask for one.
+     * Proof that this run holds the NMTS key, for the three routes that ask for one.
      *
      * ⛔ A NAMED OPTION, FOR THE SAME REASON `idempotencyKey` IS ONE. A general header bag on a
      *    client that carries a bearer token is a way to send that token somewhere it was not meant

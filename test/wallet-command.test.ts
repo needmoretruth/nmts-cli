@@ -5,7 +5,7 @@
 //    for the answers this command exists to handle: a node that refuses, and a zero nobody can
 //    vouch for. Every one of those is a branch that decides what a person is told about money.
 //
-// ⛔ AND THE ACCOUNT CODE IS REAL. It is generated for the run and belongs to nobody, but every
+// ⛔ AND THE NMTS KEY IS REAL. It is generated for the run and belongs to nobody, but every
 //    key below is derived from it by the same engine the product uses, so the test that nothing
 //    secret is printed can compare against the ACTUAL key rather than against a placeholder.
 
@@ -29,7 +29,7 @@ function collect(): { lines: string[]; write: (line: string) => void } {
 }
 
 /**
- * An account code on a machine of its own, for the length of one test.
+ * An NMTS key on a machine of its own, for the length of one test.
  *
  * The `plain-env` agreement is written in because reading a code out of the environment asks for
  * it once per machine; the agreement itself is tested where it belongs, beside the ladder.
@@ -102,7 +102,7 @@ const FULL = { [SUI_COIN_TYPE]: 1_500_000_000n, [walCoinType("mainnet")]: 42n };
 
 // ── the address, offline ──────────────────────────────────────────────────────────────────────
 
-test("⛔ `wallet address` answers from the account code alone and opens no chain", async () => {
+test("⛔ `wallet address` answers from the NMTS key alone and opens no chain", async () => {
   await withAccount("wallet-address", async (code) => {
     const out = collect();
     assert.equal(await wallet("address", { write: out.write, openChain: noChain() }), 0);
@@ -247,7 +247,7 @@ test("⛔ a zero for a coin type the chain does not know reaches the person as a
 
 // ── what never comes out ──────────────────────────────────────────────────────────────────────
 
-test("⛔ nothing this command prints carries the account code or the wallet's private key", async () => {
+test("⛔ nothing this command prints carries the NMTS key or the wallet's private key", async () => {
   await withAccount("wallet-secrets", async (code) => {
     const glue = await loadCrypto();
     const derived = glue.kdf_derive(glue.account_code_parse(code));

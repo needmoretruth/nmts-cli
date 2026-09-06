@@ -47,7 +47,7 @@ export type ArtifactKind = "recovery-list" | "file-list" | "recovery-kit";
 
 /**
  * How a sealed payload is put together — enough for a stranger to open it with the format
- * document and an account code, and nothing else.
+ * document and an NMTS key, and nothing else.
  *
  * `context` is the NCF-3 domain separator the envelope was sealed under. It is not a secret and it
  * is not a key: it is the string a re-implementation has to pass to the same function, and one

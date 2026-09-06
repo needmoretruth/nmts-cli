@@ -9,14 +9,14 @@
 // ⛔ SIGNING A DEVICE OUT IS A PERSON'S ACT, AND `--sign-out` KEEPS IT ONE (2026-09-06 · CLI parity
 //    ③-2). A key alone must never end sessions: a stolen key that could end the browser's session
 //    could lock the person out of the one screen that revokes it, and the server still refuses a
-//    bare key. What opens the door is the account code's proof beside the key — whoever holds the
+//    bare key. What opens the door is the NMTS key's proof beside the key — whoever holds the
 //    code can sign in and do the same from a browser — so this option needs the code on this
 //    machine, is refused in mode auto before the code is opened, and asks once before it acts.
 //
 // ⚠ THE DEVICE NAME IS SEALED AND STAYS SEALED HERE. It is encrypted under a key derived from the
-//   account code, which the server has never had — so what a listing can honestly show is when a
+//   NMTS key, which the server has never had — so what a listing can honestly show is when a
 //   session started, when it was last used, and when it runs out. This command does not open the
-//   name: opening it needs the account code, and this command runs on a key alone so that it
+//   name: opening it needs the NMTS key, and this command runs on a key alone so that it
 //   works on a machine where the code is not present at all.
 //
 // ⚠ AND THE NETWORK IS NOT RESOLVED HERE. Nothing in this answer is stored on the storage
@@ -67,7 +67,7 @@ function asDevices(value) {
 }
 export async function devices(options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
-    // ⛔ THE KEY AND NOT THE ACCOUNT CODE. This read needs no code, so asking for one would refuse a
+    // ⛔ THE KEY AND NOT THE NMTS KEY. This read needs no code, so asking for one would refuse a
     //    run over a credential it never uses — and on a machine holding only a key it would make
     //    the one command about that machine's own access the one command it cannot run.
     const apiKey = requireApiKey();
@@ -94,13 +94,13 @@ export async function devices(options = {}) {
         say(`  runs out    ${row.expires_at}`);
     }
     say(``);
-    say(`  ${rows.length} signed in. The name each device was given is encrypted with your account`);
-    say(`  code, which the server has never had, so it is not shown here.`);
+    say(`  ${rows.length} signed in. The name each device was given is encrypted with your NMTS`);
+    say(`  key, which the server has never had, so it is not shown here.`);
     say(``);
     // ⛔ IT SAYS WHAT THIS CANNOT DO, rather than leaving a reader to find out by trying. A refusal
     //    discovered by running something is a refusal an agent retries.
     say(`  \`${BINARY_NAME} devices --sign-out <id>\` (or \`all\`) ends one — a person's act that needs the`);
-    say(`  account code on this machine; a key alone cannot, so a stolen key cannot end the browser's.`);
+    say(`  NMTS key on this machine; a key alone cannot, so a stolen key cannot end the browser's.`);
     return 0;
 }
 /** `--sign-out <id|all>`: the refusals first, then one question, then the proof and the request. */

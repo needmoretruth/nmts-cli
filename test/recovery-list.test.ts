@@ -3,7 +3,7 @@
 // ⛔ THE ASSERTIONS OPEN WHAT WAS WRITTEN. A file that says the right things in its header and
 //    carries bytes nothing can open is worse than no file: somebody keeps it for years believing
 //    they are covered. So the tests take the `sealed` field out of the document, open it with the
-//    account code at the offsets the format document names, and check what is inside.
+//    NMTS key at the offsets the format document names, and check what is inside.
 //
 // ⛔ AND THE REFUSALS ARE CHECKED BY WHAT IS ON THE DISK AFTERWARDS, not by the message. "No
 //    partial list" is a claim about a directory, so the directory is what gets read.
@@ -91,7 +91,7 @@ function storedRow(id: string, plaintextLens: readonly number[]): SourceItemRow 
 }
 
 
-test("a multi-page walk describes every file, and the sealed list opens with the account code", async () => {
+test("a multi-page walk describes every file, and the sealed list opens with the NMTS key", async () => {
   await withAccount(fake, "reclist-pages", async (code) => {
     const photos = folder({ id: "f1", name: "photos" });
     await fake.serve(code, [
@@ -206,7 +206,7 @@ test("⛔ without the proof the server refuses, and the refusal says what to do 
     );
     assert.ok(failure instanceof ServerError, "the refusal lost its code");
     assert.equal(failure.code, "ACCOUNT_PROOF_REQUIRED");
-    assert.match(String(failure.nextStep), /proof of the account code/);
+    assert.match(String(failure.nextStep), /proof of the NMTS key/);
   });
 });
 

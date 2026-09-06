@@ -5,7 +5,7 @@ import type { ReadOptions } from "./walrus.ts";
 export interface KeyCheckInput {
     server: string;
     apiKey: string;
-    /** The account code, used once to derive the data key that opens the wrapped file keys. */
+    /** The NMTS key, used once to derive the data key that opens the wrapped file keys. */
     accountCode: string;
     /** Which chain's aggregators hold the bytes — `mainnet` or `testnet`. */
     chain: string;

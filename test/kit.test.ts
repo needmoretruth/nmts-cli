@@ -1,11 +1,11 @@
-// `nmts kit` — the one file that carries everything, account code included.
+// `nmts kit` — the one file that carries everything, NMTS key included.
 //
 // ⛔ THE TESTS TREAT THIS FILE AS DANGEROUS, BECAUSE IT IS. What they check is not that a kit was
-//    produced but that the account code went to exactly one place: the path the caller named, at
+//    produced but that the NMTS key went to exactly one place: the path the caller named, at
 //    0600, and nowhere else — not into this tool's own directory, not onto the terminal.
 //
 // ⛔ AND THAT AN EXISTING NAME IS A REFUSAL. Overwriting somebody's kit destroys the only copy of
-//    an account code they may have, so the refusal is checked by reading the old file back.
+//    an NMTS key they may have, so the refusal is checked by reading the old file back.
 
 import { strict as assert } from "node:assert";
 import { mkdtempSync, readdirSync, readFileSync, statSync, rmSync, writeFileSync } from "node:fs";
@@ -110,7 +110,7 @@ test("the kit is written 0600, carries the code, and holds the whole recovery li
       assertModeWhereEnforced(written, 0o600, "the kit was not written 0600");
 
       const text = readFileSync(written, "utf8");
-      assert.ok(text.includes(identity.displayCode), "the kit does not carry the account code");
+      assert.ok(text.includes(identity.displayCode), "the kit does not carry the NMTS key");
       assert.match(text, /Anyone who holds this file holds this account/);
 
       const data = machineBlock(text);
@@ -136,7 +136,7 @@ test("the kit is written 0600, carries the code, and holds the whole recovery li
       for (const kept of readdirSync(configDir())) {
         assert.ok(
           !readFileSync(join(configDir(), kept), "utf8").includes(identity.displayCode),
-          `${kept} in the tool's own directory holds the account code`,
+          `${kept} in the tool's own directory holds the NMTS key`,
         );
       }
     } finally {

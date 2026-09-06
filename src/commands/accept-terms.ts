@@ -2,10 +2,10 @@
 //
 // ⛔ WHY IT EXISTS (2026-09-06). When a new version of the Terms takes effect the server
 //    refuses this account's uploads and shares until the new version is accepted (Terms 15.5). An
-//    account driven from a terminal holds an API key and the account code and never a session,
+//    account driven from a terminal holds an API key and the NMTS key and never a session,
 //    and a key is not allowed to accept — a key accepting would be a program consenting on
 //    somebody's behalf. Until this command the only way out was a browser. Now the same record is
-//    written from here, proved the way a browser sign-in is proved: by the account code.
+//    written from here, proved the way a browser sign-in is proved: by the NMTS key.
 //
 // ⛔ IT IS A PERSON'S ACT, AND THREE THINGS KEEP IT ONE. It is refused in mode auto and under
 //    --skip-permissions before the code is even opened. It needs a terminal to type into — there is
@@ -19,7 +19,7 @@
 //    server is the same pair the screen sends.
 //
 // ⛔ WHAT LEAVES THIS MACHINE is the account id, the sign-in proof (`account-proof.ts` says what
-//    that is and why it decrypts nothing) and the two typed versions. The account code does not.
+//    that is and why it decrypts nothing) and the two typed versions. The NMTS key does not.
 
 import { accountProofFor } from "../account-proof.ts";
 import { identityOf } from "../account.ts";

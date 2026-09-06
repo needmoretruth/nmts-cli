@@ -1,4 +1,4 @@
-// Sealing the account code under a passphrase — the parts a command-level test cannot see.
+// Sealing the NMTS key under a passphrase — the parts a command-level test cannot see.
 //
 // ⛔ WHY THIS FILE EXISTS. An adversarial review mutated `lockCode` into a base64 encoder and ran
 //    the whole suite: 19 of 20 command-level tests stayed green. It then made the salt and the

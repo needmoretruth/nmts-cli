@@ -61,7 +61,7 @@ export interface StreamSealer {
 
 /** The slice of the engine this tool uses. Every name here is checked at load time. */
 export interface CryptoGlue {
-  /** A brand-new account code, display form. ⛔ The only copy there will be — `registration.ts`. */
+  /** A brand-new NMTS key, display form. ⛔ The only copy there will be — `registration.ts`. */
   account_code_generate(): string;
   /** Text form to the 20 raw bytes. Throws when the check symbol does not match. */
   account_code_parse(input: string): Uint8Array;
@@ -83,7 +83,7 @@ export interface CryptoGlue {
    * This account's published sharing identity: the 4,989-byte bundle other people encrypt to.
    *
    * ⛔ DETERMINISTIC, AND THAT IS LOAD-BEARING (NCF-3 §5.1). The self-signature uses the
-   *    deterministic signing variant, so the same account code produces the same bytes on every
+   *    deterministic signing variant, so the same NMTS key produces the same bytes on every
    *    machine. A hedged signature would make each device publish a different identity, and the
    *    server takes the first one forever.
    */
@@ -222,7 +222,7 @@ export interface CryptoGlue {
    *
    * ⛔ EVERY WALLET COMES FROM HERE, INCLUDING WALLET 0. There is no separate rule for the first
    *    one and no index this refuses. A tool that derived wallet 0 some other way would produce a
-   *    different address from the browser and the recovery tool for the same account code — which
+   *    different address from the browser and the recovery tool for the same NMTS key — which
    *    would look like the account's money had vanished.
    */
   wallet_seed_for(walletRoot: Uint8Array, index: number): Uint8Array;

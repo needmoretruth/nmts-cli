@@ -16,14 +16,14 @@ network. For people at a terminal, and for the agents they run.
 
 Storage where **the encryption happens on your machine and the keys never leave it.** The server
 receives sealed bytes it cannot open. File contents, names and folders all live inside a sealed
-list that only your account code opens.
+list that only your NMTS key opens.
 
 The bytes live on **Walrus**, a public storage network, paid for on the **Sui** chain. Three
 things to know before you start:
 
 - **Storage is bought for a period, not forever.** A file has a lease. It can be extended, and
   NMTS warns before one runs out.
-- **There is no password reset.** Your account code *is* the account. It cannot be recovered or
+- **There is no password reset.** Your NMTS key *is* the account. It cannot be recovered or
   changed while keeping the files. That is the same property that stops anyone, including NMTS,
   from opening them.
 - **NMTS charges nothing.** Storage is bought from the Walrus network, for a period, from your own
@@ -52,7 +52,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.32.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.33.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -70,7 +70,7 @@ nmts update --dry-run  # prints the versions and the command, changes nothing
 
 Separately, once a day after a command finishes, the tool asks the releases page which version is
 newest and remembers the answer. When a newer one exists, the next run prints one line on stderr.
-That request carries no account code, no API key and no command name, and it is the only request
+That request carries no NMTS key, no API key and no command name, and it is the only request
 the tool makes that no command asked for. Setting `NMTS_NO_UPDATE_CHECK` to anything stops both
 halves, and `nmts env` shows what the check last found.
 
@@ -78,7 +78,7 @@ halves, and `nmts env` shows what the check last found.
 
 ```sh
 nmts env       # what this machine is, and whether credentials are in reach. Contacts nothing.
-nmts login     # keep the account code here, sealed, and take an API key
+nmts login     # keep the NMTS key here, sealed, and take an API key
 nmts ls        # list the files
 nmts put x     # upload one file — spends credits
 nmts get x     # download one file
@@ -93,37 +93,42 @@ They do different jobs and they are not interchangeable.
 
 | | What it does | How to give it |
 |---|---|---|
-| **Account code** | Opens your files. Every key in the account derives from it. Never goes to the server. | `NMTS_ACCOUNT_CODE_FILE=/path` (recommended) · `nmts login` · `NMTS_ACCOUNT_CODE` |
+| **NMTS key** | Opens your files. Every key in the account derives from it. Never goes to the server. | `NMTS_ACCOUNT_CODE_FILE=/path` (recommended) · `nmts login` · `NMTS_ACCOUNT_CODE` |
 | **API key** | Makes the server answer. Made on the account screen at nmts.me. Opens no file. | `NMTS_API_KEY_FILE=/path` (recommended) · `NMTS_API_KEY` · `nmts login` |
 
-`nmts ls` needs both: the key so the server answers, the code so the answer can be opened.
+`nmts ls` needs both: the API key so the server answers, your NMTS key so the answer can be opened.
 
-`nmts login` checks the key with the server before writing it down, prints the key's public handle
-and never the key itself, and does not replace a stored key unless the run says so. `nmts logout`
-clears what is stored.
+**The NMTS key used to be called the account code; only the name changed.** The flags, the
+environment variables (`NMTS_ACCOUNT_CODE`, `NMTS_ACCOUNT_CODE_FILE`), the config keys, the MCP
+tool and argument names, the error codes and every file format keep the names they already had, so
+nothing you have scripted breaks.
 
-`nmts whoami --reveal` prints the account code itself. It is locked until you run `nmts unlock
-reveal` once, and asked about on every run; anything that logs your terminal has the code from
+`nmts login` checks the API key with the server before writing it down, prints that key's public
+handle and never the key itself, and does not replace a stored API key unless the run says so.
+`nmts logout` clears what is stored.
+
+`nmts whoami --reveal` prints your NMTS key itself. It is locked until you run `nmts unlock
+reveal` once, and asked about on every run; anything that logs your terminal has your NMTS key from
 then on.
 
 **Neither credential is ever accepted as a command-line argument.** Any process can read another
 process's command line, and shells record it in history. There is no flag for either.
 
-### Where the account code can live
+### Where the NMTS key can live
 
 | | What it does | Asks |
 |---|---|---|
-| `NMTS_ACCOUNT_CODE_FILE=/path` | Reads the code from a file it never copies | nothing |
+| `NMTS_ACCOUNT_CODE_FILE=/path` | Reads your NMTS key from a file it never copies | nothing |
 | `nmts login` | Seals it under a passphrase at `~/.nmts/credentials.json` | nothing |
 | `nmts login --plain` | Writes it in the clear, mode 600 | once, `unsafe-code-storage` |
-| `NMTS_ACCOUNT_CODE`, holding the code | Uses it straight from the environment | once, `plain-env` |
+| `NMTS_ACCOUNT_CODE`, holding your NMTS key | Uses it straight from the environment | once, `plain-env` |
 
-A sealed code needs its passphrase for every command, from a terminal or from `NMTS_PASSPHRASE`.
-Opening it costs a fraction of a second and 64 MiB of memory, which is what makes guessing the
-passphrase expensive. A passphrase does not protect the code from anything running as you: on a
-machine where an agent runs unattended, the passphrase has to be reachable too. That is why the
-file form is the recommendation for agents — the code is never copied, and the permissions are the
-host's to set.
+A sealed NMTS key needs its passphrase for every command, from a terminal or from
+`NMTS_PASSPHRASE`. Opening it costs a fraction of a second and 64 MiB of memory, which is what
+makes guessing the passphrase expensive. A passphrase does not protect your NMTS key from anything
+running as you: on a machine where an agent runs unattended, the passphrase has to be reachable
+too. That is why the file form is the recommendation for agents — your NMTS key is never copied,
+and the permissions are the host's to set.
 
 An environment variable is not private: `docker inspect` prints it, anything running as you can
 read `/proc/<pid>/environ`, every child process inherits it, and CI systems write it into logs.
@@ -136,7 +141,7 @@ variables in the server's own `env` block. `nmts env` names the agent it can see
 
 ## Before you hand this to an agent
 
-Your account code is everything at once. A program that has it can read every file, upload,
+Your NMTS key is everything at once. A program that has it can read every file, upload,
 delete and sign with the wallet, and its requests cannot be told apart from yours. It cannot be
 rotated while keeping the account. **Use an account you would be willing to lose.**
 
@@ -145,8 +150,8 @@ rotated while keeping the account. **Use an account you would be willing to lose
 | Command | What it does |
 |---|---|
 | `nmts env` | Where this is running, and what that means. Needs nothing. |
-| `nmts login` / `logout` | Keep or remove an account code and API key on this machine |
-| `nmts whoami` | Which account the stored code belongs to — offline. `--reveal` prints the code |
+| `nmts login` / `logout` | Keep or remove an NMTS key and an API key on this machine |
+| `nmts whoami` | Which account the stored NMTS key belongs to — offline. `--reveal` prints your NMTS key |
 | `nmts ls` | List the files |
 | `nmts usage` | What the account holds: counts, bytes, the largest files, the trash |
 | `nmts balance` | Credits left, what they buy, and the ceilings on spending |
@@ -157,7 +162,7 @@ rotated while keeping the account. **Use an account you would be willing to lose
 | `nmts rm <paths>` | Move things to the trash — restorable for 30 days |
 | `nmts restore <paths>` | Bring things back out of the trash |
 | `nmts sweep` | Drop trash entries past their 30 days. **Cannot be undone** — asks every run |
-| `nmts erase <paths>` | Erase files for good — the server's record and this account's key, trash or not. A typed sentence, the account code beside the key; `--release-storage` also destroys credit-paid storage (locked until `nmts unlock release-storage`) |
+| `nmts erase <paths>` | Erase files for good — the server's record and this account's key, trash or not. A typed sentence, your NMTS key beside the API key; `--release-storage` also destroys credit-paid storage (locked until `nmts unlock release-storage`) |
 | `nmts mkdir <path>` | Make a folder, and any folder above it that is missing |
 | `nmts mv <paths> <folder>` | Move things into a folder. `/` is the top of the drive |
 | `nmts rename <path> <name>` | Give one thing a new name |
@@ -180,8 +185,8 @@ rotated while keeping the account. **Use an account you would be willing to lose
 | `nmts wallet donate <SUI\|WAL> <amount>` | A voluntary gift to the developer, in either coin — **signs and spends**. Locked until `nmts unlock donate`, and `--yes` every run |
 | `nmts wallet hall [--name <name>\|--remove]` | The gift hall of fame; `--name` lists you by a name you choose, signed by your wallet |
 | `nmts trial` | What is left of this week's free credits. `trial apply` asks for some |
-| `nmts create` | Make a NEW account and print its code once. Nothing can print it again. With no verified key on this machine it makes the code here, prints an address, and waits while a person opens it, types that code and passes the human check — the account exists the moment they finish. `--no-wait` prints the address and stops |
-| `nmts verify` | Ask a person to pass the check that opens this account's limits. Only the account holder can: signed in to this account in that browser, or typing its account code there |
+| `nmts create` | Make a NEW account and print its NMTS key once. Nothing can print it again. With no verified API key on this machine it makes the NMTS key here, prints an address, and waits while a person opens it, types that NMTS key and passes the human check — the account exists the moment they finish. `--no-wait` prints the address and stops |
+| `nmts verify` | Ask a person to pass the check that opens this account's limits. Only the account holder can: signed in to this account in that browser, or typing its NMTS key there |
 | `nmts public-code` | The code other accounts send files to. `--publish` makes it reachable |
 | `nmts share <path> <address>` | Give one file to another account — **withdrawing does not recall it**. Locked until `nmts unlock share`; every share stops and `--yes` answers for that one file |
 | `nmts shares` | What was shared with this account; `--sent <path>` shows who one file went to |
@@ -191,7 +196,7 @@ rotated while keeping the account. **Use an account you would be willing to lose
 | `nmts rollback` | Put the previous version of the file list back — locked until `nmts unlock rollback`, `--yes` every run |
 | `nmts listfile` | Write this machine's copy of the sealed file list out as a file |
 | `nmts recovery-list` | Write the file that finds this account's bytes without NMTS |
-| `nmts kit` | Recovery kit: that list **and the account code**, together in one file |
+| `nmts kit` | Recovery kit: that list **and your NMTS key**, together in one file |
 | `nmts recovery` | Download the standalone program that reads files back without NMTS |
 | `nmts unlock` / `nmts lock` | What this machine has unlocked; `unlock <key>` opens one (a person, at a terminal), `lock <key>` closes it. `consent` is the older name |
 | `nmts mode` | How much an agent driving this tool may decide without asking |
@@ -201,10 +206,10 @@ rotated while keeping the account. **Use an account you would be willing to lose
 | `nmts notices` | What NMTS has posted: interruptions, incidents, and the warning before new Terms take effect. `notices <id>` prints one; `--save <id>` keeps it as a dated file |
 | `nmts terms` | The Terms of Service in force. `--lang ko` for Korean, `--board` for the message board's terms, `--save` to keep a copy |
 | `nmts privacy` | The Privacy Policy in force. `--lang ko`, `--save` to keep a copy |
-| `nmts delete-account` | A **person** erases this account's server record — irreversible. Needs the account code and a typed sentence; refused in the auto modes, and under skip-permissions only with `--reason` |
+| `nmts delete-account` | A **person** erases this account's server record — irreversible. Needs your NMTS key and a typed sentence; refused in the auto modes, and under skip-permissions only with `--reason` |
 | `nmts accept-terms` | Accept a new version of the Terms after reading it: a person types the versions, or an agent relays them with `--accept-terms <v> --accept-privacy <v> --yes` after asking |
-| `nmts key new` | Make an API key for this account with the account code alone — no browser. `--scopes read,write,spend`, `--days <n>`. The key is stored as this machine's credential; `--print` also prints it once |
-| `nmts devices` | The devices signed in to this account. `--sign-out <id>` or `--sign-out all` ends one or all of them — needs the account code, locked until `nmts unlock sign-out`, asked every run |
+| `nmts key new` | Make an API key for this account with your NMTS key alone — no browser. `--scopes read,write,spend`, `--days <n>`. The new API key is stored as this machine's credential; `--print` also prints it once |
+| `nmts devices` | The devices signed in to this account. `--sign-out <id>` or `--sign-out all` ends one or all of them — needs your NMTS key, locked until `nmts unlock sign-out`, asked every run |
 | `nmts mcp` | Serve a subset of the above as tools over the Model Context Protocol |
 | `nmts s3` | Serve the drive to any S3 program, on this machine only |
 
@@ -238,7 +243,7 @@ split and each part bought separately; a run that stops partway is finished by r
 command again, which buys only the parts that were never bought. The same is true after any
 interrupted upload: the retry costs nothing more.
 
-`--pay wallet` buys the storage **from the wallet the account code derives** instead of from credits:
+`--pay wallet` buys the storage **from the wallet your NMTS key derives** instead of from credits:
 
 ```sh
 nmts put film.mov --pay wallet --dry-run            # the review: WAL price, tip, fee, balances, days. Signs nothing
@@ -304,7 +309,7 @@ that names nothing stops the whole run before anything is touched.
 `balance` answers "what can I still buy": credits left, said as bytes too, and the ceilings on
 spending. `usage` answers "what do I have". `expiring` says when stored files run out.
 
-`extend` buys more time for a stored file **from the wallet the account code derives**, on a public
+`extend` buys more time for a stored file **from the wallet your NMTS key derives**, on a public
 chain. It is locked until you unlock `wallet`, which names a scope (`storage`, or `all` for exchanging and
 sending too), runs out after at most 30 days, and can carry a ceiling on what the tool signs away —
 `nmts unlock wallet --days 7 [--scope all] [--cap-wal 10 --cap-sui 0.1]`. It takes
@@ -352,7 +357,7 @@ for an agreement the first time.
 
 `public-code` prints the value other accounts send files to and says whether it is published.
 Until it is published nobody can send to you. `--publish` writes it, permanently: it derives from
-your account code, so it cannot be chosen or changed. It is not your account code, and it opens
+your NMTS key, so it cannot be chosen or changed. It is not your NMTS key, and it opens
 nothing on its own.
 
 `nmts shares --sent <path>` lists who one file was shared with — the recipient address, since when,
@@ -361,7 +366,7 @@ and the share id `unshare` takes.
 ### Recovery
 
 `recovery-list` writes the encrypted file that locates your bytes on the storage network; it holds
-no account code. `kit` writes that list together with the account code in one file, so whoever
+no NMTS key. `kit` writes that list together with your NMTS key in one file, so whoever
 holds a kit holds the account. `recovery` downloads the standalone recovery program for this
 machine, checks it against the release's checksum file before making it runnable, and never puts
 anything on your PATH. `rebuild` reconstructs a file list from the server's rows for an account
@@ -395,7 +400,7 @@ a number of days, because the window ends on a boundary of the server's own week
 Every act has a tier. **None** (listing, fetching, folders, marks) never asks. **Low** (the trash,
 a setting, a report) and **medium** (uploading, publishing the public code, a new key) ask once
 per run — y/N at the terminal, or `--yes`. **High** (signing with the wallet, giving another
-account a file, revealing or storing the code unsealed) is locked until you run `nmts unlock
+account a file, revealing or storing your NMTS key unsealed) is locked until you run `nmts unlock
 <key>` once on this machine, and then still asks on every run. **Ultra-high** (erasing the
 account) is a typed sentence. `nmts unlock` lists the keys; each unlock prints what it opens, what
 could go wrong and what it does not cover before it asks. `nmts help <command>` prints any
@@ -475,7 +480,7 @@ $ rclone copy --size-only ./somewhere drive:drive
 ## For an agent that speaks MCP
 
 `nmts mcp` is a local MCP server over stdin and stdout. Sign in first (`nmts login`); it never
-takes a code on a command line, and it never prompts, so a sealed code with no `NMTS_PASSPHRASE`
+takes an NMTS key on a command line, and it never prompts, so a sealed NMTS key with no `NMTS_PASSPHRASE`
 makes it exit 3 at startup.
 
 ```
@@ -541,7 +546,7 @@ carry such a key and are safe to repeat, nothing else that writes is.
 Send it from the tool: `nmts support send --category bug --message "…" --attach-log`. It reaches
 the one developer who builds NMTS, in the same inbox as the app's contact form, and the reply comes
 back to the same thread (`nmts support list`, then `nmts support show <code>`). The tool shows you
-exactly what will be sent before it goes; your account code, API key, passphrase and file contents
+exactly what will be sent before it goes; your NMTS key, API key, passphrase and file contents
 are stripped on this machine first, and `--omit <text>` strips anything else you name. English is
 preferred; Korean is read too. Ideas count as much as faults, and so does anything you are not sure
 about.

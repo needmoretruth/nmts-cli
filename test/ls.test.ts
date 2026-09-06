@@ -108,7 +108,7 @@ async function serveList(code: string, entries: ManifestEntry[], seq: number): P
   answer = { status: 200, body: { state: "present", seq, ct, updated_at: "2026-08-23T00:00:00Z" } };
 }
 
-test("without an account code it exits 3 rather than reporting an empty account", async () => {
+test("without an NMTS key it exits 3 rather than reporting an empty account", async () => {
   await withSandbox("ls-nocode", async () => {
     delete process.env[CODE_ENV_VAR];
     process.env[API_KEY_ENV_VAR] = KEY;

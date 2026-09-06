@@ -76,9 +76,9 @@ test("⛔ a refusal names the path and never the value", async () => {
     const whole = lines.join("");
     assert.match(whole, /credentials\.json/, "it did not say which file");
     // ⛔ THE DISCRIMINATING PART. The parser's own message quotes about thirty characters of the
-    //    input, and the input is the file the account code is in.
+    //    input, and the input is the file the NMTS key is in.
     for (const run of secret.replace(/\s+/gu, "").match(/.{6}/gu) ?? []) {
-      assert.ok(!whole.includes(run), `six characters of the account code reached the output`);
+      assert.ok(!whole.includes(run), `six characters of the NMTS key reached the output`);
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });

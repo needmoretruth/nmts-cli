@@ -163,7 +163,7 @@ test("the three hosts that clear the environment are the three that clear it", (
   assert.deepEqual(washingHosts(hostsInEnvironment({ CLAUDECODE: "1" })), []);
 });
 
-// ⛔ THE POINT OF THE WHOLE MODULE. A person who exported the account code and then attached the
+// ⛔ THE POINT OF THE WHOLE MODULE. A person who exported the NMTS key and then attached the
 //    tool did everything right and still gets "not found", because the host dropped the variable
 //    on the way. This is the sentence that says so while it can still be acted on.
 test("running under a host that clears the environment is warned about, by name", () => {

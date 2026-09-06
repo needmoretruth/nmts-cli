@@ -25,7 +25,7 @@
 //
 // ⛔ NOTHING SENSITIVE GOES IN THE QUESTION. The specification says a server must not use
 //    elicitation to request sensitive information, and this asks for nothing at all: the schema is
-//    one boolean, and the account code, the file's key and the recipient's key appear nowhere in
+//    one boolean, and the NMTS key, the file's key and the recipient's key appear nowhere in
 //    it. The recipient's public code is in the message because it is the thing being confirmed and
 //    the model already has it.
 /**

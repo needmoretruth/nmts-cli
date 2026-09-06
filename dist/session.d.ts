@@ -1,6 +1,6 @@
 import { type CredentialSource } from "./credentials.ts";
 export interface Session {
-    /** The account code. ⛔ Held for the command's own work and never written anywhere. */
+    /** The NMTS key. ⛔ Held for the command's own work and never written anywhere. */
     code: string;
     /**
      * Where this machine got that code from.
@@ -21,7 +21,7 @@ export interface Session {
  * The API key, or the one refusal for not having one.
  *
  * ⛔ IT IS ITS OWN FUNCTION BECAUSE ONE COMMAND NEEDS THE KEY AND NOT THE CODE. `verify` asks the
- *    server about the account and opens no file, so making it resolve an account code would refuse
+ *    server about the account and opens no file, so making it resolve an NMTS key would refuse
  *    a run over a credential it never uses — and wording that refusal a second time is exactly how
  *    two texts for one problem start.
  */

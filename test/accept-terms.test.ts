@@ -48,7 +48,7 @@ test("it sends the account id, the sign-in proof and the two typed versions — 
     assert.equal(sent["terms_version"], "2026-09-10-v11");
     assert.equal(sent["privacy_version"], "2026-09-10-v12");
     const raw = JSON.stringify(sent);
-    assert.ok(!raw.includes(code.replace(/[\s-]/gu, "")), "the account code was sent to the server");
+    assert.ok(!raw.includes(code.replace(/[\s-]/gu, "")), "the NMTS key was sent to the server");
 
     // Two questions, in the browser's order: consent to the Terms, then having read the Policy.
     assert.equal(input.asked.length, 2);

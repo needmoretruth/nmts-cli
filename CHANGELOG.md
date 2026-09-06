@@ -3,6 +3,15 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.33.0 — 2026-09-06
+
+- The secret that opens an account is now called your **NMTS key**. It was the account code; only
+  the word changed, and the wallet it derives is the **NMTS key wallet**. Help text, error
+  messages, the MCP tool descriptions and the documentation say the new name.
+- **Nothing you have scripted breaks.** The flags, the environment variables
+  (`NMTS_ACCOUNT_CODE`, `NMTS_ACCOUNT_CODE_FILE`), the config keys, the MCP tool and argument
+  names, the error codes and every file format keep the names they already had.
+
 ## 0.32.0 — 2026-09-06
 
 - The file list is saved in pieces. Editing one file now uploads the piece it is in instead of the

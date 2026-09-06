@@ -14,7 +14,7 @@
 // ⛔ NOTHING SECRET IN THE HEADER, AND THAT INCLUDES SIZES. No file name, no count, no total. A
 //    leaked wrapper must not say what is inside it, or even how much.
 //
-// ⛔ THE ACCOUNT CODE IS NOT IN IT. This file plus the code is the account; the artefact that DOES
+// ⛔ THE NMTS KEY IS NOT IN IT. This file plus the code is the account; the artefact that DOES
 //    carry both is the recovery kit, and it says so about itself in every language it is written.
 //
 // ⚠ WHAT DIFFERS FROM THE BROWSER'S COPY, and none of it is a format difference:
@@ -79,13 +79,13 @@ export function minimumToolVersion(nrm) {
 const NOTE = [
     `This file is a recovery list from NMTS (nmts.me). Encrypted inside is the record of where ` +
         `this account's files are kept on the public storage network (Walrus).`,
-    `It opens only with the account code this list was made for. File names and counts are not ` +
+    `It opens only with the NMTS key this list was made for. File names and counts are not ` +
         `visible from the outside.`,
     `The original file list lives on the NMTS server. If the server can no longer be reached, this ` +
-        `list together with the account code carries the information needed to find the files still ` +
+        `list together with the NMTS key carries the information needed to find the files still ` +
         `on the storage network and open them.`,
     `A list with a higher number in its filename is newer — keep the newest. Store this file ` +
-        `somewhere other than the account code. The program that reads it is at ` +
+        `somewhere other than the NMTS key. The program that reads it is at ` +
         `github.com/needmoretruth/nmts-recovery.`,
 ];
 /** Build the on-disk document and the filename to offer it under. */

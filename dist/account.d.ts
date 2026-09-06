@@ -3,11 +3,11 @@ export interface AccountIdentity {
     accountId: string;
     /** The address other people use to share with this account. Public. */
     publicCode: string;
-    /** The account code as it is meant to be read, in groups. NOT printed by default. */
+    /** The NMTS key as it is meant to be read, in groups. NOT printed by default. */
     displayCode: string;
 }
 /**
- * Check that a string is a real account code.
+ * Check that a string is a real NMTS key.
  *
  * ⛔ This is the engine's own parser, which verifies the trailing check symbol. A typo therefore
  *    fails HERE, offline, instead of becoming a sign-in failure the person cannot tell apart from

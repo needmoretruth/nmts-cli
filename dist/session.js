@@ -15,7 +15,7 @@ import { resolveServer } from "./server.js";
  * The API key, or the one refusal for not having one.
  *
  * ⛔ IT IS ITS OWN FUNCTION BECAUSE ONE COMMAND NEEDS THE KEY AND NOT THE CODE. `verify` asks the
- *    server about the account and opens no file, so making it resolve an account code would refuse
+ *    server about the account and opens no file, so making it resolve an NMTS key would refuse
  *    a run over a credential it never uses — and wording that refusal a second time is exactly how
  *    two texts for one problem start.
  */

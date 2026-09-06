@@ -1,4 +1,4 @@
-// Keeping the account code on this machine — the four ways in, and the two agreements.
+// Keeping the NMTS key on this machine — the four ways in, and the two agreements.
 //
 // ⛔ SPLIT OUT OF `cli.test.ts` WHEN THAT FILE PASSED ITS LENGTH CEILING. These run the real
 //    binary as a child process for the same reason the other file does: what is being tested is
@@ -61,7 +61,7 @@ function sandbox(
 }
 
 
-test("⛔ login seals by default — what lands on disk is not the account code", async () => {
+test("⛔ login seals by default — what lands on disk is not the NMTS key", async () => {
   const s = sandbox("cli-login", "plain-env");
   const code = await generateCode();
   try {
@@ -73,7 +73,7 @@ test("⛔ login seals by default — what lands on disk is not the account code"
     // ⛔ THE DISCRIMINATING ASSERTION. "There is a lockedCode field" would pass on a file that
     //    also carried the code in the clear beside it, which is exactly the mistake worth
     //    catching. This one looks at every byte of the file.
-    assert.ok(!raw.includes(code), "the sealed file carried the account code anyway");
+    assert.ok(!raw.includes(code), "the sealed file carried the NMTS key anyway");
     const parsed = JSON.parse(raw);
     assert.equal(parsed.accountCode, undefined, "a plain copy was written next to the sealed one");
     assert.equal(parsed.lockedCode.kdf, "scrypt");
@@ -206,7 +206,7 @@ test("⛔ the code from a plain environment variable stops for an agreement firs
     assert.equal(refused.code, 5, refused.stderr);
     assert.match(refused.stderr, /plain-env/);
     // ⛔ Discriminating: it must be refused for the right reason, not because nothing was found.
-    assert.ok(!/No NMTS account code/.test(refused.stderr), "it read as 'not signed in' instead");
+    assert.ok(!/No NMTS key/.test(refused.stderr), "it read as 'not signed in' instead");
 
     grantConsents(s.dir, "plain-env");
     const allowed = await nmts(["whoami"], { ...s.env, NMTS_ACCOUNT_CODE: code });
@@ -239,8 +239,8 @@ test("login --env writes nothing and prints the line to set, behind the same agr
     assert.equal(refused.code, 5, refused.stderr);
     // ⛔ DISCRIMINATING: moving the agreement one line later would still exit 5 — after printing
     //    the code. What is being tested is that nothing came out, not that something was refused.
-    assert.ok(!refused.stdout.includes(code), "a refused --env printed the account code anyway");
-    assert.ok(!refused.stderr.includes(code), "a refused --env put the account code on stderr");
+    assert.ok(!refused.stdout.includes(code), "a refused --env printed the NMTS key anyway");
+    assert.ok(!refused.stderr.includes(code), "a refused --env put the NMTS key on stderr");
 
     grantConsents(s.dir, "plain-env");
     const r = await nmts(["login", "--env"], { ...s.env, NMTS_ACCOUNT_CODE: code });

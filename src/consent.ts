@@ -8,7 +8,7 @@
 // ⛔ FIVE KEYS, NOT TWENTY. A tool that asks about everything trains the person to say yes
 //    without reading, and then the one question that mattered is the one they clicked through.
 //    The bar for a key existing is one of: it cannot be undone · it costs money · it puts the
-//    account code somewhere that is not this tool's sealed file. Anything else happens without
+//    NMTS key somewhere that is not this tool's sealed file. Anything else happens without
 //    asking, and the count is written here so that adding a sixth has to be a decision.
 //    ⚠ The fifth was added for sharing, which is the first thing this tool can do that hands
 //      something to a person who is not the account holder — and the only one whose undo does not
@@ -41,7 +41,7 @@ export interface Consent {
 
 export const CONSENTS = {
   /**
-   * Writing the account code down UNSEALED — in the clear, in this tool's own file.
+   * Writing the NMTS key down UNSEALED — in the clear, in this tool's own file.
    *
    * ⛔ THE DEFAULT IS THE SEALED FORM, and this key is what unlocks the other one (owner,
    *    2026-08-23: support storing it, but only behind encryption unless somebody agrees to a
@@ -56,16 +56,16 @@ export const CONSENTS = {
    *   means what it said on the day it was given.
    */
   "unsafe-code-storage": {
-    what: "Store the account code in the clear, unsealed, in this tool's own file.",
+    what: "Store the NMTS key in the clear, unsealed, in this tool's own file.",
     risk:
-      "The account code opens every file in this account and derives its wallet. Written in the " +
+      "The NMTS key opens every file in this account and derives its wallet. Written in the " +
       "clear it is readable by anything running as you — every agent, every script, every " +
       "backup that copies your home directory, every image layer built from it. Where the " +
       "filesystem cannot keep a file private, it is readable by others as well.",
     limit:
-      "There is no recovery from a leaked code: it cannot be changed while it still opens the " +
+      "There is no recovery from a leaked NMTS key: it cannot be changed while it still opens the " +
       "files it opened. The alternatives are the sealed form, which is what `login` does by " +
-      "default, and a secret file the code is read from and never copied into.",
+      "default, and a secret file the NMTS key is read from and never copied into.",
   },
   /**
    * Reading the code out of a plain environment variable, or printing one to be set.
@@ -79,7 +79,7 @@ export const CONSENTS = {
    *    agreement.
    */
   "plain-env": {
-    what: "Use the account code from a plain environment variable, or print one to be set.",
+    what: "Use the NMTS key from a plain environment variable, or print one to be set.",
     risk:
       "An environment variable is not private to the program that reads it. `docker inspect` " +
       "prints the entire environment of a container, anything running as you can read " +
@@ -91,7 +91,7 @@ export const CONSENTS = {
       "NMTS_ACCOUNT_CODE_FILE — avoids all of the above and asks for nothing.",
   },
   /**
-   * Signing a chain transaction with the wallet the account code derives.
+   * Signing a chain transaction with the wallet the NMTS key derives.
    *
    * Separate from `spend` because it is a different pot of money: credits are a promise this
    * service made, and a wallet holds assets nobody can restore.
@@ -100,7 +100,7 @@ export const CONSENTS = {
    * Handing a file to another account.
    *
    * ⛔ IT IS HERE BECAUSE THE UNDO DOES NOT UNDO IT. Every other irreversible thing in this tool
-   *    costs money or moves the account code; this one gives somebody else a copy of a file, and
+   *    costs money or moves the NMTS key; this one gives somebody else a copy of a file, and
    *    taking the share back afterwards stops future downloads and reaches nothing already
    *    fetched. That gap is not a flaw to be fixed later — it is what handing somebody a file
    *    means — so it is said before the first share rather than after it.
@@ -121,13 +121,13 @@ export const CONSENTS = {
    *    `requireConsent("wallet")` would read an older bare-date record as "everything, forever".
    */
   wallet: {
-    what: "Use the wallet this account code derives, and sign transactions with it.",
+    what: "Use the wallet this NMTS key derives, and sign transactions with it.",
     risk:
       "A signed transaction moves real assets and cannot be reversed by anybody, including NMTS. " +
       "A mistake here is permanent. The agreement names a scope, runs out after at most 30 days, " +
       "and can carry a ceiling on what this tool signs away.",
     limit:
-      "Only what this tool signs. Handing the account code to another program gives that program " +
+      "Only what this tool signs. Handing the NMTS key to another program gives that program " +
       "the same wallet, and nothing here can see that happen.",
   },
   /** Ending another device's session — the browser's, usually. */
@@ -148,22 +148,22 @@ export const CONSENTS = {
       "themselves are not touched, and a rebuild can find what the list forgot.",
     limit: "This covers the list. It cannot restore a file whose storage has run out.",
   },
-  /** Printing the account code. */
+  /** Printing the NMTS key. */
   reveal: {
-    what: "Print the account code on this screen.",
+    what: "Print the NMTS key on this screen.",
     risk:
-      "The account code is the account: anyone who reads it can open every file and delete the " +
+      "The NMTS key is the account: anyone who reads it can open every file and delete the " +
       "account. A screen is copied by terminals, session recorders and screenshots, and by any " +
       "program reading this tool's output.",
     limit: "This covers printing it. Where it goes afterwards is not something this tool can see.",
   },
-  /** Writing the account code into a recovery kit. */
+  /** Writing the NMTS key into a recovery kit. */
   kit: {
-    what: "Write the account code into a recovery kit file on this disk.",
+    what: "Write the NMTS key into a recovery kit file on this disk.",
     risk:
-      "The kit holds the code in the clear. Anything that reads this disk — a backup, a sync " +
-      "folder, another user, an image built from it — reads the code, and the code is the account.",
-    limit: "The recovery list alone (`recovery-list`) holds no code and asks for nothing.",
+      "The kit holds the NMTS key in the clear. Anything that reads this disk — a backup, a sync " +
+      "folder, another user, an image built from it — reads it, and the NMTS key is the account.",
+    limit: "The recovery list alone (`recovery-list`) holds no NMTS key and asks for nothing.",
   },
   /** A gift to the developer — on its own, or as a tip at payment (2026-09-06). */
   donate: {

@@ -15,7 +15,7 @@ export interface KeyOptions {
  * `nmts key <verb>`.
  *
  * ⛔ A VERB AND NOT A BARE COMMAND. Three verbs: `new` mints, `list` shows, `revoke` cuts
- *    (`key-manage.ts` for the last two). All three present the account code's proof and none is
+ *    (`key-manage.ts` for the last two). All three present the NMTS key's proof and none is
  *    reachable with a key — a key cannot cut another key off, and that is what makes revoking
  *    mean something. `key` with no verb says which ones exist rather than doing one of them, so
  *    `nmts key` never turns out to have made something.

@@ -9,7 +9,7 @@ export interface Consent {
 }
 export declare const CONSENTS: {
     /**
-     * Writing the account code down UNSEALED — in the clear, in this tool's own file.
+     * Writing the NMTS key down UNSEALED — in the clear, in this tool's own file.
      *
      * ⛔ THE DEFAULT IS THE SEALED FORM, and this key is what unlocks the other one (owner,
      *    2026-08-23: support storing it, but only behind encryption unless somebody agrees to a
@@ -24,7 +24,7 @@ export declare const CONSENTS: {
      *   means what it said on the day it was given.
      */
     readonly "unsafe-code-storage": {
-        readonly what: "Store the account code in the clear, unsealed, in this tool's own file.";
+        readonly what: "Store the NMTS key in the clear, unsealed, in this tool's own file.";
         readonly risk: string;
         readonly limit: string;
     };
@@ -40,12 +40,12 @@ export declare const CONSENTS: {
      *    agreement.
      */
     readonly "plain-env": {
-        readonly what: "Use the account code from a plain environment variable, or print one to be set.";
+        readonly what: "Use the NMTS key from a plain environment variable, or print one to be set.";
         readonly risk: string;
         readonly limit: string;
     };
     /**
-     * Signing a chain transaction with the wallet the account code derives.
+     * Signing a chain transaction with the wallet the NMTS key derives.
      *
      * Separate from `spend` because it is a different pot of money: credits are a promise this
      * service made, and a wallet holds assets nobody can restore.
@@ -54,7 +54,7 @@ export declare const CONSENTS: {
      * Handing a file to another account.
      *
      * ⛔ IT IS HERE BECAUSE THE UNDO DOES NOT UNDO IT. Every other irreversible thing in this tool
-     *    costs money or moves the account code; this one gives somebody else a copy of a file, and
+     *    costs money or moves the NMTS key; this one gives somebody else a copy of a file, and
      *    taking the share back afterwards stops future downloads and reaches nothing already
      *    fetched. That gap is not a flaw to be fixed later — it is what handing somebody a file
      *    means — so it is said before the first share rather than after it.
@@ -70,7 +70,7 @@ export declare const CONSENTS: {
      *    `requireConsent("wallet")` would read an older bare-date record as "everything, forever".
      */
     readonly wallet: {
-        readonly what: "Use the wallet this account code derives, and sign transactions with it.";
+        readonly what: "Use the wallet this NMTS key derives, and sign transactions with it.";
         readonly risk: string;
         readonly limit: string;
     };
@@ -86,17 +86,17 @@ export declare const CONSENTS: {
         readonly risk: string;
         readonly limit: "This covers the list. It cannot restore a file whose storage has run out.";
     };
-    /** Printing the account code. */
+    /** Printing the NMTS key. */
     readonly reveal: {
-        readonly what: "Print the account code on this screen.";
+        readonly what: "Print the NMTS key on this screen.";
         readonly risk: string;
         readonly limit: "This covers printing it. Where it goes afterwards is not something this tool can see.";
     };
-    /** Writing the account code into a recovery kit. */
+    /** Writing the NMTS key into a recovery kit. */
     readonly kit: {
-        readonly what: "Write the account code into a recovery kit file on this disk.";
+        readonly what: "Write the NMTS key into a recovery kit file on this disk.";
         readonly risk: string;
-        readonly limit: "The recovery list alone (`recovery-list`) holds no code and asks for nothing.";
+        readonly limit: "The recovery list alone (`recovery-list`) holds no NMTS key and asks for nothing.";
     };
     /** A gift to the developer — on its own, or as a tip at payment (2026-09-06). */
     readonly donate: {

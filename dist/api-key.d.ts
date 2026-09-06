@@ -71,7 +71,7 @@ export declare function keySourceName(from: KeyOffer): string;
  * Work out which key this machine should end up with, checking any new one before it is written.
  *
  * ⛔ A KEY ALREADY HERE IS NEVER REPLACED BY A RUN THAT DID NOT SAY SO. `login` is a command about
- *    the account code; a person re-sealing their code with a new passphrase, on a machine where an
+ *    the NMTS key; a person re-sealing their code with a new passphrase, on a machine where an
  *    old variable is still set in some shell profile, has not asked for their working key to be
  *    swapped for whatever that variable holds. Silently overwriting it would break every agent on
  *    the machine at a moment nobody would connect to the command they ran.

@@ -1,5 +1,5 @@
 // `nmts wallet swap <SUI|WAL> <amount|max>` — turn one coin into the other, from the wallet this
-// account code derives, on the venue the person names. ⛔ SIGNS AND SPENDS.
+// NMTS key derives, on the venue the person names. ⛔ SIGNS AND SPENDS.
 //
 // ⛔ THE ORDER IS THE SAFETY. ① both balances are READ, and an unread one stops the run ② the
 //    amount and the slippage are judged by the browser's own rules (`shared/lib/wallet/swap-rules.ts`,

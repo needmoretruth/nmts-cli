@@ -18,7 +18,7 @@
 //    grant this file exists to make impossible, so it is asked for again — with the new words.
 //
 // ⚠ THE LEDGER IS THIS MACHINE'S. It counts what THIS tool signed under THIS grant. The wallet can
-//   be spent from elsewhere with the same account code, and nothing here can see that.
+//   be spent from elsewhere with the same NMTS key, and nothing here can see that.
 
 import { NmtsError } from "./errors.ts";
 import { readConsentRecords, writeConsentRecords } from "./consent.ts";
@@ -200,14 +200,14 @@ export function requireWalletGrant(action: WalletAction, spend: Spend, now: Date
   const refuse = (what: string, why: string[]): NmtsError =>
     new NmtsError(what, { exitCode: 5, nextStep: [...why, ...tail].join("\n") });
   if (state === "none" || grant === null) {
-    throw refuse("Use the wallet this account code derives, and sign transactions with it.", [
+    throw refuse("Use the wallet this NMTS key derives, and sign transactions with it.", [
       "A signed transaction moves real assets and cannot be reversed by anybody, including NMTS. " +
         "A mistake here is permanent.",
       "",
       "This agreement carries three things: a scope (storage = extending and paying for storage; " +
         "all = also exchanging and sending — a gift is in neither), an expiry of at most " +
         `${MAX_GRANT_DAYS} days, and, if you want one, a ceiling on what this tool may sign away.`,
-      "Only what this tool signs is counted. Handing the account code to another program gives " +
+      "Only what this tool signs is counted. Handing the NMTS key to another program gives " +
         "that program the same wallet, and nothing here can see that happen.",
       "",
       `To unlock, at a terminal, for a week:  ${GRANT_COMMAND}`,

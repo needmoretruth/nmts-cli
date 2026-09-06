@@ -52,14 +52,14 @@ export declare const signTransfer: SignTransfer;
 export declare const signMessage: SignMessage;
 /** The seam `commands/wallet-hall.ts` signs through. Returns the base64 signature, nothing else. */
 export type SignMessage = (input: {
-    /** ⛔ The account code. It never leaves this machine: it derives the wallet and nothing else. */
+    /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
     code: string;
     message: string;
 }) => Promise<string>;
 /** The seam `commands/wallet-send.ts` signs through. Returns the transaction digest. */
 export type SignTransfer = (input: {
     network: string;
-    /** ⛔ The account code. It never leaves this machine: it derives the wallet and nothing else. */
+    /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
     code: string;
     shape: TransferShape;
 }) => Promise<string>;
@@ -78,7 +78,7 @@ export declare const signSwap: SignSwap;
 /** The seam `commands/wallet-swap.ts` signs through. Returns the transaction digest. */
 export type SignSwap = (input: {
     network: Network;
-    /** ⛔ The account code. It never leaves this machine: it derives the wallet and nothing else. */
+    /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
     code: string;
     shape: SwapShape;
 }) => Promise<string>;

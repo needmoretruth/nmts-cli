@@ -6,7 +6,7 @@
 //    filter applied at the last moment would still leave the real thing lying in a file.
 //
 // ⛔ IT ERRS TOWARD REPLACING. A label where an ordinary word stood costs the reader one word and
-//    is visible in the preview; a missed account code costs the whole account and is visible to
+//    is visible in the preview; a missed NMTS key costs the whole account and is visible to
 //    nobody. Every rule below is written on that side of the line, and the tests pin both
 //    directions — one text each rule must replace, one text it must leave alone.
 //
@@ -34,7 +34,7 @@ export interface RedactionRule {
   /**
    * A second opinion on a match, for shapes a regular expression cannot decide alone.
    *
-   * The account code is the one that needs it: recognising it is "exactly thirty-three symbols
+   * The NMTS key is the one that needs it: recognising it is "exactly thirty-three symbols
    * once the separators are gone", which is a count and not a pattern.
    */
   readonly only?: (match: string) => boolean;
@@ -47,7 +47,7 @@ export interface RedactionRule {
   readonly into?: (match: string, groups: readonly (string | undefined)[]) => string;
 }
 
-/** An account code is 32 data symbols and one check symbol. `crypto/src/codes.rs` is the origin. */
+/** An NMTS key is 32 data symbols and one check symbol. `crypto/src/codes.rs` is the origin. */
 const ACCOUNT_CODE_SYMBOLS = 33;
 
 /** Crockford base32, the data half: `0-9 A-H J-K M-N P-T V-Z`, either case. No `I L O U`. */
@@ -60,7 +60,7 @@ const DATA_ONLY = new RegExp(`^[${DATA_CLASS}]+$`, "u");
 const CHECK_ONLY = new RegExp(`^[${CHECK_CLASS}]$`, "u");
 
 /**
- * Is this run of symbols an account code?
+ * Is this run of symbols an NMTS key?
  *
  * ⛔ THE GROUPS MUST BE THREE SYMBOLS OR MORE. Without that, a hyphenated phrase of single letters
  *    adding up to thirty-three would be replaced, and error sentences are exactly where hyphens
@@ -158,7 +158,7 @@ export const RULES: readonly RedactionRule[] = [
   },
   {
     // ⛔ A SEED PHRASE, WHICH THIS TOOL NEVER HOLDS AND A PERSON MIGHT STILL PASTE. The wallet
-    //    here is derived from the account code and there is no mnemonic anywhere in it — but
+    //    here is derived from the NMTS key and there is no mnemonic anywhere in it — but
     //    somebody reporting a wallet problem has another wallet open, and twelve words is what
     //    that one shows them.
     //

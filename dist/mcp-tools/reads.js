@@ -105,7 +105,7 @@ export function readTools(ctx) {
                 "when it was last used, and when it runs out. ⛔ READ-ONLY. Signing a device out is a " +
                 "person's act at nmts.me and no API key can do it — including this one — so if a row " +
                 "looks wrong, say so and let the person end it rather than looking for a way to do it " +
-                "here. ⚠ The name each device was given is encrypted with the account code, which the " +
+                "here. ⚠ The name each device was given is encrypted with the NMTS key, which the " +
                 "server has never had, so no name is returned.",
             inputSchema: NO_ARGS,
             run: () => say((write) => devices({ server: ctx.server, json: true, write })),
@@ -115,8 +115,8 @@ export function readTools(ctx) {
             description: "The account's PUBLIC CODE — the value other accounts send files to — and whether it has " +
                 "been published yet. Until it is published nobody can send to this account. ⛔ It only " +
                 "reads. Publishing is permanent and is a person's decision at the command line: if the " +
-                "reply says it is not published, say so rather than working around it. ⚠ Not the account " +
-                "code, which opens every file and is never given away.",
+                "reply says it is not published, say so rather than working around it. ⚠ Not the NMTS " +
+                "key, which opens every file and is never given away.",
             inputSchema: NO_ARGS,
             run: () => say((write) => publicCode({ ...common(ctx), json: true, write })),
         },

@@ -180,7 +180,7 @@ export async function startFakeRecovery(): Promise<FakeRecovery> {
     };
     const refuseProof = (): void =>
       json(403, {
-        error: { code: "ACCOUNT_PROOF_REQUIRED", message: "this route needs proof of the account code" },
+        error: { code: "ACCOUNT_PROOF_REQUIRED", message: "this route needs proof of the NMTS key" },
       });
 
     if (method === "GET" && url.startsWith("/v1/manifest")) {

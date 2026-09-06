@@ -40,7 +40,7 @@ import { isRecord } from "./guards.js";
 import { certifyTransaction, createdBlob, payingClient, registerTransaction, } from "./upload-wallet-chain.js";
 import { BUILT_IN_WALLET_INDEX } from "./wallet.js";
 /**
- * The keypair the account code derives.
+ * The keypair the NMTS key derives.
  *
  * ⛔ NOT EXPORTED. A caller that could hold this could sign anything, and the whole of this tool's
  *    story about the wallet is that one command signs one shape of transaction.
@@ -68,7 +68,7 @@ async function keypairFor(code) {
         if (error instanceof NmtsError)
             throw error;
         // ⛔ An engine message about a code can carry the code (`errors.ts`), so it is never passed on.
-        throw new NmtsError("The account code could not be read on this machine.", { exitCode: 1 });
+        throw new NmtsError("The NMTS key could not be read on this machine.", { exitCode: 1 });
     }
     finally {
         seed?.fill(0);

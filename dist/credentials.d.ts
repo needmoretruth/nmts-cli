@@ -13,7 +13,7 @@ export declare const API_KEY_ENV_VAR = "NMTS_API_KEY";
  */
 export declare const PASSPHRASE_ENV_VAR = "NMTS_PASSPHRASE";
 /**
- * Names a FILE holding the account code, rather than holding it directly.
+ * Names a FILE holding the NMTS key, rather than holding it directly.
  *
  * ⛔ THE ONLY SAFE WAY TO GIVE A CONTAINER A SECRET. See `readSecretFile`.
  */
@@ -23,7 +23,7 @@ export declare const API_KEY_FILE_ENV_VAR = "NMTS_API_KEY_FILE";
 /** Where a credential came from. Reported, never guessed. */
 export type CredentialSource = "env" | "secret-file" | "file" | "file-locked";
 /**
- * An account code that has been FOUND but not necessarily opened.
+ * An NMTS key that has been FOUND but not necessarily opened.
  *
  * ⛔ THE TWO CASES ARE SEPARATE TYPES so that no caller can read `.code` off a locked one. A
  *    single shape with a nullable field would compile everywhere and be wrong in exactly one
@@ -48,13 +48,13 @@ export declare function credentialsPath(): string;
  */
 export interface Credentials {
     /**
-     * The account code in the clear.
+     * The NMTS key in the clear.
      *
      * ⛔ ONLY WHEN THE PERSON CHOSE IT (`login --plain`, behind the `unsafe-code-storage` consent).
      *    The default writes `lockedCode` instead.
      */
     accountCode?: string;
-    /** The account code sealed under a passphrase. The default form. */
+    /** The NMTS key sealed under a passphrase. The default form. */
     lockedCode?: LockedCode;
     /** Server credential that waives the human check. Optional: not every account has one. */
     apiKey?: string;
@@ -72,12 +72,12 @@ export interface Credentials {
 /** True on platforms where Node applies a POSIX file mode. */
 export declare function modesAreEnforced(): boolean;
 /**
- * Can this machine actually keep a file private, where the account code would go?
+ * Can this machine actually keep a file private, where the NMTS key would go?
  *
  * ⛔ IT MEASURES RATHER THAN ASSUMES. "Not Windows" is not the same question: a container with a
  *    bind mount from a Windows host, a network drive, an exFAT stick and several FUSE filesystems
  *    all accept `chmod` and then ignore it. The mode comes back as whatever the filesystem felt
- *    like, and the tool would have written the account code into a file anybody can read while
+ *    like, and the tool would have written the NMTS key into a file anybody can read while
  *    believing it had locked it.
  *
  * So: write a file, ask for 0600, read the mode back, and delete it. The probe is empty, its name
@@ -110,7 +110,7 @@ export declare class CredentialsTooOpenError extends Error {
  */
 export declare function readCredentialsFile(): Credentials | null;
 /**
- * The account code this run should use, and where it came from.
+ * The NMTS key this run should use, and where it came from.
  *
  * The environment variable wins over the file so an agent can be handed a code for one run without
  * writing anything to disk — which is the safer shape when the machine is shared or ephemeral.
@@ -133,7 +133,7 @@ export declare function readSecretFile(variable: string): string | null;
 /**
  * The API key this run should use, and where it came from.
  *
- * ⚠ SEPARATE FROM THE ACCOUNT CODE ON PURPOSE, and the two can come from different places. The
+ * ⚠ SEPARATE FROM THE NMTS KEY ON PURPOSE, and the two can come from different places. The
  *   code is what opens the files; the key is only what makes the server answer without a human
  *   check. Somebody may keep the code in the environment for one run while the key stays on the
  *   machine, or the other way round, and neither combination is unusual enough to refuse.

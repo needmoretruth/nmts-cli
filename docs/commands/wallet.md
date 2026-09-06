@@ -1,4 +1,4 @@
-# nmts wallet — the wallet the account code derives
+# nmts wallet — the wallet your NMTS key derives
 
 Commands: wallet
 Tiers: wallet=none · wallet.send=high(wallet) · wallet.swap=high(wallet) · wallet.donate=high(donate) · wallet.storage.reshape=high(wallet) · wallet.storage.give=high(wallet) · wallet.hall=none · wallet.hall.set=medium
@@ -62,6 +62,6 @@ One more reads the gifts back, and one flag on it publishes a name:
 
 - `wallet hall` prints the gift hall of fame — the developer, then the ten largest senders as read
   from the public chain, with the rest of the list at nmts.me/hall; reading it signs nothing and
-  needs no account code. `--name <name>` (1 to 24 characters, no links, not an address) signs a
+  needs no NMTS key. `--name <name>` (1 to 24 characters, no links, not an address) signs a
   short message with this account's wallet so the server shows that name beside the address, and
   `--remove` puts the entry back to a shortened address.

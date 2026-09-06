@@ -1,7 +1,7 @@
 import { type CryptoGlue } from "./crypto.ts";
 import type { Network } from "./network.ts";
 /**
- * The wallet this account code opens by itself.
+ * The wallet this NMTS key opens by itself.
  *
  * ⛔ IT IS WALLET 0 BECAUSE THAT IS THE ONE THE BROWSER OPENS. Every wallet, including this one,
  *    comes out of `wallet_seed_for` — there is no special case for the first — so the index is the
@@ -50,7 +50,7 @@ export declare function walCoinType(network: Network): string;
  */
 export declare function addressFromSeed(seed: Uint8Array): string;
 /**
- * The address of the wallet this account code derives. Offline: nothing is asked of anybody.
+ * The address of the wallet this NMTS key derives. Offline: nothing is asked of anybody.
  *
  * The same address on every network — an account has one wallet, and which chain it is looked up
  * on is a separate question from what it is called.
@@ -66,7 +66,7 @@ export declare function walletAddress(code: string): Promise<string>;
  */
 export type WalletGlue = Pick<CryptoGlue, "wallet_seed_for">;
 /**
- * The built-in wallet's address, from a buffer the caller already holds.
+ * The NMTS key wallet's address, from a buffer the caller already holds.
  *
  * ⛔ IT TAKES KEY MATERIAL AND RETURNS A STRING. `derived` belongs to the caller and is left
  *    alone; the two secrets this function makes — the wallet root it slices out and the seed the

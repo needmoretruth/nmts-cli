@@ -12,7 +12,7 @@
 //    image. `redact.ts` runs before every write here. The attachment runs it again, which costs
 //    nothing and covers a line written by an older version of this tool.
 //
-// ⛔ WHAT IS NEVER IN IT: file contents, the account code, the API key, a passphrase. Not because
+// ⛔ WHAT IS NEVER IN IT: file contents, the NMTS key, the API key, a passphrase. Not because
 //    they are filtered — because nothing here is ever handed them. What is written is the command
 //    name, the argument tokens, the addresses called, the status numbers, and error sentences.
 //

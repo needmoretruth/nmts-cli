@@ -8,7 +8,7 @@ always. A good report has four parts — the command you ran, what you expected,
 `--attach-log` so the server's answers to the last runs come along. `--category` (bug · idea ·
 account · storage · payment · privacy; `nmts support --help` lists the finer ones), `--message`
 or `--message-file`, `--omit <text>` for a value that must not travel. The log is redacted on this
-machine before it leaves; the account code, key, passphrase and key material never go. Write in
+machine before it leaves; the NMTS key, the API key, passphrase and key material never go. Write in
 English. One report per problem.
 
 In the default mode it prints what it would send and asks (or takes `--yes`); in an auto mode it

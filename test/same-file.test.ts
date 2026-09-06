@@ -8,7 +8,7 @@
 //
 // ⛔ THE HASH IS SEALED, AND THIS TEST SEALS IT THE WAY THE PRODUCT DOES rather than restating what
 //    the reader expects. A test that built the ciphertext from the reader's own assumptions would
-//    only prove the reader agrees with itself. What is sealed here goes from the account code
+//    only prove the reader agrees with itself. What is sealed here goes from the NMTS key
 //    through the real engine, with the domain separator the format registry names.
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -1,6 +1,6 @@
 // `nmts kit` — the recovery kit: one file that is enough to get everything back.
 //
-// ⛔⛔ IT WRITES THE ACCOUNT CODE IN THE CLEAR. That is the format, decided deliberately: the point
+// ⛔⛔ IT WRITES THE NMTS KEY IN THE CLEAR. That is the format, decided deliberately: the point
 //    of the kit is that a person needs ONE thing, not two. So whoever holds this file holds the
 //    account and the wallet, and this command says exactly that at the moment it writes — not in a
 //    manual, not on a website. The moment somebody makes this file is the moment that fact
@@ -8,7 +8,7 @@
 //
 // ⛔ IT WRITES NOWHERE BUT THE PATH THE CALLER NAMED. Nothing is copied into this tool's own
 //    directory, nothing is left in a temporary file, nothing is printed to the terminal. A command
-//    that quietly kept a second copy of an account code would be the worst defect in this program.
+//    that quietly kept a second copy of an NMTS key would be the worst defect in this program.
 //
 // ⛔ AND IT NEVER REPLACES A FILE NOBODY ASKED IT TO REPLACE. A taken name is a refusal unless
 //    `--force` says otherwise — the same rule every other writing command here follows.
@@ -75,7 +75,7 @@ export async function kit(options: KitOptions = {}): Promise<number> {
   const destination = destinationFor(options.out, file.filename);
   if (options.force !== true && existsSync(destination)) throw alreadyThere(destination);
   try {
-    // ⛔ 0600, AND IT IS NOT A FORMALITY HERE. This file is the account code. On a filesystem that
+    // ⛔ 0600, AND IT IS NOT A FORMALITY HERE. This file is the NMTS key. On a filesystem that
     //    cannot keep the mode, this is still the only protection there is to ask for.
     writeFileSync(destination, file.content, {
       flag: options.force === true ? "w" : "wx",
@@ -103,7 +103,7 @@ export async function kit(options: KitOptions = {}): Promise<number> {
         //    somebody has to be able to say what it is, in the same words.
         carries: ["account-code", "recovery-list"],
         warning:
-          "This file contains the account code in the clear. Anyone who holds it holds the " +
+          "This file contains the NMTS key in the clear. Anyone who holds it holds the " +
           "account and the wallet.",
         missingFromSource: built.missingFromSource,
       }),
@@ -113,9 +113,9 @@ export async function kit(options: KitOptions = {}): Promise<number> {
 
   say(`Wrote ${destination}`);
   say(``);
-  say(`  ⛔ This file contains your account code in the clear, together with the recovery list`);
+  say(`  ⛔ This file contains your NMTS key in the clear, together with the recovery list`);
   say(`     for ${built.fileCount} file(s). Anyone who holds it holds this account: every file in`);
-  say(`     it, and the wallet that pays for storage. One account code opens both.`);
+  say(`     it, and the wallet that pays for storage. One NMTS key opens both.`);
   say(``);
   say(`  It was written only where you see it, with permissions 0600, and nowhere else.`);
   say(`  Do not keep it in a folder that syncs or backs up on its own, and do not send it to`);
@@ -153,7 +153,7 @@ function alreadyThere(destination: string): NmtsError {
   return new NmtsError(`${destination} is already there.`, {
     exitCode: 4,
     nextStep:
-      `Nothing was written, and no account code was put anywhere. Pass --out to choose another ` +
+      `Nothing was written, and no NMTS key was put anywhere. Pass --out to choose another ` +
       `name, or --force to replace it.`,
   });
 }

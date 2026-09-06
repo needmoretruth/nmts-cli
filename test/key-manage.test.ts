@@ -30,7 +30,7 @@ function aKey(over: Partial<FakeKey> & Pick<FakeKey, "key_id">): FakeKey {
   };
 }
 
-test("list names and proves the account, and never sends the account code", async () => {
+test("list names and proves the account, and never sends the NMTS key", async () => {
   await withSandbox(drive, "key-list-sends", async (code) => {
     accountState.keys = [aKey({ key_id: "k1" })];
     const out = collect();
@@ -39,7 +39,7 @@ test("list names and proves the account, and never sends the account code", asyn
     const body = accountState.listRequests[0] as Record<string, unknown>;
     assert.equal(body["account_id"], (await identityOf(code)).accountId);
     assert.equal(body["auth_secret"], await accountProof(code));
-    assert.ok(!JSON.stringify(body).includes(code.replace(/[\s-]/gu, "")), "the account code was sent");
+    assert.ok(!JSON.stringify(body).includes(code.replace(/[\s-]/gu, "")), "the NMTS key was sent");
   });
 });
 

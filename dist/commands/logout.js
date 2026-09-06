@@ -1,4 +1,4 @@
-// `nmts logout` — remove the stored account code from this machine.
+// `nmts logout` — remove the stored NMTS key from this machine.
 //
 // ⚠ WHAT IT DOES NOT DO. It removes a file. It does not end any session on the server, and it
 //    cannot reach a copy of the code that has already been read by something else on this machine.

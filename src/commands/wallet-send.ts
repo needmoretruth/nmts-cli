@@ -1,5 +1,5 @@
-// `nmts wallet send <SUI|WAL> <amount|max> <address>` — move coins out of the wallet this account
-// code derives, to one address. ⛔ THE ONE COMMAND BESIDES `extend` THAT SIGNS.
+// `nmts wallet send <SUI|WAL> <amount|max> <address>` — move coins out of the wallet this NMTS
+// key derives, to one address. ⛔ THE ONE COMMAND BESIDES `extend` THAT SIGNS.
 //
 // ⛔ THE ORDER IS THE SAFETY. ① the address and the amount are judged by the browser's own rules
 //    (`shared/lib/wallet/send-rules.ts`, copied byte-for-byte) ② both balances are READ, and an

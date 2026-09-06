@@ -89,7 +89,7 @@ export function payerOf(pay: string | undefined): "credits" | "wallet" {
   if (pay === "wallet") return "wallet";
   throw new NmtsError(`--pay takes credits or wallet, not "${pay}".`, {
     exitCode: 2,
-    nextStep: `Nothing was sent. --pay wallet buys the storage from the wallet this account code derives; without it credits pay.`,
+    nextStep: `Nothing was sent. --pay wallet buys the storage from the wallet this NMTS key derives; without it credits pay.`,
   });
 }
 

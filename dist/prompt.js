@@ -1,6 +1,6 @@
 // Reading a secret from a terminal without putting it on the screen.
 //
-// ⛔ WHY NOT `readline`. It echoes what is typed, and an account code on screen ends up in
+// ⛔ WHY NOT `readline`. It echoes what is typed, and an NMTS key on screen ends up in
 //    scrollback, in a screen share, and in the terminal recording some agents keep. The usual
 //    workaround — swapping `process.stdout.write` for a muted one while the question is open — is
 //    a global mutation in a process that may be writing other output, and it stays broken if the

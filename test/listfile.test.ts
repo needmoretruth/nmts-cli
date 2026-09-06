@@ -3,11 +3,11 @@
 // ⛔ THE ASSERTIONS OPEN WHAT WAS WRITTEN. A file that says the right things in its header and
 //    carries bytes nothing can open is worse than no file: somebody keeps it for years believing
 //    they are covered. So one test takes the `sealed` field out of the document, opens it with the
-//    account code, and checks the entries are the ones the account had.
+//    NMTS key, and checks the entries are the ones the account had.
 //
 // ⛔ AND ONE TEST READS THE FILE LOOKING FOR WHAT MUST NOT BE IN IT. This artefact is meant to be
 //    kept somewhere ordinary — another machine, a backup drive — so a plaintext file name or, far
-//    worse, the account code leaking into it would turn a safety copy into a liability.
+//    worse, the NMTS key leaking into it would turn a safety copy into a liability.
 
 import { strict as assert } from "node:assert";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -91,7 +91,7 @@ test("a read keeps the sealed list, and the command writes it out in the shared 
   });
 });
 
-test("⛔ the file carries neither the account code nor any plaintext name", async () => {
+test("⛔ the file carries neither the NMTS key nor any plaintext name", async () => {
   await withAccount(fake, "listfile-leaks", async (code) => {
     await fake.serve(code, [entry({ id: "a", name: "severance-agreement.pdf" })]);
     await ls(server(lines()));
@@ -103,10 +103,10 @@ test("⛔ the file carries neither the account code nor any plaintext name", asy
       const slug = identity.accountId.replace(/[^A-Za-z0-9]/g, "").slice(0, 8);
       const text = readFileSync(join(dir, `nmts-file-list-${slug}-0001.${LIST_FILE_EXTENSION}`), "utf8");
 
-      assert.ok(!text.includes(code), "⛔ the account code is in the file — this plus the code IS the account");
+      assert.ok(!text.includes(code), "⛔ the NMTS key is in the file — this plus the code IS the account");
       assert.ok(
         !text.includes(identity.displayCode),
-        "⛔ the account code, in its readable spelling, is in the file",
+        "⛔ the NMTS key, in its readable spelling, is in the file",
       );
       assert.ok(!text.includes("severance"), "a file name reached the plaintext part of the wrapper");
     } finally {

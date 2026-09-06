@@ -15,4 +15,4 @@ interrupts nobody; run it before asking anybody for anything. `verify` prints a 
 account holder to type at nmts.me and waits; `--json` gives the code and then the outcome, one
 object per line. Interrupting the wait does not cancel the code. Exit 1 means the code stopped
 working before it was used; nothing was spent and running it again is safe. The code it prints is
-not the account code and is worth nothing after use.
+not the NMTS key and is worth nothing after use.

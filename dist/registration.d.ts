@@ -6,7 +6,7 @@ export interface RegistrationProof {
     authSecret: string;
 }
 /**
- * A brand-new account code, from the engine.
+ * A brand-new NMTS key, from the engine.
  *
  * ⛔ THE RETURNED STRING IS THE ONLY COPY THAT WILL EVER EXIST. The server keeps a verifier of a
  *    value derived from it and nothing else, so a caller that loses this has destroyed an account

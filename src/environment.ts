@@ -1,4 +1,4 @@
-// Working out where this tool is running, and what that means for the account code.
+// Working out where this tool is running, and what that means for the NMTS key.
 //
 // ⛔ IT IS FOR THE AGENT, AND THE AGENT IS FOR THE PERSON. A program driving this tool cannot see
 //    what a person can — whether it is inside a container, whether the home directory survives the
@@ -164,8 +164,8 @@ export function adviseFor(env: Environment, hasStoredCode: boolean): Advice[] {
     out.push({
       level: "warn",
       text:
-        `This filesystem does not keep the mode a file is written with, so a stored account code ` +
-        `could be read by anything else that can reach ${env.configDir}. Supplying the code for ` +
+        `This filesystem does not keep the mode a file is written with, so a stored NMTS key ` +
+        `could be read by anything else that can reach ${env.configDir}. Supplying the NMTS key for ` +
         `each run instead of storing it avoids that.`,
     });
   }
@@ -175,14 +175,14 @@ export function adviseFor(env: Environment, hasStoredCode: boolean): Advice[] {
       level: "note",
       text:
         `This is a ${env.containment} container. Anything written to ${env.configDir} is lost when ` +
-        `it is removed unless that path is a volume, so a stored account code will not be there ` +
+        `it is removed unless that path is a volume, so a stored NMTS key will not be there ` +
         `next time.`,
     });
     out.push({
       level: "warn",
       text:
-        `Do not pass the account code as an environment variable in a container: the whole ` +
-        `environment is visible to anybody who can inspect it. Put the code in a file and name ` +
+        `Do not pass the NMTS key as an environment variable in a container: the whole ` +
+        `environment is visible to anybody who can inspect it. Put the NMTS key in a file and name ` +
         `that file in NMTS_ACCOUNT_CODE_FILE, or pipe it in.`,
     });
     // ⛔ TWO DIFFERENT FACTS, and conflating them is how "rootless" gets reported backwards. What
@@ -214,7 +214,7 @@ export function adviseFor(env: Environment, hasStoredCode: boolean): Advice[] {
     out.push({
       level: "warn",
       text:
-        `There is no terminal here, so this tool cannot ask for the account code. It has to ` +
+        `There is no terminal here, so this tool cannot ask for the NMTS key. It has to ` +
         `arrive in the environment or in a file named by NMTS_ACCOUNT_CODE_FILE.`,
     });
   }
@@ -232,7 +232,7 @@ export function adviseFor(env: Environment, hasStoredCode: boolean): Advice[] {
     out.push({
       level: "note",
       text:
-        `Windows applies no POSIX file mode, so a stored account code inherits the folder's ` +
+        `Windows applies no POSIX file mode, so a stored NMTS key inherits the folder's ` +
         `permissions rather than being restricted to one user.`,
     });
   }
@@ -246,7 +246,7 @@ export function adviseFor(env: Environment, hasStoredCode: boolean): Advice[] {
 
   // ⛔ THE ONE THING THAT SURPRISES PEOPLE. Three of the five agents this tool knows clear the
   //    environment before starting an MCP server and put back a fixed list of names — none of
-  //    which is ours. So a person who exported the account code, attached the tool, and watched
+  //    which is ours. So a person who exported the NMTS key, attached the tool, and watched
   //    it say "not found" did everything right; the value was dropped between the two. Saying so
   //    while the marker is still visible (in the shell, where nothing has been cleared yet) is the
   //    only moment it can be said before the failure rather than after it.
@@ -259,7 +259,7 @@ export function adviseFor(env: Environment, hasStoredCode: boolean): Advice[] {
         `${names} clears the environment before starting an MCP server and restores only a fixed ` +
         `list of names, which does not include NMTS_ACCOUNT_CODE or NMTS_ACCOUNT_CODE_FILE. Those ` +
         `work in a terminal here and will not reach the tool once it is attached. Sign in once ` +
-        `with \`${BINARY_NAME} login\` so the code is in this tool's own file instead.`,
+        `with \`${BINARY_NAME} login\` so the NMTS key is in this tool's own file instead.`,
     });
   }
 

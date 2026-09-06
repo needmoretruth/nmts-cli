@@ -52,7 +52,7 @@ import type { Certificate } from "./upload-wire.ts";
 import { BUILT_IN_WALLET_INDEX } from "./wallet.ts";
 
 /**
- * The keypair the account code derives.
+ * The keypair the NMTS key derives.
  *
  * ⛔ NOT EXPORTED. A caller that could hold this could sign anything, and the whole of this tool's
  *    story about the wallet is that one command signs one shape of transaction.
@@ -78,7 +78,7 @@ async function keypairFor(code: string): Promise<Ed25519Keypair> {
   } catch (error) {
     if (error instanceof NmtsError) throw error;
     // ⛔ An engine message about a code can carry the code (`errors.ts`), so it is never passed on.
-    throw new NmtsError("The account code could not be read on this machine.", { exitCode: 1 });
+    throw new NmtsError("The NMTS key could not be read on this machine.", { exitCode: 1 });
   } finally {
     seed?.fill(0);
     root?.fill(0);
@@ -221,7 +221,7 @@ export const signMessage: SignMessage = async ({ code, message }) => {
 
 /** The seam `commands/wallet-hall.ts` signs through. Returns the base64 signature, nothing else. */
 export type SignMessage = (input: {
-  /** ⛔ The account code. It never leaves this machine: it derives the wallet and nothing else. */
+  /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
   code: string;
   message: string;
 }) => Promise<string>;
@@ -229,7 +229,7 @@ export type SignMessage = (input: {
 /** The seam `commands/wallet-send.ts` signs through. Returns the transaction digest. */
 export type SignTransfer = (input: {
   network: string;
-  /** ⛔ The account code. It never leaves this machine: it derives the wallet and nothing else. */
+  /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
   code: string;
   shape: TransferShape;
 }) => Promise<string>;
@@ -271,7 +271,7 @@ export const signSwap: SignSwap = async ({ network, code, shape }) => {
 /** The seam `commands/wallet-swap.ts` signs through. Returns the transaction digest. */
 export type SignSwap = (input: {
   network: Network;
-  /** ⛔ The account code. It never leaves this machine: it derives the wallet and nothing else. */
+  /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
   code: string;
   shape: SwapShape;
 }) => Promise<string>;

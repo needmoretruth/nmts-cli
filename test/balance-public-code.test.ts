@@ -1,7 +1,7 @@
 // `nmts balance` and `nmts public-code`, against a server that answers on this machine.
 //
 // ⛔ THE ONE THAT MATTERS IS THE LAST: a server already holding a DIFFERENT public code means the
-//    account code this machine is holding is not the one the account was made with. Publishing
+//    NMTS key this machine is holding is not the one the account was made with. Publishing
 //    would fail anyway — the server is first-writer-wins — but "the write was refused" is a much
 //    smaller fact than the one worth telling somebody, and the useful message is the bigger fact.
 

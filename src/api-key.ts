@@ -10,11 +10,11 @@
 // ⛔ NEVER FROM THE COMMAND LINE, for the reason written at the top of `credentials.ts`: on Linux
 //    any process can read another's /proc/<pid>/cmdline for as long as it lives, and the shell
 //    writes it to a history file. So there is no --api-key flag here and there never should be.
-//    The ways in are the three the account code already has — a file an environment variable
+//    The ways in are the three the NMTS key already has — a file an environment variable
 //    NAMES, the variable itself, and a prompt that echoes nothing.
 //
 // ⛔ THE SHAPE IS JUDGED HERE, BEFORE ANYTHING LEAVES THIS MACHINE, and that is not tidiness. The
-//    likeliest wrong thing to paste where a key is asked for is the ACCOUNT CODE, and sending it
+//    likeliest wrong thing to paste where a key is asked for is the NMTS KEY, and sending it
 //    as a bearer token would put the one secret this product promises never travels onto the wire,
 //    into whatever sits in front of the server, and into its logs. The server does classify it and
 //    refuse (`ACCOUNT_CODE_NOT_A_CREDENTIAL`) rather than store it — but that answer arrives after
@@ -28,7 +28,7 @@
 //   half-accepting.
 //
 // ⛔ AND NO FIFTH CONSENT KEY. `consent.ts` allows four and says why: the bar is that the thing
-//    cannot be undone, costs money, or puts the ACCOUNT CODE somewhere that is not this tool's
+//    cannot be undone, costs money, or puts the NMTS KEY somewhere that is not this tool's
 //    sealed file. A key is none of the three — it opens no ciphertext, the account screen revokes
 //    it, it expires by itself, and every command in this tool already reads it out of the
 //    environment without asking. A fifth question here is a fifth chance to teach somebody to
@@ -145,7 +145,7 @@ export function keySourceName(from: KeyOffer): string {
  * Work out which key this machine should end up with, checking any new one before it is written.
  *
  * ⛔ A KEY ALREADY HERE IS NEVER REPLACED BY A RUN THAT DID NOT SAY SO. `login` is a command about
- *    the account code; a person re-sealing their code with a new passphrase, on a machine where an
+ *    the NMTS key; a person re-sealing their code with a new passphrase, on a machine where an
  *    old variable is still set in some shell profile, has not asked for their working key to be
  *    swapped for whatever that variable holds. Silently overwriting it would break every agent on
  *    the machine at a moment nobody would connect to the command they ran.
@@ -323,10 +323,10 @@ async function refuse(shape: KeyShape, value: string): Promise<NmtsError> {
     });
   }
   if (await looksLikeAnAccountCode(value)) {
-    return new NmtsError(`That is an account code, not an API key.`, {
+    return new NmtsError(`That is an NMTS key, not an API key.`, {
       exitCode: 2,
       nextStep:
-        `It was NOT sent anywhere: the account code stays on this machine, and it is what opens ` +
+        `It was NOT sent anywhere: the NMTS key stays on this machine, and it is what opens ` +
         `your files. An API key is a different thing — it makes the server answer a program, and ` +
         `it opens nothing. Make one on the account screen at ${HOME_URL}; it begins ` +
         `\`${KEY_PREFIX}\`. ${NOTHING_WAS_WRITTEN}`,
@@ -341,7 +341,7 @@ async function refuse(shape: KeyShape, value: string): Promise<NmtsError> {
 }
 
 /**
- * Is this the account code, pasted where the key goes?
+ * Is this the NMTS key, pasted where the key goes?
  *
  * ⛔ ASKED OF THE ENGINE'S OWN PARSER, which verifies the code's trailing check symbol. Copying the
  *    alphabet here would be a second implementation of a format this repo keeps in exactly one

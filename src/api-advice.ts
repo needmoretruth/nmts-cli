@@ -47,8 +47,8 @@ export function adviseFor(code: string): string | null {
       );
     case "ACCOUNT_CODE_NOT_A_CREDENTIAL":
       return (
-        "That was an account code, not an API key. The code never goes to the server; it stays " +
-        "on this machine and opens the files. Put the code in NMTS_ACCOUNT_CODE and the key in " +
+        "That was an NMTS key, not an API key. An NMTS key never goes to the server; it stays " +
+        "on this machine and opens the files. Put the NMTS key in NMTS_ACCOUNT_CODE and the API key in " +
         "NMTS_API_KEY."
       );
     case "AGENT_VERIFY_REQUIRED":
@@ -88,9 +88,9 @@ export function adviseFor(code: string): string | null {
     //    remedy that cannot work.
     case "ACCOUNT_PROOF_REQUIRED":
       return (
-        "This request needs proof of the account code as well as the key, and what was sent was " +
-        "missing or did not match. Check that the code this machine is holding belongs to the " +
-        "same account as the key. Wrong attempts are counted, and three of them lock these " +
+        "This request needs proof of the NMTS key as well as the API key, and what was sent was " +
+        "missing or did not match. Check that the NMTS key this machine is holding belongs to the " +
+        "same account as the API key. Wrong attempts are counted, and three of them lock these " +
         "routes for a while."
       );
     case "ACCOUNT_BANNED":
@@ -115,9 +115,9 @@ export function adviseFor(code: string): string | null {
       );
     case "INVALID_CREDENTIALS":
       return (
-        "The server did not accept what was sent. For a key: check the key. For `key new`: the " +
-        "server checked the proof derived from the account code, and it did not match a registered " +
-        "account — the code itself never goes to the server."
+        "The server did not accept what was sent. For an API key: check that key. For `key new`: the " +
+        "server checked the proof derived from the NMTS key, and it did not match a registered " +
+        "account — the NMTS key itself never goes to the server."
       );
     case "LOCKED_OUT":
       return (

@@ -36,7 +36,7 @@ export function serveErase(method: string, url: string, req: IncomingMessage, re
     return typeof h === "string" ? h : null;
   };
   const refuse = (): void =>
-    json(403, { error: { code: "ACCOUNT_PROOF_REQUIRED", message: "the account code's proof is needed" } });
+    json(403, { error: { code: "ACCOUNT_PROOF_REQUIRED", message: "the NMTS key's proof is needed" } });
 
   if (method === "POST" && url === "/v1/items/erase") {
     let raw = "";

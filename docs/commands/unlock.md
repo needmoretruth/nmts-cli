@@ -11,15 +11,15 @@ exits 5 naming a key, show the person the text it printed and let them decide.
 
 | key | what it opens |
 |---|---|
-| `unsafe-code-storage` | `login --plain`: the account code stored unsealed |
-| `plain-env` | the code from `NMTS_ACCOUNT_CODE`, or `login --env` |
+| `unsafe-code-storage` | `login --plain`: the NMTS key stored unsealed |
+| `plain-env` | the NMTS key from `NMTS_ACCOUNT_CODE`, or `login --env` |
 | `share` | `share`: giving another account a file (each share still asks) |
 | `wallet` | signing with the wallet: `extend`, `put`/`push --pay wallet` (scope `storage`), and with `--scope all` also `wallet send` and `wallet swap`. It carries an expiry (`--days`, at most 30, or `--until`) and optional ceilings (`--cap-wal`, `--cap-sui`) |
 | `donate` | gifts to the developer: `wallet donate` (each still asks) |
 | `sign-out` | `devices --sign-out` |
 | `rollback` | `rollback` |
 | `reveal` | `whoami --reveal` |
-| `kit` | `kit`: the recovery list with the account code inside |
+| `kit` | `kit`: the recovery list with the NMTS key inside |
 
 Under skip-permissions the unlock command runs without a terminal, because that mode is the
 person's standing answer to every question.

@@ -1,4 +1,4 @@
-// `nmts login` — keep an account code on this machine, in one of three shapes.
+// `nmts login` — keep an NMTS key on this machine, in one of three shapes.
 //
 // ⚠ IT DOES NOT CHECK THE CODE WITH THE SERVER, AND IT SAYS SO. The code never goes to the server
 //    at all — it is what opens the files, and nothing on the far end has ever seen it — so there
@@ -87,7 +87,7 @@ export async function login(options: LoginOptions = {}): Promise<number> {
   if (options.plain === true && options.env === true) {
     throw new NmtsError("--plain and --env ask for two different things.", {
       exitCode: 2,
-      nextStep: "--plain writes the code to this machine; --env writes nothing and prints it.",
+      nextStep: "--plain writes the NMTS key to this machine; --env writes nothing and prints it.",
     });
   }
 
@@ -162,12 +162,12 @@ async function readTheCode(options: LoginOptions): Promise<string> {
         ? fromFile
         : fromEnv !== undefined && fromEnv.length > 0
           ? fromEnv
-          : await promptSecret(`Account code (not shown as you type): `, CODE_ENV_VAR);
+          : await promptSecret(`NMTS key (not shown as you type): `, CODE_ENV_VAR);
   if (code.length === 0) {
-    throw new NmtsError("No account code was given.", {
+    throw new NmtsError("No NMTS key was given.", {
       exitCode: 2,
       nextStep: stdinIsATerminal()
-        ? `Run \`${BINARY_NAME} login\` again and paste the code.`
+        ? `Run \`${BINARY_NAME} login\` again and enter your NMTS key.`
         : `Set ${CODE_ENV_VAR} in the environment.`,
     });
   }
@@ -189,14 +189,14 @@ async function storeSealed(
 
   say(`Sealed for ${server} (${network}) in ${credentialsPath()}`);
   say(``);
-  say(`  What is on disk is not the account code. Opening it needs the passphrase, so a copy of`);
+  say(`  What is on disk is not the NMTS key. Opening it needs the passphrase, so a copy of`);
   say(`  this file — in a backup, a synced folder, a container image, a stolen disk — is worth`);
   say(`  nothing on its own.`);
   say(``);
-  say(`  ⚠ It does NOT protect the code from anything running as you on this machine while you`);
+  say(`  ⚠ It does NOT protect your NMTS key from anything running as you on this machine while you`);
   say(`    are using the tool. Whatever supplies the passphrase can be read the same way.`);
   say(``);
-  say(`  Every command that needs the code will ask for the passphrase, or read it from`);
+  say(`  Every command that needs your NMTS key will ask for the passphrase, or read it from`);
   say(`  ${PASSPHRASE_ENV_VAR}. Opening it costs a fraction of a second and 64 MiB of memory each`);
   say(`  time, on purpose: that is what makes guessing the passphrase expensive.`);
   return 0;
@@ -231,7 +231,7 @@ function storePlain(
   if (!private_) {
     say(``);
     say(`  ⛔ This machine did not keep the mode that was asked for, so anybody who can reach that`);
-    say(`     path can read the code. \`${BINARY_NAME} login\` without --plain seals it instead,`);
+    say(`     path can read your NMTS key. \`${BINARY_NAME} login\` without --plain seals it instead,`);
     say(`     and ${CODE_ENV_VAR}_FILE names a file this tool never copies.`);
   }
   return 0;
@@ -240,7 +240,7 @@ function storePlain(
 /**
  * Write nothing; print what to set.
  *
- * ⛔ THIS PRINTS THE ACCOUNT CODE, which every other part of this tool refuses to do. It is the
+ * ⛔ THIS PRINTS THE NMTS KEY, which every other part of this tool refuses to do. It is the
  *    one command whose entire purpose is to hand it back, it says so, and it is behind an
  *    agreement that names how an environment variable leaks.
  */
@@ -259,11 +259,11 @@ function printEnvForm(code: string, say: (line: string) => void): number {
   say(``);
   say(`  Nothing was written to this machine. Paste that where your program's environment is set.`);
   say(``);
-  say(`  ⚠ The code is now on this screen, and probably in this terminal's scrollback. An`);
+  say(`  ⚠ Your NMTS key is now on this screen, and probably in this terminal's scrollback. An`);
   say(`    environment variable is readable by anything running as you, by every child process,`);
   say(`    and — inside a container — by anybody who can run \`docker inspect\`.`);
   say(``);
-  say(`  ${CODE_ENV_VAR}_FILE names a FILE holding the code instead, and has none of those.`);
+  say(`  ${CODE_ENV_VAR}_FILE names a FILE holding the NMTS key instead, and has none of those.`);
   return 0;
 }
 
@@ -279,14 +279,14 @@ function printEnvForm(code: string, say: (line: string) => void): number {
  */
 function sayCheckSymbol(say: (line: string) => void, keyWasAccepted: boolean): void {
   say(``);
-  say(`  The code is well-formed — its own check symbol matches. That was verified here, offline.`);
+  say(`  The NMTS key is well-formed — its own check symbol matches. That was verified here, offline.`);
   if (!keyWasAccepted) {
     say(`  Whether the account EXISTS has not been checked: signing in goes through a human check`);
     say(`  this tool cannot pass yet, so that will first show up on a command that needs the server.`);
     return;
   }
-  say(`  ⚠ Whether it is the code for the account the KEY belongs to has not been checked, and`);
-  say(`    cannot be: the code never goes to the server, so nothing can compare the two. A code`);
+  say(`  ⚠ Whether it is the NMTS key for the account the API KEY belongs to has not been checked, and`);
+  say(`    cannot be: an NMTS key never goes to the server, so nothing can compare the two. One`);
   say(`    from a different account looks like an account with nothing in it.`);
 }
 
@@ -309,7 +309,7 @@ function sayAboutTheKey(outcome: KeyOutcome, server: string, say: (line: string)
       say(`No API key is stored, and every command that talks to the server needs one.`);
       say(``);
       say(`  Make one on the account screen at ${HOME_URL}, then run \`${BINARY_NAME} login\` again`);
-      say(`  with it in ${API_KEY_ENV_VAR} — or paste it when this asks. It is checked with the`);
+      say(`  with it in ${API_KEY_ENV_VAR} — or enter it when this asks. It is checked with the`);
       say(`  server before it is written down.`);
       say(``);
       say(`  ${API_KEY_FILE_ENV_VAR} names a FILE holding the key instead, which is the shape a`);
@@ -338,7 +338,7 @@ function sayAboutTheKey(outcome: KeyOutcome, server: string, say: (line: string)
       say(`⚠ A different API key is in ${keySourceName(outcome.from)}. It was NOT stored.`);
       say(``);
       say(`  The key already on this machine is left as it is. Replacing one is something to say`);
-      say(`  out loud, not something a run about the account code does on the way past — every`);
+      say(`  out loud, not something a run about the NMTS key does on the way past — every`);
       say(`  agent using the old one would stop working at a moment nobody would connect to this.`);
       say(``);
       say(`  While that variable is set, every command uses what it holds anyway: the environment`);
@@ -364,7 +364,7 @@ async function newPassphrase(options: LoginOptions): Promise<string> {
     return fromEnv;
   }
   if (ask === undefined && !stdinIsATerminal()) {
-    throw new NmtsError("Sealing the account code needs a passphrase, and there is no terminal.", {
+    throw new NmtsError("Sealing the NMTS key needs a passphrase, and there is no terminal.", {
       exitCode: 2,
       nextStep: [
         `One of these:`,
@@ -375,7 +375,7 @@ async function newPassphrase(options: LoginOptions): Promise<string> {
     });
   }
   const prompt = ask ?? ((q: string) => promptSecret(q, PASSPHRASE_ENV_VAR));
-  const first = await prompt(`New passphrase for the stored code (not shown as you type): `);
+  const first = await prompt(`New passphrase for the stored NMTS key (not shown as you type): `);
   if (first.length < MIN_PASSPHRASE) throw tooShort();
   const again = await prompt(`Type it again: `);
   if (!samePassphrase(first, again)) {

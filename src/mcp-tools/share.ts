@@ -55,7 +55,7 @@ export function shareTools(ctx: ToolContext): ToolDefinition[] {
           path: { type: "string", description: "The file to share, as nmts_list prints it." },
           public_code: {
             type: "string",
-            description: "The recipient's PUBLIC CODE, given to you by them. Not their account code.",
+            description: "The recipient's PUBLIC CODE, given to you by them. Not their NMTS key.",
           },
         },
         required: ["path", "public_code"],

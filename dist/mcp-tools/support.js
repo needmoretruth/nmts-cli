@@ -36,7 +36,7 @@ export function supportTools(ctx) {
         {
             name: "nmts_support_send",
             description: "File a report with the developer of NMTS: a bug, a confusing message, an idea, a " +
-                `question. ${CARE} The account code, API key, passphrase, tokens and key material are ` +
+                `question. ${CARE} The NMTS key, API key, passphrase, tokens and key material are ` +
                 "replaced by labels on this machine before anything is sent, and file contents are never " +
                 `read at all; file names and the account's public code may go. ${LOG} The answer to this ` +
                 "call is exactly what was sent, so it can be checked afterwards. One report per problem.",

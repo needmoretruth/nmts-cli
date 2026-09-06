@@ -141,7 +141,7 @@ export interface ExtendReads {
  */
 export type SignExtension = (input: {
     network: string;
-    /** ⛔ The account code. It never leaves this machine: it derives the wallet and nothing else. */
+    /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
     code: string;
     objectIds: readonly string[];
     epochs: number;

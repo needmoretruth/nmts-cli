@@ -1,4 +1,4 @@
-// The wallet an account code derives: its address, and what a chain says it holds.
+// The wallet an NMTS key derives: its address, and what a chain says it holds.
 //
 // ⛔ NOTHING HERE SIGNS OR SPENDS, AND NOTHING HERE HANDS OUT A KEY. The only secret this module
 //    touches is the 32-byte wallet seed; it lives for the length of one address computation and is
@@ -22,7 +22,7 @@ import { NmtsError } from "./errors.ts";
 import type { Network } from "./network.ts";
 
 /**
- * The wallet this account code opens by itself.
+ * The wallet this NMTS key opens by itself.
  *
  * ⛔ IT IS WALLET 0 BECAUSE THAT IS THE ONE THE BROWSER OPENS. Every wallet, including this one,
  *    comes out of `wallet_seed_for` — there is no special case for the first — so the index is the
@@ -92,7 +92,7 @@ export function addressFromSeed(seed: Uint8Array): string {
 }
 
 /**
- * The address of the wallet this account code derives. Offline: nothing is asked of anybody.
+ * The address of the wallet this NMTS key derives. Offline: nothing is asked of anybody.
  *
  * The same address on every network — an account has one wallet, and which chain it is looked up
  * on is a separate question from what it is called.
@@ -109,7 +109,7 @@ export async function walletAddress(code: string): Promise<string> {
     // ⛔ Unreachable in practice — the same parser accepted this input a line ago. It is caught
     //    anyway because the alternative is an engine message going out verbatim, and an engine
     //    message about a code can carry the code (see `errors.ts`).
-    throw new NmtsError("The account code could not be read on this machine.", { exitCode: 1 });
+    throw new NmtsError("The NMTS key could not be read on this machine.", { exitCode: 1 });
   }
   // ⛔ THIS BUFFER IS EVERY KEY IN THE ACCOUNT, not just the wallet root: the sign-in secret, the
   //    key that opens the files, the key that opens the file list. It is wiped below along with
@@ -134,7 +134,7 @@ export async function walletAddress(code: string): Promise<string> {
 export type WalletGlue = Pick<CryptoGlue, "wallet_seed_for">;
 
 /**
- * The built-in wallet's address, from a buffer the caller already holds.
+ * The NMTS key wallet's address, from a buffer the caller already holds.
  *
  * ⛔ IT TAKES KEY MATERIAL AND RETURNS A STRING. `derived` belongs to the caller and is left
  *    alone; the two secrets this function makes — the wallet root it slices out and the seed the

@@ -1,4 +1,4 @@
-// `nmts env` — what this machine is, and what that means for the account code.
+// `nmts env` — what this machine is, and what that means for the NMTS key.
 //
 // ⛔ IT ASKS THE SERVER NOTHING AND NEEDS NO CREDENTIAL. It is the first command an agent can run
 //    on a machine it has never seen, and a command that needed to be signed in to say "there is
@@ -139,7 +139,7 @@ export function env(options: EnvOptions = {}): number {
     got: { source: CredentialSource } | null,
     problem: string | null,
   ): string => (got !== null ? `found — ${sourceWords(got.source)}` : problem !== null ? `⛔ REFUSED — ${problem}` : "not found");
-  say(`  account code  ${found(code, codeProblem)}`);
+  say(`  NMTS key      ${found(code, codeProblem)}`);
   if (code?.source === "file-locked") {
     // ⛔ THE ANSWER AN AGENT NEEDS BEFORE IT RUNS ANYTHING ELSE. A sealed code with no way to
     //    supply the passphrase is not a usable credential, and finding that out on the first

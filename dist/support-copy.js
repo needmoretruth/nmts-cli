@@ -29,7 +29,7 @@ export const SUPPORT_LONG = [
     "Write in English if you can. Korean is read too; if Korean is not your own language,",
     "English is the better choice.",
     "",
-    "Keep personal details out. Your account code, API key, passphrase and file contents are",
+    "Keep personal details out. Your NMTS key, API key, passphrase and file contents are",
     "removed on this machine before anything is sent; file names and your public code may go.",
     "Please do not type your name, address, health or anything else about yourself. The form",
     "does not need it, and this inbox is the wrong place for it.",
@@ -42,13 +42,13 @@ export const SUPPORT_LONG = [
  *    they came to do, and text nobody reads protects nobody (owner, 2026-09-03).
  */
 export const SUPPORT_SHORT = [
-    "This goes to the developer of NMTS and is read. Leave personal details out: your account",
-    "code, API key and file contents are stripped here before sending. English preferred; Korean is read too.",
+    "This goes to the developer of NMTS and is read. Leave personal details out: your NMTS key,",
+    "API key and file contents are stripped here before sending. English preferred; Korean is read too.",
 ];
 /** What `--attach-log` attaches, and what has already been taken out of it. */
 export const ATTACH_LOG_TEXT = [
     "--attach-log adds the CLI's own record of its last runs: the commands, the server's",
-    "answers and any error text. It is written already redacted (account codes, API keys,",
+    "answers and any error text. It is written already redacted (NMTS keys, API keys,",
     "passphrases, tokens and key material become labels before they touch the disk) and is",
     "redacted once more when attached. You do not need to read it before sending. If you know",
     "a value that must not travel, add --omit <text> and it is replaced too.",

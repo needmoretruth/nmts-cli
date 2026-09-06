@@ -2,12 +2,12 @@
 //
 // ⛔ THE LIST IS READ OFF A PUBLIC CHAIN, NOT OUT OF AN ACCOUNT. Every gift is a transfer anybody
 //    can see on an explorer; the server only groups them by the address that sent them. So reading
-//    the hall asks for no account code and signs nothing, and there is no "hide me" — what can be
+//    the hall asks for no NMTS key and signs nothing, and there is no "hide me" — what can be
 //    taken off is the NAME, which puts the entry back to a shortened address.
 //
 // ⛔ A NAME IS PUBLISHED, AND THAT IS WHY IT IS SIGNED. The proof that an address is yours is a
-//    signature by that address, so `--name` signs a short message with the wallet this account
-//    code derives (`wallet-sign.ts`) and sends the signature. No session, no API key, no account
+//    signature by that address, so `--name` signs a short message with the wallet this NMTS
+//    key derives (`wallet-sign.ts`) and sends the signature. No session, no API key, no account
 //    id goes with it — the server is told an address, a name and a signature, and nothing else.
 //
 // ⛔ THE MESSAGE IS BUILT IN ONE PLACE, `hallMessage` BELOW, because the server rebuilds the same
@@ -211,7 +211,7 @@ async function readHall(server: string): Promise<{ mounted: boolean; body: unkno
 async function setName(server: string, say: (line: string) => void, options: WalletHallOptions): Promise<number> {
   const resolved = await requireAccountCode();
   // ⛔ The address is derived here rather than taken from a flag: a signature only proves ownership
-  //    of the address it was made by, so the two must come from the same account code.
+  //    of the address it was made by, so the two must come from the same NMTS key.
   const address = await walletAddress(resolved.code);
   const name = options.remove === true ? null : (options.name ?? null);
   const issuedAt = new Date(Date.now()).toISOString();

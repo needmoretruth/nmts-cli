@@ -1,4 +1,4 @@
-// Where an account code lives on this machine, and every rule about how it gets there.
+// Where an NMTS key lives on this machine, and every rule about how it gets there.
 //
 // ⛔ NEVER FROM THE COMMAND LINE. On Linux any process can read /proc/<pid>/cmdline, so a secret
 //    passed as an argument is readable by anything running as the same user for as long as the
@@ -34,7 +34,7 @@ export const API_KEY_ENV_VAR = "NMTS_API_KEY";
  */
 export const PASSPHRASE_ENV_VAR = "NMTS_PASSPHRASE";
 /**
- * Names a FILE holding the account code, rather than holding it directly.
+ * Names a FILE holding the NMTS key, rather than holding it directly.
  *
  * ⛔ THE ONLY SAFE WAY TO GIVE A CONTAINER A SECRET. See `readSecretFile`.
  */
@@ -54,12 +54,12 @@ export function modesAreEnforced() {
     return process.platform !== "win32";
 }
 /**
- * Can this machine actually keep a file private, where the account code would go?
+ * Can this machine actually keep a file private, where the NMTS key would go?
  *
  * ⛔ IT MEASURES RATHER THAN ASSUMES. "Not Windows" is not the same question: a container with a
  *    bind mount from a Windows host, a network drive, an exFAT stick and several FUSE filesystems
  *    all accept `chmod` and then ignore it. The mode comes back as whatever the filesystem felt
- *    like, and the tool would have written the account code into a file anybody can read while
+ *    like, and the tool would have written the NMTS key into a file anybody can read while
  *    believing it had locked it.
  *
  * So: write a file, ask for 0600, read the mode back, and delete it. The probe is empty, its name
@@ -108,7 +108,7 @@ export function writeCredentials(creds) {
     const target = credentialsPath();
     const scratch = join(dir, `.credentials.${process.pid}.${Date.now()}.tmp`);
     // ⛔ THE SCRATCH FILE NEVER OUTLIVES A FAILURE. It holds exactly what the target would — the
-    //    account code, in the clear when that is the shape being written — and `logout` removes
+    //    NMTS key, in the clear when that is the shape being written — and `logout` removes
     //    only `credentials.json`, so one left behind by a full disk or a failed rename would sit
     //    there unreferenced and unnoticed. The rename is the last thing that happens; anything that
     //    stops before it leaves nothing.
@@ -173,7 +173,7 @@ export function readCredentialsFile() {
         throw error;
     }
     // ⛔ THE PARSER'S OWN MESSAGE NEVER ESCAPES. V8 quotes about thirty characters of the input in
-    //    `Unexpected token …`, and the input here is the file the account code is in — an
+    //    `Unexpected token …`, and the input here is the file the NMTS key is in — an
     //    adversarial review printed nine symbols of a real code to stderr from a single lost quote.
     //    `errors.ts` prints an unknown error's message verbatim, so the only place to stop it is
     //    here, before it becomes an error at all.
@@ -192,7 +192,7 @@ export function readCredentialsFile() {
  * The one refusal for a file this version cannot use, in the one wording.
  *
  * ⛔ IT NAMES THE PATH AND NOTHING ELSE. Not the contents, not the parser's complaint, not which
- *    field was wrong — the file is the account code's file, and every one of those quotes it.
+ *    field was wrong — the file is the NMTS key's file, and every one of those quotes it.
  *
  * ⚠ AND IT IS AN `NmtsError` WITH A WAY OUT. It used to be a bare `Error`, which meant the
  *    generic exit code and no next step: `whoami`, `ls`, `get` and `put` all died at 1 saying
@@ -203,7 +203,7 @@ function unusable(path, what) {
     return new NmtsError(`${path} ${what}.`, {
         exitCode: 3,
         nextStep: `Nothing was read from it. \`nmts logout\` removes it, and \`nmts login\` writes a fresh ` +
-            `one. If that file is the only copy of the account code, take the code out of it by hand ` +
+            `one. If that file is the only copy of the NMTS key, copy that key out of it by hand ` +
             `first — this tool will not open it.`,
     });
 }
@@ -231,7 +231,7 @@ function isCredentials(value) {
     return true;
 }
 /**
- * The account code this run should use, and where it came from.
+ * The NMTS key this run should use, and where it came from.
  *
  * The environment variable wins over the file so an agent can be handed a code for one run without
  * writing anything to disk — which is the safer shape when the machine is shared or ephemeral.
@@ -288,7 +288,7 @@ export function readSecretFile(variable) {
 /**
  * The API key this run should use, and where it came from.
  *
- * ⚠ SEPARATE FROM THE ACCOUNT CODE ON PURPOSE, and the two can come from different places. The
+ * ⚠ SEPARATE FROM THE NMTS KEY ON PURPOSE, and the two can come from different places. The
  *   code is what opens the files; the key is only what makes the server answer without a human
  *   check. Somebody may keep the code in the environment for one run while the key stays on the
  *   machine, or the other way round, and neither combination is unusual enough to refuse.

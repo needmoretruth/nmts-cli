@@ -9,10 +9,10 @@
 //
 // ⛔ NOTHING SECRET IN THE HEADER, AND THAT INCLUDES SIZES. The plaintext part of this file says
 //    what the file IS — never what is inside it, not a file name, not a count, not a total. The
-//    contents are one sealed envelope that opens with the account code and nothing else, so a
+//    contents are one sealed envelope that opens with the NMTS key and nothing else, so a
 //    stranger who finds this learns which account it belongs to and no more.
 //
-// ⛔ THE ACCOUNT CODE IS NOT IN IT, and that is not an oversight to fix later. This file plus the
+// ⛔ THE NMTS KEY IS NOT IN IT, and that is not an oversight to fix later. This file plus the
 //    code is the account; keeping both in one place would make one theft into a total loss.
 //
 // ⚠ WHAT DIFFERS FROM THE BROWSER'S COPY. The first two are not format differences:
@@ -60,11 +60,11 @@ export { WRITTEN_BY };
 /** Plain-language lines for whoever finds this file with no idea what it is. */
 const NOTE = [
     `This file is an encrypted copy of an NMTS (nmts.me) file list — the names, folders and file ` +
-        `keys of one account, locked with its account code.`,
+        `keys of one account, locked with its NMTS key.`,
     `It is written by the \`nmts\` command from the copy that machine keeps. A higher number in the ` +
         `filename is a newer copy.`,
     `It does not replace the recovery list: storage-network addresses live only in the recovery ` +
-        `list. Keep both, somewhere other than the account code.`,
+        `list. Keep both, somewhere other than the NMTS key.`,
 ];
 /**
  * Build the document and the name to offer it under.

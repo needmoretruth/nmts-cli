@@ -15,7 +15,7 @@ what each tier meets:
 | ultra-high | a person types | refused | refused | `--reason` and `--yes` |
 
 "Asks" means: at a terminal, a y/N question; with no terminal, exit 5 and the sentence to run again
-with `--yes` after the person has said so. "Your judgement" means the code does not block: in an
+with `--yes` after the person has said so. "Your judgement" means the tool does not block: in an
 auto mode you decide whether this is what the person wants, and auto-high is the mode where they
 asked you to think further ahead than auto-low. "Unlock" is `nmts unlock <key>`, a person's act at
 a terminal (`nmts help unlock`). Under skip-permissions nothing asks and nothing is locked; an

@@ -1,6 +1,6 @@
-// Locking the account code with a passphrase, so what is on disk is not the code.
+// Locking the NMTS key with a passphrase, so what is on disk is not the code.
 //
-// WHY THIS EXISTS. `nmts login` used to write the account code in the clear at mode 600, which is
+// WHY THIS EXISTS. `nmts login` used to write the NMTS key in the clear at mode 600, which is
 //   what `gh`, `aws` and `docker login` do. Mode 600 answers exactly one question — "can another
 //   user on this machine read it" — and answers nothing about a backup, a copied home directory,
 //   a synced folder, a container image layer, or a disk pulled out of a laptop. A passphrase
@@ -15,7 +15,7 @@
 //    the code is "safe".
 //
 // ⛔ NODE BUILT-INS ONLY. `scrypt` and AES-256-GCM are in `node:crypto`; a password-hashing
-//    dependency would put somebody else's code on the path the account code travels, for a
+//    dependency would put somebody else's code on the path the NMTS key travels, for a
 //    function the platform already ships. This is local storage, not the NMTS crypto format —
 //    NCF-3 governs what leaves this machine, and nothing here does.
 
@@ -106,11 +106,11 @@ export interface LockedCode {
 /** Thrown when the passphrase does not open the file. ⛔ Never says how close it was. */
 export class WrongPassphraseError extends NmtsError {
   constructor() {
-    super("That passphrase does not open the stored account code.", {
+    super("That passphrase does not open the stored NMTS key.", {
       exitCode: 3,
       nextStep:
         "Try again. If the passphrase is lost, the stored copy cannot be recovered — sign in " +
-        "again with the account code itself.",
+        "again with the NMTS key itself.",
     });
     this.name = "WrongPassphraseError";
   }
@@ -136,11 +136,11 @@ function refuseCost(locked: LockedCode): void {
   const { n, r, p } = locked;
   const whole = (v: number): boolean => Number.isInteger(v) && v >= 1;
   const refuse = (): never => {
-    throw new NmtsError("The stored account code names a key-derivation cost this version refuses.", {
+    throw new NmtsError("The stored NMTS key names a key-derivation cost this version refuses.", {
       exitCode: 1,
       nextStep:
         "The file has been edited, or was written by a newer version of this tool. Sign in again " +
-        "with the account code itself.",
+        "with the NMTS key itself.",
     });
   };
   if (!whole(n) || !whole(r) || !whole(p)) refuse();
@@ -163,7 +163,7 @@ function deriveKey(passphrase: string, salt: Buffer, n: number, r: number, p: nu
   try {
     return scryptSync(Buffer.from(passphrase, "utf8"), salt, KEY_BYTES, { N: n, r, p, maxmem: MAXMEM });
   } catch (error) {
-    throw new NmtsError("The stored account code asks for a key derivation this machine refused.", {
+    throw new NmtsError("The stored NMTS key asks for a key derivation this machine refused.", {
       exitCode: 1,
       nextStep: `Cause: ${error instanceof Error ? error.message : String(error)}`,
     });

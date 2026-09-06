@@ -16,7 +16,7 @@
 //
 // ⛔ WITH `--json` THE CODE DOES NOT GO INTO THE OUTPUT. Machine-readable output is read by a
 //    program, which means it lands in a pipe, a file, a CI log or an agent's transcript — the
-//    exact places `credentials.ts` spends its whole header keeping the account code out of. So
+//    exact places `credentials.ts` spends its whole header keeping the NMTS key out of. So
 //    `--json` is refused unless `--out <file>` names somewhere for the code to go, and the JSON
 //    then carries the PATH and not the value. That is the same shape this tool already recommends
 //    for handing a secret to a container (`NMTS_ACCOUNT_CODE_FILE` — a variable holding a
@@ -56,7 +56,7 @@ export interface CreateOptions {
   server?: string | undefined;
   network?: string | undefined;
   json?: boolean;
-  /** A file to write the new account code into, instead of printing it. Never overwritten. */
+  /** A file to write the new NMTS key into, instead of printing it. Never overwritten. */
   out?: string | undefined;
   /** The Terms of Service version a PERSON read and accepts for the new account. */
   acceptTerms?: string | undefined;
@@ -213,7 +213,7 @@ function termsRefusal(inForce: InForce, named: boolean): NmtsError {
       //    command line is not malformed. What is missing is a decision only a person can take.
       exitCode: 5,
       nextStep: [
-        `Nothing was created and no account code was made.`,
+        `Nothing was created and no NMTS key was made.`,
         ``,
         `In force now:`,
         `  Terms of Service  ${inForce.terms}`,
@@ -284,7 +284,7 @@ function uncertain(path: string, cause: unknown): NmtsError {
     {
       exitCode: 1,
       nextStep: [
-        `${path} was KEPT, and it holds the only code that account would have.`,
+        `${path} was KEPT, and it holds the only NMTS key that account would have.`,
         ``,
         `Keep it until you know. Nothing on this machine can tell the two cases apart, and the`,
         `cost of being wrong is one small file against an account nobody could ever open.`,
@@ -309,7 +309,7 @@ function sayCreated(say: (line: string) => void, accountId: string, server: stri
   say(``);
   say(`  account id  ${accountId}`);
   say(``);
-  say(`Nothing on this machine changed. The account code you were signed in as is still the one`);
+  say(`Nothing on this machine changed. The NMTS key you were signed in as is still the one`);
   say(`this tool uses; this new account is not stored, and not switched to.`);
   say(``);
 }
@@ -317,12 +317,12 @@ function sayCreated(say: (line: string) => void, accountId: string, server: stri
 /**
  * The code, last, with the one thing that has to be understood before it.
  *
- * ⛔ NOTHING FOLLOWS IT BUT THE COMMAND THAT STORES IT. A screen of next steps under an account
- *    code is how a person scrolls past the only copy of it.
+ * ⛔ NOTHING FOLLOWS IT BUT THE COMMAND THAT STORES IT. A screen of next steps under an NMTS
+ *    key is how a person scrolls past the only copy of it.
  */
 function sayTheCode(say: (line: string) => void, code: string): void {
-  say(`⛔ THIS IS THE ONLY COPY OF THE ACCOUNT CODE THAT WILL EVER EXIST.`);
-  say(`   NMTS keeps a verifier and never the code. It cannot be reset, resent or replaced.`);
+  say(`⛔ THIS IS THE ONLY COPY OF THE NMTS KEY THAT WILL EVER EXIST.`);
+  say(`   NMTS keeps a verifier and never the NMTS key. It cannot be reset, resent or replaced.`);
   say(`   Lose it and the account and every file in it are gone — for you and for NMTS.`);
   say(``);
   say(`   ${code}`);
@@ -331,8 +331,8 @@ function sayTheCode(say: (line: string) => void, code: string): void {
 }
 
 function sayWhereTheCodeWent(say: (line: string) => void, path: string): void {
-  say(`⛔ THE ONLY COPY OF THE ACCOUNT CODE IS NOW IN ONE FILE, AND NOWHERE ELSE.`);
-  say(`   NMTS keeps a verifier and never the code. It cannot be reset, resent or replaced.`);
+  say(`⛔ THE ONLY COPY OF THE NMTS KEY IS NOW IN ONE FILE, AND NOWHERE ELSE.`);
+  say(`   NMTS keeps a verifier and never the NMTS key. It cannot be reset, resent or replaced.`);
   say(`   Lose that file and the account and every file in it are gone.`);
   say(``);
   say(`   ${path}`);

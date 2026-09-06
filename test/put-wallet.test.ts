@@ -112,8 +112,8 @@ test("⛔ without a wallet agreement the review is printed and then it stops, un
     const sign = refuseToSign("signed without an agreement");
     const failure = await refusal(put(FILE, opts(out, { sign })));
     assert.equal(failure.exitCode, 5);
-    assert.match(failure.message, /Use the wallet this account code derives/);
-    assert.match(out.lines.join("\n"), /from the wallet this account code derives — not from credits/);
+    assert.match(failure.message, /Use the wallet this NMTS key derives/);
+    assert.match(out.lines.join("\n"), /from the wallet this NMTS key derives — not from credits/);
     assert.equal(sign.calls, 0);
   });
 });

@@ -8,7 +8,7 @@
 //    is for — could be governed by a document it had no way to read, and told about a change it
 //    had no way to see. That is the whole reason these exist.
 //
-// ⛔ THEY ASK FOR NOTHING AND CARRY NOTHING. No account code, no API key, no session: these are
+// ⛔ THEY ASK FOR NOTHING AND CARRY NOTHING. No NMTS key, no API key, no session: these are
 //    public documents and the routes serving them are public. Nothing here opens a session, so
 //    reading the terms cannot fail because a credential is stale, and reading them says nothing
 //    to the server about who read them.

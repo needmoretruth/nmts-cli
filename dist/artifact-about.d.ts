@@ -11,12 +11,12 @@ export declare const CRYPTO_SPEC_URL = "https://github.com/needmoretruth/nmts-re
  *   is the field's own contract — what the writer says about itself — and a person holding two
  *   copies of one account's artefacts can then tell which program made each.
  */
-export declare const WRITTEN_BY = "nmts-cli 0.32.0";
+export declare const WRITTEN_BY = "nmts-cli 0.33.0";
 /** Which of the three artefacts a wrapper is. A reader holding several can sort them. */
 export type ArtifactKind = "recovery-list" | "file-list" | "recovery-kit";
 /**
  * How a sealed payload is put together — enough for a stranger to open it with the format
- * document and an account code, and nothing else.
+ * document and an NMTS key, and nothing else.
  *
  * `context` is the NCF-3 domain separator the envelope was sealed under. It is not a secret and it
  * is not a key: it is the string a re-implementation has to pass to the same function, and one

@@ -1,4 +1,4 @@
-// Proving possession of the account code to a server that already trusts this machine's API key.
+// Proving possession of the NMTS key to a server that already trusts this machine's API key.
 //
 // ⛔ WHY A SECOND PROOF EXISTS AT ALL. Three routes rebuild an account's disaster-recovery
 //    artefacts — the dump every recovery list is assembled from, and the two records that say a
@@ -8,7 +8,7 @@
 //
 // ⛔ WHAT THE VALUE IS, AND WHY SENDING IT IS SAFE. It is `authSecret` — bytes [16,48) of the
 //    derivation (NCF-3 §1), the SAME 32 bytes every sign-in sends, over TLS, for the server to
-//    check against the argon2id verifier it stores. It is not the account code and it decrypts
+//    check against the argon2id verifier it stores. It is not the NMTS key and it decrypts
 //    nothing: `dataKey`, the file keys, the file-list key and the wallet root are different slices
 //    of the same output and none of them reach this or any other request. Deriving it is one-way,
 //    so a server that holds it cannot work back to the code.
@@ -20,7 +20,7 @@
 //    module returns a string, no caller stores it, and `api.ts` puts it in one header and nowhere
 //    else — not a URL, not a message, not a log line.
 //
-// ⛔ THE ACCOUNT CODE ITSELF STAYS HERE. It is not an argument to anything, it is not in the
+// ⛔ THE NMTS KEY ITSELF STAYS HERE. It is not an argument to anything, it is not in the
 //    header, and the buffers the derivation produces are wiped on every path out — including the
 //    failing one. The derivation output is not an account id: it is every key in the account.
 
@@ -30,7 +30,7 @@ import { DERIVED, loadCrypto } from "./crypto.ts";
 import { NmtsError } from "./errors.ts";
 
 /**
- * The proof value for one account code, base64url of 32 bytes.
+ * The proof value for one NMTS key, base64url of 32 bytes.
  *
  * ⛔ NO POLICY HERE. Whether this run may build one is decided by `accountProofFor` below; keeping
  *    the arithmetic separate from the permission is what lets a test drive each without the other.
@@ -42,7 +42,7 @@ export async function accountProof(code: string): Promise<string> {
     bytes = glue.account_code_parse(code);
   } catch {
     // ⛔ The engine's own message is not repeated: it can contain the input.
-    throw new NmtsError("That is not a valid NMTS account code.", {
+    throw new NmtsError("That is not a valid NMTS key.", {
       exitCode: 2,
       nextStep: "Check for a mistyped or missing character. The last character is a check symbol.",
     });
@@ -58,7 +58,7 @@ export async function accountProof(code: string): Promise<string> {
   }
 }
 
-/** A run's account code together with where this machine got it from. */
+/** A run's NMTS key together with where this machine got it from. */
 export interface CodeInHand {
   code: string;
   source: CredentialSource;
@@ -68,7 +68,7 @@ export interface CodeInHand {
  * The proof for this run — asked for, never assumed.
  *
  * ⛔ THE AGREEMENT IS `plain-env`, AND IT IS THE ONE THAT ALREADY COVERS THIS. Its words are
- *    exactly "use the account code from a plain environment variable", which is what a run does
+ *    exactly "use the NMTS key from a plain environment variable", which is what a run does
  *    when it turns `NMTS_ACCOUNT_CODE` into a value it sends. A sixth consent key is not the
  *    answer: `consent.ts` says in its header why the count is five and that adding to it is a
  *    decision rather than a tidy-up, and the bar it sets — undoable, costly, or the code somewhere

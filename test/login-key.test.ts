@@ -6,7 +6,7 @@
 //    pass against a fake that answers anything — the mistake `check:cli-routes` exists because of.
 //
 // ⛔ AND THE REQUESTS ARE COUNTED, NOT JUST THEIR ANSWERS. Half of what this change had to get
-//    right is what does NOT go on the wire: an account code pasted where a key goes, a truncated
+//    right is what does NOT go on the wire: an NMTS key pasted where a key goes, a truncated
 //    key, a second key offered to a machine that already has one. "It refused" is not the
 //    assertion — "it refused having sent nothing" is, and only the call log can say that.
 
@@ -100,7 +100,7 @@ interface Sandbox {
   dir: string;
   /** Where the credentials file would be. Asserted absent as often as present. */
   path: string;
-  /** A throwaway account code. Not an account: nothing was ever created for it. */
+  /** A throwaway NMTS key. Not an account: nothing was ever created for it. */
   code: string;
 }
 
@@ -194,7 +194,7 @@ test("⛔ nothing it prints carries the secret half of the key", async () => {
     assert.ok(out.includes(HANDLE_A), "it did not name the key's public handle");
     assert.ok(!out.includes(SECRET_A), "it printed the secret half of the key");
     assert.ok(!out.includes(KEY_A), "it printed the whole key");
-    assert.ok(!out.includes(s.code), "it printed the account code");
+    assert.ok(!out.includes(s.code), "it printed the NMTS key");
   });
 });
 
@@ -219,18 +219,18 @@ test("⛔ a key the server refuses is not stored, and the passphrase was never a
   });
 });
 
-test("⛔ an account code pasted where the key goes never reaches the server", async () => {
+test("⛔ an NMTS key pasted where the key goes never reaches the server", async () => {
   await withSandbox("login-key-is-code", async (s) => {
     // The likeliest wrong paste there is, and the one that must not travel: sending it would put
-    // the account code on the wire, which is the thing this product says never happens.
+    // the NMTS key on the wire, which is the thing this product says never happens.
     const failure = await loginFails(s.code, { readApiKey: () => Promise.resolve(s.code) });
     assert.equal(failure.exitCode, 2, failure.message);
-    assert.match(failure.message, /account code, not an API key/);
-    assert.deepEqual(asked(), [], "the account code was sent to the server");
+    assert.match(failure.message, /NMTS key, not an API key/);
+    assert.deepEqual(asked(), [], "the NMTS key was sent to the server");
     assert.ok(!existsSync(s.path), "it wrote a credentials file for a run it refused");
     assert.ok(
       !`${failure.message} ${failure.nextStep ?? ""}`.includes(s.code),
-      "the refusal repeated the account code back",
+      "the refusal repeated the NMTS key back",
     );
   });
 });
@@ -255,7 +255,7 @@ test("⛔ a key already stored is not replaced by a run that did not say so", as
     assert.equal(stored(s.path)["apiKey"], KEY_A);
 
     // A different key turns up in the environment — a leftover in a shell profile, or a key made
-    // for something else. `login` is a command about the account code; it does not swap this one.
+    // for something else. `login` is a command about the NMTS key; it does not swap this one.
     process.env[API_KEY_ENV_VAR] = KEY_B;
     calls = [];
     const r = await runLogin(s.code);
@@ -349,7 +349,7 @@ test("⛔ with no key anywhere it stays offline, stores the code, and says how t
     assert.equal(r.exit, 0);
     assert.deepEqual(asked(), [], "it talked to the server about a key it does not have");
     const file = stored(s.path);
-    assert.ok(file["lockedCode"] !== undefined, "the account code was not stored");
+    assert.ok(file["lockedCode"] !== undefined, "the NMTS key was not stored");
     assert.equal(file["apiKey"], undefined, "it wrote an apiKey field for a key it never had");
     const out = r.lines.join("\n");
     assert.match(out, /No API key is stored/);

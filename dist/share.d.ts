@@ -21,7 +21,7 @@ export interface ShareKeys {
     display: string;
     wipe(): void;
 }
-/** Derive everything sharing needs from an account code. */
+/** Derive everything sharing needs from an NMTS key. */
 export declare function shareKeysOf(crypt: CryptoGlue, code: string): ShareKeys;
 /** The three sealed fields a share carries, base64url, exactly as they go to the server. */
 export interface SharePayload {

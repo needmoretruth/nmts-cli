@@ -37,7 +37,7 @@ const PUBLIC_CODE = "A7QK2M9PW-RSTV0123X-456789ABC";
 
 // ── One text each rule must replace ────────────────────────────────────────────────────────────
 
-test("the account code goes, run together, hyphenated or spaced", () => {
+test("the NMTS key goes, run together, hyphenated or spaced", () => {
   assert.equal(redact(`my code is ${CODE} and it failed`), "my code is [account-code] and it failed");
   assert.equal(redact(`pasted ${CODE_GROUPED}.`), "pasted [account-code].");
   assert.equal(redact(`pasted ${CODE_SPACED}.`), "pasted [account-code].");

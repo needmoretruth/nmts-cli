@@ -77,7 +77,7 @@ function whoami(ctx: ToolContext): ToolDefinition {
   return {
     name: "nmts_whoami",
     description:
-      "Which NMTS account this machine holds the code for. Derived here, offline: it says " +
+      "Which NMTS account this machine holds the NMTS key for. Derived here, offline: it says " +
       "nothing about whether that account exists on the server or has credits.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     async run() {

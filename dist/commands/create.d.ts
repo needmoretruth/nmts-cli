@@ -2,7 +2,7 @@ export interface CreateOptions {
     server?: string | undefined;
     network?: string | undefined;
     json?: boolean;
-    /** A file to write the new account code into, instead of printing it. Never overwritten. */
+    /** A file to write the new NMTS key into, instead of printing it. Never overwritten. */
     out?: string | undefined;
     /** The Terms of Service version a PERSON read and accepts for the new account. */
     acceptTerms?: string | undefined;

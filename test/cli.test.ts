@@ -110,7 +110,7 @@ test("login with no terminal and no environment variable exits 3 and says what t
   }
 });
 
-test("the first run shows the notice about what an account code is; the second does not", async () => {
+test("the first run shows the notice about what an NMTS key is; the second does not", async () => {
   const s = sandbox("cli-notice", "plain-env");
   const code = await generateCode();
   try {
@@ -123,13 +123,13 @@ test("the first run shows the notice about what an account code is; the second d
   }
 });
 
-test("no output anywhere echoes the account code back", async () => {
+test("no output anywhere echoes the NMTS key back", async () => {
   const s = sandbox("cli-no-echo", "plain-env");
   const code = await generateCode();
   try {
     const r = await nmts(["login"], { ...s.env, NMTS_ACCOUNT_CODE: code, NMTS_PASSPHRASE: PASS });
-    assert.ok(!r.stdout.includes(code), "stdout carried the account code");
-    assert.ok(!r.stderr.includes(code), "stderr carried the account code");
+    assert.ok(!r.stdout.includes(code), "stdout carried the NMTS key");
+    assert.ok(!r.stderr.includes(code), "stderr carried the NMTS key");
   } finally {
     s.clean();
   }
@@ -180,7 +180,7 @@ test("whoami answers offline and says so, so an account id does not read as 'con
     assert.match(r.stdout, /Account id\s+[A-Za-z0-9_-]{22}/);
     assert.match(r.stdout, /Public code\s+[0-9A-Z]{9}-/);
     assert.match(r.stdout, /Nothing was asked of the server/);
-    assert.ok(!r.stdout.includes(code), "whoami printed the account code");
+    assert.ok(!r.stdout.includes(code), "whoami printed the NMTS key");
   } finally {
     s.clean();
   }
@@ -220,7 +220,7 @@ test("⛔ login refuses a mistyped code offline instead of storing it", async ()
   try {
     const r = await nmts(["login"], { ...s.env, NMTS_ACCOUNT_CODE: flipped });
     assert.equal(r.code, 2);
-    assert.match(r.stderr, /not a valid NMTS account code/);
+    assert.match(r.stderr, /not a valid NMTS key/);
     assert.ok(!existsSync(join(s.dir, "credentials.json")), "a bad code was written to disk");
   } finally {
     s.clean();

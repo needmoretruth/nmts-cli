@@ -24,7 +24,7 @@ const encoder = new TextEncoder();
 const ENVELOPE_LEN = 1240;
 const DIGEST_ENVELOPE_LEN = 104;
 const IDENTITY_LEN = 4989;
-/** Derive everything sharing needs from an account code. */
+/** Derive everything sharing needs from an NMTS key. */
 export function shareKeysOf(crypt, code) {
     const derived = crypt.kdf_derive(crypt.account_code_parse(code));
     const slice = (range) => derived.slice(range[0], range[1]);

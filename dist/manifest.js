@@ -16,7 +16,7 @@
 //
 // ⛔ AND THE SEALED BYTES THEMSELVES ARE KEPT, beside that record. The record alone is a detector:
 //    it can tell that a list went backwards, and it cannot hand anybody a list. The blob can — it
-//    is the account's names, folders and file keys, sealed with the account code, and a copy of it
+//    is the account's names, folders and file keys, sealed with the NMTS key, and a copy of it
 //    on this machine is one of the two things a person needs when the server has nothing to give
 //    them. A tool that read the list on every run and then threw it away left an account used only
 //    from a terminal with neither. It is written with the record, by the one function that writes
@@ -218,7 +218,7 @@ export async function readFileList(base, apiKey, accountCode, accountId) {
         }
         catch {
             throw new NmtsError("The file list did not open with this account's key.", {
-                nextStep: "Either the code belongs to a different account, or the stored bytes are not what this " +
+                nextStep: "Either the NMTS key belongs to a different account, or the stored bytes are not what this " +
                     "account sealed. Nothing was changed.",
             });
         }

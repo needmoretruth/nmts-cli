@@ -11,7 +11,7 @@
 //    belong to which version.
 //
 // ⛔ WHAT IS STORED IS SEALED. These are the account's names, folders and file keys, sealed with
-//    the account code — the same bytes the server holds and cannot read. They are written 0600 in
+//    the NMTS key — the same bytes the server holds and cannot read. They are written 0600 in
 //    a 0700 directory, beside the kept copy of the index and for the same reason.
 //
 // ⚠ NOTHING HERE THROWS. A cache that cannot be read or written is a slower command, never a

@@ -14,13 +14,13 @@
 //    says whether it can be sent to, and names the flag; `--publish` is the deliberate act.
 //
 // ⛔ WHAT "PERMANENT" DOES AND DOES NOT MEAN HERE. The record cannot be withdrawn or replaced. It
-//    is also not a choice: the code and the identity behind it are derived from the account code,
-//    so the same account code produces the same bytes on any device, and the server refuses a
+//    is also not a choice: the code and the identity behind it are derived from the NMTS key,
+//    so the same NMTS key produces the same bytes on any device, and the server refuses a
 //    bundle whose claimed value is not the fingerprint of its own root. The only way to publish a
-//    wrong one is to be holding a different account code. That is worth saying plainly rather than
+//    wrong one is to be holding a different NMTS key. That is worth saying plainly rather than
 //    warning vaguely — a warning that cannot be acted on just teaches people to click through.
 //
-// ⚠ IT IS NOT THE ACCOUNT CODE. That one opens every file in the account and must never be given
+// ⚠ IT IS NOT THE NMTS KEY. That one opens every file in the account and must never be given
 //   to anybody; this one is meant to be given away, and on its own it opens nothing.
 
 import { request } from "../api.ts";
@@ -59,14 +59,14 @@ export async function publicCode(options: PublicCodeOptions = {}): Promise<numbe
 
   // ⛔ IF THE SERVER ALREADY HOLDS A DIFFERENT ONE, STOP. Publishing is first-writer-wins and the
   //    server would refuse the write anyway, but the useful thing to report is not "the write
-  //    failed" — it is that the account code this machine is holding is not the one this account
+  //    failed" — it is that the NMTS key this machine is holding is not the one this account
   //    was made with, which is a much bigger fact than a failed request.
   const held = isRecord(seen) ? seen["share_address"] : null;
   if (typeof held === "string" && held !== mine) {
     throw new NmtsError("This account already publishes a different public code.", {
       exitCode: 4,
       nextStep:
-        "The public code is derived from the account code, so a different one means this machine " +
+        "The public code is derived from the NMTS key, so a different one means this machine " +
         "is holding a different account's code than the key beside it. Check which account you meant.",
     });
   }
@@ -91,7 +91,7 @@ export async function publicCode(options: PublicCodeOptions = {}): Promise<numbe
   if (published) {
     say(`             published — another account can send files to it`);
     say(``);
-    say(`Give it to whoever is sending. ⛔ It is NOT your account code — that one opens`);
+    say(`Give it to whoever is sending. ⛔ It is NOT your NMTS key — that one opens`);
     say(`every file you have and is never given to anybody. This one opens nothing.`);
     return 0;
   }
@@ -99,7 +99,7 @@ export async function publicCode(options: PublicCodeOptions = {}): Promise<numbe
   say(``);
   say(`Publishing writes it on the server so a sender can find the key to seal to.`);
   say(`It is permanent: it cannot be withdrawn or changed afterwards. It is also not a`);
-  say(`choice — it comes from your account code, so the same account code always gives`);
+  say(`choice — it comes from your NMTS key, so the same NMTS key always gives`);
   say(`the same public code, on this machine or any other.`);
   say(``);
   say(`  ${BINARY_NAME} public-code --publish`);

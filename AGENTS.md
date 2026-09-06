@@ -34,12 +34,12 @@ Two things have to be present, and they do different jobs:
 
 | | What it does | Where it comes from |
 |---|---|---|
-| **account code** | Opens the files. Never leaves the machine. | `NMTS_ACCOUNT_CODE_FILE`, `nmts login`, or `NMTS_ACCOUNT_CODE` |
+| **NMTS key** | Opens the files. Never leaves the machine. | `NMTS_ACCOUNT_CODE_FILE`, `nmts login`, or `NMTS_ACCOUNT_CODE` |
 | **API key** | Makes the server answer. Opens nothing. | `NMTS_API_KEY_FILE`, `NMTS_API_KEY`, or `nmts login` |
 
-If either is missing, `nmts env` says so. If the key is missing, stop and say so, and point the
+If either is missing, `nmts env` says so. If one is missing, stop and say so, and point the
 person at [what only they can do](#what-only-a-person-can-do-once). Prefer `NMTS_ACCOUNT_CODE_FILE`
-for the code: it asks nothing and works in a container. The code from `NMTS_ACCOUNT_CODE` is
+for the NMTS key: it asks nothing and works in a container. The NMTS key from `NMTS_ACCOUNT_CODE` is
 readable through `docker inspect`, `/proc/<pid>/environ` and most CI logs, so that shape stops
 once, for an unlock (`nmts help login`).
 
@@ -50,8 +50,8 @@ a person, all at the beginning. If you are being set up, hand this list back in 
 
 | Step | Who | Where | How often |
 |---|---|---|---|
-| 1. Make the account | a person | nmts.me, or `nmts create` at a terminal (it makes the code on that machine and hands the person a one-time link to finish in a browser) | once |
-| 2. Make an API key for you | a person | the account screen at nmts.me, or `nmts key new` on a machine that holds the code (`key list` and `key revoke` live there too) | once, and again if it is revoked |
+| 1. Make the account | a person | nmts.me, or `nmts create` at a terminal (it makes the NMTS key on that machine and hands the person a one-time link to finish in a browser) | once |
+| 2. Make an API key for you | a person | the account screen at nmts.me, or `nmts key new` on a machine that holds the NMTS key (`key list` and `key revoke` live there too) | once, and again if it is revoked |
 | 3. Pass the check that says a person is here | a person | nmts.me, one short code | **every four weeks**, and only for step 1, step 4 and sharing |
 | 4. Get credits into the account | you, for the free trial (`nmts trial apply`, while step 3 is live) — a person, for a funded wallet | a terminal, or nmts.me | once, then as they run out |
 
@@ -72,9 +72,9 @@ in a minute.
 
 ## Rules
 
-1. **Never pass the account code as a command-line argument.** No flag accepts it. Any process can
+1. **Never pass the NMTS key as a command-line argument.** No flag accepts it. Any process can
    read another's command line, and shells write it to history.
-2. **Never print the account code, and never write it where it can be read again.** Not into logs,
+2. **Never print the NMTS key, and never write it where it can be read again.** Not into logs,
    a commit, a file you create, or a message. It is the only key to the account and cannot be
    rotated while keeping the account. If you have echoed it, say so plainly; the remedy is the
    person's.
@@ -95,7 +95,7 @@ in a minute.
 Every act this tool performs has a tier: **none** (free and reversible: listing, fetching,
 folders, marks), **low** (reversible but worth a word: the trash, a setting, a report), **medium**
 (spends credits or is permanent: uploading, publishing the public code, a new key), **high**
-(signs with the wallet, hands a file to somebody, reveals or stores the code unsealed), and
+(signs with the wallet, hands a file to somebody, reveals or stores the NMTS key unsealed), and
 **ultra-high** (erasing the account). The person's **mode** says what each tier meets:
 
 | | default | auto-low | auto-high | skip-permissions |
@@ -111,7 +111,7 @@ folders, marks), **low** (reversible but worth a word: the trash, a setting, a r
   they agree is safe. Explain before you ask, in the words somebody who has never seen this tool
   would use: not "grant the spend consent" — "this uploads a file, which spends credits from your
   account". Do not paste the tool's text and leave them to work it out.
-- **Your judgement** means the code does not block: in an auto mode you decide whether this is
+- **Your judgement** means the tool does not block: in an auto mode you decide whether this is
   what the person wants. Auto-high is the mode where they asked you to think further ahead.
   Where a choice has a safe side, take it: a name already taken gets the numbered copy.
 - **Unlock** is a person's act at a terminal, once per machine: `nmts unlock <key>` prints what

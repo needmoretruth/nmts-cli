@@ -54,7 +54,7 @@ export interface ShareKeys {
   wipe(): void;
 }
 
-/** Derive everything sharing needs from an account code. */
+/** Derive everything sharing needs from an NMTS key. */
 export function shareKeysOf(crypt: CryptoGlue, code: string): ShareKeys {
   const derived = crypt.kdf_derive(crypt.account_code_parse(code));
   const slice = (range: readonly [number, number]): Uint8Array =>

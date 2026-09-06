@@ -1,4 +1,4 @@
-// Where a new account code goes when it is not printed, and the rules around that file.
+// Where a new NMTS key goes when it is not printed, and the rules around that file.
 //
 // ⛔ IT LEFT `create.ts` BECAUSE THERE ARE TWO PATHS ONTO IT NOW (2026-09-05). `create` makes an
 //    account either with a verified API key or through a registration address a person opens, and
@@ -22,17 +22,17 @@ import { STDOUT_TARGET } from "../stdout.ts";
  * ⛔ `-` IS REFUSED, WHICH IS THE OPPOSITE OF WHAT IT MEANS EVERYWHERE ELSE IN THIS TOOL. In
  *    `get` and `listfile` it means "hand the bytes to whatever is reading stdout", and that is
  *    right for a file somebody already has. Here it would mean putting the only copy of an
- *    account code into the same stream a program is parsing — which is the one place this command
+ *    NMTS key into the same stream a program is parsing — which is the one place this command
  *    exists to keep it out of.
  */
 export function codeFileTarget(out: string | undefined): string | null {
   if (out === undefined || out === "") return null;
   if (out === STDOUT_TARGET) {
-    throw new NmtsError("The new account code will not be sent to stdout.", {
+    throw new NmtsError("The new NMTS key will not be sent to stdout.", {
       exitCode: 2,
       nextStep:
         `Nothing was created. stdout is what a program reads and a log keeps, and this is the ` +
-        `only copy of the code. Name a file — \`--out ./account-code.txt\` — or leave --out off ` +
+        `only copy of your NMTS key. Name a file — \`--out ./account-code.txt\` — or leave --out off ` +
         `and read it off the screen.`,
     });
   }
@@ -51,9 +51,9 @@ export function codeFileTarget(out: string | undefined): string | null {
       exitCode: 4,
       nextStep:
         existing.isDirectory()
-          ? `--out names the FILE the code goes into, not a directory.`
+          ? `--out names the FILE the NMTS key goes into, not a directory.`
           : `Nothing was created. That file is not replaced, whatever --force says: it may hold ` +
-            `the only copy of another account's code. Name one that does not exist.`,
+            `the only copy of another account's NMTS key. Name one that does not exist.`,
     });
   }
   return path;
@@ -77,7 +77,7 @@ export function writeCodeFile(path: string, code: string): void {
   } catch (error) {
     // ⛔ THE CAUSE IS NAMED BUT THE CODE IS NOT. `writeFileSync`'s errno line carries the path and
     //    never the contents, so it is safe to pass on; the code itself appears in no message here.
-    throw new NmtsError(`The account code could not be written to ${path}.`, {
+    throw new NmtsError(`The NMTS key could not be written to ${path}.`, {
       exitCode: 1,
       nextStep:
         `Nothing was created — the file is written before the account is asked for, so that a ` +
@@ -88,12 +88,12 @@ export function writeCodeFile(path: string, code: string): void {
 
 /** `--json` without `--out`: there is nowhere for the code to go that is not the output. */
 export function jsonNeedsAFile(): NmtsError {
-  return new NmtsError("--json needs --out, because the account code will not go into the output.", {
+  return new NmtsError("--json needs --out, because the NMTS key will not go into the output.", {
     exitCode: 2,
     nextStep:
       `Nothing was created. Machine-readable output is read by a program and kept by a log, and ` +
-      `the code is the only key this account will ever have. \`--out ./account-code.txt\` writes ` +
-      `it to a file only you can read; the JSON then names that file. Without --json the code is ` +
+      `your NMTS key is the only key this account will ever have. \`--out ./account-code.txt\` writes ` +
+      `it to a file only you can read; the JSON then names that file. Without --json the NMTS key is ` +
       `printed on the screen for a person to keep.`,
   });
 }

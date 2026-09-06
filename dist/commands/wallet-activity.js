@@ -1,4 +1,4 @@
-// `nmts wallet activity` — the recent transactions of the wallet this account code derives.
+// `nmts wallet activity` — the recent transactions of the wallet this NMTS key derives.
 //
 // ⛔ IT READS. The chain is asked twice (sent, received — the RPC filter has no OR), the rows are
 //    named by the SAME judgement the browser uses (`shared/lib/wallet/activity.ts`, copied

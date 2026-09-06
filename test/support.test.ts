@@ -24,7 +24,7 @@ import { collect, startFakeDrive, withSandbox } from "./fake-drive.ts";
 import { startFakeSupport } from "./fake-support.ts";
 
 // ⚠ TWO SERVERS, AND ONLY ONE OF THEM IS TALKED TO. The drive is here for its sandbox — a config
-//   directory, an account code and a key in the environment, all put back afterwards — and the
+//   directory, an NMTS key and a key in the environment, all put back afterwards — and the
 //   desk is what `nmts support` actually calls.
 const drive = await startFakeDrive();
 const desk = await startFakeSupport();
@@ -170,7 +170,7 @@ test("⛔ the attached log carries labels, whatever the file on disk holds", asy
     const log = typeof sent === "object" && sent !== null ? Reflect.get(sent, "log") : undefined;
     assert.equal(typeof log, "string");
     const text = String(log);
-    assert.ok(!text.includes(plantedCode), "an account code left the machine");
+    assert.ok(!text.includes(plantedCode), "an NMTS key left the machine");
     assert.ok(!text.includes(plantedKey), "an API key left the machine");
     assert.ok(text.includes("[account-code]"), `the code was not labelled: ${text}`);
     assert.ok(text.includes("[api-key]"), `the key was not labelled: ${text}`);

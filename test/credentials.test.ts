@@ -75,7 +75,7 @@ test("the refusal names the file and never the code", () => {
     } catch (error) {
       const text = String(error);
       assert.ok(text.includes("credentials.json"), "the error should name the file");
-      assert.ok(!text.includes(SECRET), "the error message carried the account code");
+      assert.ok(!text.includes(SECRET), "the error message carried the NMTS key");
     }
   });
 });
@@ -92,7 +92,7 @@ test("a malformed credentials file fails with a message that does not carry the 
       readCredentialsFile();
       assert.fail("a credentials file with no server was accepted");
     } catch (error) {
-      assert.ok(!String(error).includes(SECRET), "the error message carried the account code");
+      assert.ok(!String(error).includes(SECRET), "the error message carried the NMTS key");
     }
   });
 });

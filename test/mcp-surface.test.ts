@@ -82,7 +82,7 @@ test("⛔ nothing a machine must not do is in the surface, and the reads that ar
   //    verified keys (the 2026-09-06 decision) — what changed is that a model could now SUCCEED at it, which is
   //    the case for leaving it out, not against. Both stay commands a person runs.
   // ⛔ AND `key` IS THE SHARPEST OF THEM (2026-09-05). `nmts key new` mints a credential out of
-  //    the account code, and a tool for it would hand a model the one thing the server refuses a
+  //    the NMTS key, and a tool for it would hand a model the one thing the server refuses a
   //    key at: a key that can make keys makes revoking one meaningless, because revoking it leaves
   //    the three it already made. The reads beside it — including `nmts_devices` — change nothing.
   for (const forbidden of [

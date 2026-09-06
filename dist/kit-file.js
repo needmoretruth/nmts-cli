@@ -1,10 +1,10 @@
-// The RECOVERY KIT — the one file that carries everything, account code included.
+// The RECOVERY KIT — the one file that carries everything, NMTS key included.
 //
-// ⛔⛔ IT HOLDS THE ACCOUNT CODE IN THE CLEAR, AND THAT IS THE FORMAT. It was decided deliberately
+// ⛔⛔ IT HOLDS THE NMTS KEY IN THE CLEAR, AND THAT IS THE FORMAT. It was decided deliberately
 //    and against the earlier rule, by the owner, with the cost stated: whoever holds this file
 //    holds the account AND the wallet, because one code derives both. The two artefacts therefore
 //    mean two different things and every screen and every command must say which is which:
-//      · recovery LIST — sealed. Worthless to a thief. The account code opens it.
+//      · recovery LIST — sealed. Worthless to a thief. The NMTS key opens it.
 //      · recovery KIT  — everything. One stolen file is a total loss.
 //    The warning is not a formality; it is what makes the choice an honest one to offer.
 //
@@ -52,7 +52,7 @@ export const KIT_VERSION = 2;
  *   cannot import. It has to produce the same string: a person comparing a kit written here with
  *   one written in a browser is checking two spellings of the same account.
  *
- * ⛔ IT FINGERPRINTS THE ACCOUNT ID, WHICH IS PUBLIC — never the account code and never a key. It
+ * ⛔ IT FINGERPRINTS THE ACCOUNT ID, WHICH IS PUBLIC — never the NMTS key and never a key. It
  *    lets somebody confirm two files refer to one account without either of them exposing a secret.
  */
 export function accountIdFingerprint(accountId) {
@@ -86,17 +86,17 @@ export function buildRecoveryKit(input) {
         // ⛔ THE THEFT WARNING COMES FIRST, ABOVE THE CODE IT IS ABOUT. A caution printed underneath
         //    the thing it cautions about has already been disregarded by the time it is read.
         `⛔ Anyone who holds this file holds this account: every file in it, and the wallet that pays ` +
-            `for storage. One account code opens both.`,
+            `for storage. One NMTS key opens both.`,
         `Do not keep it in a folder that syncs or backs up on its own, and do not send it to anyone. ` +
             `A drawer is often safer than a cloud folder.`,
         ``,
         `This file is the only way to recover your NMTS files. Keep it private.`,
-        `This file carries your account code in the clear, your account identifier and fingerprint, ` +
+        `This file carries your NMTS key in the clear, your account identifier and fingerprint, ` +
             `and the whole recovery list.`,
-        `Anyone with this code can open your files. If you lose it, no one — including NMTS — can ` +
+        `Anyone with this NMTS key can open your files. If you lose it, no one — including NMTS — can ` +
             `recover them.`,
         ``,
-        `Account code:`,
+        `NMTS key:`,
         `    ${input.code}`,
         ``,
         `Account identifier: ${data.account_id}`,
@@ -111,12 +111,12 @@ export function buildRecoveryKit(input) {
             `Windows, and its full source is there.`,
         `2. Open a terminal where you saved the program, and run:`,
         `       nmts-recovery --map <this file> --out <a folder to write into>`,
-        `   It takes the account code and the file list out of this file, fetches your files from ` +
+        `   It takes the NMTS key and the file list out of this file, fetches your files from ` +
             `public Walrus storage, checks every piece, and writes them out.`,
         `3. To click instead of typing, run:  nmts-recovery --gui`,
         `   That opens a page only this machine can reach. The program still does the work; the page ` +
             `only shows the list and sends back what you ticked.`,
-        `4. To see what your account code derives — your public code and your wallet addresses — ` +
+        `4. To see what your NMTS key derives — your public code and your wallet addresses — ` +
             `run:  nmts-recovery --derive`,
         `If you would rather it opened no network connections, run it with --print-fetch-plan: it ` +
             `prints the exact addresses to fetch by hand, then restores from the folder you filled.`,

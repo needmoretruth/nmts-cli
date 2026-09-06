@@ -5,7 +5,7 @@
 //    which account it is, and it proves nothing about whether that account exists, has credits, or
 //    is signed in. Printing an account id without saying that would read as "connected".
 //
-// ⛔ AND `--reveal` PUTS THE ACCOUNT CODE ITSELF ON THE SCREEN. Everything else this command
+// ⛔ AND `--reveal` PUTS THE NMTS KEY ITSELF ON THE SCREEN. Everything else this command
 //    prints is public: an account id and a public code give nobody anything. The code is the
 //    account — every file key and the wallet derive from it — so the flag exists for one
 //    situation, a person copying it out of a machine they are sitting at, and it is refused while
@@ -28,7 +28,7 @@ export async function whoami(options = {}) {
         // ⛔ THE WARNING COMES FIRST AND THE CODE IS ALONE ON ITS OWN LINE. Whoever is about to copy
         //    it reads what it is before they see it, and a line with nothing else on it is one a
         //    person can select without dragging a label into their clipboard.
-        say(`The account code is the account: anyone who reads it can open every file and delete the account.`);
+        say(`The NMTS key is the account: anyone who reads it can open every file and delete the account.`);
         say(identity.displayCode);
         return 0;
     }
@@ -39,11 +39,11 @@ export async function whoami(options = {}) {
     const stored = resolved.source === "file" || resolved.source === "file-locked" ? readCredentialsFile() : null;
     const server = resolveServer(options.server ?? stored?.server);
     const network = resolveNetwork(server, options.network ?? stored?.network);
-    say(`Account id   ${identity.accountId}`);
-    say(`Public code  ${identity.publicCode}`);
-    say(`Code from    ${resolved.source === "env" ? `${CODE_ENV_VAR} (not stored)` : "this machine"}`);
-    say(`Server       ${server}`);
-    say(`Network      ${network}`);
+    say(`Account id     ${identity.accountId}`);
+    say(`Public code    ${identity.publicCode}`);
+    say(`NMTS key from  ${resolved.source === "env" ? `${CODE_ENV_VAR} (not stored)` : "this machine"}`);
+    say(`Server         ${server}`);
+    say(`Network        ${network}`);
     say(``);
     say(`  Derived on this machine. Nothing was asked of the server, so this does not say whether`);
     say(`  the account exists there, has credits, or is signed in.`);

@@ -155,7 +155,7 @@ function collect(): { lines: string[]; write: (line: string) => void } {
 }
 
 /**
- * The one account code in a run's output — refusing to guess when there is not exactly one.
+ * The one NMTS key in a run's output — refusing to guess when there is not exactly one.
  *
  * ⛔ FOUND BY THE ENGINE'S OWN PARSER, NOT BY A SHAPE. A code ends in a check symbol drawn from
  *    thirty-seven characters, five of which are punctuation (`* ~ $ = U`), so a pattern over
@@ -175,7 +175,7 @@ async function printedCode(lines: string[]): Promise<string> {
       // Prose. Every other line this command prints is a sentence.
     }
   }
-  assert.equal(found.length, 1, `expected exactly one account code on screen, saw ${found.length}`);
+  assert.equal(found.length, 1, `expected exactly one NMTS key on screen, saw ${found.length}`);
   return found[0] ?? "";
 }
 
@@ -254,7 +254,7 @@ test("⛔ --json refuses without --out, and puts the path rather than the code i
       () => null,
       (error: unknown) => error,
     );
-    assert.ok(refused instanceof NmtsError, "--json handed the account code to a program");
+    assert.ok(refused instanceof NmtsError, "--json handed the NMTS key to a program");
     assert.equal(refused.exitCode, 2);
     assert.equal(received, null, "an account was created by a run that then refused to hand it over");
 
@@ -274,11 +274,11 @@ test("⛔ --json refuses without --out, and puts the path rather than the code i
     const written = readFileSync(target, "utf8").trim();
     const derived = await identityOf(written);
     assert.equal(derived.accountId, received?.["account_id"]);
-    assert.ok(!(out.lines[0] ?? "").includes(written), "the account code is in the JSON output");
+    assert.ok(!(out.lines[0] ?? "").includes(written), "the NMTS key is in the JSON output");
   });
 });
 
-test("⛔ a refused creation leaves no account code file behind", async () => {
+test("⛔ a refused creation leaves no NMTS key file behind", async () => {
   await withSandbox("create-rollback", async (dir) => {
     refuseCreateWith = "RATE_LIMITED";
     const target = join(dir, "code.txt");
@@ -335,7 +335,7 @@ test("⛔ --out never replaces a file, and never sends the code to stdout", asyn
       () => null,
       (error: unknown) => error,
     );
-    assert.ok(dash instanceof NmtsError, "the only copy of an account code went to stdout");
+    assert.ok(dash instanceof NmtsError, "the only copy of an NMTS key went to stdout");
     assert.equal(received, null);
   });
 });

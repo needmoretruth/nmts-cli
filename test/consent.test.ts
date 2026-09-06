@@ -22,7 +22,7 @@ const AT = new Date("2026-08-23T18:00:00.000Z");
 const yes = async (_q: string) => "y";
 
 test("⛔ the locks are exactly these, and each guards something irreversible, unbounded, or the code", () => {
-  // The bar for a lock: it cannot be undone · money without a ceiling · the account code leaves
+  // The bar for a lock: it cannot be undone · money without a ceiling · the NMTS key leaves
   // the sealed file · something reaches a third party. Credits left the list on 2026-09-06: they
   // are bounded by the server's daily ceiling, so spending them is a medium act the gate asks
   // about, not a lock.

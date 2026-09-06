@@ -1,6 +1,6 @@
 // Shared test helpers.
 //
-// ⛔ CODES ARE GENERATED, NEVER HARD-CODED. A fixed account code in a test file reads like a
+// ⛔ CODES ARE GENERATED, NEVER HARD-CODED. A fixed NMTS key in a test file reads like a
 //    credential to every scanner and every person who finds it, and one day somebody creates the
 //    account it names. The engine makes a fresh one in under a millisecond.
 
@@ -26,7 +26,7 @@ let generate: ((...args: never[]) => unknown) | null = null;
 /**
  * Write consent grants straight into a sandbox config directory.
  *
- * ⛔ WHY TESTS NEED THIS AT ALL. Reading the account code out of `NMTS_ACCOUNT_CODE` asks for the
+ * ⛔ WHY TESTS NEED THIS AT ALL. Reading the NMTS key out of `NMTS_ACCOUNT_CODE` asks for the
  *    `plain-env` agreement once per machine, so almost every test that supplies a code that way
  *    would otherwise stop at exit 5 and prove nothing about what it was written for. The
  *    agreement itself is tested where it belongs — in `consent.test.ts` and `cli.test.ts` — and
@@ -55,7 +55,7 @@ export function grantConsents(dir: string, ...keys: readonly string[]): void {
   writeFileSync(join(dir, "consent.json"), `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
 }
 
-/** A throwaway account code from the engine. Not an account: nothing was ever created for it. */
+/** A throwaway NMTS key from the engine. Not an account: nothing was ever created for it. */
 export async function generateCode(): Promise<string> {
   if (generate === null) {
     const dir = engineDir();

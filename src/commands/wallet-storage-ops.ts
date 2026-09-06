@@ -10,7 +10,7 @@
 //    scope `storage` for cutting and joining, scope `all` for handing over ⑦ only then the signature.
 //
 // ⛔ HANDING OVER MOVES NO FILE. The owner's sentence for the browser holds here: what goes is size
-//    and remaining time; a file's bytes are sealed with keys the account code derives and stay
+//    and remaining time; a file's bytes are sealed with keys the NMTS key derives and stay
 //    unreadable to whoever receives the resource. It cannot be undone and NMTS cannot recall it.
 
 import { requireAccountCode } from "../code-access.ts";

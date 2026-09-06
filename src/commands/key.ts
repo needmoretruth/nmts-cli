@@ -1,13 +1,13 @@
-// `nmts key new` — make this machine's API key from the account code it already holds.
+// `nmts key new` — make this machine's API key from the NMTS key it already holds.
 //
-// ⛔ WHY IT EXISTS. Setting this tool up took TWO secrets and two places: the account code here,
+// ⛔ WHY IT EXISTS. Setting this tool up took TWO secrets and two places: the NMTS key here,
 //    and a key made at a browser — because the only door that minted one wanted a signed-in
 //    session as well as the code, and signing in goes through a human check no terminal can pass.
 //    So every automated setup began with a person at a screen, and a container that had the code
 //    still could not talk to the server. The server now has a door that takes the code alone, and
 //    this is the command that knocks on it: one secret in, one working machine out.
 //
-// ⛔ THE ACCOUNT CODE IS NEVER AN ARGUMENT, and there is no option here that could carry one. It
+// ⛔ THE NMTS KEY IS NEVER AN ARGUMENT, and there is no option here that could carry one. It
 //    comes from where every other command gets it (`code-access.ts`), so a sealed store is opened
 //    the same way and an environment variable asks for the same agreement. What travels is the
 //    derived proof, which is what a sign-in sends and what `account-proof.ts` says is safe to
@@ -100,7 +100,7 @@ interface Issued {
  * `nmts key <verb>`.
  *
  * ⛔ A VERB AND NOT A BARE COMMAND. Three verbs: `new` mints, `list` shows, `revoke` cuts
- *    (`key-manage.ts` for the last two). All three present the account code's proof and none is
+ *    (`key-manage.ts` for the last two). All three present the NMTS key's proof and none is
  *    reachable with a key — a key cannot cut another key off, and that is what makes revoking
  *    mean something. `key` with no verb says which ones exist rather than doing one of them, so
  *    `nmts key` never turns out to have made something.
@@ -121,8 +121,8 @@ export async function key(verb: string | undefined, args: ParsedArgs): Promise<n
         exitCode: 2,
         nextStep:
           `The verbs are \`${BINARY_NAME} key new\` (make an API key for this machine from the ` +
-          `account code it already holds), \`${BINARY_NAME} key list\` and ` +
-          `\`${BINARY_NAME} key revoke <id|all>\`. Each needs the account code on this machine; ` +
+          `NMTS key it already holds), \`${BINARY_NAME} key list\` and ` +
+          `\`${BINARY_NAME} key revoke <id|all>\`. Each needs the NMTS key on this machine; ` +
           `a key alone cannot list or cut keys.`,
       },
     );
@@ -243,7 +243,7 @@ export async function keyNew(options: KeyOptions = {}): Promise<number> {
   );
 
   // ⛔ THE STORE IS THE ONE THIS TOOL ALREADY HAS, WRITTEN THE ONE WAY IT IS WRITTEN. Whatever
-  //    shape the account code is in — sealed or in the clear — is carried through untouched:
+  //    shape the NMTS key is in — sealed or in the clear — is carried through untouched:
   //    this command is about the key, and re-deciding how somebody's code is stored on the way
   //    past is exactly what `login` refuses to do with a key.
   const canStore = stored !== null;
@@ -277,7 +277,7 @@ export async function keyNew(options: KeyOptions = {}): Promise<number> {
     say(`  Whatever key was there before is no longer used; revoke it at ${HOME_URL} if it is`);
     say(`  running somewhere else.`);
   } else {
-    say(`  ⛔ NOTHING WAS STORED. This machine keeps no account code file — the code came from`);
+    say(`  ⛔ NOTHING WAS STORED. This machine keeps no NMTS key file — it came from`);
     say(`     the environment — so there is nowhere to put the key. It is printed below because`);
     say(`     this is the only time it exists outside the server's memory.`);
   }

@@ -1,7 +1,7 @@
 // `nmts key list` and `nmts key revoke <id|all>` — the account's keys, seen and cut from a
-// terminal that holds the account code.
+// terminal that holds the NMTS key.
 //
-// ⛔ THE CODE, NEVER THE KEY. Both doors here are sessionless and take the account code's derived
+// ⛔ THE CODE, NEVER THE KEY. Both doors here are sessionless and take the NMTS key's derived
 //    proof, exactly as `key new` does (`key.ts`). A key is refused by the server on purpose: a key
 //    that could list keys hands whoever stole it the owner's whole automation inventory, and a
 //    key that could revoke keys could switch every other program off while staying alive. So the
@@ -88,7 +88,7 @@ export async function keyList(options = {}) {
     if (keys.length === 0) {
         say(`This account has no API keys.`);
         say(``);
-        say(`  \`${BINARY_NAME} key new\` makes one for this machine from the account code it holds.`);
+        say(`  \`${BINARY_NAME} key new\` makes one for this machine from the NMTS key it holds.`);
         return 0;
     }
     const live = keys.filter((k) => k.revoked_at === null);

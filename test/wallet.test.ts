@@ -1,4 +1,4 @@
-// What an account code's wallet is, and what a balance is allowed to claim.
+// What an NMTS key's wallet is, and what a balance is allowed to claim.
 //
 // ⛔ THE ENGINE IS NOT MOCKED. The point of the derivation tests is that the SAME WebAssembly the
 //    browser runs produces the same address here; a fake would prove only that this file agrees
@@ -68,7 +68,7 @@ test("⛔ a seed produces the address another implementation of this derivation 
 test("⛔ the address is the one the browser derives — same offsets, same index, same key type", async () => {
   // The browser's steps, written out with the numbers rather than with this package's own table,
   // so that moving the wallet root or reaching for another wallet has to disagree with them:
-  // bytes [176,208) of the derivation are the wallet root, the built-in wallet is index 0, and the
+  // bytes [176,208) of the derivation are the wallet root, the NMTS key wallet is index 0, and the
   // seed becomes an Ed25519 keypair whose Sui address is what gets shown.
   const code = await generateCode();
   const glue = await loadCrypto();
@@ -90,7 +90,7 @@ test("an address looks like a Sui address, and the same code always gives the sa
   assert.equal(await walletAddress(code), address, "the derivation is not deterministic");
 });
 
-test("two account codes do not share a wallet", async () => {
+test("two NMTS keys do not share a wallet", async () => {
   const [a, b] = [await walletAddress(await generateCode()), await walletAddress(await generateCode())];
   assert.notEqual(a, b);
 });

@@ -77,7 +77,7 @@ test("⛔ it says the money comes from a wallet, not from credits, before anythi
     // have been printed by then. A warning that arrives after the refusal is a warning nobody read.
     await refusal(extend("photos/a.jpg", opts(out, { epochs: 2, sign: refuseToSign("signed without an agreement") })));
     const text = out.lines.join("\n");
-    assert.match(text, /paid in WAL from the wallet this account code derives — not from credits/);
+    assert.match(text, /paid in WAL from the wallet this NMTS key derives — not from credits/);
   });
 });
 

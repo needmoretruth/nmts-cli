@@ -56,7 +56,7 @@ export function explain(mode) {
                 `default — ${MODE_MEANS.default}`,
                 `What happens: reading, downloading, listing, moving, renaming, labelling run at once. Anything`,
                 `that changes or spends is asked about (y/N here, or --yes from an agent that asked you).`,
-                `High acts — sharing, signing with the wallet, signing devices out, exposing the code — are`,
+                `High acts — sharing, signing with the wallet, signing devices out, exposing the NMTS key — are`,
                 `locked until you unlock them (\`nmts unlock\`). Erasing the account or files takes a typed sentence.`,
                 `Risk: the smallest. Cost: an agent stops for you often.`,
             ];

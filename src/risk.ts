@@ -118,8 +118,8 @@ export const ACTS = {
   rebuild: { tier: "medium", what: "Build a file list from the server's rows and write it as this account's list." },
   // ── high: locked until a person unlocks, asked on every run ──
   share: { tier: "high", lock: "share", what: "Give another account this file.", asksItself: true },
-  "login.plain": { tier: "high", lock: "unsafe-code-storage", what: "Store the account code in the clear.", standing: true },
-  "login.env": { tier: "high", lock: "plain-env", what: "Print the account code for an environment variable.", standing: true },
+  "login.plain": { tier: "high", lock: "unsafe-code-storage", what: "Store the NMTS key in the clear.", standing: true },
+  "login.env": { tier: "high", lock: "plain-env", what: "Print the NMTS key for an environment variable.", standing: true },
   extend: { tier: "high", lock: "wallet", what: "Sign a transaction that spends WAL from the wallet.", standing: true },
   "put.wallet": { tier: "high", lock: "wallet", what: "Sign a transaction that spends WAL and SUI from the wallet.", standing: true },
   "push.wallet": { tier: "high", lock: "wallet", what: "Sign transactions that spend WAL and SUI from the wallet.", standing: true },
@@ -127,8 +127,8 @@ export const ACTS = {
   "wallet.swap": { tier: "high", lock: "wallet", what: "Swap one coin for the other on a public venue.", asksItself: true },
   "devices.sign-out": { tier: "high", lock: "sign-out", what: "Sign a device out of this account.", asksItself: true },
   rollback: { tier: "high", lock: "rollback", what: "Put the previous file list back in place of the current one.", asksItself: true },
-  "whoami.reveal": { tier: "high", lock: "reveal", what: "Print the account code on this screen." },
-  kit: { tier: "high", lock: "kit", what: "Write the account code into a recovery kit file on this disk." },
+  "whoami.reveal": { tier: "high", lock: "reveal", what: "Print the NMTS key on this screen." },
+  kit: { tier: "high", lock: "kit", what: "Write the NMTS key into a recovery kit file on this disk." },
   create: { tier: "high", what: "Create a new account under the Terms in force.", asksItself: true },
   "accept-terms.accept": { tier: "high", what: "Accept a new version of the Terms for this account.", asksItself: true },
   // ── ultra-high: permanent destruction ──

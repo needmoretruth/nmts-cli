@@ -5,7 +5,7 @@ import type { Spend } from "./wallet-grant.ts";
 import type { SignBlobCertify, SignBlobRegister } from "./wallet-sign.ts";
 export interface WalletRailContext {
     network: Network;
-    /** ⛔ The account code. Held for the signatures and never written anywhere. */
+    /** ⛔ The NMTS key. Held for the signatures and never written anywhere. */
     code: string;
     relayUrl: string;
     epochs: number;

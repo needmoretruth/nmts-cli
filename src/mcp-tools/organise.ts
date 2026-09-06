@@ -1,7 +1,7 @@
 // Rearranging what the account holds, without moving a byte or spending anything.
 //
 // ⛔ EVERYTHING HERE IS AN EDIT TO THE SEALED LIST AND NOTHING HERE IS PERMANENT. Names, folders
-//    and marks live only inside the list the account code opens; the server never sees them and no
+//    and marks live only inside the list the NMTS key opens; the server never sees them and no
 //    stored bytes move. That is why these are the tools a model may use freely: the worst outcome
 //    is a tidy-up somebody has to undo, and every one of them has an undo.
 //

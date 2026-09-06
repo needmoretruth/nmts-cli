@@ -1,5 +1,5 @@
 // `nmts wallet donate <SUI|WAL> <amount>` — a voluntary gift to the developer, from the wallet this
-// account code derives. A HIGH act (2026-09-06): the `donate` unlock opens it, and every run
+// NMTS key derives. A HIGH act (2026-09-06): the `donate` unlock opens it, and every run
 // still needs `--yes` — the tier gate in main.ts holds the door; this file holds the sending.
 //
 // ⛔ THE WALLET AGREEMENT DOES NOT REACH A GIFT. A gift is neither covered by that agreement nor

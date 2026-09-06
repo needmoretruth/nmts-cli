@@ -2,7 +2,7 @@
 //
 // ⛔ WHY THIS EXISTS. Backup programs, sync tools and agent frameworks already know how to talk to
 //    S3. They do not know how to talk to this. Rather than ask every one of them to learn, the tool
-//    speaks the protocol they already speak, on this machine, where the account code already is.
+//    speaks the protocol they already speak, on this machine, where the NMTS key already is.
 //
 // ⛔ WHAT IT IS NOT. It is not a bridge to the internet and cannot be made into one: the address it
 //    binds is loopback and there is no option to change that (`s3/server.ts` says why). Nothing is

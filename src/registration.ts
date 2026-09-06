@@ -8,7 +8,7 @@
 //    for that would have made a promise false everywhere it is read; a separate module keeps the
 //    exception in one file, next to the reason for it.
 //
-// ⛔ `authSecret` IS NOT THE ACCOUNT CODE AND CANNOT BE TURNED BACK INTO ONE. It is 32 bytes out
+// ⛔ `authSecret` IS NOT THE NMTS KEY AND CANNOT BE TURNED BACK INTO ONE. It is 32 bytes out
 //    of a one-way derivation (NCF-3 §1.2), it opens no file, and the same value goes over the
 //    wire on every sign-in the browser makes. What it can do is prove ownership, so it is built
 //    here, sent once, and never written down, printed or returned to a caller that did not ask.
@@ -30,7 +30,7 @@ export interface RegistrationProof {
 }
 
 /**
- * A brand-new account code, from the engine.
+ * A brand-new NMTS key, from the engine.
  *
  * ⛔ THE RETURNED STRING IS THE ONLY COPY THAT WILL EVER EXIST. The server keeps a verifier of a
  *    value derived from it and nothing else, so a caller that loses this has destroyed an account
@@ -49,7 +49,7 @@ export async function newAccountCode(): Promise<string> {
   if (typeof code !== "string" || code.length === 0) {
     // ⛔ Refused rather than passed on. An empty code would be registered as a real account, and
     //    the failure would surface much later as an account nobody can open.
-    throw new NmtsError("The NMTS crypto engine did not produce an account code.", {
+    throw new NmtsError("The NMTS crypto engine did not produce an NMTS key.", {
       exitCode: 1,
       nextStep: "Nothing was created. Reinstall the package and try again.",
     });
@@ -71,8 +71,8 @@ export async function registrationProofOf(code: string): Promise<RegistrationPro
     bytes = glue.account_code_parse(code);
   } catch {
     // ⛔ The engine's own message is not repeated: it can contain the input, and the input is the
-    //    account code.
-    throw new NmtsError("That is not a valid NMTS account code.", {
+    //    NMTS key.
+    throw new NmtsError("That is not a valid NMTS key.", {
       exitCode: 2,
       nextStep: "The last character is a check symbol, and it does not match the rest.",
     });

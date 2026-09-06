@@ -149,10 +149,12 @@ jobs:
   # this repository's settings, on the day the registry side is ready, and the next tag goes out.
   # Until then this job is skipped and the tag above is still a complete release.
   #
-  # ⛔ NO LONG-LIVED TOKEN LIVES IN THIS REPOSITORY. When it is switched on, publishing
-  #    authenticates with a short-lived OpenID Connect credential the run mints for itself
-  #    ("trusted publishing"), which the registry accepts only for this repository and this
-  #    workflow file. A stolen repository secret is a thing that can be stolen; there is none here.
+  # HOW IT AUTHENTICATES: with an npm access token held as the repository secret `NPM_TOKEN`
+  #    (granular, publish-only, scoped to this package). Trusted publishing (a short-lived
+  #    credential the run mints for itself) was the first choice and stayed unconfigured on the
+  #    registry side through twenty tagged releases; a token the maintainer already holds is the
+  #    door that is actually open. A repository secret is a thing that can be stolen, so the token
+  #    is scoped as narrowly as the registry allows and can be revoked there at any time.
   #
   # WHAT `--provenance` ADDS: the registry records, and shows on the package page, which repository
   # and which workflow run produced these bytes. It says where the package came from. It does not
@@ -164,7 +166,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # Required to mint the short-lived credential described above, and for provenance.
+      # Provenance needs the run to mint a short-lived identity; publishing itself uses the token.
       id-token: write
     steps:
       - uses: actions/checkout@v7
@@ -174,7 +176,7 @@ jobs:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
-      # Trusted publishing needs a recent npm; the one bundled with the runner's Node may be older.
+      # Provenance needs a recent npm; the one bundled with the runner's Node may be older.
       - name: A recent npm
         run: npm install -g npm@latest
 
@@ -183,3 +185,5 @@ jobs:
 
       - name: Publish
         run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

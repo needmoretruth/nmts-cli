@@ -13,4 +13,4 @@ It refuses rather than lists when the server offers a file list older than one t
 already seen, or a different list at the same version. Report that and stop; it is not transient.
 
 `nmts listfile` writes this machine's copy of the sealed file list out as a file (`--out`, or
-`--out -` for stdout). It is sealed: without the account code it says nothing.
+`--out -` for stdout). It is sealed: without the NMTS key it says nothing.

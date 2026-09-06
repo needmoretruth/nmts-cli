@@ -18,7 +18,7 @@
 //    directories in an environment variable. That is the kind of confusion somebody debugs for an
 //    hour, so it is a refusal that says what to run instead.
 //
-// ⛔ IT ASKS THE SOURCE-HOSTING SITE, NOT NMTS. No account code, no API key, no session; the
+// ⛔ IT ASKS THE SOURCE-HOSTING SITE, NOT NMTS. No NMTS key, no API key, no session; the
 //    command works signed out, and it is one of the two places in this tool that talk to a host
 //    other than the NMTS server and the storage network. The other is `nmts recovery`.
 

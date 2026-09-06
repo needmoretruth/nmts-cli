@@ -1,6 +1,6 @@
-// The one thing this tool says before it keeps an account code on a machine.
+// The one thing this tool says before it keeps an NMTS key on a machine.
 //
-// ⛔ WHY IT EXISTS. Handing an agent your account code is handing it the vault: in NMTS every key
+// ⛔ WHY IT EXISTS. Handing an agent your NMTS key is handing it the vault: in NMTS every key
 //    is derived from that one code — the file keys and the wallet both — so an agent that leaks it
 //    has leaked everything at once, and the account cannot be re-keyed because the account IS the
 //    code. The owner asked for this to be said out loud (2026-08-23).
@@ -17,16 +17,16 @@
 //    the moment the decision is made — when the code is first written to this machine.
 import { PRODUCT_NAME } from "./product.js";
 /**
- * The text shown before an account code is stored on this machine.
+ * The text shown before an NMTS key is stored on this machine.
  *
  * Every sentence here is a measured fact about how NMTS works, not a prediction and not a
  * comparison. If any of it stops being true, this text is wrong and must change with the code.
  */
 export function firstRunNotice() {
     return [
-        `${PRODUCT_NAME} is about to keep your account code on this machine.`,
+        `${PRODUCT_NAME} is about to keep your NMTS key on this machine.`,
         ``,
-        `  Your account code is the only key to your account. The keys that encrypt`,
+        `  Your NMTS key is the only key to your account. The keys that encrypt`,
         `  your files and the keys to your wallet are all derived from it.`,
         ``,
         `  Keeping it here is what lets this tool work while you are away. It also`,
@@ -35,8 +35,8 @@ export function firstRunNotice() {
         ``,
         `  If it leaves this machine — in a log line, in a prompt, in a repository —`,
         `  whoever holds it can read every file in the account and spend from the`,
-        `  wallet. NMTS cannot undo that: requests made with your code cannot be`,
-        `  told apart from your own, and the code cannot be changed while keeping`,
+        `  wallet. NMTS cannot undo that: requests made with your NMTS key cannot be`,
+        `  told apart from your own, and it cannot be changed while keeping`,
         `  the account.`,
         ``,
         `  Give an agent an account you would be willing to lose.`,

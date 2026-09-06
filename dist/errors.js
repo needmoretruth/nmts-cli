@@ -5,7 +5,7 @@
 //    tells an agent nothing it can use; "your API key was revoked — issue a new one at
 //    nmts.me/account" tells it whether to retry, ask, or stop.
 //
-// ⛔ NOTHING SECRET IS EVER INTERPOLATED. Not the account code, not the API key, not a session
+// ⛔ NOTHING SECRET IS EVER INTERPOLATED. Not the NMTS key, not the API key, not a session
 //    token. An error string is the one place a secret escapes without anybody choosing to print
 //    it, and agents copy error strings into logs and prompts by default.
 //
@@ -13,7 +13,7 @@
 //    unknown error's `message` goes out verbatim, which is right (a swallowed cause is a debug
 //    session nobody can start) and is also a hole: an adversarial review made `JSON.parse` fail on
 //    the credentials file, and V8's own message quotes about thirty characters of the input —
-//    nine symbols of a real account code reached stderr. The fix is not here. It is that anything
+//    nine symbols of a real NMTS key reached stderr. The fix is not here. It is that anything
 //    reading a file the code is in must catch its own parser and throw a message of its own
 //    (`credentials.ts`, `unusable`). ▶ Any NEW code that parses a secret-bearing file owes the
 //    same, and this paragraph is the reason why.
@@ -32,7 +32,7 @@ export class NmtsError extends Error {
 /** Nothing is signed in on this machine and no code was supplied. */
 export class NotLoggedInError extends NmtsError {
     constructor(binary, envVar) {
-        super(`No NMTS account code on this machine.`, {
+        super(`No NMTS key on this machine.`, {
             exitCode: 3,
             nextStep: `Run \`${binary} login\`, or set ${envVar} in the environment.`,
         });

@@ -1,4 +1,4 @@
-// `nmts wallet` — which wallet this account code opens, and what the chain says is in it.
+// `nmts wallet` — which wallet this NMTS key opens, and what the chain says is in it.
 //
 // ⛔ EVERY MODE HERE READS, EXCEPT `send`. Address, balance, activity and storage sign nothing and
 //    ask for no agreement: the agreement ladder stops a program from signing with a wallet on
@@ -7,7 +7,7 @@
 //    review, and signs only with --yes and under the wallet agreement.
 //
 // ⛔ THE ADDRESS AND THE BALANCES ARE DIFFERENT KINDS OF FACT, so they fail differently. The
-//    address is computed on this machine from the account code and cannot fail for any reason
+//    address is computed on this machine from the NMTS key and cannot fail for any reason
 //    outside it; the balances come from a public node that can be slow, wrong or down. `nmts
 //    wallet address` is the half that never needs a network, and it exists because "what is my
 //    address" is the question somebody asks when the network is the thing that is broken.
@@ -90,9 +90,9 @@ export async function wallet(what, options = {}) {
                 say(`  ${row}`);
         }
         say(``);
-        say(`  Derived on this machine from the account code. Nothing was asked of the NMTS server or`);
+        say(`  Derived on this machine from the NMTS key. Nothing was asked of the NMTS server or`);
         say(`  of any chain, so this says what the wallet is called and nothing about what is in it.`);
-        say(`  The browser app derives the same address from the same code.`);
+        say(`  The browser app derives the same address from the same NMTS key.`);
         return 0;
     }
     // ⛔ THE SERVER IS RESOLVED BUT NEVER CALLED. It is here for one thing only: the live server
@@ -120,7 +120,7 @@ export async function wallet(what, options = {}) {
     say(`SUI      ${inWords(balances.sui)}`);
     say(`WAL      ${inWords(balances.wal)}`);
     say(``);
-    say(`  The address is derived on this machine from the account code; the balances were read`);
+    say(`  The address is derived on this machine from the NMTS key; the balances were read`);
     say(`  from the ${network} chain just now, and they move without this tool.`);
     if (!balances.sui.read || !balances.wal.read) {
         say(`  A balance that could not be read is printed as that and never as zero, and this command`);

@@ -2,7 +2,7 @@
 // one thing it must never print.
 //
 // ⛔ THE SEALED NAME IS THE POINT OF THE LAST TEST. The server holds the device name as ciphertext
-//    under a key derived from the account code, and this command runs on an API key that cannot
+//    under a key derived from the NMTS key, and this command runs on an API key that cannot
 //    open it. Printing the base64 would be printing noise while implying it meant something, and
 //    a reader would take it for an identifier.
 
@@ -73,7 +73,7 @@ function answering(answer: string): { readLine: (q: string) => Promise<string>; 
   };
 }
 
-test("--sign-out <id> asks once, then sends the account code's proof beside the key — never the code", async () => {
+test("--sign-out <id> asks once, then sends the NMTS key's proof beside the key — never the code", async () => {
   await withSandbox(drive, "devices-sign-out-one", async (code) => {
     accountState.sessions = [session({ id: "a" }), session({ id: "b" })];
     const out = collect();
@@ -85,7 +85,7 @@ test("--sign-out <id> asks once, then sends the account code's proof beside the 
     const sent = accountState.signOuts[0];
     assert.equal(sent?.url, "/v1/account/sessions/b");
     assert.equal(sent?.proof, await accountProof(code), "the proof is not the sign-in one");
-    assert.ok(!(sent?.proof ?? "").includes(code.replace(/[\s-]/gu, "")), "the account code was sent");
+    assert.ok(!(sent?.proof ?? "").includes(code.replace(/[\s-]/gu, "")), "the NMTS key was sent");
     assert.deepEqual(accountState.sessions.map((s) => s.id), ["a"]);
     assert.deepEqual(out.lines, ["Signed device b out."]);
   });
@@ -152,14 +152,14 @@ test("an account with nothing signed in says so, and says why a key is not in th
   });
 });
 
-test("it presents the API key and not the account code", async () => {
+test("it presents the API key and not the NMTS key", async () => {
   await withSandbox(drive, "devices-bearer", async (code) => {
     accountState.sessions = [session({ id: "a" })];
     await devices({ server: drive.base, write: collect().write });
     assert.deepEqual(accountState.bearers, [`Bearer ${KEY}`], "the wrong credential was sent");
     assert.ok(
       !accountState.bearers.join("").includes(code.replace(/[\s-]/gu, "")),
-      "the account code was sent as a bearer token",
+      "the NMTS key was sent as a bearer token",
     );
   });
 });

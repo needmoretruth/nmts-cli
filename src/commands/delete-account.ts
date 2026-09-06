@@ -3,7 +3,7 @@
 // ⛔ WHY IT EXISTS (2026-09-06 · CLI parity ③-3). Leaving is the one act the documents promise
 //    unconditionally, and an account driven only from a terminal had no door for it but a browser:
 //    the key door is shut to a bare key, and the sessionless erase door asks for a human check a
-//    program cannot pass. What opens the key door is the account code's proof beside the key —
+//    program cannot pass. What opens the key door is the NMTS key's proof beside the key —
 //    the same proof a browser sign-in presents before its own erase button — so this command needs
 //    the code on this machine, is refused in mode auto before the code is opened, and has the person
 //    type the same sentence the browser asks for.
@@ -11,7 +11,7 @@
 // ⛔ IT SAYS WHAT GOES AND WHAT STAYS, WORD FOR WORD WITH THE SERVER. Erased: the account row, the
 //    file list, every file's server record and share, the sessions and the keys. Not erased: the
 //    bytes on the storage network (paid through their term, and unreadable without the records),
-//    and the account code — which stays on this machine until `nmts logout`, because a recovery
+//    and the NMTS key — which stays on this machine until `nmts logout`, because a recovery
 //    list plus the code can still read what was stored. Not refunded: storage already paid for.
 
 import { accountProofFor } from "../account-proof.ts";
@@ -58,7 +58,7 @@ export async function deleteAccount(options: DeleteAccountOptions = {}): Promise
   say(`This erases the account's server record. It cannot be undone.`);
   say(`  Erased:       the account, the file list, every file's record and share, sessions and keys.`);
   say(`  Not erased:   the bytes on the storage network (paid through their term; unreadable without`);
-  say(`                the records), and the account code on this machine — \`${BINARY_NAME} logout\` removes it.`);
+  say(`                the records), and the NMTS key on this machine — \`${BINARY_NAME} logout\` removes it.`);
   say(`  Not refunded: storage already paid for. The funds went to the network, never to NMTS.`);
   say(``);
   const typed = typedFor ? CONFIRM_SENTENCE : (await ask(`Type exactly: ${CONFIRM_SENTENCE}\n> `)).trim();
@@ -70,7 +70,7 @@ export async function deleteAccount(options: DeleteAccountOptions = {}): Promise
   const accountProof = await accountProofFor({ code: held.code, source: held.source });
   await request(server, "/v1/account", { method: "DELETE", token: apiKey, accountProof });
   say(`Erased. The server holds nothing about this account now.`);
-  say(`The stored code and key on this machine are still here; \`${BINARY_NAME} logout\` removes them.`);
+  say(`The stored NMTS key and API key on this machine are still here; \`${BINARY_NAME} logout\` removes them.`);
   say(`A new account can be made at any time — \`${BINARY_NAME} create\` or ${HOME_URL}.`);
   return 0;
 }

@@ -2,7 +2,7 @@
 //
 // ⛔ ONE PLACE, BECAUSE THE TWO COMMANDS MUST NOT DISAGREE. `recovery-list` writes the sealed list
 //    as a file of its own; `kit` writes the same document inside the one file that also carries the
-//    account code. If those were assembled twice, one of them would eventually be built from a
+//    NMTS key. If those were assembled twice, one of them would eventually be built from a
 //    check the other had dropped — and the difference would only show up in a recovery.
 //
 // ⛔ THE CAPTURE TIME IS STAMPED BEFORE ANYTHING IS READ. The server keeps it to decide which files

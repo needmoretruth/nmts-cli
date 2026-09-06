@@ -285,7 +285,7 @@ export function describeUploadReview(
     say(`  A balance could not be read — ${why}. That is not zero: the chain decides at signing.`);
   }
   say(``);
-  say(`  This is paid in WAL and SUI from the wallet this account code derives — not from credits, which`);
+  say(`  This is paid in WAL and SUI from the wallet this NMTS key derives — not from credits, which`);
   say(`  is what \`${BINARY_NAME} put\` spends without --pay wallet. Nobody, NMTS included, can reverse it.`);
   say(`  The storage is the wallet's own: NMTS records the file and does not hold it. This upload does`);
   say(`  not carry the recovery list's storage-network copy, whatever the account's switch says —`);

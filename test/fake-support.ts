@@ -2,7 +2,7 @@
 //
 // ⛔ ITS OWN SERVER, NOT MORE OF `fake-drive.ts`. That file is already past the length gate, and a
 //    harness that makes an over-long file longer makes somebody else's job harder. Nothing is
-//    lost by the split: `nmts support` needs no file list, no item rows and no account code, so
+//    lost by the split: `nmts support` needs no file list, no item rows and no NMTS key, so
 //    there is nothing here for the drive to hold.
 //
 // ⛔ IT REFUSES WHAT THE REAL ROUTES REFUSE, and the refusals are the point of most of the tests:

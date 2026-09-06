@@ -4,7 +4,7 @@ export interface OpenedCode {
     source: CredentialSource;
 }
 /**
- * The account code for this run, opening a sealed one if that is what is stored.
+ * The NMTS key for this run, opening a sealed one if that is what is stored.
  *
  * Returns null when there is nothing to use — the caller decides whether that is an error, which
  * differs between `whoami` (say so quietly) and `put` (refuse).

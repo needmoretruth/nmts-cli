@@ -244,13 +244,13 @@ export declare const ACTS: {
     readonly "login.plain": {
         readonly tier: "high";
         readonly lock: "unsafe-code-storage";
-        readonly what: "Store the account code in the clear.";
+        readonly what: "Store the NMTS key in the clear.";
         readonly standing: true;
     };
     readonly "login.env": {
         readonly tier: "high";
         readonly lock: "plain-env";
-        readonly what: "Print the account code for an environment variable.";
+        readonly what: "Print the NMTS key for an environment variable.";
         readonly standing: true;
     };
     readonly extend: {
@@ -298,12 +298,12 @@ export declare const ACTS: {
     readonly "whoami.reveal": {
         readonly tier: "high";
         readonly lock: "reveal";
-        readonly what: "Print the account code on this screen.";
+        readonly what: "Print the NMTS key on this screen.";
     };
     readonly kit: {
         readonly tier: "high";
         readonly lock: "kit";
-        readonly what: "Write the account code into a recovery kit file on this disk.";
+        readonly what: "Write the NMTS key into a recovery kit file on this disk.";
     };
     readonly create: {
         readonly tier: "high";

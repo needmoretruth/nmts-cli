@@ -1,16 +1,16 @@
 // `nmts recovery-list` — writing the account's recovery list out as a file.
 //
-// ⛔ WHY IT EXISTS. The recovery list is the answer to "NMTS is gone and I still have my account
-//    code": it holds, encrypted, where every file's bytes are on the public storage network, and
+// ⛔ WHY IT EXISTS. The recovery list is the answer to "NMTS is gone and I still have my NMTS
+//    key": it holds, encrypted, where every file's bytes are on the public storage network, and
 //    the key that opens each of them. The account screen has always been able to write one. An
 //    account used only from a terminal could not, so the artefact that exists for the day this
 //    service is not there did not exist for those accounts at all.
 //
 // ⛔ IT IS NOT THE FILE-LIST COPY, AND NEITHER REPLACES THE OTHER. `nmts listfile` writes the names
 //    and keys this machine has seen; this one writes the storage addresses, which that file has
-//    none of. Keep both, and keep both somewhere other than the account code.
+//    none of. Keep both, and keep both somewhere other than the NMTS key.
 //
-// ⛔ THE ACCOUNT CODE IS NOT IN THE FILE. This file plus the code is the account, so keeping them
+// ⛔ THE NMTS KEY IS NOT IN THE FILE. This file plus the code is the account, so keeping them
 //    together turns one theft into a total loss. The artefact that deliberately carries both is
 //    `nmts kit`, and it says so about itself.
 //
@@ -85,7 +85,7 @@ export async function recoveryList(options: RecoveryListOptions = {}): Promise<n
   say(``);
   say(`  Recovery list ${seq} — ${built.fileCount} files, ${built.totalBytes} bytes described.`);
   say(`  It holds where each file's bytes are on the storage network, and the key that opens`);
-  say(`  each one, sealed with the account code.`);
+  say(`  each one, sealed with the NMTS key.`);
   say(``);
   say(`  Recorded with the server: version ${seq}, kept on this machine (no storage-network`);
   say(`  copy), read from the account at ${assembled.capturedAt}.`);
@@ -96,7 +96,7 @@ export async function recoveryList(options: RecoveryListOptions = {}): Promise<n
     say(`    this. Nothing here is covered for them.`);
   }
   say(``);
-  say(`  ⛔ It does not contain the account code. Keep it somewhere other than the code: together`);
+  say(`  ⛔ It does not contain the NMTS key. Keep it somewhere other than your NMTS key: together`);
   say(`     they are the whole account.`);
   say(`  ⚠ A list goes stale. Run this again after uploading: of two files, the one whose filename`);
   say(`    carries the higher number supersedes the other.`);

@@ -1,7 +1,7 @@
 // `nmts recovery` — fetching the standalone recovery program, checked, into a file you name.
 //
 // ⛔ WHY IT EXISTS. The recovery program is the answer to "NMTS is gone and I still have my
-//    account code": it reads files back off the public storage network on its own, talking to no
+//    NMTS key": it reads files back off the public storage network on its own, talking to no
 //    NMTS server. Until its release workflow existed, getting it meant installing a Rust toolchain
 //    and building it — a fair ask of somebody auditing it, an unfair one of somebody who has just
 //    lost access to their files, and an impossible one for an agent working in a terminal.
@@ -25,7 +25,7 @@
 //    who runs this has to be the person who decided to have it.
 //
 // ⚠ WHAT IT ASKS OF THE NETWORK IS NOT THE NMTS API. It talks to the source-hosting site the
-//   recovery program is published on, and to nothing else; no account code, no API key and no
+//   recovery program is published on, and to nothing else; no NMTS key, no API key and no
 //   session is involved, and the command works signed out.
 
 import { createHash } from "node:crypto";

@@ -20,7 +20,7 @@ export declare const KIT_VERSION = 2;
  *   cannot import. It has to produce the same string: a person comparing a kit written here with
  *   one written in a browser is checking two spellings of the same account.
  *
- * ⛔ IT FINGERPRINTS THE ACCOUNT ID, WHICH IS PUBLIC — never the account code and never a key. It
+ * ⛔ IT FINGERPRINTS THE ACCOUNT ID, WHICH IS PUBLIC — never the NMTS key and never a key. It
  *    lets somebody confirm two files refer to one account without either of them exposing a secret.
  */
 export declare function accountIdFingerprint(accountId: string): string;
@@ -31,7 +31,7 @@ export interface RecoveryKitData {
     generated_at: string;
     account_id: string;
     account_fingerprint: string;
-    /** ⛔ The account code, in the clear. This is the field that makes the file dangerous to hold. */
+    /** ⛔ The NMTS key, in the clear. This is the field that makes the file dangerous to hold. */
     account_code: string;
     /** Storage-network address of the list, when there is one. Always null from this tool. */
     recovery_manifest_blob: string | null;
@@ -40,7 +40,7 @@ export interface RecoveryKitData {
     about: ArtifactAbout;
 }
 export interface BuildKitInput {
-    /** Display-form account code, grouped as a person reads it. */
+    /** Display-form NMTS key, grouped as a person reads it. */
     code: string;
     accountId: string;
     generatedAt: string;

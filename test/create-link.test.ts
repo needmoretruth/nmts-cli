@@ -138,7 +138,7 @@ async function printedCode(lines: string[]): Promise<string> {
       // Not a code. That is most lines.
     }
   }
-  assert.equal(found.length, 1, `expected exactly one account code in the output, got ${found.length}`);
+  assert.equal(found.length, 1, `expected exactly one NMTS key in the output, got ${found.length}`);
   return found[0] as string;
 }
 
@@ -165,7 +165,7 @@ test("⛔ with no key: the work is done, the address is printed, and it is for T
     const code = await printedCode(out.lines);
     assert.equal(asked?.["account_id"], (await identityOf(code)).accountId);
     // ⛔ THE CODE ITSELF NEVER LEFT. Not as a field, not inside another one.
-    assert.ok(!JSON.stringify(asked).includes(code), "the account code was sent to the server");
+    assert.ok(!JSON.stringify(asked).includes(code), "the NMTS key was sent to the server");
 
     const text = out.lines.join("\n");
     assert.ok(text.includes(`https://nmts.me/register/${LINK_ID}`), "no address was printed");
@@ -217,7 +217,7 @@ test("⛔ --json needs --out, and its output names the file rather than the code
       () => null,
       (error: unknown) => error,
     );
-    assert.ok(refused instanceof NmtsError, "--json handed the account code to a program");
+    assert.ok(refused instanceof NmtsError, "--json handed the NMTS key to a program");
     assert.equal(refused.exitCode, 2);
     assert.equal(asked, null, "an address was claimed by a run that then refused to hand it over");
 
@@ -238,7 +238,7 @@ test("⛔ --json needs --out, and its output names the file rather than the code
     assert.equal(fields["code_file"], target);
     assert.equal(fields["status_url"], `${base}/v1/accounts/registration-links/${LINK_ID}`);
     const written = readFileSync(target, "utf8").trim();
-    assert.ok(!out.lines[0]?.includes(written), "the account code went into the output");
+    assert.ok(!out.lines[0]?.includes(written), "the NMTS key went into the output");
     // The file holds a code the engine accepts, and it is the one the address is for.
     assert.equal(fields["expires_at"], "2026-09-05T00:30:00Z");
     assert.equal(asked?.["account_id"], (await identityOf(written)).accountId);

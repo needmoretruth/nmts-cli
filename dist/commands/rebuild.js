@@ -135,7 +135,7 @@ export async function rebuild(options = {}) {
     if (built.verified === 0 && built.keyless < built.entries.length) {
         throw new NmtsError(`Not one of this account's keys opened the file it was filed beside.`, {
             exitCode: 4,
-            nextStep: `Nothing was changed. Either this is not this account's code, or the storage network could ` +
+            nextStep: `Nothing was changed. Either this is not this account's NMTS key, or the storage network could ` +
                 `not be reached at all — ${describeReasons(built)}. A list sealed from these pairs would ` +
                 `name every file and open none of them.`,
         });

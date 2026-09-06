@@ -1,4 +1,4 @@
-// Getting the account code this run should actually use — including opening a sealed one.
+// Getting the NMTS key this run should actually use — including opening a sealed one.
 //
 // ⛔ WHY IT IS NOT IN `credentials.ts`. That module answers "where is the code"; this one answers
 //    "may this run have it, and can it be opened". Putting the second question in the first module
@@ -34,7 +34,7 @@ export interface OpenedCode {
 }
 
 /**
- * The account code for this run, opening a sealed one if that is what is stored.
+ * The NMTS key for this run, opening a sealed one if that is what is stored.
  *
  * Returns null when there is nothing to use — the caller decides whether that is an error, which
  * differs between `whoami` (say so quietly) and `put` (refuse).
@@ -78,7 +78,7 @@ async function readPassphrase(allowPrompt: boolean): Promise<string> {
   const fromEnv = process.env[PASSPHRASE_ENV_VAR];
   if (fromEnv !== undefined && fromEnv.length > 0) return fromEnv;
   if (!allowPrompt || !stdinIsATerminal()) {
-    throw new NmtsError(`The stored account code is sealed with a passphrase.`, {
+    throw new NmtsError(`The stored NMTS key is sealed with a passphrase.`, {
       exitCode: 3,
       nextStep: [
         allowPrompt
@@ -92,7 +92,7 @@ async function readPassphrase(allowPrompt: boolean): Promise<string> {
       ].join("\n"),
     });
   }
-  return promptSecret(`Passphrase for the stored account code: `, PASSPHRASE_ENV_VAR);
+  return promptSecret(`Passphrase for the stored NMTS key: `, PASSPHRASE_ENV_VAR);
 }
 
 /**

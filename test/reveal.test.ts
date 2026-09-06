@@ -1,4 +1,4 @@
-// `nmts whoami --reveal` — the one command that puts the account code on the screen.
+// `nmts whoami --reveal` — the one command that puts the NMTS key on the screen.
 //
 // ⛔ THE REFUSAL IS THE TEST THAT MATTERS. Every other value this command prints is public; the
 //    code is the account. A mode says an agent may decide for the person, and no setting can say
@@ -16,7 +16,7 @@ const drive = await startFakeDrive();
 after(() => drive.close());
 
 const WARNING =
-  "The account code is the account: anyone who reads it can open every file and delete the account.";
+  "The NMTS key is the account: anyone who reads it can open every file and delete the account.";
 
 test("it prints what the code is, and then the code alone on its own line", async () => {
   await withSandbox(drive, "reveal-prints", async (code) => {

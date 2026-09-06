@@ -2,7 +2,7 @@
 //
 // ⛔ THE ONLY COMMAND IN THIS TOOL THAT SIGNS ANYTHING, and the only one that spends from a
 //    WALLET. Every other purchase here is made with credits, which are a promise this service
-//    made; this one moves WAL out of the wallet the account code derives, on a public chain, and
+//    made; this one moves WAL out of the wallet the NMTS key derives, on a public chain, and
 //    nobody — NMTS included — can reverse it. That difference is said out loud, in the output,
 //    before the agreement is asked for.
 //
@@ -252,7 +252,7 @@ function describe(say, facts, cohort, unreachable) {
     say(``);
     // ⛔ REQUIRED, AND IT COMES BEFORE THE AGREEMENT. Every other purchase in this tool spends
     //    credits; this one spends assets out of a wallet, and nobody can put them back.
-    say(`  This is paid in WAL from the wallet this account code derives — not from credits, which`);
+    say(`  This is paid in WAL from the wallet this NMTS key derives — not from credits, which`);
     say(`  is what every other command in this tool spends. \`${BINARY_NAME} wallet\` shows what is in it.`);
 }
 /** Why a file has nothing to extend, said as the two different things it can be. */

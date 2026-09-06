@@ -3,7 +3,7 @@
 //
 // ⛔ WHY THIS PATH EXISTS. The other one needs an API key whose account had a person pass the
 //    human check — which is fine once somebody has an account, and impossible for the first one.
-//    So the tool makes the account code on this machine, buys a one-time address with a proof of
+//    So the tool makes the NMTS key on this machine, buys a one-time address with a proof of
 //    work, and prints it. A person opens that address, types the code this printed, passes the
 //    check, and the account is made at that moment. Nothing here can do it for them, and that is
 //    the point rather than a limitation.
@@ -162,8 +162,8 @@ function sayTheAddress(say, url, expiresAt, server, network) {
     say(`  ${url}`);
     say(``);
     say(expiresAt === null
-        ? `Opening it asks for the account code below, and for the check that says a person is here.`
-        : `It works until ${expiresAt}. Opening it asks for the account code below, and for the ` +
+        ? `Opening it asks for the NMTS key below, and for the check that says a person is here.`
+        : `It works until ${expiresAt}. Opening it asks for the NMTS key below, and for the ` +
             `check that says a person is here.`);
     say(`The account will exist on ${server} (${network}) the moment they finish.`);
 }
@@ -182,13 +182,13 @@ async function sayTheQr(say, url) {
 /**
  * The code, last, with the one thing that has to be understood before it.
  *
- * ⛔ NOTHING FOLLOWS IT BUT WHAT TO DO WITH IT. A screen of next steps under an account code is how
+ * ⛔ NOTHING FOLLOWS IT BUT WHAT TO DO WITH IT. A screen of next steps under an NMTS key is how
  *    a person scrolls past the only copy of it.
  */
 function sayWhereTheCodeIs(say, codeFile, code) {
     say(``);
-    say(`⛔ THIS IS THE ONLY COPY OF THE ACCOUNT CODE THAT WILL EVER EXIST.`);
-    say(`   NMTS keeps a verifier and never the code. It cannot be reset, resent or replaced.`);
+    say(`⛔ THIS IS THE ONLY COPY OF THE NMTS KEY THAT WILL EVER EXIST.`);
+    say(`   NMTS keeps a verifier and never the NMTS key. It cannot be reset, resent or replaced.`);
     say(`   Lose it and the account and every file in it are gone — for you and for NMTS.`);
     say(``);
     say(`   ${codeFile ?? code}`);
@@ -198,12 +198,12 @@ function sayWhereTheCodeIs(say, codeFile, code) {
         : `That file holds it, readable by you alone. It is what the browser asks for.`);
 }
 /**
- * The key is what makes the server answer this tool, and since 2026-09-05 the account code this
+ * The key is what makes the server answer this tool, and since 2026-09-05 the NMTS key this
  * machine already holds is enough to make one — no browser, no person at the account screen.
  */
 function sayWhatIsNext(say) {
     say(``);
-    say(`Next: \`${BINARY_NAME} key new\` makes this machine's API key out of that code and stores it.`);
+    say(`Next: \`${BINARY_NAME} key new\` makes this machine's API key out of that NMTS key and stores it.`);
     say(`Nothing else is needed before the first \`${BINARY_NAME} put\`.`);
 }
 function nobodyCame(statusUrl) {
@@ -212,8 +212,8 @@ function nobodyCame(statusUrl) {
         //    is an act only a person can perform.
         exitCode: 5,
         nextStep: [
-            `No account was created, and the account code that was made for it is now good for nothing.`,
-            `Running \`${BINARY_NAME} create\` again makes a NEW code and a NEW address; it does not`,
+            `No account was created, and the NMTS key that was made for it is now good for nothing.`,
+            `Running \`${BINARY_NAME} create\` again makes a NEW NMTS key and a NEW address; it does not`,
             `resume this one.`,
             ``,
             `If somebody is finishing it right now, this says so: ${statusUrl}`,

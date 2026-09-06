@@ -4,8 +4,8 @@ Commands: recovery, recovery-list, kit
 Tiers: recovery=none · recovery-list=none · kit=high(kit)
 
 `recovery-list` writes the file that finds this account's bytes without NMTS: encrypted, it holds
-where every file's bytes are and the key that opens each, and carries no account code. `kit`
-writes that list together with the account code in the clear, so whoever holds that file holds the
+where every file's bytes are and the key that opens each, and carries no NMTS key. `kit`
+writes that list together with the NMTS key in the clear, so whoever holds that file holds the
 account and the wallet — it is locked until a person runs `nmts unlock kit`, and asked about on
 every run in every mode but skip-permissions. Both refuse to write a partial artefact and refuse a
 name already taken without `--force`. Do not make either as part of some other task, and do not

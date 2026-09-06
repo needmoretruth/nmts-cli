@@ -5,7 +5,7 @@ import { NmtsError } from "../errors.ts";
  * ⛔ `-` IS REFUSED, WHICH IS THE OPPOSITE OF WHAT IT MEANS EVERYWHERE ELSE IN THIS TOOL. In
  *    `get` and `listfile` it means "hand the bytes to whatever is reading stdout", and that is
  *    right for a file somebody already has. Here it would mean putting the only copy of an
- *    account code into the same stream a program is parsing — which is the one place this command
+ *    NMTS key into the same stream a program is parsing — which is the one place this command
  *    exists to keep it out of.
  */
 export declare function codeFileTarget(out: string | undefined): string | null;

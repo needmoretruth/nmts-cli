@@ -12,7 +12,7 @@ export interface RedactionRule {
     /**
      * A second opinion on a match, for shapes a regular expression cannot decide alone.
      *
-     * The account code is the one that needs it: recognising it is "exactly thirty-three symbols
+     * The NMTS key is the one that needs it: recognising it is "exactly thirty-three symbols
      * once the separators are gone", which is a count and not a pattern.
      */
     readonly only?: (match: string) => boolean;

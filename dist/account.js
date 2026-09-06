@@ -1,4 +1,4 @@
-// What an account code says about itself, computed on this machine and nowhere else.
+// What an NMTS key says about itself, computed on this machine and nowhere else.
 //
 // ⛔ EVERY VALUE HERE IS DERIVED LOCALLY. None of it is asked of a server, and none of it needs
 //    one: that is the property the whole product rests on, and it is why `whoami` can answer
@@ -12,7 +12,7 @@
 // ⚠ TWO OTHER MODULES DERIVE `authSecret`, AND THEY ARE NAMED HERE SO THIS PARAGRAPH STAYS TRUE.
 //   `registration.ts` builds it for the single call that CREATES an account, because the server
 //   has to be given it once to store a verifier of it. `account-proof.ts` builds it for the three
-//   recovery routes that ask a key to prove the account code as well — the same value a sign-in
+//   recovery routes that ask a key to prove the NMTS key as well — the same value a sign-in
 //   sends, and its own header says why sending it is safe and what it can still do if it is
 //   stolen. Neither returns it to anything else, and nothing here changed: this module still does
 //   not hand it out. ⚠ `dataKey` is a different matter and is NOT returned by anything, here or
@@ -21,7 +21,7 @@
 import { DERIVED, loadCrypto } from "./crypto.js";
 import { NmtsError } from "./errors.js";
 /**
- * Check that a string is a real account code.
+ * Check that a string is a real NMTS key.
  *
  * ⛔ This is the engine's own parser, which verifies the trailing check symbol. A typo therefore
  *    fails HERE, offline, instead of becoming a sign-in failure the person cannot tell apart from
@@ -34,7 +34,7 @@ export async function assertUsableCode(code) {
     }
     catch {
         // ⛔ The engine's own message is not repeated: it can contain the input.
-        throw new NmtsError("That is not a valid NMTS account code.", {
+        throw new NmtsError("That is not a valid NMTS key.", {
             exitCode: 2,
             nextStep: "Check for a mistyped or missing character. The last character is a check symbol.",
         });
@@ -48,7 +48,7 @@ export async function identityOf(code) {
         bytes = glue.account_code_parse(code);
     }
     catch {
-        throw new NmtsError("That is not a valid NMTS account code.", {
+        throw new NmtsError("That is not a valid NMTS key.", {
             exitCode: 2,
             nextStep: "Check for a mistyped or missing character. The last character is a check symbol.",
         });

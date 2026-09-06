@@ -9,10 +9,10 @@
 //    the doing is theirs, the waiting is ours, and saying it any other way would be a lie about
 //    what a program can do.
 //
-// ⛔ THE CODE IS PRINTED ON PURPOSE, AND IT IS NOT THE ACCOUNT CODE. Everything else in this tool
+// ⛔ THE CODE IS PRINTED ON PURPOSE, AND IT IS NOT THE NMTS KEY. Everything else in this tool
 //    refuses to put a credential on the screen. This one is minted to be read out: it is single
 //    use, it stops working within minutes, the server keeps only a hash of it, and by itself it
-//    opens nothing — a person still has to pass the check on the page. The account code is a
+//    opens nothing — a person still has to pass the check on the page. The NMTS key is a
 //    different thing entirely and still never appears here, which the text says out loud so that
 //    nobody reads "type this code" and reaches for the wrong one.
 //
@@ -23,9 +23,9 @@
 //    two answers to one question start. The honest thing is the absolute moment, and then whoever
 //    is reading decides.
 //
-// ⚠ IT NEEDS THE API KEY AND NOT THE ACCOUNT CODE. Nothing here opens a file, so demanding the
+// ⚠ IT NEEDS THE API KEY AND NOT THE NMTS KEY. Nothing here opens a file, so demanding the
 //   code would refuse a run over a credential the command never uses. The PAGE, since 2026-09-05,
-//   does want the account's holder — signed in there, or typing the account code there — because
+//   does want the account's holder — signed in there, or typing the NMTS key there — because
 //   a check anybody could pass for anybody was a check that could be bought; that is said to the
 //   person in the printed text, and it changes nothing about what this command holds.
 
@@ -143,7 +143,7 @@ export async function verify(options: VerifyOptions = {}): Promise<number> {
   human(`  and to type this code    ${minted.code}`);
   human(``);
   human(`Only this account's holder can confirm: signed in to it in that browser, or`);
-  human(`typing its account code there. The code above is not the account code. It works`);
+  human(`typing its NMTS key there. The code above is not the NMTS key. It works`);
   human(`once, and it stops working at ${minted.expiresAt.iso} (${inWords(minted.expiresAt.ms - Date.now())}).`);
   human(``);
   human(`Waiting here until it is used. Ctrl-C stops the waiting, not the code.`);

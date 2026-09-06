@@ -12,7 +12,7 @@
 //    which is a fact it can state exactly rather than a promise about the account.
 //
 // ⛔ WHAT THE FILE IS NOT. It is not a recovery on its own. The storage network's addresses are not
-//    in it — those live in the recovery list a browser writes — and neither is the account code,
+//    in it — those live in the recovery list a browser writes — and neither is the NMTS key,
 //    deliberately: this file plus the code IS the account, and keeping both together turns one
 //    theft into a total loss. Both facts are printed, and both are inside the file for whoever
 //    finds it later without this text.
@@ -41,7 +41,7 @@ export async function listfile(options = {}) {
             exitCode: 4,
             nextStep: `Nothing was written. Run \`${BINARY_NAME} ls\` once while this machine can reach the ` +
                 `server: every read of the list keeps its sealed bytes here, and this command writes that ` +
-                `copy out. A copy cannot be made from the account code alone — the list itself is what is ` +
+                `copy out. A copy cannot be made from the NMTS key alone — the list itself is what is ` +
                 `being copied.`,
         });
     }
@@ -102,11 +102,11 @@ function destinationFor(out, filename) {
 function saidWhatItIs(say, seq, savedAt, filename) {
     say(``);
     say(`  File list version ${seq}, as this machine last read it (${savedAt}).`);
-    say(`  It holds the names, folders and file keys of this account, sealed with the account code.`);
+    say(`  It holds the names, folders and file keys of this account, sealed with the NMTS key.`);
     say(``);
     say(`  ⛔ It is not a recovery on its own. It carries no storage-network addresses — those are in`);
-    say(`     the recovery list saved from the account screen — and it does not contain the account`);
-    say(`     code. Keep it somewhere other than the code: together they are the whole account.`);
+    say(`     the recovery list saved from the account screen — and it does not contain the NMTS`);
+    say(`     key. Keep it somewhere other than your NMTS key: together they are the whole account.`);
     say(`  ⚠ A copy goes stale. Run this again after uploading: of two copies, the one whose`);
     say(`    filename carries the higher number supersedes the other (this one is ${filename}).`);
 }

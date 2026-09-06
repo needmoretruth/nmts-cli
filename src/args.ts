@@ -42,7 +42,7 @@ export interface ParsedArgs {
   yes: boolean;
   /** `public-code`: publish this account's public code on the server. Permanent. */
   publish: boolean;
-  /** `login`: store the account code unsealed rather than under a passphrase. */
+  /** `login`: store the NMTS key unsealed rather than under a passphrase. */
   plain: boolean;
   /** `login`: store nothing; print the environment variable to set. */
   env: boolean;
@@ -106,7 +106,7 @@ export interface ParsedArgs {
   reason?: string;
   releaseStorage: boolean;
   size?: string;
-  /** `devices`: sign ONE device out by id, or `all` — a person's act, proved by the account code. */
+  /** `devices`: sign ONE device out by id, or `all` — a person's act, proved by the NMTS key. */
   signOut?: string;
   /**
    * `label`: the label to rename. The NEW name follows as the operand.
@@ -137,7 +137,7 @@ export interface ParsedArgs {
    */
   omit?: string[];
   /**
-   * `whoami`: print the account code itself.
+   * `whoami`: print the NMTS key itself.
    *
    * ⛔ A FLAG AND NOT A VALUE — it names no secret, it asks for the one this machine already
    *    holds. The option table is checked for names that look like credentials; this one carries

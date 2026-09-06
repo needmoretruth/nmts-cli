@@ -2,7 +2,7 @@ import type { ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";
 export interface CreateListInput {
     server: string;
     apiKey: string;
-    /** The account code. Used to derive the file-list key, and not kept. */
+    /** The NMTS key. Used to derive the file-list key, and not kept. */
     code: string;
     accountId: string;
 }

@@ -10,7 +10,7 @@
 //    told. ⚠ A mirror goes stale: the server is the authority, and its 400 is passed through with
 //    the categories named beside it.
 //
-// ⛔ NOTHING HERE OPENS THE ACCOUNT CODE. The API key is the whole credential these four routes
+// ⛔ NOTHING HERE OPENS THE NMTS KEY. The API key is the whole credential these four routes
 //    need, so this resolves that and the server address and nothing else.
 import { request, ServerError } from "./api.js";
 import { readCredentialsFile } from "./credentials.js";

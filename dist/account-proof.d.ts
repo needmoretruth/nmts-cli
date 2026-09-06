@@ -1,12 +1,12 @@
 import type { CredentialSource } from "./credentials.ts";
 /**
- * The proof value for one account code, base64url of 32 bytes.
+ * The proof value for one NMTS key, base64url of 32 bytes.
  *
  * ⛔ NO POLICY HERE. Whether this run may build one is decided by `accountProofFor` below; keeping
  *    the arithmetic separate from the permission is what lets a test drive each without the other.
  */
 export declare function accountProof(code: string): Promise<string>;
-/** A run's account code together with where this machine got it from. */
+/** A run's NMTS key together with where this machine got it from. */
 export interface CodeInHand {
     code: string;
     source: CredentialSource;
@@ -15,7 +15,7 @@ export interface CodeInHand {
  * The proof for this run — asked for, never assumed.
  *
  * ⛔ THE AGREEMENT IS `plain-env`, AND IT IS THE ONE THAT ALREADY COVERS THIS. Its words are
- *    exactly "use the account code from a plain environment variable", which is what a run does
+ *    exactly "use the NMTS key from a plain environment variable", which is what a run does
  *    when it turns `NMTS_ACCOUNT_CODE` into a value it sends. A sixth consent key is not the
  *    answer: `consent.ts` says in its header why the count is five and that adding to it is a
  *    decision rather than a tidy-up, and the bar it sets — undoable, costly, or the code somewhere
