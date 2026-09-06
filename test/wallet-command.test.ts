@@ -309,3 +309,16 @@ test("`wallet balance` is the same run as `wallet` with no word after it", async
     assert.deepEqual(spelled.lines, bare.lines);
   });
 });
+
+test("`wallet address --qr` draws the bare address as a code, and still touches no chain", async () => {
+  await withAccount("wallet-address-qr", async (code) => {
+    const out = collect();
+    assert.equal(await wallet("address", { write: out.write, qr: true, openChain: noChain() }), 0);
+    const address = await walletAddress(code);
+    assert.match(out.lines[0] ?? "", new RegExp(`^Address  ${address}$`));
+    // The code is block characters over many rows; the address text stays printed beside it so a
+    // person who cannot scan can still copy it.
+    const blocks = out.lines.filter((l) => /[\u2580\u2584\u2588]/.test(l));
+    assert.ok(blocks.length >= 15, `a QR is many rows of blocks, got ${blocks.length}`);
+  });
+});

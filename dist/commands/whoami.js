@@ -12,24 +12,12 @@
 //    a mode is on. There is no MCP tool for it either: an agent driving this tool was handed the
 //    code already, so a surface that prints it can only ever move it somewhere new.
 import { identityOf } from "../account.js";
-import { currentMode } from "../autonomy.js";
 import { requireAccountCode } from "../code-access.js";
 import { CODE_ENV_VAR, readCredentialsFile } from "../credentials.js";
-import { NmtsError } from "../errors.js";
-import { BINARY_NAME } from "../product.js";
 import { resolveNetwork } from "../network.js";
 import { resolveServer } from "../server.js";
 export async function whoami(options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
-    // ⛔ BEFORE THE CODE IS EVEN OPENED. A sealed store asks for a passphrase, and asking for one in
-    //    order to refuse would teach a caller to supply it for a thing it is never going to get.
-    if (options.reveal === true && currentMode() !== "off") {
-        throw new NmtsError(`An agent does not need the code on screen — this tool already holds it.`, {
-            exitCode: 5,
-            nextStep: `A person runs \`${BINARY_NAME} whoami --reveal\` outside mode auto and without ` +
-                `--skip-permissions.`,
-        });
-    }
     const resolved = await requireAccountCode();
     const identity = await identityOf(resolved.code);
     if (options.reveal === true) {

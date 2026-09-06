@@ -26,8 +26,23 @@ let generate: ((...args: never[]) => unknown) | null = null;
  */
 export function grantConsents(dir: string, ...keys: readonly string[]): void {
   const now = new Date().toISOString();
-  const record: Record<string, { grantedAt: string; byVersion: string }> = {};
-  for (const key of keys) record[key] = { grantedAt: now, byVersion: "test" };
+  const record: Record<string, unknown> = {};
+  for (const key of keys) {
+    // The wallet agreement is not a bare date: scope `all`, a month, no ceiling (`wallet-grant.ts`).
+    record[key] =
+      key === "wallet"
+        ? {
+            scope: "all",
+            grantedAt: now,
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            byVersion: "test",
+            capWalFrost: null,
+            capSuiMist: null,
+            spentWalFrost: "0",
+            spentSuiMist: "0",
+          }
+        : { grantedAt: now, byVersion: "test" };
+  }
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   writeFileSync(join(dir, "consent.json"), `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
 }

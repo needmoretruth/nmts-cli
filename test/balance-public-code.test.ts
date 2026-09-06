@@ -107,6 +107,16 @@ test("the balance says the number, what it buys, and the ceilings", async () => 
   });
 });
 
+test("credits held as deposits get their own line, said as tied up rather than spent", async () => {
+  await sandbox("balance-deposits", async () => {
+    summary.credits.held = 64;
+    summary.credits.deposits_held = 1;
+    const lines: string[] = [];
+    assert.equal(await balance({ write: (l) => lines.push(l) }), 0);
+    assert.match(lines.join("\n"), /64 credits held on 1 stored file/);
+  });
+});
+
 test("--json hands back the shape and prints nothing else", async () => {
   await sandbox("balance-json", async () => {
     const lines: string[] = [];
@@ -134,7 +144,7 @@ test("terms that are in force and not accepted are said, and said as a person's 
     await balance({ write: (l) => lines.push(l) });
     const said = lines.join("\n");
     assert.match(said, /New terms are in force/);
-    assert.match(said, /nothing here can do it/);
+    assert.match(said, /`nmts accept-terms` here, or in a browser/);
   });
 });
 

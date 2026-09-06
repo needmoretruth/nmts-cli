@@ -46,6 +46,8 @@ import { fileTools } from "../mcp-tools/files.js";
 import { organiseTools } from "../mcp-tools/organise.js";
 import { readTools } from "../mcp-tools/reads.js";
 import { shareTools } from "../mcp-tools/share.js";
+import { withTiers } from "../mcp-tools/tiers.js";
+import { supportTools } from "../mcp-tools/support.js";
 import { currentMode } from "../autonomy.js";
 /**
  * Which account this server is holding, answered without asking anything.
@@ -86,7 +88,14 @@ export function mcpToolSchemas() {
         accountId: "-",
         asker: () => null,
     };
-    const all = [whoami(ctx), ...readTools(ctx), ...fileTools(ctx), ...organiseTools(ctx), ...shareTools(ctx)];
+    const all = [
+        whoami(ctx),
+        ...readTools(ctx),
+        ...fileTools(ctx),
+        ...organiseTools(ctx),
+        ...shareTools(ctx),
+        ...supportTools(ctx),
+    ];
     return all.map((t) => ({ name: t.name, inputSchema: t.inputSchema }));
 }
 export async function mcp(options = {}) {
@@ -146,7 +155,15 @@ export async function mcp(options = {}) {
         ...fileTools(ctx),
         ...organiseTools(ctx),
         ...shareTools(ctx),
+        // ⛔ LAST, AND NOT BECAUSE IT MATTERS LEAST. The order is the order a client shows them in,
+        //    and writing to the developer is the one thing here that is not about this account's
+        //    files at all — a model scanning the list should meet it after everything the work
+        //    itself needs.
+        ...supportTools(ctx),
     ];
+    // ⛔ THE TIER GATE, AROUND EVERY TOOL (`mcp-tools/tiers.ts`): the same table the command line
+    //    reads, asked over elicitation instead of a terminal.
+    const gated = withTiers(tools, ctx.asker);
     // ⛔ To stderr, deliberately. A person starting this by hand should see what it is; a client
     //    reading stdout must see nothing but protocol.
     note(`${PRODUCT_NAME} · ${identity.accountId} · ${network} · files land in ${outDir}`);
@@ -154,7 +171,7 @@ export async function mcp(options = {}) {
     await serve({
         input: options.input ?? process.stdin,
         output: options.output ?? ((line) => process.stdout.write(`${line}\n`)),
-        tools,
+        tools: gated,
         info: { name: BINARY_NAME, version: VERSION },
         // ⛔ WHO CONNECTED, SAID ONCE, TO STDERR. It is the only moment this is knowable: the name
         //    travels in `initialize` rather than in the environment, which is why it survives the
@@ -173,7 +190,7 @@ export async function mcp(options = {}) {
             // ⚠ A MODE THAT IS ON DECIDES THIS, so it is read here rather than assumed. Saying "every
             //   share will ask you" to somebody who turned a mode on would be telling them the opposite
             //   of what their own setting does.
-            if (currentMode() !== "off")
+            if (currentMode() !== "default")
                 return;
             note(built === null
                 ? "This client cannot show you a question, so sharing is refused here. Share from a terminal."

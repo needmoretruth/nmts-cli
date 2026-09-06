@@ -20,7 +20,6 @@
 //    command imports the autonomy module at all.
 
 import { request, ServerError } from "../api.ts";
-import { currentMode } from "../autonomy.ts";
 import { NmtsError } from "../errors.ts";
 import { isRecord } from "../guards.ts";
 import { BINARY_NAME } from "../product.ts";
@@ -114,20 +113,6 @@ export async function losses(options: LossesOptions = {}): Promise<number> {
     throw new NmtsError(`--recheck and --dismiss are two different acts, and one run does one.`, {
       exitCode: 2,
       nextStep: `Run one, read what it says, then run the other.`,
-    });
-  }
-
-  // ⛔ TAKING A LINE OFF IS A PERSON'S ACT, AND A MODE IS THE OPPOSITE OF ONE. Every other refusal
-  //    a mode meets is a refusal a mode LIFTS: the person wrote down that an agent may decide for
-  //    them. This one is not a decision about spending or about risk — it is somebody saying "I
-  //    have read this", and no setting can say that on their behalf. There is no MCP tool for it
-  //    either, so this is the only door and it is shut from both sides.
-  if (options.dismiss !== undefined && currentMode() !== "off") {
-    throw new NmtsError(`A loss line comes off after a person has read it.`, {
-      exitCode: 5,
-      nextStep:
-        `Run \`${BINARY_NAME} losses --dismiss ${options.dismiss}\` yourself, outside mode auto ` +
-        `and without --skip-permissions.`,
     });
   }
 

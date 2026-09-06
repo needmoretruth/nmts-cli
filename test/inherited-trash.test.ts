@@ -297,7 +297,8 @@ test("⛔ everything after `--` is a name, so a file called `-h` can be addresse
     // ⚠ `--server` comes BEFORE the `--`. That is the whole point of the token: everything after
     //   it is a name, so an option written there would be taken as one — which is exactly what a
     //   shell does too.
-    const code2 = await run(["rm", "--server", BASE, "--network", "testnet", "--", "-h"]);
+    // `--yes`: the trash is a low act and mode default asks for it (`risk.ts`).
+    const code2 = await run(["rm", "--yes", "--server", BASE, "--network", "testnet", "--", "-h"]);
     assert.equal(code2, 0, "it did not treat the operand as a name");
     assert.equal((await lastWritten(code))[0]?.deletedAt !== undefined, true, "nothing was trashed");
   });

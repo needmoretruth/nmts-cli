@@ -1,0 +1,152 @@
+// `nmts erase <paths>` — erase files for good: the server's record, and this account's key to
+// them in the sealed file list. ⛔ IRREVERSIBLE, and the one act above high besides erasing the
+// account.
+//
+// ⛔ TWO THINGS ARE DESTROYED AND THIS COMMAND ALWAYS DESTROYS THE FIRST. The server row carries
+//    the wrapped key that opens the bytes; the list entry carries this account's own copy. Both
+//    go here. The BYTES on the storage network are a third thing: bought by the wallet, they stay
+//    until their term runs out (burning them is a signed transaction the browser makes); bought
+//    with credits, `--release-storage` asks the server to destroy the treasury's storage under
+//    each file first, which it does on the chain one blob at a time and reports per file.
+//
+// ⛔ THE SERVER GOES FIRST, THE LIST LAST. A row erased before the list entry leaves a file the
+//    person can see and never open; that is the same order the trash keeps, for the same reason.
+//    A release that fails leaves the file whole — nothing is erased behind a failed release.
+//
+// ⛔ THE SENTENCE IS TYPED IN EVERY MODE BUT SKIP-PERMISSIONS, where the tier gate's `--reason`
+//    and `--yes` stand for it — the same rule as `delete-account`, because it is the same tier.
+import { accountProofFor } from "../account-proof.js";
+import { request, ServerError } from "../api.js";
+import { currentMode } from "../autonomy.js";
+import { CONFIRM_SENTENCE } from "./delete-account.js";
+import { buildIndex, fullPathOf, KIND_FILE } from "../drive-paths.js";
+import { NmtsError } from "../errors.js";
+import { readFileList } from "../manifest.js";
+import { applyToList, batchTargets } from "../manifest-write.js";
+import { BINARY_NAME } from "../product.js";
+import { promptLine, stdinIsATerminal } from "../prompt.js";
+import { openSession } from "../session.js";
+import { filesUnder } from "./trash.js";
+/** The server takes at most this many ids in one erase (`ERASE_BATCH_MAX`). */
+const BATCH = 200;
+export async function erase(paths, options = {}) {
+    const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
+    if (paths.length === 0) {
+        throw new NmtsError(`\`${BINARY_NAME} erase\` needs the path of at least one thing in the drive.`, {
+            exitCode: 2,
+            nextStep: `\`${BINARY_NAME} ls --all\` prints the paths as this expects them.`,
+        });
+    }
+    const typedFor = options.yes === true && currentMode() === "skip-permissions";
+    const ask = options.readLine ?? promptLine;
+    if (!typedFor && options.readLine === undefined && !stdinIsATerminal()) {
+        throw new NmtsError("There is no terminal to type into (stdin is not a TTY).", {
+            exitCode: 3,
+            nextStep: `Run this where a person can type: erasing is confirmed by typing a sentence.`,
+        });
+    }
+    const session = await openSession(options);
+    const list = await readFileList(session.server, session.apiKey, session.code, session.accountId);
+    const entries = list.manifest?.entries ?? [];
+    const index = buildIndex(entries);
+    const targets = batchTargets(entries, paths, { includeTrashed: true, nothingHappened: "Nothing was erased." });
+    const files = uniqueById(targets.flatMap((t) => (t.kind === KIND_FILE ? [t] : filesUnder(entries, t.id))));
+    const going = uniqueById([...targets, ...files]);
+    if (files.length === 0) {
+        throw new NmtsError(`Nothing named holds a file; empty folders are removed with \`${BINARY_NAME} rm\`.`, {
+            exitCode: 4,
+        });
+    }
+    say(`This erases ${files.length} file${files.length === 1 ? "" : "s"} for good. It cannot be undone, and not by the trash.`);
+    for (const f of files)
+        say(`  ${fullPathOf(index, f)}`);
+    say(``);
+    say(`  Erased:       the server's record of each file and this account's key to it, and its shares.`);
+    if (options.releaseStorage === true) {
+        say(`  Destroyed:    the storage bought with credits under each file, on the chain, before the erase.`);
+        say(`                Storage bought by the wallet is not touched — it stays until its term ends.`);
+    }
+    else {
+        say(`  Not erased:   the bytes on the storage network. They stay, unreadable, until their term ends;`);
+        say(`                \`--release-storage\` also destroys the storage bought with credits under them.`);
+    }
+    say(`  Not refunded: storage already paid for.`);
+    say(``);
+    const typed = typedFor ? CONFIRM_SENTENCE : (await ask(`Type exactly: ${CONFIRM_SENTENCE}\n> `)).trim();
+    if (typed !== CONFIRM_SENTENCE) {
+        say(`Nothing was erased.`);
+        return 1;
+    }
+    // ⛔ THE PROOF IS BUILT FOR THIS ONE RUN AND NOTHING KEEPS IT.
+    const accountProof = await accountProofFor({ code: session.code, source: session.source });
+    const releases = [];
+    if (options.releaseStorage === true) {
+        for (const f of files) {
+            const path = fullPathOf(index, f);
+            try {
+                const reply = await request(session.server, `/v1/items/${encodeURIComponent(f.id)}/release-storage`, {
+                    method: "POST",
+                    body: {},
+                    token: session.apiKey,
+                    accountProof,
+                });
+                releases.push({ path, refused: null, ...counts(reply) });
+            }
+            catch (error) {
+                // ⚠ "Not ours to destroy" is an answer, not a failure: the storage was bought by the
+                //   wallet, and the erase goes on. A refusal of the KEY or the proof, and anything the
+                //   server could not do, stops the run before a row is touched.
+                if (error instanceof ServerError && error.status !== 401 && error.status !== 403 && error.status < 500) {
+                    releases.push({ path, released: 0, alreadyReleased: 0, failed: 0, refused: error.message });
+                    continue;
+                }
+                throw error;
+            }
+        }
+    }
+    let erased = 0;
+    for (let i = 0; i < files.length; i += BATCH) {
+        const reply = await request(session.server, "/v1/items/erase", {
+            method: "POST",
+            body: { item_ids: files.slice(i, i + BATCH).map((f) => f.id) },
+            token: session.apiKey,
+            accountProof,
+        });
+        erased += typeof reply === "object" && reply !== null && typeof Reflect.get(reply, "erased") === "number"
+            ? Number(Reflect.get(reply, "erased"))
+            : 0;
+    }
+    // ⛔ THE LIST GOES LAST, and re-decided against the list as it is on this attempt: only the
+    //    ids this run erased leave it, whatever another device wrote in between.
+    const ids = new Set(going.map((e) => e.id));
+    const result = await applyToList(session, (current) => {
+        const still = current.filter((e) => ids.has(e.id)).map((e) => e.id);
+        return still.length === 0 ? null : { op: "purge", ids: still };
+    });
+    if (options.json) {
+        say(JSON.stringify({ erased, files: files.map((f) => ({ id: f.id, path: fullPathOf(index, f) })), releases, seq: result.seq }));
+        return 0;
+    }
+    say(`Erased ${erased} file${erased === 1 ? "" : "s"}. Their entries are out of the file list.`);
+    for (const r of releases) {
+        if (r.refused !== null)
+            say(`  ${r.path}: storage not released — ${r.refused}`);
+        else if (r.failed > 0)
+            say(`  ${r.path}: ${r.released} released, ${r.failed} could not be — those bytes are still being served.`);
+        else
+            say(`  ${r.path}: storage released (${r.released} destroyed${r.alreadyReleased > 0 ? `, ${r.alreadyReleased} already gone` : ""}).`);
+    }
+    return 0;
+}
+/** The three counts a release answers with, read defensively. */
+function counts(reply) {
+    const n = (name) => {
+        const v = typeof reply === "object" && reply !== null ? Reflect.get(reply, name) : undefined;
+        return typeof v === "number" ? v : 0;
+    };
+    return { released: n("released"), alreadyReleased: n("already_released"), failed: n("failed") };
+}
+function uniqueById(list) {
+    const seen = new Set();
+    return list.filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
+}

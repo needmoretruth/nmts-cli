@@ -120,7 +120,7 @@ export async function uploadFile(input) {
             const sealed = stored === null
                 ? await sealPartOf(input, secrets.dek, range, plan.length, sealFrom)
                 : readReservationBytes(key);
-            paid.push(await buyAndPushPart({
+            paid.push(await (input.buy ?? buyAndPushPart)({
                 api: input.api,
                 protocol: input.protocol,
                 key,
@@ -145,7 +145,7 @@ export async function uploadFile(input) {
         return {
             itemId,
             resumed: paid.every((part) => part.resumed),
-            ledgerIds: paid.map((part) => part.ledgerId),
+            ledgerIds: paid.flatMap((part) => (part.ledgerId === null ? [] : [part.ledgerId])),
             fileKey,
             parts: plan.length,
             entry,

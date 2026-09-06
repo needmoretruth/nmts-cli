@@ -8,7 +8,7 @@
 //
 // ⛔ IT PRICES BEFORE IT SPENDS, ALWAYS. The reads and the quote are free and happen first, so
 //    `--dry-run` answers with a real number and never reaches the key. Nothing below the quote can
-//    run without `requireConsent("wallet")` having passed.
+//    run without `requireWalletGrant("extend", …)` having passed.
 //
 // ⛔ THE SERVER DOES NOT EXTEND ANYTHING, and this command is shaped by that. `POST
 //    /v1/items/{id}/extended` means "record an extension the device already signed": the storage is
@@ -19,7 +19,7 @@
 // ⛔ AND A FILE THAT IS NOT RUNNING OUT IS NOT EXTENDED BY ACCIDENT. Extending early loses nothing
 //    — epochs are added to what is left — so this is not a refusal on principle; it is a refusal
 //    to spend money on a deadline nobody is near, unless somebody says so with `--yes`.
-import { requireConsent } from "../consent.js";
+import { recordWalletSpend, requireWalletGrant } from "../wallet-grant.js";
 import { request } from "../api.js";
 import { buildIndex, entryAt, fullPathOf, KIND_FILE, normalisePath } from "../drive-paths.js";
 import { NmtsError } from "../errors.js";
@@ -27,9 +27,11 @@ import { daysLeftInWords, daysLeftUntilEpoch, stageOf, } from "../expiry.js";
 import { asExtendPreview, chooseEpochs, headroom, soonestEnd, } from "../extend-plan.js";
 import { isRecord } from "../guards.js";
 import { readFileList } from "../manifest.js";
+import { resolveNetwork } from "../network.js";
 import { BINARY_NAME } from "../product.js";
 import { openSession } from "../session.js";
-import { coinAmount } from "../wallet.js";
+import { coinAmount, walletAddress } from "../wallet.js";
+import { budgetFacts, describeBudget, readBudget, shortfallNextStep } from "../extend-budget.js";
 export async function extend(target, options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const now = options.now ?? Date.now();
@@ -45,6 +47,8 @@ export async function extend(target, options = {}) {
         throw new NmtsError("This account has no file list, so there is nothing to extend.", { exitCode: 4 });
     }
     const entries = list.manifest.entries;
+    // The standing share is the person's, and it is read from the same sealed list this file came from.
+    const settings = list.manifest.settings;
     const entry = entryAt(entries, normalisePath(target), {
         nothingHappened: "Nothing was signed and nothing was charged.",
     });
@@ -105,6 +109,14 @@ export async function extend(target, options = {}) {
     const frost = await reads.quote(leases, epochs);
     const cohort = Math.max(0, ...preview.targets.map((t) => t.sharedItems));
     const unreachable = preview.treasuryParts + preview.untrackedParts;
+    // What the wallet holds and what the chain would charge — read, never assumed (`extend-budget.ts`).
+    const address = await walletAddress(session.code);
+    const budget = await readBudget(reads, {
+        address,
+        objectIds: preview.targets.map((t) => t.objectId),
+        epochs,
+        priceFrost: frost,
+    });
     const facts = {
         file: path,
         itemId: entry.id,
@@ -121,6 +133,7 @@ export async function extend(target, options = {}) {
         paidFrom: "wallet",
         filesOnTheSameBlobs: cohort,
         partsThatCannotBeExtended: unreachable,
+        ...budgetFacts(budget),
     };
     if (options.dryRun === true) {
         // ⛔ NOTHING BELOW THIS BRANCH RUNS. No key is derived, no agreement is asked for, and the
@@ -130,15 +143,20 @@ export async function extend(target, options = {}) {
             return 0;
         }
         describe(say, facts, cohort, unreachable);
+        describeBudget(say, budget);
         say(``);
+        if (budget.shortfall !== null)
+            say(`  ⚠ ${budget.shortfall} As it stands, it would be refused.`);
         say(`  Nothing was signed and nothing was charged. Run the same command without --dry-run to`);
         say(`  buy it.`);
         if (stage === "later")
             say(`  It is not near its deadline, so buying it also needs --yes.`);
         return 0;
     }
-    if (!options.json)
+    if (!options.json) {
         describe(say, facts, cohort, unreachable);
+        describeBudget(say, budget);
+    }
     // ⛔ ASKED AFTER THE PRICE IS KNOWN AND BEFORE ANYTHING IS SIGNED. Extending early loses nothing,
     //    so this is not a refusal on principle — it is a refusal to spend on a deadline that is not
     //    close, unless somebody says otherwise out loud.
@@ -150,16 +168,26 @@ export async function extend(target, options = {}) {
                 `Add --yes to buy it anyway. \`${BINARY_NAME} expiring\` lists what is actually running out.`,
         });
     }
+    // ⛔ A WALLET KNOWN TO BE SHORT IS REFUSED BEFORE THE AGREEMENT IS ASKED FOR — a person should
+    //    not grant signing in order to be told there is nothing to spend (`extend-budget.ts`).
+    if (budget.shortfall !== null) {
+        throw new NmtsError(budget.shortfall, { exitCode: 4, nextStep: shortfallNextStep(budget) });
+    }
     // ⛔ THE ONE GATE THAT STANDS BETWEEN A PROGRAM AND SOMEBODY'S WALLET. Everything above this line
-    //    is a read; nothing below it can be undone.
-    requireConsent("wallet");
-    const sign = options.sign ?? (await import("../extend-sign.js")).signExtension;
+    //    is a read; nothing below it can be undone. The grant names a scope, runs out, and may carry
+    //    a ceiling — this signature is held against all three (`wallet-grant.ts`).
+    const spend = { walFrost: frost, suiMist: budget.feeMist ?? 0n };
+    requireWalletGrant("extend", spend, new Date(now));
+    const sign = options.sign ?? (await import("../wallet-sign.js")).signExtension;
     const digest = await sign({
         network: session.network,
         code: session.code,
         objectIds: preview.targets.map((t) => t.objectId),
         epochs,
     });
+    // What left the wallet is added to the grant's ledger first — the fee as estimated, since the
+    // amount actually charged is not read back here.
+    recordWalletSpend(spend);
     // From here the storage IS extended. Recording it is bookkeeping, and a failure to record must
     // never be reported as a failure to extend — that reading invites a second run, which pays again.
     let replay = false;
@@ -184,14 +212,25 @@ export async function extend(target, options = {}) {
     }
     if (options.json) {
         say(JSON.stringify({ ...facts, dryRun: false, signed: true, digest, recorded: true, replay }));
-        return 0;
     }
-    say(``);
-    say(`  Extended. The storage now ends at epoch ${newEndEpoch} — ${daysLeftInWords(after)}.`);
-    say(`  Transaction ${digest}`);
-    if (replay) {
-        say(`  The server had already recorded this transaction, so nothing was written twice.`);
+    else {
+        say(``);
+        say(`  Extended. The storage now ends at epoch ${newEndEpoch} — ${daysLeftInWords(after)}.`);
+        say(`  Transaction ${digest}`);
+        if (replay)
+            say(`  The server had already recorded this transaction, so nothing was written twice.`);
     }
+    // ⛔ AFTER THE PAYMENT, NEVER INSIDE IT, and it cannot change the answer above. In --json the
+    //    tip speaks on stderr: stdout carries the machine's one answer and nothing else.
+    await (await import("../standing-tip.js")).standingTipAfter({
+        server: session.server,
+        network: resolveNetwork(session.server, session.network),
+        code: session.code,
+        settings,
+        paidWalFrost: frost,
+        say: options.json === true ? (line) => void process.stderr.write(`${line}\n`) : say,
+        ...(options.tip ?? {}),
+    });
     return 0;
 }
 /** What the numbers say, for a person, in the order somebody deciding needs them. */

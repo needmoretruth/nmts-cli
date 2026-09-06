@@ -21,7 +21,6 @@
 //    either, so this is the only door and it is shut from both sides.
 
 import { request } from "../api.ts";
-import { currentMode } from "../autonomy.ts";
 import { NmtsError } from "../errors.ts";
 import { isRecord } from "../guards.ts";
 import { recordWrittenList } from "../manifest.ts";
@@ -67,17 +66,6 @@ function nothingRetained(): NmtsError {
 
 export async function rollback(options: RollbackOptions = {}): Promise<number> {
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));
-
-  // ⛔ BEFORE THE NETWORK, AND IN EVERY MODE. See the header: no setting can say on somebody's
-  //    behalf that the drive they are looking at is the wrong one.
-  if (currentMode() !== "off") {
-    throw new NmtsError(`Rolling the file list back is a person's act.`, {
-      exitCode: 5,
-      nextStep:
-        `Run \`${BINARY_NAME} rollback\` yourself, outside mode auto and without ` +
-        `--skip-permissions.`,
-    });
-  }
 
   const session = await openSession({ server: options.server, network: options.network });
 

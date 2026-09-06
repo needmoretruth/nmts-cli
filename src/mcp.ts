@@ -32,6 +32,8 @@ export interface ToolDefinition {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  /** The MCP hints (read-only, destructive, …); listed when present. */
+  annotations?: Record<string, boolean>;
   /** Returns the text the model reads. Throwing produces a tool error, not a dead session. */
   run(args: Record<string, unknown>): Promise<string>;
 }
@@ -111,7 +113,12 @@ export async function handle(
       return reply({});
     case "tools/list":
       return reply({
-        tools: tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+        tools: tools.map((t) => ({
+          name: t.name,
+          description: t.description,
+          inputSchema: t.inputSchema,
+          ...(t.annotations === undefined ? {} : { annotations: t.annotations }),
+        })),
       });
     case "tools/call": {
       const name = request.params?.["name"];

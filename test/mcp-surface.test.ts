@@ -33,6 +33,7 @@ test("⛔ nothing a machine must not do is in the surface, and the reads that ar
   const names = mcpToolSchemas().map((t) => t.name).sort();
   assert.deepEqual(names, [
     "nmts_balance",
+    "nmts_devices",
     "nmts_expiring",
     "nmts_get",
     "nmts_label_rename",
@@ -42,7 +43,10 @@ test("⛔ nothing a machine must not do is in the surface, and the reads that ar
     "nmts_mark",
     "nmts_mkdir",
     "nmts_move",
+    "nmts_notice",
+    "nmts_notices",
     "nmts_padding",
+    "nmts_privacy",
     "nmts_public_code",
     "nmts_pull",
     "nmts_push",
@@ -53,10 +57,17 @@ test("⛔ nothing a machine must not do is in the surface, and the reads that ar
     "nmts_share",
     "nmts_shares",
     "nmts_shares_sent",
+    "nmts_support_list",
+    "nmts_support_reply",
+    "nmts_support_send",
+    "nmts_support_show",
+    "nmts_terms",
     "nmts_trash",
     "nmts_unlabel_all",
     "nmts_unshare",
     "nmts_usage",
+    "nmts_wallet_activity",
+    "nmts_wallet_storage",
     "nmts_whoami",
   ]);
   // ⛔ `create` AND `trial` WERE JUDGED AND LEFT OUT (2026-08-24), and this line is the judgement.
@@ -68,7 +79,12 @@ test("⛔ nothing a machine must not do is in the surface, and the reads that ar
   //    every application for a fresh browser check no tool can produce, so a model could only ever
   //    drive it into a refusal, and asking for something for nothing on somebody's behalf is not a
   //    step to take without them. Both stay commands a person runs.
+  // ⛔ AND `key` IS THE SHARPEST OF THEM (2026-09-05). `nmts key new` mints a credential out of
+  //    the account code, and a tool for it would hand a model the one thing the server refuses a
+  //    key at: a key that can make keys makes revoking one meaningless, because revoking it leaves
+  //    the three it already made. The reads beside it — including `nmts_devices` — change nothing.
   for (const forbidden of [
+    "key",
     "verify",
     "login",
     "logout",
@@ -129,7 +145,8 @@ test("the documents' set of MCP tools is the set that is declared", async () => 
   const declared = new Set(mcpToolSchemas().map((t) => t.name));
   assert.ok(declared.size >= 15, `only ${declared.size} tools were found — the walk is blind`);
 
-  for (const doc of ["README.md", "AGENTS.md"]) {
+  // AGENTS.md points at `nmts help mcp` instead of listing; the command's own document lists.
+  for (const doc of ["README.md", "docs/commands/mcp.md"]) {
     const text = readFileSync(new URL(`../${doc}`, import.meta.url), "utf8");
     const named = new Set(text.match(/nmts_[a-z_]+/g) ?? []);
     const missing = [...declared].filter((n) => !named.has(n)).sort();

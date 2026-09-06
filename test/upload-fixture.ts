@@ -21,7 +21,7 @@ import type { BlobProtocol, UploadApi, UploadInput } from "../src/upload-wire.ts
 export function isolate(): string {
   const dir = mkdtempSync(join(tmpdir(), "nmts-upload-"));
   process.env["NMTS_CONFIG_DIR"] = dir;
-  grantConsents(dir, "plain-env", "spend");
+  grantConsents(dir, "plain-env");
   return dir;
 }
 

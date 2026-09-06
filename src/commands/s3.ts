@@ -21,7 +21,6 @@ import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { randomUUID } from "node:crypto";
 
-import { isGranted } from "../consent.ts";
 import { createStaging } from "../s3/staging.ts";
 import { refusalFor, verdictForKey } from "../s3/same-file.ts";
 import { fetchFile } from "../download.ts";
@@ -137,10 +136,11 @@ export async function s3(options: S3Options = {}): Promise<number> {
     cachedAt = 0;
   };
 
-  // ⛔ WRITING IS OFF UNLESS THIS MACHINE ALREADY AGREED TO SPENDING. A gateway cannot ask: its
-  //    caller is a program and its stdin is not a terminal. So the question is answered before it
-  //    starts, and where the answer is no every write says so and nothing is charged.
-  const writable = isGranted("spend");
+  // ⛔ THE QUESTION WAS ANSWERED BEFORE THIS STARTED. A gateway cannot ask: its caller is a program
+  //    and its stdin is not a terminal. `s3` is a medium act (`risk.ts`) — uploads through it spend
+  //    credits — so the tier gate asked at the start, or the mode waved it through, and every write
+  //    from here on is what was agreed to.
+  const writable = true;
 
   const server = createGateway({
     credential,

@@ -13,39 +13,25 @@
 
 import { strict as assert } from "node:assert";
 import { createServer, type Server } from "node:http";
-import { rmSync } from "node:fs";
 
-import { API_KEY_ENV_VAR, CODE_ENV_VAR, testConfigDir } from "../src/credentials.ts";
 import { encodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
-import { generateCode, grantConsents, openFileList, sealFileList } from "./helpers.ts";
+import { openFileList, sealFileList } from "./helpers.ts";
 
 /** Shaped like a real key so nothing refuses it before the request is made. */
-export const KEY = ["nmts", "ak1", "Abcdefghijkl"].join("_") + "_" + "x".repeat(43);
+export { KEY } from "./fake-rows.ts";
+import { KEY } from "./fake-rows.ts";
 
-/** One row of `GET /v1/items/expiring`, in the server's own spelling. */
-export interface ExpiringRow {
-  item_id: string;
-  expiry_epoch: number;
-}
-
-/** One row of `GET /v1/storage-loss`, in the server's own spelling. */
-export interface LossRow {
-  blob_object_id: string;
-  first_seen: string;
-  required_notice: boolean;
-  restricted: boolean;
-}
-
-/** The three answers `POST /v1/storage-loss/recheck` gives, and no fourth. */
-export type RecheckResult = "found" | "still_missing" | "unread";
-
-/** One row of `GET /v1/shares/sent`, in the server's own spelling. */
-export interface SentShareRow {
-  id: string;
-  item_id: string;
-  recipient_address: string;
-  created_at: string;
-}
+export type { ExpiringRow, LossRow, RecheckResult, SentShareRow } from "./fake-rows.ts";
+import type { ExpiringRow, LossRow, RecheckResult, SentShareRow } from "./fake-rows.ts";
+export { collect, entry, folder, withSandbox } from "./fake-sandbox.ts";
+import { sealed } from "./fake-sandbox.ts";
+// ⛔ The site's own `/api/*` addresses answer here too, from a file of their own: they are a
+//    different server surface with different headers, and `check:size` measures this one.
+import { serveDocuments } from "./fake-docs.ts";
+// ⛔ The ACCOUNT's own doors (the key mint, the device list) answer from a file of their own too.
+import { resetAccount, serveAccount } from "./fake-account.ts";
+// ⛔ And the two PERMANENT doors, from a file of their own for the same reason.
+import { resetErase, serveErase } from "./fake-erase.ts";
 
 export interface FakeDrive {
   readonly base: string;
@@ -56,23 +42,11 @@ export interface FakeDrive {
   /** What `GET /v1/items/expiring` answers, and whether it says it was cut short. */
   expiring: ExpiringRow[];
   truncated: boolean;
-  /**
-   * Answer `items` with this instead, whatever it is.
-   *
-   * ⚠ THE ONLY UNTYPED DOOR IN THIS HARNESS, and it is here because the shapes worth testing are
-   *   the ones the type forbids: a wire that starts sending the epoch as a string, an object where
-   *   an array belongs. A test that could not build those could not fail for a reader that quietly
-   *   skips what it cannot parse.
-   */
+  /** Answer `items` with this instead, whatever it is — untyped so a test can send the shapes the
+   *  type forbids (an epoch as a string), which a quietly skipping reader could not fail for. */
   expiringRaw: unknown;
-  /**
-   * What `GET /v1/items/{id}/extend-preview` answers, in the server's own spelling.
-   *
-   * ⚠ UNTYPED FOR THE SAME REASON `expiringRaw` IS: the shapes worth testing include the ones the
-   *   type forbids — a target with no object id, a count that arrives as a string — and a test
-   *   that could not build those could not fail for a reader that quietly skips what it cannot
-   *   parse. Null is "the server lists nothing to extend", which is a real answer.
-   */
+  /** What `GET /v1/items/{id}/extend-preview` answers — untyped for the reason `expiringRaw` is.
+   *  Null is "the server lists nothing to extend", which is a real answer. */
   extendPreview: unknown;
   /** Every extension the tool reported, in the order it reported them. */
   extendRecorded: { epochs: unknown; tx_digest: unknown }[];
@@ -102,6 +76,10 @@ export interface FakeDrive {
    *    would look right for the one-file tests that are most of them.
    */
   sentShares: SentShareRow[];
+  /** What `GET /v1/items/{id}/parts` answers for one item, in the server's own spelling. Untyped
+   *  like `expiringRaw`: a download that skipped a part it could not parse would look like a shorter
+   *  file, and a harness that could not send one could not fail for that. */
+  parts: Map<string, unknown>;
   /** Every request the tool made, in order. */
   calls: string[];
   /** Every sealed list the tool successfully wrote. */
@@ -142,6 +120,7 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     losses: [] as LossRow[],
     recheckResult: "still_missing" as RecheckResult,
     sentShares: [] as SentShareRow[],
+    parts: new Map<string, unknown>(),
     calls: [] as string[],
     written: [] as string[],
   };
@@ -154,6 +133,11 @@ export async function startFakeDrive(): Promise<FakeDrive> {
       res.writeHead(status, { "content-type": "application/json" });
       res.end(JSON.stringify(body));
     };
+
+    if (serveDocuments(method, url, res)) return;
+    if (serveAccount(method, url, req, res)) return;
+
+    if (serveErase(method, url, req, res)) return;
 
     // ⛔ BEFORE THE ONE BELOW, because that one matches on a prefix and this address begins with
     //    it. A fake that answered the current list here would make a rollback look like a no-op.
@@ -199,6 +183,13 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     if (method === "GET" && url.startsWith("/v1/items/expiring")) {
       const items: unknown = state.expiringRaw === undefined ? state.expiring : state.expiringRaw;
       return json(200, { items, truncated: state.truncated });
+    }
+    // `?for=download` rides along on the real request; the route is the path.
+    if (method === "GET" && /^\/v1\/items\/[^/]+\/parts(\?.*)?$/.test(url)) {
+      const id = decodeURIComponent(url.split("?")[0]?.split("/")[3] ?? "");
+      const answer = state.parts.get(id);
+      if (answer === undefined) return json(404, { error: { code: "NOT_FOUND", message: "no such item" } });
+      return json(200, answer);
     }
     if (method === "GET" && /^\/v1\/items\/[^/]+\/extend-preview$/.test(url)) {
       const id = decodeURIComponent(url.split("/")[3] ?? "");
@@ -344,6 +335,7 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     set sentShares(v: SentShareRow[]) {
       state.sentShares = v;
     },
+    get parts() { return state.parts; },
     get calls() {
       return state.calls;
     },
@@ -372,6 +364,8 @@ export async function startFakeDrive(): Promise<FakeDrive> {
       return openFileList(code, ct);
     },
     reset(): void {
+      resetErase();
+      resetAccount();
       served = null;
       previous = null;
       steal = null;
@@ -386,6 +380,7 @@ export async function startFakeDrive(): Promise<FakeDrive> {
       state.losses = [];
       state.recheckResult = "still_missing";
       state.sentShares = [];
+      state.parts = new Map();
       state.calls = [];
       state.written = [];
     },
@@ -395,68 +390,3 @@ export async function startFakeDrive(): Promise<FakeDrive> {
   };
 }
 
-/**
- * A config directory of this test's own, with the one agreement reading the code from the
- * environment needs. Everything is put back afterwards, including variables that were unset.
- */
-export async function withSandbox(
-  drive: FakeDrive,
-  name: string,
-  body: (code: string) => Promise<void>,
-): Promise<void> {
-  const dir = testConfigDir(name);
-  const before = {
-    dir: process.env["NMTS_CONFIG_DIR"],
-    code: process.env[CODE_ENV_VAR],
-    key: process.env[API_KEY_ENV_VAR],
-  };
-  rmSync(dir, { recursive: true, force: true });
-  process.env["NMTS_CONFIG_DIR"] = dir;
-  grantConsents(dir, "plain-env");
-  const code = await generateCode();
-  process.env[CODE_ENV_VAR] = code;
-  process.env[API_KEY_ENV_VAR] = KEY;
-  drive.reset();
-  try {
-    await body(code);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-    for (const [n, v] of [
-      ["NMTS_CONFIG_DIR", before.dir],
-      [CODE_ENV_VAR, before.code],
-      [API_KEY_ENV_VAR, before.key],
-    ] as const) {
-      if (v === undefined) delete process.env[n];
-      else process.env[n] = v;
-    }
-  }
-}
-
-/**
- * Seal a list at a version, naming something as the version it was built on when it needs to.
- *
- * ⚠ THE NAMED PREDECESSOR IS A PLACEHOLDER, and it is allowed to be: the codec requires any
- *   version above the first to name one, and nothing on the read path compares it against a blob
- *   this harness ever served. A test that needs the fork check itself uses `otherDeviceWrites`,
- *   which names the real one.
- */
-async function sealed(code: string, entries: ManifestEntry[], seq: number): Promise<string> {
-  const body = seq > 1 ? await encodeManifest(entries, seq, "cHJldmlvdXM") : await encodeManifest(entries, seq);
-  return sealFileList(code, body);
-}
-
-/** One file entry, with the fields a test does not care about filled in. */
-export function entry(over: Partial<ManifestEntry> & Pick<ManifestEntry, "id" | "name">): ManifestEntry {
-  return { parentId: null, kind: 1, size: 10, createdAt: 1, updatedAt: 1, ...over };
-}
-
-/** One folder entry. Folders hold no bytes and the server keeps no row for them. */
-export function folder(over: Partial<ManifestEntry> & Pick<ManifestEntry, "id" | "name">): ManifestEntry {
-  return entry({ kind: 0, size: 0, ...over });
-}
-
-/** Collect what a command printed, line by line. */
-export function collect(): { lines: string[]; write: (line: string) => void } {
-  const lines: string[] = [];
-  return { lines, write: (line) => lines.push(line) };
-}

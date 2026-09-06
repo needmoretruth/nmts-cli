@@ -6,22 +6,37 @@
 //    the next setting has an obvious home, rather than another case in the middle of the commands
 //    that move money.
 //
-// ⚠ What each setting MEANS is not here — it is beside the setting itself (`consent.ts`,
+// ⚠ What each setting MEANS is not here — it is beside the setting itself (`consent.ts` · `unlock.ts`,
 //   `autonomy.ts`, `collision.ts`), so a caller that needs the rule does not have to load a
 //   command to get it.
 /** Is this one of the settings commands? */
 export function isSettingsCommand(command) {
-    return command === "consent" || command === "mode" || command === "on-collision";
+    return (command === "consent" || command === "unlock" || command === "lock" || command === "mode" || command === "on-collision");
 }
 /** Run it. Only call this when `isSettingsCommand` said yes. */
 export async function runSettings(command, args) {
-    if (command === "consent") {
-        const { consent } = await import("./consent.js");
-        return consent(args.operands[0], args.operands[1], { json: args.json });
+    if (command === "consent" || command === "unlock" || command === "lock") {
+        const { unlock } = await import("./unlock.js");
+        // `consent grant` and `consent revoke` are the older spellings of `unlock` and `lock`.
+        const first = args.operands[0];
+        const action = command === "lock" ? "lock"
+            : command === "unlock" ? (first === undefined ? undefined : "unlock")
+                : first === "grant" ? "unlock"
+                    : first === "revoke" ? "lock"
+                        : first;
+        const target = command === "consent" ? args.operands[1] : first;
+        return await unlock(action, target, {
+            json: args.json,
+            days: args.days,
+            until: args.until,
+            scope: args.scope,
+            capWal: args.capWal,
+            capSui: args.capSui,
+        });
     }
     if (command === "mode") {
         const { mode } = await import("./mode.js");
-        return mode(args.operands[0], { json: args.json, accepted: args.iAcceptTheRisk });
+        return await mode(args.operands[0], args.operands[1], { json: args.json });
     }
     const { onCollision } = await import("./on-collision.js");
     return onCollision(args.operands[0], { json: args.json });

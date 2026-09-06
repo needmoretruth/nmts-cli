@@ -167,6 +167,20 @@ export interface Reservation {
   registerTxDigest?: string;
   /** Present once registered: the on-chain blob object. */
   blobObjectId?: string;
+  /**
+   * Present when the PERSON'S OWN WALLET is paying (`upload-wallet.ts`), absent on the credit rail.
+   *
+   * ⛔ WRITTEN SO THE OTHER RAIL REFUSES THE RECORD. The bytes and the blob id are the same
+   *    whoever pays, but what "paid" means is not: a credit record names a reservation the server
+   *    can be asked about, a wallet record names a transaction the person signed. A run on one
+   *    rail that resumed the other's record would either buy the storage a second time or commit
+   *    a part under the wrong payer.
+   */
+  paidFrom?: "wallet";
+  /** Wallet rail: present once the certify transaction executed — the part is finished on-chain. */
+  certifyTxDigest?: string;
+  /** Wallet rail: the epoch the bought storage ends at, read from the blob object after registering. */
+  endEpoch?: number;
 }
 
 function paths(key: string): { json: string; bin: string } {

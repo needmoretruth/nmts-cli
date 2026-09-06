@@ -8,6 +8,8 @@
 import { CONSENTS, CONSENT_KEYS, grant, grantedAt, revoke } from "../consent.js";
 import { NmtsError } from "../errors.js";
 import { BINARY_NAME, SUPPORT_EMAIL, VERSION } from "../product.js";
+import { coinAmount } from "../wallet.js";
+import { parseWalletGrant, readWalletGrant, walletGrantState, writeWalletGrant } from "../wallet-grant.js";
 function isKey(value) {
     return CONSENT_KEYS.includes(value);
 }
@@ -31,16 +33,41 @@ export function consent(action, target, options = {}) {
     const now = options.now ?? (() => new Date());
     if (action === undefined || action === "" || action === "list") {
         if (options.json) {
-            say(JSON.stringify(CONSENT_KEYS.map((key) => ({
-                key,
-                granted: grantedAt(key) !== null,
-                grantedAt: grantedAt(key),
-                what: CONSENTS[key].what,
-                risk: CONSENTS[key].risk,
-            }))));
+            say(JSON.stringify(CONSENT_KEYS.map((key) => {
+                if (key === "wallet") {
+                    const g = readWalletGrant();
+                    const state = walletGrantState(g, now());
+                    return {
+                        key,
+                        granted: state === "active",
+                        state,
+                        grantedAt: g?.grantedAt ?? null,
+                        expiresAt: g?.expiresAt ?? null,
+                        scope: g?.scope ?? null,
+                        capWalFrost: g?.capWalFrost ?? null,
+                        capSuiMist: g?.capSuiMist ?? null,
+                        spentWalFrost: g?.spentWalFrost ?? null,
+                        spentSuiMist: g?.spentSuiMist ?? null,
+                        what: CONSENTS[key].what,
+                        risk: CONSENTS[key].risk,
+                    };
+                }
+                return {
+                    key,
+                    granted: grantedAt(key) !== null,
+                    grantedAt: grantedAt(key),
+                    what: CONSENTS[key].what,
+                    risk: CONSENTS[key].risk,
+                };
+            })));
             return 0;
         }
         for (const key of CONSENT_KEYS) {
+            if (key === "wallet") {
+                for (const line of walletLines(now()))
+                    say(line);
+                continue;
+            }
             const at = grantedAt(key);
             say(`${at === null ? "  not agreed" : "  agreed    "}  ${key}`);
             say(`                ${CONSENTS[key].what}`);
@@ -58,6 +85,16 @@ export function consent(action, target, options = {}) {
     }
     if (action === "grant") {
         const key = keyOrFail(target);
+        if (key === "wallet") {
+            // ⛔ Not a bare date: scope, expiry and ceilings, parsed before anything is written.
+            const wanted = parseWalletGrant(options, now(), VERSION);
+            writeWalletGrant(wanted);
+            say(`agreed: wallet — scope ${wanted.scope}, until ${wanted.expiresAt}`);
+            say(`  ${CONSENTS.wallet.what}`);
+            say(`  ${ceilingWords(wanted.capWalFrost, wanted.capSuiMist)}`);
+            say(`  ${CONSENTS.wallet.limit}`);
+            return 0;
+        }
         grant(key, VERSION, now());
         say(`agreed: ${key}`);
         say(`  ${CONSENTS[key].what}`);
@@ -74,4 +111,30 @@ export function consent(action, target, options = {}) {
         exitCode: 2,
         nextStep: `Try \`${BINARY_NAME} consent\`, \`${BINARY_NAME} consent grant <name>\`, or \`${BINARY_NAME} consent revoke <name>\`.`,
     });
+}
+/** The wallet row of the list: state, scope, expiry, ceilings and what was signed under it. */
+function walletLines(now) {
+    const g = readWalletGrant();
+    const state = walletGrantState(g, now);
+    const head = state === "active" ? "  agreed    " : state === "expired" ? "  ran out   " : "  not agreed";
+    const out = [`${head}  wallet`, `                ${CONSENTS.wallet.what}`];
+    if (g !== null) {
+        out.push(`                scope ${g.scope} · agreed ${g.grantedAt} · ${state === "expired" ? "ran out" : "until"} ${g.expiresAt}`);
+        out.push(`                ${ceilingWords(g.capWalFrost, g.capSuiMist)} · signed away so far ${coinAmount(BigInt(g.spentWalFrost))} WAL, ${coinAmount(BigInt(g.spentSuiMist))} SUI in fees`);
+    }
+    else {
+        out.push(`                ${BINARY_NAME} consent grant wallet --days <1..30> [--scope storage|all] [--cap-wal <coins> --cap-sui <coins>]`);
+    }
+    out.push(``);
+    return out;
+}
+function ceilingWords(capWal, capSui) {
+    if (capWal === null && capSui === null)
+        return "no ceiling on what this tool may sign away";
+    const parts = [];
+    if (capWal !== null)
+        parts.push(`${coinAmount(BigInt(capWal))} WAL`);
+    if (capSui !== null)
+        parts.push(`${coinAmount(BigInt(capSui))} SUI`);
+    return `ceiling ${parts.join(" and ")}`;
 }

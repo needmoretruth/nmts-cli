@@ -9,7 +9,7 @@ import { strict as assert } from "node:assert";
 import { after, test } from "node:test";
 
 import { NmtsError } from "../src/errors.ts";
-import { sharesSent } from "../src/commands/share.ts";
+import { sharesSent } from "../src/commands/shares-sent.ts";
 import { collect, entry, folder, startFakeDrive, withSandbox, type SentShareRow } from "./fake-drive.ts";
 
 const drive = await startFakeDrive();

@@ -1,18 +1,24 @@
 // `nmts mode` — how much an agent driving this tool may decide without asking.
 //
-// ⛔ IT IS A COMMAND, FOR THE SAME REASON CONSENT IS. A question asked in the middle of another
-//    command cannot be answered by a container, a build step, or an agent's subprocess. A command
-//    can, its answer is recorded with a date, and it can be looked at afterwards.
+// ⛔ A PERSON SWITCHES IT, AT A TERMINAL. Turning a mode on refuses when stdin is not a terminal —
+//    the way an agent's subprocess usually arrives — prints the whole explanation first, and takes
+//    one answer: y for the two auto modes, a typed sentence for skip-permissions. Turning it off is
+//    one line from anywhere. Short for the person, closed to the program: that is the shape the owner
+//    asked for (2026-09-06).
 //
-// ⛔ TURNING ONE ON TAKES A FLAG THAT SAYS WHAT IT IS. `nmts mode auto` alone prints what the mode
-//    means and stops; adding the flag is the sentence nobody types by accident.
-import { AUTONOMY_MODES, MODE_MEANS, RISK_FLAG, currentMode, setAt, setMode, } from "../autonomy.js";
+// ⛔ `nmts mode explain <mode>` PRINTS THE EXPLANATION AND CHANGES NOTHING. It exists so an agent that
+//    recommends a mode can show the person exactly what it is, rather than its own summary.
+import { AUTONOMY_MODES, MODE_MEANS, SKIP_SENTENCE, currentMode, explain, modeFromStored, setAt, setMode, } from "../autonomy.js";
 import { NmtsError } from "../errors.js";
 import { BINARY_NAME, VERSION } from "../product.js";
-function isMode(value) {
-    return AUTONOMY_MODES.includes(value);
+import { promptLine, stdinIsATerminal } from "../prompt.js";
+/** A name a person may type, including the two older spellings. */
+function wantedMode(raw) {
+    if (raw === "off" || raw === "auto")
+        return modeFromStored(raw);
+    return AUTONOMY_MODES.includes(raw) ? raw : null;
 }
-export function mode(wanted, options = {}) {
+export async function mode(wanted, target, options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const now = options.now ?? (() => new Date());
     if (wanted === undefined || wanted === "") {
@@ -22,33 +28,63 @@ export function mode(wanted, options = {}) {
             return 0;
         }
         say(`${at} — ${MODE_MEANS[at]}`);
-        // ⛔ The way to change it is said HERE. Listing what exists without saying how to pick one
-        //    sends the reader back to the help text and leaves an agent to guess.
         for (const other of AUTONOMY_MODES) {
             if (other !== at)
                 say(`${other} — ${MODE_MEANS[other]}`);
         }
-        say(`Change it: ${BINARY_NAME} mode <${AUTONOMY_MODES.join("|")}> ${RISK_FLAG}`);
+        say(`Change it, at a terminal: ${BINARY_NAME} mode <${AUTONOMY_MODES.join("|")}>`);
+        say(`Read one in full first:    ${BINARY_NAME} mode explain <mode>`);
         return 0;
     }
-    if (!isMode(wanted)) {
+    if (wanted === "explain") {
+        const which = target === undefined ? null : wantedMode(target);
+        if (which === null) {
+            throw new NmtsError(`Say which mode to explain.`, { exitCode: 2, nextStep: `One of: ${AUTONOMY_MODES.join(" · ")}` });
+        }
+        for (const line of explain(which))
+            say(line);
+        return 0;
+    }
+    const next = wantedMode(wanted);
+    if (next === null) {
         throw new NmtsError(`There is no mode called "${wanted}".`, {
             exitCode: 2,
             nextStep: `One of: ${AUTONOMY_MODES.join(" · ")}`,
         });
     }
-    // ⛔ Turning one OFF never needs the flag. Making the safe direction harder than the risky one
-    //    is how somebody leaves it on.
-    if (wanted !== "off" && options.accepted !== true) {
-        throw new NmtsError(MODE_MEANS[wanted], {
-            exitCode: 2,
-            nextStep: [
-                "You bear what an agent does with your files and your credits while this is on.",
-                `Turn it on: ${BINARY_NAME} mode ${wanted} ${RISK_FLAG}`,
-            ].join("\n  "),
+    // ⛔ OFF IS ONE LINE FROM ANYWHERE. Making the safe direction harder than the risky one is how
+    //    somebody leaves it on.
+    if (next === "default") {
+        setMode("default", VERSION, now());
+        say(`default — ${MODE_MEANS.default}`);
+        return 0;
+    }
+    if (options.readLine === undefined && !stdinIsATerminal()) {
+        throw new NmtsError(`A person switches modes, at a terminal — stdin here is not one.`, {
+            exitCode: 5,
+            nextStep: `If you are an agent: do not switch modes. You may recommend one — show the person ` +
+                `\`${BINARY_NAME} mode explain ${next}\` in full and let them decide.`,
         });
     }
-    setMode(wanted, VERSION, now());
-    say(wanted === "off" ? `off — ${MODE_MEANS.off}` : `${wanted} — ${MODE_MEANS[wanted]}`);
+    const ask = options.readLine ?? promptLine;
+    for (const line of explain(next))
+        say(line);
+    say(``);
+    if (next === "skip-permissions") {
+        const typed = (await ask(`Type exactly: ${SKIP_SENTENCE}\n> `)).trim();
+        if (typed !== SKIP_SENTENCE) {
+            say(`Nothing was changed.`);
+            return 1;
+        }
+    }
+    else {
+        const answer = (await ask(`Turn ${next} on? [y/N] `)).trim();
+        if (answer !== "y" && answer !== "Y") {
+            say(`Nothing was changed.`);
+            return 1;
+        }
+    }
+    setMode(next, VERSION, now());
+    say(`${next} — ${MODE_MEANS[next]}`);
     return 0;
 }

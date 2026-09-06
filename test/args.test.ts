@@ -48,3 +48,24 @@ test("flags are recognised before and after the command", () => {
   assert.equal(parseArgs(["ls", "--help"]).help, true);
   assert.equal(parseArgs(["-V"]).version, true);
 });
+
+test("--omit may be given more than once, in either spelling", () => {
+  // A single-value option would keep only the last one, silently — and what is being listed is
+  // values that must not travel, so a lost one is a value that does.
+  assert.deepEqual(parseArgs(["support", "send", "--omit", "acme", "--omit=drafts"]).omit, [
+    "acme",
+    "drafts",
+  ]);
+});
+
+test("--attach-log takes a number when one follows, and stands alone when one does not", () => {
+  assert.equal(parseArgs(["support", "send", "--attach-log"]).attachLog, "");
+  assert.equal(parseArgs(["support", "send", "--attach-log", "5"]).attachLog, "5");
+  assert.equal(parseArgs(["support", "send", "--attach-log=5"]).attachLog, "5");
+  // ⛔ The word after it is not swallowed: only digits are read as its value.
+  const parsed = parseArgs(["support", "--attach-log", "send"]);
+  assert.equal(parsed.attachLog, "");
+  assert.deepEqual(parsed.operands, ["send"]);
+  // Absent is different from given-with-no-number, and the command reads that difference.
+  assert.equal(parseArgs(["support", "send"]).attachLog, undefined);
+});

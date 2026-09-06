@@ -28,6 +28,7 @@ import {
   TEXT_SCALE_MAX_PCT,
   TEXT_SCALE_MIN_PCT,
 } from "./manifest-codec.ts";
+import { applyTipPatch } from "./manifest-settings.ts";
 
 /** One drive edit, in a form that can be replayed onto a newer list. */
 export type ManifestIntent =
@@ -263,6 +264,9 @@ export interface SettingsPatch {
   textScalePct?: number;
   /** Which size-padding rule to seal future uploads under. `"padme"` = the default. */
   paddingMode?: PaddingMode;
+  /** The standing tip in tenths of a percent (0 = none) and the instant its terms were agreed to (0 clears). */
+  tipTenths?: number;
+  tipConsentAt?: number;
 }
 
 /**
@@ -294,10 +298,13 @@ export function applySettingsPatch(
     if (pct === TEXT_SCALE_DEFAULT_PCT) delete next.textScalePct;
     else next.textScalePct = pct;
   }
+  applyTipPatch(next, patch.tipTenths, patch.tipConsentAt);
   const same =
     (next.developerMode === true) === (settings.developerMode === true) &&
     next.paddingMode === settings.paddingMode &&
-    next.textScalePct === settings.textScalePct;
+    next.textScalePct === settings.textScalePct &&
+    next.tipTenths === settings.tipTenths &&
+    next.tipConsentAt === settings.tipConsentAt;
   return same ? settings : next;
 }
 

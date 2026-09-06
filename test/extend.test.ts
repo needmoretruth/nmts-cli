@@ -16,17 +16,20 @@
 // ⚠ WHAT THEY DO NOT PROVE. No transaction is built, signed or executed anywhere below. The
 //   arithmetic, the order of operations and the shape of both server calls are what is held here;
 //   whether the bytes the SDK signs are accepted by the chain is not, and cannot be without
-//   spending real WAL. `extend-sign.test.ts` covers the one part of that path which can be checked
+//   spending real WAL. `wallet-sign.test.ts` covers the one part of that path which can be checked
 //   for nothing: that the wallet doing the signing is the account's own.
 
 import { strict as assert } from "node:assert";
 import { after, test } from "node:test";
 
 import { extend } from "../src/commands/extend.ts";
+import { tip } from "../src/commands/tip.ts";
+import { testConfigDir } from "../src/credentials.ts";
 import { collect, startFakeDrive, withSandbox } from "./fake-drive.ts";
 import {
   extendOpts,
   fakeChain,
+  NOW,
   recordingSigner,
   refusal,
   refuseToSign,
@@ -34,6 +37,7 @@ import {
   withWalletAgreed,
   type FakeChain,
 } from "./fake-extend.ts";
+import { grantConsents } from "./helpers.ts";
 
 const drive = await startFakeDrive();
 after(() => drive.close());
@@ -109,7 +113,7 @@ test("⛔ nothing is signed until this machine has agreed to signing", async () 
     assert.equal(sign.calls, 0, "it signed before anybody agreed to signing");
     assert.equal(failure.exitCode, 5, "the exit code for waiting on a person is 5");
     assert.match(failure.message, /wallet/i);
-    assert.match(String(failure.nextStep), /consent grant wallet/);
+    assert.match(String(failure.nextStep), /unlock wallet/);
     assert.equal(
       drive.extendRecorded.length,
       0,
@@ -126,7 +130,15 @@ test("the price is read BEFORE the signature, and the signature before the serve
     const out = collect();
     assert.equal(await extend("photos/a.jpg", opts(out, { epochs: 3, readChain: () => chain, sign })), 0);
     // ⛔ A quote taken after a signature is a receipt, not a price.
-    assert.deepEqual(chain.calls, ["readWindow", "readLeases 0xblob-a,0xblob-b", "quote 3"]);
+    // ⛔ And the wallet and the fee are read after the price they are held against, and before
+    //    the signature: a shortfall found after signing is a receipt, not a refusal.
+    assert.deepEqual(chain.calls, [
+      "readWindow",
+      "readLeases 0xblob-a,0xblob-b",
+      "quote 3",
+      "readWallet",
+      "estimateGas 3",
+    ]);
     assert.deepEqual(sign.asked, [{ objectIds: ["0xblob-a", "0xblob-b"], epochs: 3 }]);
     assert.deepEqual(drive.extendRecorded, [
       { epochs: 3, tx_digest: "3nJqYd2fRZ8m1s5vQ7wLpXk4TgB6uCa9HyEr2NdM8fPz" },
@@ -179,6 +191,67 @@ test("--json says what was signed, in units a program cannot round away", async 
     assert.equal(at("newEndEpoch"), 1206);
     assert.equal(at("signed"), true);
     assert.equal(at("recorded"), true);
+  });
+});
+
+// ── the standing share, after the payment ─────────────────────────────────────────────────────
+
+/** The published address and the gift's digest, both shaped like real ones. */
+const DEV = `0x${"d".repeat(64)}`;
+const GIFT = "5rTuLm9wQ2xVc7Yb1Kd8FgHj3NpZa6Se4RvXt2WqMh7B";
+
+test("the standing share of what was just paid goes to the developer, after the payment", async () => {
+  await withSandbox(drive, "extend-tip", async (code) => {
+    grantConsents(testConfigDir("extend-tip"), "plain-env", "wallet", "donate");
+    await servePhoto(drive, code);
+    assert.equal(await tip("2.5", { server: drive.base, network: "testnet", write: () => undefined, now: NOW }), 0);
+    const gifts: bigint[] = [];
+    const out = collect();
+    const answer = await extend(
+      "photos/a.jpg",
+      opts(out, {
+        epochs: 2,
+        sign: recordingSigner(),
+        tip: {
+          readDonation: async () => ({ devAddress: DEV, sendEnabled: true, walEnabled: true }),
+          sign: async ({ shape }) => {
+            gifts.push(shape.amountBaseUnits);
+            return GIFT;
+          },
+        },
+      }),
+    );
+    assert.equal(answer, 0);
+    // ⛔ THE AMOUNT IS WRITTEN OUT, not recomputed here: (1,000,000 + 500,000) × 2 epochs is
+    //    3,000,000 base units paid, and 2.5 % of that is 75,000.
+    assert.deepEqual(gifts, [75_000n]);
+    const text = out.lines.join("\n");
+    assert.match(text, /Extended\. The storage now ends at epoch 1204/);
+    assert.match(text, /standing 2\.5 % gift — 0\.000075 WAL — went to the developer/);
+  });
+});
+
+test("⛔ an account that set no share has nothing sent for it", async () => {
+  await withWalletAgreed(drive, "extend-no-tip", async (code) => {
+    await servePhoto(drive, code);
+    const gift = refuseToSign("a gift went out for an account that never asked for one");
+    const out = collect();
+    const answer = await extend(
+      "photos/a.jpg",
+      opts(out, {
+        epochs: 2,
+        sign: recordingSigner(),
+        tip: {
+          readDonation: async () => {
+            throw new Error("it asked where to send a gift nobody set");
+          },
+          sign: gift,
+        },
+      }),
+    );
+    assert.equal(answer, 0);
+    assert.equal(gift.calls, 0);
+    assert.doesNotMatch(out.lines.join("\n"), /gift/);
   });
 });
 

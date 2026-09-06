@@ -32,51 +32,9 @@
 //    code that belongs to somebody else is sent, and is not recallable. Confirm it with whoever
 //    gave it to you, out of band, before calling this.
 
-import { currentMode, type Autonomy } from "../autonomy.ts";
-import type { Asker } from "../mcp-ask.ts";
 import { share, unshare } from "../commands/share.ts";
 import type { ToolDefinition } from "../mcp.ts";
 import { common, needString, say, type ToolContext } from "./context.ts";
-
-/** The refusal a client that cannot be asked gets, and the way out of it. */
-export const CANNOT_ASK =
-  "Refused: this client cannot put a question in front of you, and a share is confirmed one at a " +
-  "time. Run `nmts share <path> <public code>` in a terminal instead, or use a client that " +
-  "supports MCP elicitation.";
-
-/** The refusal after the question was actually put and not agreed to. */
-export const SAID_NO = "Refused: the share was not confirmed. Nothing was sent and nothing changed.";
-
-/**
- * Put the share in front of the person, unless a mode says they already answered. Returns the
- * refusal to hand back, or `null` to go ahead.
- *
- * ⛔ THE QUESTION NAMES BOTH HALVES. A confirmation that says only "share a file?" is one somebody
- *    ticks; the file and the code are what makes it checkable, and the code is the half that is
- *    wrong when this goes wrong.
- *
- * ⛔ THE MODE AND THE ASKER ARE ARGUMENTS, NOT THINGS THIS READS. Both come from outside — one
- *    from a file on disk, one from what the client said — and taking them in is what lets every
- *    branch here be tested for the answer it actually gives rather than for the answer it would
- *    give on the machine the test happens to run on.
- */
-export async function confirmShare(
-  mode: Autonomy,
-  ask: Asker,
-  path: string,
-  code: string,
-): Promise<string | null> {
-  if (mode !== "off") return null;
-  if (ask === null) return CANNOT_ASK;
-  const outcome = await ask(
-    `Share "${path}" with the NMTS account whose public code is ${code}?\n\n` +
-      "Whoever holds that code can then download the file. Withdrawing the share afterwards stops " +
-      "further downloads and cannot reach a copy already fetched. The code is not checked against " +
-      "a person — if it is the wrong one, the file goes to whoever holds it.",
-  );
-  if (outcome === "unreachable") return CANNOT_ASK;
-  return outcome === "yes" ? null : SAID_NO;
-}
 
 export function shareTools(ctx: ToolContext): ToolDefinition[] {
   return [
@@ -106,8 +64,6 @@ export function shareTools(ctx: ToolContext): ToolDefinition[] {
       run: async (args) => {
         const path = needString(args, "path");
         const code = needString(args, "public_code");
-        const refusal = await confirmShare(currentMode(), ctx.asker(), path, code);
-        if (refusal !== null) return refusal;
         return say((write) => share(path, code, { ...common(ctx), json: true, write }));
       },
     },

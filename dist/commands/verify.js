@@ -24,7 +24,10 @@
 //    is reading decides.
 //
 // ⚠ IT NEEDS THE API KEY AND NOT THE ACCOUNT CODE. Nothing here opens a file, so demanding the
-//   code would refuse a run over a credential the command never uses.
+//   code would refuse a run over a credential the command never uses. The PAGE, since 2026-09-05,
+//   does want the account's holder — signed in there, or typing the account code there — because
+//   a check anybody could pass for anybody was a check that could be bought; that is said to the
+//   person in the printed text, and it changes nothing about what this command holds.
 import { request } from "../api.js";
 import { readCredentialsFile } from "../credentials.js";
 import { NmtsError } from "../errors.js";
@@ -92,8 +95,9 @@ export async function verify(options = {}) {
     human(`  Ask the person to open   ${minted.verifyUrl}`);
     human(`  and to type this code    ${minted.code}`);
     human(``);
-    human(`This is not the account code. It works once, and it stops working at`);
-    human(`${minted.expiresAt.iso} (${inWords(minted.expiresAt.ms - Date.now())}).`);
+    human(`Only this account's holder can confirm: signed in to it in that browser, or`);
+    human(`typing its account code there. The code above is not the account code. It works`);
+    human(`once, and it stops working at ${minted.expiresAt.iso} (${inWords(minted.expiresAt.ms - Date.now())}).`);
     human(``);
     human(`Waiting here until it is used. Ctrl-C stops the waiting, not the code.`);
     const wait = options.sleep ?? waitFor;

@@ -20,7 +20,6 @@
 //    see is wrong, and nothing an unattended program reads can tell it that. There is no MCP tool
 //    either, so this is the only door and it is shut from both sides.
 import { request } from "../api.js";
-import { currentMode } from "../autonomy.js";
 import { NmtsError } from "../errors.js";
 import { isRecord } from "../guards.js";
 import { recordWrittenList } from "../manifest.js";
@@ -51,15 +50,6 @@ function nothingRetained() {
 }
 export async function rollback(options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
-    // ⛔ BEFORE THE NETWORK, AND IN EVERY MODE. See the header: no setting can say on somebody's
-    //    behalf that the drive they are looking at is the wrong one.
-    if (currentMode() !== "off") {
-        throw new NmtsError(`Rolling the file list back is a person's act.`, {
-            exitCode: 5,
-            nextStep: `Run \`${BINARY_NAME} rollback\` yourself, outside mode auto and without ` +
-                `--skip-permissions.`,
-        });
-    }
     const session = await openSession({ server: options.server, network: options.network });
     const previous = asVersion(await request(session.server, "/v1/manifest/previous", { token: session.apiKey }));
     if (previous.state === "absent")

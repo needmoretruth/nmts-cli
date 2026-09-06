@@ -37,7 +37,7 @@ import {
   readReservationRecord,
   startReservationKey,
 } from "./upload-store.ts";
-import type { BlobProtocol, PaidPart, UploadApi, UploadResult, UploadStep } from "./upload-wire.ts";
+import type { BlobProtocol, PaidPart, UploadApi, UploadInput, UploadResult, UploadStep } from "./upload-wire.ts";
 
 /** How much plaintext is handed to the engine at a time. Matches the format's own chunk size. */
 const READ_CHUNK_BYTES = 4 * 2 ** 20;
@@ -115,6 +115,15 @@ export interface FileUploadInput {
    */
   padding: { rule: PaddingRule; unitBytes: number };
   onStep?: (step: FileUploadStep) => void;
+  /**
+   * Who buys ONE part and gets its bytes onto the network. Absent = the credit rail
+   * (`buyAndPushPart`); the wallet rail (`upload-wallet.ts`) supplies its own.
+   *
+   * ⛔ A SEAM SO THERE IS ONE FILE DRIVER. Sealing, the reservation key, the resume of a file
+   *    already committed and the one-commit-per-file rule are the same whoever pays; a second
+   *    driver for the wallet would be a second place for those to drift.
+   */
+  buy?: (input: UploadInput) => Promise<PaidPart>;
 }
 
 /** Told about each part as it starts, so a long upload visibly moves. */
@@ -191,7 +200,7 @@ export async function uploadFile(input: FileUploadInput): Promise<UploadResult> 
           ? await sealPartOf(input, secrets.dek, range, plan.length, sealFrom)
           : readReservationBytes(key);
       paid.push(
-        await buyAndPushPart({
+        await (input.buy ?? buyAndPushPart)({
           api: input.api,
           protocol: input.protocol,
           key,
@@ -221,7 +230,7 @@ export async function uploadFile(input: FileUploadInput): Promise<UploadResult> 
     return {
       itemId,
       resumed: paid.every((part) => part.resumed),
-      ledgerIds: paid.map((part) => part.ledgerId),
+      ledgerIds: paid.flatMap((part) => (part.ledgerId === null ? [] : [part.ledgerId])),
       fileKey,
       parts: plan.length,
       entry,

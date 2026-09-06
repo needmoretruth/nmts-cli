@@ -249,7 +249,7 @@ function uniqueById(files) {
  *   last week and then trashes its folder expects the folder to be gone from the server too — so
  *   `rm` takes this set whole. `restore` cannot: see the note at the call site.
  */
-function filesUnder(entries, rootId) {
+export function filesUnder(entries, rootId) {
     const root = entries.find((e) => e.id === rootId);
     if (root === undefined)
         return [];

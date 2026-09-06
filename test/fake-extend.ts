@@ -18,6 +18,7 @@ import { testConfigDir } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
 import { epochClock, type EpochClock } from "../src/expiry.ts";
 import type { BlobLease, ExtendReads, SignExtension } from "../src/extend-plan.ts";
+import type { CoinBalance } from "../src/wallet.ts";
 import { entry, folder, withSandbox, type FakeDrive } from "./fake-drive.ts";
 import { grantConsents } from "./helpers.ts";
 
@@ -69,7 +70,16 @@ export interface FakeChain extends ExtendReads {
  * puts an amount past what a JavaScript number holds through the machine-readable answer.
  */
 export function fakeChain(
-  over: { clock?: EpochClock; maxAhead?: number; leases?: BlobLease[]; priceFrost?: bigint } = {},
+  over: {
+    clock?: EpochClock;
+    maxAhead?: number;
+    leases?: BlobLease[];
+    priceFrost?: bigint;
+    /** What the wallet holds. `null` = could not be read. Default: plenty of both. */
+    wallet?: { wal?: bigint | null; sui?: bigint | null };
+    /** The dry-run fee in MIST. `null` = could not be measured. Default: 0.003 SUI. */
+    gas?: bigint | null;
+  } = {},
 ): FakeChain {
   const calls: string[] = [];
   return {
@@ -87,8 +97,25 @@ export function fakeChain(
       if (over.priceFrost !== undefined) return over.priceFrost;
       return leases.reduce((sum, lease) => sum + BigInt(lease.size) * BigInt(epochs), 0n);
     },
+    async readWallet(address: string) {
+      calls.push("readWallet");
+      void address;
+      const coin = (held: bigint | null | undefined, plenty: bigint): CoinBalance =>
+        held === null ? { read: false, why: "the fake chain was told not to answer" } : { read: true, baseUnits: held ?? plenty };
+      return { wal: coin(over.wallet?.wal, PLENTY_WAL), sui: coin(over.wallet?.sui, PLENTY_SUI) };
+    },
+    async estimateGas({ epochs }) {
+      calls.push(`estimateGas ${epochs}`);
+      return over.gas === undefined ? FEE_MIST : over.gas;
+    },
   };
 }
+
+/** Enough WAL for any price a test below quotes, and enough SUI for any fee. */
+export const PLENTY_WAL = 10_000_000_000_000_000n;
+export const PLENTY_SUI = 1_000_000_000n;
+/** The fee the fake dry run measures — 0.003 SUI. */
+export const FEE_MIST = 3_000_000n;
 
 /** A signer that fails the test by existing. Used wherever nothing may be signed. */
 export function refuseToSign(what: string): SignExtension & { calls: number } {

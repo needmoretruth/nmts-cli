@@ -10,7 +10,6 @@
 import { strict as assert } from "node:assert";
 import { after, test } from "node:test";
 
-import { setMode } from "../src/autonomy.ts";
 import { NmtsError } from "../src/errors.ts";
 import { rollback } from "../src/commands/rollback.ts";
 import { collect, entry, startFakeDrive, withSandbox } from "./fake-drive.ts";
@@ -29,26 +28,6 @@ async function twoVersions(code: string): Promise<void> {
   await drive.servePrevious(code, [entry({ id: "a", name: "a.txt" })], 1);
   await drive.serve(code, [entry({ id: "a", name: "a.txt" }), entry({ id: "b", name: "b.txt" })], 2);
 }
-
-test("⛔ a mode that lets an agent decide cannot roll the file list back", async () => {
-  await withSandbox(drive, "rollback-mode", async (code) => {
-    await twoVersions(code);
-    setMode("auto", "9.9.9", new Date("2026-09-03T00:00:00Z"));
-    try {
-      const failure = await rollback(opts(collect())).then(() => null, (e: unknown) => e);
-      assert.ok(failure instanceof NmtsError, `it did not refuse — ${String(failure)}`);
-      assert.equal(failure.message, "Rolling the file list back is a person's act.");
-      assert.equal(
-        failure.nextStep,
-        "Run `nmts rollback` yourself, outside mode auto and without --skip-permissions.",
-      );
-      assert.equal(failure.exitCode, 5);
-      assert.deepEqual(drive.calls, [], `it asked the server: ${drive.calls.join(" · ")}`);
-    } finally {
-      setMode("off", "9.9.9", new Date("2026-09-03T00:00:00Z"));
-    }
-  });
-});
 
 test("an account with nothing retained is refused, and pointed at the command that does help", async () => {
   await withSandbox(drive, "rollback-none", async (code) => {

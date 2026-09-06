@@ -34,6 +34,19 @@ export interface AccountSettings {
    * re-padded, and the screen says so.
    */
   paddingMode?: "pow2";
+  /**
+   * STANDING TIP — the share of every storage payment sent to the developer as a gift, in tenths
+   * of a percent (25 = 2.5 %). Absent = 0 = nothing is sent. Set by the person, once, on the
+   * wallet screen or with the CLI; from then on every payment sends it without a question, in
+   * the coin just paid (WAL).
+   */
+  tipTenths?: number;
+  /**
+   * When the person first agreed to the gift terms (voluntary · nothing in return · not refundable
+   * · goes to the published address · visible on the chain), as a UTC millisecond instant. Absent
+   * = never agreed: raising the tip above 0 asks for that agreement once, and later changes do not.
+   */
+  tipConsentAt?: number;
 }
 
 
@@ -59,7 +72,14 @@ export interface WireSettings {
    * is declared; it is saved because both functions below name it.
    */
   pd?: "pow2";
+  /** tipTenths, present only above 0. */
+  tp?: number;
+  /** tipConsentAt. */
+  tc?: number;
 }
+
+/** The most a standing tip can be: the whole payment. Above the dial's 10 % it is typed and confirmed. */
+export const TIP_TENTHS_MAX = 1000;
 
 
 /** Settings → wire, or null when every field is at its default (then nothing is written). */
@@ -77,7 +97,13 @@ export function settingsToWire(s: AccountSettings | undefined): WireSettings | n
     w.tx = Math.round(s.textScalePct);
   }
   if (s.paddingMode === "pow2") w.pd = "pow2";
-  return w.dm !== undefined || w.tx !== undefined || w.pd !== undefined ? w : null;
+  if (typeof s.tipTenths === "number" && Number.isInteger(s.tipTenths) && s.tipTenths > 0 && s.tipTenths <= TIP_TENTHS_MAX) {
+    w.tp = s.tipTenths;
+  }
+  if (typeof s.tipConsentAt === "number" && Number.isFinite(s.tipConsentAt) && s.tipConsentAt > 0) {
+    w.tc = Math.round(s.tipConsentAt);
+  }
+  return w.dm !== undefined || w.tx !== undefined || w.pd !== undefined || w.tp !== undefined || w.tc !== undefined ? w : null;
 }
 
 /**
@@ -92,6 +118,8 @@ export function settingsFromWire(w: unknown): AccountSettings | undefined {
   const dm: unknown = Reflect.get(w, "dm");
   const tx: unknown = Reflect.get(w, "tx");
   const pd: unknown = Reflect.get(w, "pd");
+  const tp: unknown = Reflect.get(w, "tp");
+  const tc: unknown = Reflect.get(w, "tc");
   const s: AccountSettings = {};
   if (dm === 1) s.developerMode = true;
   if (
@@ -106,8 +134,28 @@ export function settingsFromWire(w: unknown): AccountSettings | undefined {
   // An unknown rule is DROPPED, not guessed at: padding a file by a rule this build does not know
   // would give it a size no reader here can undo. Falling back to the default is always readable.
   if (pd === "pow2") s.paddingMode = "pow2";
-  return s.developerMode !== undefined || s.textScalePct !== undefined || s.paddingMode !== undefined
+  // A tip outside the bounds is DROPPED, not clamped: sending a share some other build miswrote is
+  // worse than sending nothing, which is always what 0 means.
+  if (typeof tp === "number" && Number.isInteger(tp) && tp > 0 && tp <= TIP_TENTHS_MAX) s.tipTenths = tp;
+  if (typeof tc === "number" && Number.isFinite(tc) && tc > 0) s.tipConsentAt = Math.round(tc);
+  return s.developerMode !== undefined ||
+    s.textScalePct !== undefined ||
+    s.paddingMode !== undefined ||
+    s.tipTenths !== undefined ||
+    s.tipConsentAt !== undefined
     ? s
     : undefined;
 }
 
+/** Folds a tip patch into a settings copy: 0 clears, above the cap is capped, fractions are rounded. */
+export function applyTipPatch(next: AccountSettings, tipTenths?: number, tipConsentAt?: number): void {
+  if (tipTenths !== undefined && Number.isFinite(tipTenths)) {
+    const t = Math.round(Math.min(TIP_TENTHS_MAX, Math.max(0, tipTenths)));
+    if (t === 0) delete next.tipTenths;
+    else next.tipTenths = t;
+  }
+  if (tipConsentAt !== undefined && Number.isFinite(tipConsentAt)) {
+    if (tipConsentAt <= 0) delete next.tipConsentAt;
+    else next.tipConsentAt = Math.round(tipConsentAt);
+  }
+}

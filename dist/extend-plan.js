@@ -3,7 +3,7 @@
 // ⛔ NO NETWORK, NO SDK, NO KEY. Everything here is arithmetic over numbers somebody else read, so
 //    `node --test` can drive every branch — including the ones a live storage network only reaches
 //    by being at its ceiling, or by having sold a lease that already ran out. The reads live in
-//    `extend-chain.ts`, the signature in `extend-sign.ts`, and neither can be reached from here.
+//    `extend-chain.ts`, the signature in `wallet-sign.ts`, and neither can be reached from here.
 //
 // ⛔ THE CHAIN IS THE AUTHORITY ON WHEN A LEASE ENDS, not the server's `expiry_epoch`. That column
 //    is client-reported and advisory — it is what `nmts expiring` ranks by, because ranking is all

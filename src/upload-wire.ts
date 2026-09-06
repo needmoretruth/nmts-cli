@@ -177,14 +177,24 @@ export interface UploadInput extends CommitInput {
 export interface PaidPart {
   /** Its position in the file. */
   partIndex: number;
-  /** The reservation row that paid for it. */
-  ledgerId: number;
+  /**
+   * The reservation row that paid for it — or null when the person's OWN WALLET paid.
+   *
+   * ⛔ THE ONE FIELD THAT SAYS WHO PAID. The server forces treasury ownership only on a part that
+   *    names a certified reservation; a part without one is the person's, and the commit says
+   *    nothing else about it (`upload-steps.ts`).
+   */
+  ledgerId: number | null;
   /** The storage network's id for its sealed bytes. */
   blobId: string;
   /** How many sealed bytes it is — what the credits were charged on. */
   sealedLen: number;
   /** True when this run did not have to spend on it, because a previous one already had. */
   resumed: boolean;
+  /** Wallet rail only: the on-chain blob object, recorded for the recovery list. */
+  suiObjectId?: string;
+  /** Wallet rail only: the epoch the bought storage ends at, read from the blob object. */
+  endEpoch?: number;
 }
 
 /** What finished. The caller writes the file list, THEN clears the records. */
@@ -192,7 +202,7 @@ export interface UploadResult {
   itemId: string;
   /** True when no part of this run had to spend, because a previous one already had. */
   resumed: boolean;
-  /** The reservation rows, for a message that can be checked against the account screen. */
+  /** The reservation rows, for a message that can be checked against the account screen. Empty on the wallet rail. */
   ledgerIds: readonly number[];
   /**
    * The account-scoped name this upload's records were filed under, and how many parts it had.

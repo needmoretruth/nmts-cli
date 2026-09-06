@@ -144,7 +144,7 @@ export function decide(
 ): Decision {
   if (askedFor === undefined) return { choice: setting, by: "setting" };
   if (askedFor === "rename") return { choice: "rename", by: "asked-for" };
-  if (mode === "off") return { choice: "rename", by: "agent-refused" };
+  if (mode === "default") return { choice: "rename", by: "agent-refused" };
   return { choice: "overwrite", by: "asked-for" };
 }
 

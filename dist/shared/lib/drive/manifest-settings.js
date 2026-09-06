@@ -14,6 +14,8 @@ export const TEXT_SCALE_MIN_PCT = 80;
 export const TEXT_SCALE_MAX_PCT = 160;
 /** Follow the device. Not written to the wire — absence is the only spelling of it. */
 export const TEXT_SCALE_DEFAULT_PCT = 100;
+/** The most a standing tip can be: the whole payment. Above the dial's 10 % it is typed and confirmed. */
+export const TIP_TENTHS_MAX = 1000;
 /** Settings → wire, or null when every field is at its default (then nothing is written). */
 export function settingsToWire(s) {
     if (!s)
@@ -30,7 +32,13 @@ export function settingsToWire(s) {
     }
     if (s.paddingMode === "pow2")
         w.pd = "pow2";
-    return w.dm !== undefined || w.tx !== undefined || w.pd !== undefined ? w : null;
+    if (typeof s.tipTenths === "number" && Number.isInteger(s.tipTenths) && s.tipTenths > 0 && s.tipTenths <= TIP_TENTHS_MAX) {
+        w.tp = s.tipTenths;
+    }
+    if (typeof s.tipConsentAt === "number" && Number.isFinite(s.tipConsentAt) && s.tipConsentAt > 0) {
+        w.tc = Math.round(s.tipConsentAt);
+    }
+    return w.dm !== undefined || w.tx !== undefined || w.pd !== undefined || w.tp !== undefined || w.tc !== undefined ? w : null;
 }
 /**
  * Wire → settings, dropping anything unusable. A text scale outside the bounds is DROPPED, not
@@ -45,6 +53,8 @@ export function settingsFromWire(w) {
     const dm = Reflect.get(w, "dm");
     const tx = Reflect.get(w, "tx");
     const pd = Reflect.get(w, "pd");
+    const tp = Reflect.get(w, "tp");
+    const tc = Reflect.get(w, "tc");
     const s = {};
     if (dm === 1)
         s.developerMode = true;
@@ -59,7 +69,33 @@ export function settingsFromWire(w) {
     // would give it a size no reader here can undo. Falling back to the default is always readable.
     if (pd === "pow2")
         s.paddingMode = "pow2";
-    return s.developerMode !== undefined || s.textScalePct !== undefined || s.paddingMode !== undefined
+    // A tip outside the bounds is DROPPED, not clamped: sending a share some other build miswrote is
+    // worse than sending nothing, which is always what 0 means.
+    if (typeof tp === "number" && Number.isInteger(tp) && tp > 0 && tp <= TIP_TENTHS_MAX)
+        s.tipTenths = tp;
+    if (typeof tc === "number" && Number.isFinite(tc) && tc > 0)
+        s.tipConsentAt = Math.round(tc);
+    return s.developerMode !== undefined ||
+        s.textScalePct !== undefined ||
+        s.paddingMode !== undefined ||
+        s.tipTenths !== undefined ||
+        s.tipConsentAt !== undefined
         ? s
         : undefined;
+}
+/** Folds a tip patch into a settings copy: 0 clears, above the cap is capped, fractions are rounded. */
+export function applyTipPatch(next, tipTenths, tipConsentAt) {
+    if (tipTenths !== undefined && Number.isFinite(tipTenths)) {
+        const t = Math.round(Math.min(TIP_TENTHS_MAX, Math.max(0, tipTenths)));
+        if (t === 0)
+            delete next.tipTenths;
+        else
+            next.tipTenths = t;
+    }
+    if (tipConsentAt !== undefined && Number.isFinite(tipConsentAt)) {
+        if (tipConsentAt <= 0)
+            delete next.tipConsentAt;
+        else
+            next.tipConsentAt = Math.round(tipConsentAt);
+    }
 }

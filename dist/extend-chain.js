@@ -2,7 +2,7 @@
 // what more epochs cost.
 //
 // ⛔ EVERYTHING HERE IS A READ. Nothing in this file builds a transaction, holds a key or moves an
-//    asset — the signature lives next door in `extend-sign.ts`, alone, so that the file which can
+//    asset — the signature lives next door in `wallet-sign.ts`, alone, so that the file which can
 //    spend is the smallest one in this tool. What is shared is the client builder below, because
 //    the two must talk to the same chain: a quote read from one network and a payment made on
 //    another is a payment for nothing.
@@ -22,6 +22,9 @@ import { epochClock } from "./expiry.js";
 import { isRecord } from "./guards.js";
 import { epochStartedMs } from "./walrus-write.js";
 import { suiRpcTransport } from "./sui-rpc.js";
+import { readBalances, walCoinType } from "./wallet.js";
+import { chainReader } from "./wallet-chain.js";
+import { Transaction } from "@mysten/sui/transactions";
 /** How long one chain question gets. A read that stalls is a read that failed. */
 export const EXTEND_READ_TIMEOUT_MS = 20_000;
 /**
@@ -133,5 +136,39 @@ export function extendReads(network) {
             const costs = await Promise.all(leases.map((lease) => client.walrus.storageCost(lease.size, epochs)));
             return costs.reduce((sum, cost) => sum + BigInt(cost.storageCost), 0n);
         },
+        async readWallet(address) {
+            const net = network === "mainnet" ? "mainnet" : "testnet";
+            return readBalances(chainReader(net, address), walCoinType(net));
+        },
+        async estimateGas({ sender, objectIds, epochs }) {
+            // ⛔ THE SAME TRANSACTION `wallet-sign.ts` SIGNS — sender, de-duplicated ids, one fragment per
+            //    blob — so the fee measured is the fee of what would actually be approved. A different
+            //    shape here would print a number no transaction ever pays.
+            try {
+                const tx = new Transaction();
+                tx.setSender(sender);
+                for (const blobObjectId of [...new Set(objectIds)]) {
+                    tx.add(client.walrus.extendBlob({ blobObjectId, epochs }));
+                }
+                const bytes = await tx.build({ client });
+                const { effects } = await client.dryRunTransactionBlock({ transactionBlock: bytes });
+                if (effects.status.status !== "success")
+                    return null;
+                return netGasFee(effects.gasUsed);
+            }
+            catch {
+                // Not a number, and not zero: "could not measure" is a different fact from "free".
+                return null;
+            }
+        },
     };
+}
+/**
+ * What a transaction actually costs in MIST: computation plus storage, less the rebate for storage
+ * it freed. Clamped at zero — a rebate can exceed the rest and the chain does not pay the sender.
+ * The browser app's `netGasFeeBaseUnits` is the same arithmetic.
+ */
+export function netGasFee(gasUsed) {
+    const fee = BigInt(gasUsed.computationCost) + BigInt(gasUsed.storageCost) - BigInt(gasUsed.storageRebate);
+    return fee > 0n ? fee : 0n;
 }

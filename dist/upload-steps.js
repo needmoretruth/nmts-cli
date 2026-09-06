@@ -12,6 +12,8 @@ const STORAGE_KIND_DEDICATED_BLOB = 0;
 const NETWORK_WALRUS = 0;
 /** Only this account can read it. Sharing is a separate act, made in a browser. */
 const VISIBILITY_PERSONAL = 0;
+/** ITEM PARTS `owner_kind`: the person's own wallet paid. ⚠ The server decides this itself, from the absence of a reservation; the field is sent for wire compatibility, as the browser sends it. */
+const OWNER_USER_WALLET = 0;
 function why(error) {
     return error instanceof Error ? error.message : String(error);
 }
@@ -83,15 +85,7 @@ export async function commitItem(input, fileKey, parts) {
             dek_wrapped: input.entry.dekWrapped,
             content_hash_ct: input.entry.contentHashCt,
             visibility: VISIBILITY_PERSONAL,
-            parts: parts.map((part) => ({
-                part_index: part.partIndex,
-                storage_kind: STORAGE_KIND_DEDICATED_BLOB,
-                network: NETWORK_WALRUS,
-                blob_id: part.blobId,
-                sealed_len: part.sealedLen,
-                expiry_epoch: expiryEpoch,
-                sponsored_ledger_id: part.ledgerId,
-            })),
+            parts: parts.map((part) => describePart(part, expiryEpoch)),
         }, `nmts-cli-commit-${fileKey}-${attempt}`);
     }
     catch (error) {
@@ -108,4 +102,30 @@ export async function commitItem(input, fileKey, parts) {
     //    unreachable.
     writeItemRecord(fileKey, { attempt, itemId: view.id });
     return view.id;
+}
+/**
+ * One part as `POST /v1/items` takes it.
+ *
+ * ⛔ WHO PAID IS SAID BY ONE FIELD AND NOTHING ELSE. A part the treasury paid for names its
+ *    reservation and the server checks it; a part the person's wallet paid for names none, and
+ *    carries instead what the recovery list needs — the blob object and the epoch the chain says
+ *    the storage ends at — exactly as the browser's wallet-paid commit does.
+ */
+function describePart(part, expiryEpoch) {
+    const common = {
+        part_index: part.partIndex,
+        storage_kind: STORAGE_KIND_DEDICATED_BLOB,
+        network: NETWORK_WALRUS,
+        blob_id: part.blobId,
+        sealed_len: part.sealedLen,
+    };
+    if (part.ledgerId !== null) {
+        return { ...common, expiry_epoch: expiryEpoch, sponsored_ledger_id: part.ledgerId };
+    }
+    return {
+        ...common,
+        owner_kind: OWNER_USER_WALLET,
+        expiry_epoch: part.endEpoch ?? expiryEpoch,
+        ...(part.suiObjectId !== undefined ? { sui_object_id: part.suiObjectId } : {}),
+    };
 }

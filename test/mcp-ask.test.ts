@@ -10,7 +10,6 @@ import { test } from "node:test";
 
 import { askerFor, declaredElicitation, readAnswer, CONFIRM_SCHEMA, type Asker } from "../src/mcp-ask.ts";
 import { serve, type ToolDefinition } from "../src/mcp.ts";
-import { CANNOT_ASK, SAID_NO, confirmShare } from "../src/mcp-tools/share.ts";
 import { PRODUCT_NAME, VERSION } from "../src/product.ts";
 
 const INFO = { name: PRODUCT_NAME, version: VERSION };
@@ -76,58 +75,6 @@ test("a client that declared it can be asked and then fails is a no, not a hang"
   assert.notEqual(ask, null);
   if (ask === null) return;
   assert.equal(await ask("share it?"), "no");
-});
-
-test("the refusal for a client that cannot be asked names the way round it", () => {
-  // ⛔ A refusal with no way forward is a dead end, and this is the one refusal a person meets
-  //    through no fault of their own — their client simply cannot show a question.
-  assert.match(CANNOT_ASK, /nmts share/);
-});
-
-test("with no mode set, no asker means refused rather than shared", async () => {
-  assert.equal(await confirmShare("off", null, "a.txt", "CODE"), CANNOT_ASK);
-});
-
-test("with no mode set, a no is refused and says nothing happened", async () => {
-  assert.equal(await confirmShare("off", () => Promise.resolve("no"), "a.txt", "CODE"), SAID_NO);
-});
-
-test("with no mode set, a yes goes ahead", async () => {
-  assert.equal(await confirmShare("off", () => Promise.resolve("yes"), "a.txt", "CODE"), null);
-});
-
-test("the question names the file and the code, because that is what is being checked", async () => {
-  let asked = "";
-  await confirmShare(
-    "off",
-    (message) => {
-      asked = message;
-      return Promise.resolve("yes");
-    },
-    "reports/q3.pdf",
-    "PUB-1234",
-  );
-  assert.match(asked, /reports\/q3\.pdf/);
-  assert.match(asked, /PUB-1234/);
-});
-
-test("a mode that is on is the answer already given, and nothing is asked", async () => {
-  // ⛔ The person typed a flag that spells out the risk to turn one of these on. Asking anyway
-  //    would be overriding the setting they made, in the one case where nobody is there to answer.
-  for (const mode of ["auto", "skip-permissions"] as const) {
-    let asked = 0;
-    const refusal = await confirmShare(
-      mode,
-      () => {
-        asked += 1;
-        return Promise.resolve("no");
-      },
-      "a.txt",
-      "CODE",
-    );
-    assert.equal(refusal, null, `${mode} must go ahead`);
-    assert.equal(asked, 0, `${mode} must not put a question in front of anybody`);
-  }
 });
 
 /** Drive `serve` over a pipe the way a client does, collecting every line it writes. */

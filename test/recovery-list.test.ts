@@ -287,7 +287,7 @@ test("⛔ the proof is not built from a plain environment variable without the a
     // Nothing is granted in this directory, which is where every machine starts.
     const failure = await refusal(accountProofFor({ code: "irrelevant", source: "env" }));
     assert.equal(failure.exitCode, 5, "an ungranted agreement is exit 5");
-    assert.match(String(failure.nextStep), /consent grant plain-env/);
+    assert.match(String(failure.nextStep), /unlock plain-env/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
     if (before.dir === undefined) delete process.env["NMTS_CONFIG_DIR"];

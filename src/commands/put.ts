@@ -1,6 +1,8 @@
-// `nmts put <file>` — one file in, sealed on this machine, paid for with credits.
+// `nmts put <file>` — one file in, sealed on this machine, paid for with credits — or, with
+// `--pay wallet`, paid for by the person's own wallet (`put-wallet.ts`, which this file hands off
+// to before anything is read or priced).
 //
-// ⛔ THE ONLY COMMAND IN THIS TOOL THAT SPENDS. Everything about it is arranged so that is never a
+// ⛔ THE COMMAND THAT SPENDS CREDITS. Everything about it is arranged so that is never a
 //   surprise: `--dry-run` says the price without paying it, the price is printed before the work
 //   starts, and a failure says whether the money already moved. The machinery that keeps a half
 //   finished upload from becoming money that bought nothing is in `upload.ts`.
@@ -15,7 +17,6 @@ import { identityOf } from "../account.ts";
 import { requireAccountCode } from "../code-access.ts";
 import { API_KEY_ENV_VAR, CODE_ENV_VAR, readCredentialsFile, resolveApiKey } from "../credentials.ts";
 import { parseAsked } from "../collision.ts";
-import { requireConsent } from "../consent.ts";
 import { DERIVED, loadCrypto } from "../crypto.ts";
 import { buildIndex, fullPathOf, isLive, KIND_FOLDER, normalisePath } from "../drive-paths.ts";
 import { NmtsError } from "../errors.ts";
@@ -61,8 +62,45 @@ export interface PutOptions {
   partSize?: string | number | undefined;
   /** What THIS run does about a name already in use. Absent = this machine's setting. */
   onCollision?: string | undefined;
+  /**
+   * Who pays for the storage: `credits` (absent) or `wallet`.
+   *
+   * ⛔ A VALUE, NOT A FLAG, so that a command line says which money it spends. Everything about the
+   *    wallet path — the epochs, the review, the agreement, the signatures — is in `put-wallet.ts`.
+   */
+  pay?: string | undefined;
+  /** `--pay wallet`: how many epochs to buy. Refused with credits, whose term is fixed. */
+  epochs?: string | number | undefined;
+  /** `--pay wallet`: a held storage resource to use — `fit`, `whole`, or its object id. */
+  storage?: string | undefined;
   json?: boolean;
   write?: (line: string) => void;
+}
+
+/** Who pays, or a refusal for a payer this tool does not know. */
+export function payerOf(pay: string | undefined): "credits" | "wallet" {
+  if (pay === undefined || pay === "credits") return "credits";
+  if (pay === "wallet") return "wallet";
+  throw new NmtsError(`--pay takes credits or wallet, not "${pay}".`, {
+    exitCode: 2,
+    nextStep: `Nothing was sent. --pay wallet buys the storage from the wallet this account code derives; without it credits pay.`,
+  });
+}
+
+/** The two options that only mean something when the wallet pays, refused when it does not. */
+export function refuseWalletOnlyOptions(options: { epochs?: string | number | undefined; storage?: string | undefined }): void {
+  if (options.epochs !== undefined) {
+    throw new NmtsError("--epochs only applies with --pay wallet: one credit buys a fixed term.", {
+      exitCode: 2,
+      nextStep: `Nothing was sent. Add --pay wallet to choose the term, or leave --epochs off to pay with credits.`,
+    });
+  }
+  if (options.storage !== undefined) {
+    throw new NmtsError("--storage only applies with --pay wallet: credits buy storage from the treasury.", {
+      exitCode: 2,
+      nextStep: `Nothing was sent. Add --pay wallet to use a storage resource this wallet holds.`,
+    });
+  }
 }
 
 /**
@@ -103,6 +141,12 @@ export function folderIdFor(
 
 
 export async function put(target: string | undefined, options: PutOptions = {}): Promise<number> {
+  // ⛔ DECIDED BEFORE ANYTHING IS READ. The wallet path prices in WAL and signs; nothing below this
+  //    line knows how to do either, and it must not learn.
+  if (payerOf(options.pay) === "wallet") {
+    return (await import("./put-wallet.ts")).putWithWallet(target, options);
+  }
+  refuseWalletOnlyOptions(options);
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));
   if (target === undefined || target === "") {
     throw new NmtsError("Say which file to put.", {
@@ -188,7 +232,6 @@ export async function put(target: string | undefined, options: PutOptions = {}):
   // ⛔ ASKED AFTER THE PRICE IS KNOWN AND BEFORE ANYTHING LEAVES. Working the price out is local
   //    and free, so doing it first costs nothing and lets the refusal name a real number instead
   //    of a warning about spending in general. `--dry-run` returns above this line and never asks.
-  requireConsent("spend");
 
   // ⛔ Resolved from the list read above — which happened BEFORE the money moves, so a rolled-back
   //    or forked list stops the upload rather than being discovered after it is paid for.

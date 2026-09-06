@@ -31,7 +31,7 @@ export interface BalanceOptions {
 
 /** What the narrow read answers. Everything is optional here because a server may be older. */
 interface Summary {
-  credits: { remaining: number; soonest_expiry: string | null; file_cap: number; daily_cap: number };
+  credits: { remaining: number; soonest_expiry: string | null; file_cap: number; daily_cap: number; held: number; deposits: number };
   quota: { granted: number; used: number };
   storage: { parts: number; earliest_expiry_epoch: number | null };
   terms: { acceptance_required: boolean };
@@ -65,6 +65,9 @@ function asSummary(value: unknown): Summary {
       soonest_expiry: typeof expiry === "string" ? expiry : null,
       file_cap: num(credits["file_cap"], "credits.file_cap"),
       daily_cap: num(credits["daily_cap"], "credits.daily_cap"),
+      // Deposits arrived with the server that returns them; an older server simply has none.
+      held: typeof credits["held"] === "number" ? credits["held"] : 0,
+      deposits: typeof credits["deposits_held"] === "number" ? credits["deposits_held"] : 0,
     },
     quota: { granted: num(quota["granted"], "quota.granted"), used: num(quota["used"], "quota.used") },
     storage: {
@@ -102,6 +105,10 @@ export async function balance(options: BalanceOptions = {}): Promise<number> {
     say(`           soonest to lapse unused: ${credits.soonest_expiry}`);
   }
   say(`ceilings   ${credits.file_cap} per file · ${credits.daily_cap} per day`);
+  if (credits.held > 0) {
+    // Tied up, not spent: each credit-paid file puts a deposit down, returned when its period ends.
+    say(`deposits   ${plural(credits.held, "credit", "credits")} held on ${plural(credits.deposits, "stored file", "stored files")} — back when the storage period ends`);
+  }
   say(`holding    ${humanSize(quota.used)} across ${plural(storage.parts, "stored piece", "stored pieces")}`);
   if (storage.earliest_expiry_epoch !== null) {
     say(
@@ -112,7 +119,7 @@ export async function balance(options: BalanceOptions = {}): Promise<number> {
   if (summary.terms.acceptance_required) {
     say(``);
     say(`⛔ New terms are in force and this account has not accepted them.`);
-    say(`   A person has to read and accept them in a browser; nothing here can do it.`);
+    say(`   A person reads and accepts them — \`${BINARY_NAME} accept-terms\` here, or in a browser.`);
   }
   return 0;
 }

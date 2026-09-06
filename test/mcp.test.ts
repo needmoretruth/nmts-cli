@@ -276,7 +276,7 @@ test("a tool really reads the account and writes the file, and stdout stays clea
   process.env["NMTS_CONFIG_DIR"] = dir;
   // ⛔ These suites hand the code in through the environment, which asks once. The agreement is
   //    tested in consent.test.ts and cli.test.ts; here it would only stop the test at exit 5.
-  grantConsents(dir, "plain-env", "spend");
+  grantConsents(dir, "plain-env");
   process.env[AGGREGATOR_ENV_VAR] = SEAM_BASE;
   process.env[API_KEY_ENV_VAR] = ["nmts", "ak1", "Abcdefghijkl"].join("_") + "_" + "x".repeat(43);
   try {

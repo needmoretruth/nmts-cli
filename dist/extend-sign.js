@@ -1,7 +1,7 @@
 // ⛔ THE ONE FILE IN THIS TOOL THAT SIGNS. Everything it can do moves real assets and cannot be
 //    reversed by anybody, including NMTS.
 //
-// ⛔ IT IS REACHED FROM EXACTLY ONE PLACE: `commands/extend.ts`, after `requireConsent("wallet")`
+// ⛔ IT IS REACHED FROM EXACTLY ONE PLACE: `commands/extend.ts`, after `requireWalletGrant(…)`
 //    and after the price has been read and printed. Nothing else imports it, and it is loaded
 //    lazily so that a run which does not spend never even brings the code into memory.
 //
@@ -126,5 +126,11 @@ export const signExtension = async ({ network, code, objectIds, epochs }) => {
                 `\`nmts wallet\` shows both — or a length the network will no longer sell.`,
         });
     }
+    // ⛔ SUCCESS IS ALREADY KNOWN — the effects above said so. This wait is for what happens NEXT:
+    //    the server is told the digest, `nmts wallet` is run, the browser's activity list opens —
+    //    and a full node that has not indexed the transaction yet answers those as if nothing
+    //    happened. Waiting until it is readable is what the browser's signers do. A wait that times
+    //    out changes nothing about what was signed, so it is not an error of this extension.
+    await client.waitForTransaction({ digest: result.digest }).catch(() => undefined);
     return result.digest;
 };

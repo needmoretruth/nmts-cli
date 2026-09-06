@@ -1,7 +1,7 @@
 {
   "name": "@needmoretruth/nmts-cli",
-  "version": "0.20.0",
-  "description": "Command-line access to NMTS end-to-end encrypted storage, for people and for their agents.",
+  "version": "0.23.0",
+  "description": "Command-line and MCP access to NMTS: open-source, end-to-end encrypted storage on the Walrus network. No fee to NMTS; you pay the network from your own wallet. For people and for their agents.",
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
@@ -29,6 +29,54 @@
   "bin": {
     "nmts": "./dist/main.js"
   },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./api": {
+      "types": "./dist/api.d.ts",
+      "default": "./dist/api.js"
+    },
+    "./credentials": {
+      "types": "./dist/credentials.d.ts",
+      "default": "./dist/credentials.js"
+    },
+    "./crypto": {
+      "types": "./dist/crypto.d.ts",
+      "default": "./dist/crypto.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    },
+    "./manifest": {
+      "types": "./dist/manifest.d.ts",
+      "default": "./dist/manifest.js"
+    },
+    "./manifest-write": {
+      "types": "./dist/manifest-write.d.ts",
+      "default": "./dist/manifest-write.js"
+    },
+    "./drive-paths": {
+      "types": "./dist/drive-paths.d.ts",
+      "default": "./dist/drive-paths.js"
+    },
+    "./upload-file": {
+      "types": "./dist/upload-file.d.ts",
+      "default": "./dist/upload-file.js"
+    },
+    "./download": {
+      "types": "./dist/download.d.ts",
+      "default": "./dist/download.js"
+    },
+    "./wallet-sign": {
+      "types": "./dist/wallet-sign.d.ts",
+      "default": "./dist/wallet-sign.js"
+    },
+    "./package.json": "./package.json"
+  },
   "engines": {
     "node": ">=22"
   },
@@ -37,6 +85,7 @@
     "vendor",
     "README.md",
     "AGENTS.md",
+    "docs",
     "LICENSE",
     "LICENSING.md"
   ],
@@ -51,6 +100,7 @@
   },
   "dependencies": {
     "@mysten/sui": "^2.20.1",
-    "@mysten/walrus": "^1.2.3"
+    "@mysten/walrus": "^1.2.3",
+    "uqr": "^0.1.3"
   }
 }

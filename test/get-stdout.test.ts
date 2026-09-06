@@ -88,7 +88,7 @@ async function withSandbox(name: string, body: (dir: string, code: string) => Pr
   mkdirSync(dir, { recursive: true });
   process.env["NMTS_CONFIG_DIR"] = dir;
   // The agreements themselves are tested in consent.test.ts; here they would only stop the run.
-  grantConsents(dir, "plain-env", "spend");
+  grantConsents(dir, "plain-env");
   process.env[AGGREGATOR_ENV_VAR] = BASE;
   process.env[API_KEY_ENV_VAR] = KEY;
   const code = await generateCode();

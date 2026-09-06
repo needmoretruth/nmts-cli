@@ -29,21 +29,6 @@ import { NmtsError } from "./errors.js";
 import { BINARY_NAME, SUPPORT_EMAIL } from "./product.js";
 export const CONSENTS = {
     /**
-     * Spending the account's credits.
-     *
-     * Asked once because the price of every single upload is printed anyway — what this covers is
-     * the person understanding that this tool can spend at all, which is not obvious from a command
-     * called `put`.
-     */
-    spend: {
-        what: "Spend this account's credits on storage.",
-        risk: "Credits are consumed and are not refundable. Storage is bought on a public network and " +
-            "cannot be un-bought. The price of each upload is printed before it happens, and daily " +
-            "ceilings apply on the server whatever this machine asks for.",
-        limit: "This does not cover anything spent from a wallet. That is a separate agreement, and this " +
-            "one does not grant it.",
-    },
-    /**
      * Writing the account code down UNSEALED — in the clear, in this tool's own file.
      *
      * ⛔ THE DEFAULT IS THE SEALED FORM, and this key is what unlocks the other one (owner,
@@ -112,12 +97,65 @@ export const CONSENTS = {
         limit: "This does not cover uploading, spending, or anything to do with a wallet. It covers giving " +
             "away files this account already holds.",
     },
+    /**
+     * ⛔ THIS ONE IS NOT A BARE DATE. `wallet-grant.ts` writes it with a scope, an expiry of at most
+     *    30 days and optional ceilings, and `requireWalletGrant` is what asks for it — the plain
+     *    `requireConsent("wallet")` would read an older bare-date record as "everything, forever".
+     */
     wallet: {
         what: "Use the wallet this account code derives, and sign transactions with it.",
         risk: "A signed transaction moves real assets and cannot be reversed by anybody, including NMTS. " +
-            "A mistake here is permanent.",
+            "A mistake here is permanent. The agreement names a scope, runs out after at most 30 days, " +
+            "and can carry a ceiling on what this tool signs away.",
         limit: "Only what this tool signs. Handing the account code to another program gives that program " +
             "the same wallet, and nothing here can see that happen.",
+    },
+    /** Ending another device's session — the browser's, usually. */
+    "sign-out": {
+        what: "Sign devices out of this account from this machine.",
+        risk: "Whoever is signed in on that device is signed out at once, in the middle of whatever they were " +
+            "doing. From a key, signing out everywhere ends every browser session, including the one that " +
+            "can revoke this machine's key.",
+        limit: "This does not touch files, credits or the wallet. It ends sessions and nothing else.",
+    },
+    /** Putting the previous file list back. */
+    rollback: {
+        what: "Replace the current file list with the previous one.",
+        risk: "Every change since the previous list was written disappears from the list: uploads since then " +
+            "are no longer named by it, and moves, renames and labels since then are undone. The files " +
+            "themselves are not touched, and a rebuild can find what the list forgot.",
+        limit: "This covers the list. It cannot restore a file whose storage has run out.",
+    },
+    /** Printing the account code. */
+    reveal: {
+        what: "Print the account code on this screen.",
+        risk: "The account code is the account: anyone who reads it can open every file and delete the " +
+            "account. A screen is copied by terminals, session recorders and screenshots, and by any " +
+            "program reading this tool's output.",
+        limit: "This covers printing it. Where it goes afterwards is not something this tool can see.",
+    },
+    /** Writing the account code into a recovery kit. */
+    kit: {
+        what: "Write the account code into a recovery kit file on this disk.",
+        risk: "The kit holds the code in the clear. Anything that reads this disk — a backup, a sync " +
+            "folder, another user, an image built from it — reads the code, and the code is the account.",
+        limit: "The recovery list alone (`recovery-list`) holds no code and asks for nothing.",
+    },
+    /** A gift to the developer — on its own, or as a tip at payment (2026-09-06). */
+    donate: {
+        what: "Send gifts to the developer of NMTS from this account's wallet.",
+        risk: "A gift is voluntary, buys nothing, and is not refunded. It goes to the address the site " +
+            "publishes, and like every transaction on the chain it is visible to anyone on an explorer " +
+            "such as Suiscan. Once sent it cannot be recalled by anybody, NMTS included.",
+        limit: "This covers gifts this tool sends: `wallet donate`, and a tip named at a payment. Every gift " +
+            "still asks on the run that sends it, and a standing tip above ten percent asks once more.",
+    },
+    /** Destroying the treasury-owned storage under a credit-paid file. */
+    "release-storage": {
+        what: "Destroy the credit-paid storage under a file, so the network stops serving its bytes.",
+        risk: "The bytes stop being served for good. The server allows forty of these a day for the whole " +
+            "service, so a loop here can stop other people's credit uploads for the day.",
+        limit: "This covers credit-paid storage only. Storage bought with your own wallet is burned by the wallet.",
     },
 };
 /**
@@ -128,6 +166,27 @@ export const CONSENTS = {
 export const CONSENT_KEYS = Object.keys(CONSENTS);
 function path() {
     return join(configDir(), "consent.json");
+}
+/**
+ * The whole file, as written. `wallet-grant.ts` keeps its richer record under the same key so
+ * `consent` still lists one thing per key; nothing else should reach for this.
+ */
+export function readConsentRecords() {
+    try {
+        const parsed = JSON.parse(readFileSync(path(), "utf8"));
+        if (typeof parsed !== "object" || parsed === null)
+            return {};
+        return { ...parsed };
+    }
+    catch {
+        return {};
+    }
+}
+export function writeConsentRecords(all) {
+    mkdirSync(configDir(), { recursive: true, mode: 0o700 });
+    writeFileSync(path(), `${JSON.stringify(all, null, 2)}\n`, { mode: 0o600 });
+    if (modesAreEnforced())
+        chmodSync(path(), 0o600);
 }
 function read() {
     try {
@@ -188,11 +247,11 @@ export function requireConsent(key) {
             `machine, including an AI agent. The published Terms are what govern the service; this is a`,
             `warning, not a substitute for them.`,
             "",
-            `To agree, on this machine, once:  ${BINARY_NAME} consent grant ${key}`,
-            `To see what has been agreed to:   ${BINARY_NAME} consent`,
+            `To unlock, at a terminal, once:  ${BINARY_NAME} unlock ${key}`,
+            `To see what is unlocked:         ${BINARY_NAME} unlock`,
             "",
             `⛔ If a program is reading this on somebody's behalf: show it to them and let them decide.`,
-            `   Do not run the grant command yourself.`,
+            `   Do not run the unlock command yourself.`,
             "",
             `Something wrong or confusing here? ${SUPPORT_EMAIL}`,
         ].join("\n"),

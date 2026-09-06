@@ -3,7 +3,7 @@
 // ⛔ NO NETWORK, NO SDK, NO KEY. Everything here is arithmetic over numbers somebody else read, so
 //    `node --test` can drive every branch — including the ones a live storage network only reaches
 //    by being at its ceiling, or by having sold a lease that already ran out. The reads live in
-//    `extend-chain.ts`, the signature in `extend-sign.ts`, and neither can be reached from here.
+//    `extend-chain.ts`, the signature in `wallet-sign.ts`, and neither can be reached from here.
 //
 // ⛔ THE CHAIN IS THE AUTHORITY ON WHEN A LEASE ENDS, not the server's `expiry_epoch`. That column
 //    is client-reported and advisory — it is what `nmts expiring` ranks by, because ranking is all
@@ -18,6 +18,7 @@ import { NmtsError } from "./errors.ts";
 import type { EpochClock } from "./expiry.ts";
 import { isRecord } from "./guards.ts";
 import { BINARY_NAME } from "./product.ts";
+import type { WalletBalances } from "./wallet.ts";
 
 /**
  * The longest extension the NMTS server will RECORD, in epochs.
@@ -214,6 +215,20 @@ export interface ExtendReads {
   readLeases(objectIds: readonly string[]): Promise<BlobLease[]>;
   /** What extending all of them by `epochs` costs, in FROST (WAL base units). */
   quote(leases: readonly BlobLease[], epochs: number): Promise<bigint>;
+  /**
+   * What the wallet that would sign holds right now, each coin answering for itself.
+   *
+   * ⛔ A BALANCE THAT COULD NOT BE READ COMES BACK AS THAT, never as zero — `wallet.ts` states the
+   *    rule and this is where it matters most: a zero here would refuse a purchase the wallet can
+   *    afford, and an unread balance drawn as enough would sign a transaction that fails.
+   */
+  readWallet(address: string): Promise<WalletBalances>;
+  /**
+   * The chain fee of THIS extension in MIST (SUI base units), measured by dry-running the exact
+   * transaction that would be signed — or `null` when the chain could not measure it (an empty
+   * wallet has no gas coin to dry-run with; a node can be down). ⛔ NEVER ZERO FOR "UNKNOWN".
+   */
+  estimateGas(input: { sender: string; objectIds: readonly string[]; epochs: number }): Promise<bigint | null>;
 }
 
 /**

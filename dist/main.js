@@ -19,19 +19,15 @@
 //      0 done · 1 something went wrong · 2 the command line was wrong · 3 not signed in ·
 //      4 the command exists but could not do it · 5 waiting on the person's agreement ·
 //      130 cancelled.
-//    ⚠ 4 IS "COULD NOT", NOT "NOT BUILT". This block used to say "the command exists but is not
-//      built", which is not what any command means by it — "no such path", "that is a file", "a
-//      folder cannot go inside itself" are all 4. `NotBuiltYetError` shares the number and carries
-//      "do not retry"; nothing collides today because nothing is announced-and-unfinished, and if
-//      that list is ever repopulated the unfinished case needs a number of its own
-//      (2026-08-23).
+//    ⚠ 4 IS "COULD NOT", NOT "NOT BUILT" — "no such path", "that is a file" are 4;
+//      `NotBuiltYetError` shares the number and carries "do not retry" (2026-08-23).
 //
 // ⛔ `run` RETURNS A CODE AND NEVER EXITS. Only the bottom of this file calls process.exit, so the
 //    whole command surface can be driven from a test without ending the test runner.
 import { parseArgs } from "./args.js";
 import { NmtsError, NotBuiltYetError, renderError } from "./errors.js";
 import { endQuietlyOnClosedPipe, exitCodeFor, invokedDirectly, noteUpdateAfter } from "./exit.js";
-import { helpText } from "./help.js";
+import { printHelp } from "./help.js";
 import { BINARY_NAME, VERSION } from "./product.js";
 /**
  * Commands the help text announces but this version cannot run.
@@ -50,8 +46,7 @@ export async function run(argv) {
         return 0;
     }
     if (args.help || args.command === null || args.command === "help") {
-        process.stdout.write(helpText(VERSION));
-        return 0;
+        return await printHelp(args, (text) => process.stdout.write(text));
     }
     // ⛔ A MODE THAT STOPPED ANNOUNCING ITSELF IS ONE PEOPLE FORGET THEY TURNED ON, and this one
     //    decides whether anybody is asked before money is spent. So it is said on EVERY run, to
@@ -67,8 +62,10 @@ export async function run(argv) {
     //    SDK, which is the largest thing this package can load, and importing it at the top of this
     //    file made `nmts --help` pay for it: startup went from 0.13s to 0.20s the day `put` landed.
     //    An agent runs this tool in a loop, so a fixed cost per invocation is paid thousands of
-    //    times — and the cost grows with every command added, which is exactly the shape of problem
-    //    that is never noticed until it is large. `check:cli-startup` measures it.
+    //    times. `check:cli-startup` measures it.
+    // ⛔ THE TIER GATE, BEFORE ANY COMMAND LOADS (`risk.ts` · `gate.ts`): asked or refused by the
+    //    act's tier and this machine's mode, the same way for every command.
+    await (await import("./risk.js")).gateArgs(args);
     switch (args.command) {
         case "login": {
             const { login } = await import("./commands/login.js");
@@ -124,9 +121,9 @@ export async function run(argv) {
         case "wallet": {
             const { wallet } = await import("./commands/wallet.js");
             return await wallet(args.operands[0], {
-                server: args.server,
-                network: args.network,
-                json: args.json,
+                server: args.server, network: args.network, json: args.json, qr: args.qr,
+                rest: args.operands.slice(1), yes: args.yes, dryRun: args.dryRun, feeCap: args.feeCap,
+                to: args.to, venue: args.venue, slippageBps: args.slippageBps, acceptExtremes: args.acceptExtremes, size: args.size, epochs: args.epochs,
             });
         }
         case "expiring": {
@@ -193,6 +190,9 @@ export async function run(argv) {
                 dryRun: args.dryRun,
                 partSize: args.partSize,
                 onCollision: args.onCollision,
+                pay: args.pay,
+                epochs: args.epochs,
+                storage: args.storage,
                 json: args.json,
             });
         }
@@ -206,6 +206,9 @@ export async function run(argv) {
                 hidden: args.hidden,
                 partSize: args.partSize,
                 onCollision: args.onCollision,
+                pay: args.pay,
+                epochs: args.epochs,
+                storage: args.storage,
                 json: args.json,
             });
         }
@@ -219,12 +222,15 @@ export async function run(argv) {
         }
         case "sweep": {
             const { sweep } = await import("./commands/sweep.js");
-            return await sweep({
-                server: args.server,
-                network: args.network,
-                json: args.json,
-                yes: args.yes,
-            });
+            return await sweep({ server: args.server, network: args.network, json: args.json, yes: args.yes });
+        }
+        case "key": {
+            const { key } = await import("./commands/key.js");
+            return await key(args.operands[0], args);
+        }
+        case "devices": {
+            const { devices } = await import("./commands/devices.js");
+            return await devices({ server: args.server, json: args.json, signOut: args.signOut, yes: args.yes });
         }
         case "rebuild": {
             const { rebuild } = await import("./commands/rebuild.js");
@@ -246,12 +252,7 @@ export async function run(argv) {
         }
         case "rollback": {
             const { rollback } = await import("./commands/rollback.js");
-            return await rollback({
-                server: args.server,
-                network: args.network,
-                json: args.json,
-                yes: args.yes,
-            });
+            return await rollback({ server: args.server, network: args.network, json: args.json, yes: args.yes });
         }
         case "listfile": {
             const { listfile } = await import("./commands/listfile.js");
@@ -287,84 +288,48 @@ export async function run(argv) {
                 json: args.json,
             });
         }
-        case "star": {
-            const { star } = await import("./commands/marks.js");
-            return await star(args.operands, { server: args.server, network: args.network, json: args.json });
-        }
-        case "unstar": {
-            const { unstar } = await import("./commands/marks.js");
-            return await unstar(args.operands, { server: args.server, network: args.network, json: args.json });
-        }
-        case "pin": {
-            const { pin } = await import("./commands/marks.js");
-            return await pin(args.operands, { server: args.server, network: args.network, json: args.json });
-        }
-        case "unpin": {
-            const { unpin } = await import("./commands/marks.js");
-            return await unpin(args.operands, { server: args.server, network: args.network, json: args.json });
-        }
-        case "label": {
-            const options = { server: args.server, network: args.network, json: args.json };
-            // ⛔ `--rename` IS A DIFFERENT COMMAND WEARING THE SAME VERB, and it is dispatched here so
-            //    that the label sweep cannot be reached by accident: `label <name> <files>` puts a mark
-            //    on the files it names, and `label --rename <old> <new>` touches every file in the
-            //    account. One takes paths and the other refuses them.
-            if (args.rename !== undefined) {
-                const { labelRename } = await import("./commands/marks.js");
-                return await labelRename(args.rename, args.operands[0], options);
-            }
-            const { label } = await import("./commands/marks.js");
-            return await label(args.operands[0], args.operands.slice(1), options);
-        }
+        case "star":
+        case "unstar":
+        case "pin":
+        case "unpin":
+        case "label":
         case "unlabel": {
-            const options = { server: args.server, network: args.network, json: args.json };
-            if (args.all) {
-                const { unlabelAll } = await import("./commands/marks.js");
-                return await unlabelAll(args.operands[0], options);
-            }
-            const { unlabel } = await import("./commands/marks.js");
-            return await unlabel(args.operands[0], args.operands.slice(1), options);
+            const { runMarks } = await import("./commands/marks-dispatch.js");
+            return await runMarks(args.command, args);
         }
-        case "share": {
-            const { share } = await import("./commands/share.js");
-            return await share(args.operands[0], args.operands[1], {
-                server: args.server,
-                network: args.network,
-                json: args.json,
-            });
-        }
-        case "shares": {
-            const options = { server: args.server, network: args.network, json: args.json };
-            if (args.sent !== undefined) {
-                const { sharesSent } = await import("./commands/share.js");
-                return await sharesSent(args.sent, options);
-            }
-            const { shares } = await import("./commands/share.js");
-            return await shares(options);
-        }
-        case "unshare": {
-            const { unshare } = await import("./commands/share.js");
-            return await unshare(args.operands[0], {
-                server: args.server,
-                network: args.network,
-                json: args.json,
-            });
-        }
+        case "share":
+        case "shares":
+        case "unshare":
         case "receive": {
-            const { receive } = await import("./commands/receive.js");
-            return await receive(args.operands[0], {
-                server: args.server,
-                network: args.network,
-                out: args.out,
-                force: args.force,
-                json: args.json,
-            });
+            const { runShare } = await import("./commands/share-dispatch.js");
+            return await runShare(args.command, args);
+        }
+        case "support": {
+            // ⚠ Options passed whole, as `runSettings` below takes them: this one reads ten of them.
+            const { support } = await import("./commands/support.js");
+            return await support(args.operands[0], args.operands.slice(1), args);
+        }
+        case "notices":
+        case "erase":
+            return await (await import("./commands/erase.js")).erase(args.operands, { server: args.server, network: args.network, json: args.json, releaseStorage: args.releaseStorage, yes: args.yes });
+        case "tip":
+            return await (await import("./commands/tip.js")).tip(args.operands[0], { server: args.server, network: args.network, json: args.json, yes: args.yes });
+        case "delete-account":
+            return await (await import("./commands/delete-account.js")).deleteAccount({ server: args.server, yes: args.yes });
+        case "accept-terms":
+            return await (await import("./commands/accept-terms.js")).acceptTerms({ server: args.server, terms: args.acceptTerms, privacy: args.acceptPrivacy });
+        case "terms":
+        case "privacy": {
+            const { runDocuments } = await import("./commands/documents.js");
+            return await runDocuments(args.command, { ...args, id: args.operands[0] });
         }
         case "env": {
             const { env } = await import("./commands/env.js");
             return env({ json: args.json });
         }
         case "consent":
+        case "unlock":
+        case "lock":
         case "mode":
         case "on-collision": {
             const { runSettings } = await import("./commands/settings.js");
@@ -374,29 +339,11 @@ export async function run(argv) {
             const { verify } = await import("./commands/verify.js");
             return await verify({ server: args.server, json: args.json, status: args.status });
         }
-        case "recovery": {
-            const { recovery } = await import("./commands/recovery.js");
-            return await recovery({ out: args.out, force: args.force, json: args.json });
-        }
-        case "recovery-list": {
-            const { recoveryList } = await import("./commands/recovery-list.js");
-            return await recoveryList({
-                server: args.server,
-                network: args.network,
-                out: args.out,
-                force: args.force,
-                json: args.json,
-            });
-        }
+        case "recovery":
+        case "recovery-list":
         case "kit": {
-            const { kit } = await import("./commands/kit.js");
-            return await kit({
-                server: args.server,
-                network: args.network,
-                out: args.out,
-                force: args.force,
-                json: args.json,
-            });
+            const { runRecovery } = await import("./commands/recovery-dispatch.js");
+            return await runRecovery(args.command, args);
         }
         case "update": {
             const { update } = await import("./commands/update.js");
@@ -423,13 +370,23 @@ export async function run(argv) {
 async function main() {
     endQuietlyOnClosedPipe();
     const argv = process.argv.slice(2);
+    const started = Date.now();
+    let failed = null;
     try {
         process.exitCode = await run(argv);
     }
     catch (error) {
         process.stderr.write(`${renderError(error, BINARY_NAME)}\n`);
         process.exitCode = exitCodeFor(error);
+        failed = error instanceof Error ? error.message : String(error);
     }
+    // ⛔ LOADED AFTER THE COMMAND, LIKE EVERY COMMAND ABOVE: the run log's chain reaches the
+    //    credentials module and `--help` must not pay for it first (`check:cli-startup`). It is
+    //    outside `run` because the tests drive that directly, and it cannot throw.
+    const { noteFailure, recordRun } = await import("./run-log.js");
+    if (failed !== null)
+        noteFailure(failed);
+    recordRun(argv, typeof process.exitCode === "number" ? process.exitCode : 0, Date.now() - started);
     await noteUpdateAfter(argv, VERSION);
 }
 if (invokedDirectly(import.meta.filename)) {

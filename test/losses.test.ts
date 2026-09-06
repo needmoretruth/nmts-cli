@@ -12,7 +12,6 @@
 import { strict as assert } from "node:assert";
 import { after, test } from "node:test";
 
-import { setMode } from "../src/autonomy.ts";
 import { NmtsError } from "../src/errors.ts";
 import { losses } from "../src/commands/losses.ts";
 import { collect, startFakeDrive, withSandbox, type LossRow } from "./fake-drive.ts";
@@ -152,32 +151,6 @@ test("dismissing takes the line off and says what stays behind", async () => {
     drive.losses = [row({ blob_object_id: "0xbbb" })];
     await losses({ ...opts(json), dismiss: "0xbbb", json: true });
     assert.deepEqual(JSON.parse(json.lines.join("")), { blob_object_id: "0xbbb", dismissed: true });
-  });
-});
-
-test("⛔ a mode that lets an agent decide cannot put a line down", async () => {
-  await withSandbox(drive, "losses-dismiss-mode", async () => {
-    drive.losses = [row({ blob_object_id: "0xaaa" })];
-    setMode("auto", "9.9.9", new Date("2026-09-03T00:00:00Z"));
-    try {
-      await assert.rejects(
-        () => losses({ ...opts(collect()), dismiss: "0xaaa" }),
-        (error: unknown) => {
-          assert.ok(error instanceof NmtsError);
-          assert.equal(error.message, "A loss line comes off after a person has read it.");
-          assert.equal(
-            error.nextStep,
-            "Run `nmts losses --dismiss 0xaaa` yourself, outside mode auto and without " +
-              "--skip-permissions.",
-          );
-          assert.equal(error.exitCode, 5);
-          return true;
-        },
-      );
-      assert.equal(drive.losses.length, 1, "the line came off under a mode");
-    } finally {
-      setMode("off", "9.9.9", new Date("2026-09-03T00:00:00Z"));
-    }
   });
 });
 

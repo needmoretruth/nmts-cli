@@ -115,7 +115,7 @@ askedFor, setting = currentChoice(), mode = currentMode()) {
         return { choice: setting, by: "setting" };
     if (askedFor === "rename")
         return { choice: "rename", by: "asked-for" };
-    if (mode === "off")
+    if (mode === "default")
         return { choice: "rename", by: "agent-refused" };
     return { choice: "overwrite", by: "asked-for" };
 }

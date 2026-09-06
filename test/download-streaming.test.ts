@@ -83,7 +83,7 @@ async function withSandbox(name: string, body: (out: string, code: string) => Pr
   const out = join(dir, "out");
   mkdirSync(out);
   process.env["NMTS_CONFIG_DIR"] = dir;
-  grantConsents(dir, "plain-env", "spend");
+  grantConsents(dir, "plain-env");
   process.env[AGGREGATOR_ENV_VAR] = BASE;
   process.env[API_KEY_ENV_VAR] = KEY;
   const code = await generateCode();

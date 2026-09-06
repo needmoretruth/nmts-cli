@@ -35,7 +35,8 @@ const SRC = join(fileURLToPath(new URL("../src", import.meta.url)));
  * ⛔ A REASON, NOT A NAME. An allowlist of bare names is a list of things somebody once decided
  *    to ignore; a reason is something the next reader can check and delete.
  */
-const DECLARED_WITHOUT_A_CALLER: Partial<Record<ConsentKey, string>> = {};
+const DECLARED_WITHOUT_A_CALLER: Partial<Record<ConsentKey, string>> = {
+};
 
 /** Every `.ts` file the tool itself is made of — not the copied browser library, not the tests. */
 function sources(dir: string): string[] {
@@ -68,6 +69,15 @@ function enforcedKeys(): Set<string> {
       .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
       .join("\n");
     for (const m of text.matchAll(/requireConsent\(\s*"([^"]+)"/gu)) {
+      const key = m[1];
+      if (key !== undefined) found.add(key);
+    }
+    // The wallet key is asked for through its own gate, which adds scope, expiry and ceilings to
+    // the same recorded key (`wallet-grant.ts`).
+    if (/requireWalletGrant\(/u.test(text)) found.add("wallet");
+    // ⭐ Since 2026-09-06 most locks are enforced by the tier gate, which reads `lock: "<key>"`
+    //    out of the act table (`risk.ts`) — a row there IS the enforcement.
+    for (const m of text.matchAll(/lock:\s*"([^"]+)"/gu)) {
       const key = m[1];
       if (key !== undefined) found.add(key);
     }

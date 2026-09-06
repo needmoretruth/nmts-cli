@@ -1,4 +1,6 @@
-// `nmts push <directory>` — a whole directory, with its shape, paid for with credits.
+// `nmts push <directory>` — a whole directory, with its shape, paid for with credits — or, with
+// `--pay wallet`, each file's storage bought by the person's own wallet (`put-wallet.ts` does one
+// file at a time: its review, its agreement check and its signatures).
 //
 // ⛔ IT STOPS AT THE FIRST FAILURE, and that is the opposite of what `pull` does. Pulling costs
 //    nothing, so carrying on past one bad file saves the nineteen good ones. Pushing SPENDS: a
@@ -18,7 +20,6 @@
 import { readdirSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 
-import { requireConsent } from "../consent.ts";
 import { DERIVED, loadCrypto } from "../crypto.ts";
 import { normaliseName, normalisePath } from "../drive-paths.ts";
 import { NmtsError } from "../errors.ts";
@@ -37,6 +38,7 @@ import { clearItemRecord, clearReservation } from "../upload-store.ts";
 import { CREDIT_BYTES, partSizeFor, planAndPrice, UPLOAD_EPOCHS } from "../upload-price.ts";
 import { createBlobProtocol, readCurrentEpoch } from "../walrus-write.ts";
 import { ensureFolderPath } from "./organise.ts";
+import { payerOf, refuseWalletOnlyOptions } from "./put.ts";
 
 export interface PushOptions {
   server?: string | undefined;
@@ -50,6 +52,12 @@ export interface PushOptions {
   partSize?: string | number | undefined;
   /** What THIS run does about a name already in use. Absent = this machine's setting. */
   onCollision?: string | undefined;
+  /** Who pays: `credits` (absent) or `wallet`. See `put.ts`. */
+  pay?: string | undefined;
+  /** `--pay wallet`: how many epochs to buy for every file. */
+  epochs?: string | number | undefined;
+  /** ⛔ Refused here: a held resource holds ONE blob, and a directory is many. */
+  storage?: string | undefined;
   json?: boolean;
   write?: (line: string) => void;
   /**
@@ -78,6 +86,14 @@ export async function push(target: string | undefined, options: PushOptions = {}
     throw new NmtsError("Say which directory to push.", {
       exitCode: 2,
       nextStep: `\`${BINARY_NAME} push <directory>\` — a directory on this machine.`,
+    });
+  }
+  const payer = payerOf(options.pay);
+  if (payer === "credits") refuseWalletOnlyOptions(options);
+  if (options.storage !== undefined) {
+    throw new NmtsError("--storage is for `put`: a held storage resource holds one blob, and a directory is many.", {
+      exitCode: 2,
+      nextStep: `Nothing was sent. Leave --storage off to buy new storage for each file.`,
     });
   }
   const root = resolve(target);
@@ -134,6 +150,13 @@ export async function push(target: string | undefined, options: PushOptions = {}
   const credits = todo.reduce((sum, one) => sum + planAndPrice(one.size, partSize, rule).credits, 0);
   const bytes = todo.reduce((sum, one) => sum + one.size, 0);
 
+  if (payer === "wallet") {
+    // ⛔ THE WALLET PATH PRICES AND AGREES PER FILE, in `put-wallet.ts`: each file is its own review
+    //    against the chain's quote, and `--dry-run` prints every review and signs nothing.
+    const { pushWithWallet } = await import("./push-wallet.ts");
+    return await pushWithWallet(session, options, { todo, already, found: found.length, bytes, partSize, rule, asked, settings: list.manifest?.settings, folderIds, say });
+  }
+
   if (options.dryRun === true) {
     if (options.json) {
       say(
@@ -157,7 +180,6 @@ export async function push(target: string | undefined, options: PushOptions = {}
     return 0;
   }
 
-  requireConsent("spend");
 
   const progress = new Progress(options.json === true ? silentSink() : stderrSink(), "uploading");
   const crypt = await loadCrypto();
@@ -288,7 +310,7 @@ async function sendOne(
 }
 
 /** The folder id for a drive path, made if it is not there yet. Remembered for the next file. */
-async function folderFor(
+export async function folderFor(
   session: Awaited<ReturnType<typeof openSession>>,
   known: Map<string, string | null>,
   folder: string,

@@ -79,6 +79,16 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
   //    file splits some other way would file storage under the wrong position in the file. It
   //    happens for one ordinary reason — the same file put again with a different part size — so
   //    it is said plainly rather than left to fail later as an unreadable download.
+  if (existing?.paidFrom === "wallet") {
+    throw new UploadError({
+      phase: "reserve",
+      message: "This upload was started with the wallet paying, and this run would pay with credits.",
+      paid: existing.registerTxDigest !== undefined,
+      nextStep:
+        "Run it again with --pay wallet to finish it, or move the records in the uploads directory " +
+        "aside to start over with credits. Nothing was sent.",
+    });
+  }
   if (existing !== null) {
     const record = existing;
     if (record.partIndex !== input.part.index || record.partTotal !== input.part.total) {

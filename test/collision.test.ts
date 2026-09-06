@@ -17,24 +17,24 @@ import { onCollision } from "../src/commands/on-collision.ts";
 
 test("nothing chosen means rename — the direction that destroys nothing", () => {
   assert.equal(DEFAULT_COLLISION, "rename");
-  assert.equal(decide(undefined, "rename", "off").choice, "rename");
+  assert.equal(decide(undefined, "rename", "default").choice, "rename");
 });
 
 test("a person's stored answer stands, whatever autonomy is set to", () => {
   // Setup asks while somebody is there. Overriding that later would ignore the one answer from a
   // person this tool actually has.
-  assert.deepEqual(decide(undefined, "overwrite", "off"), { choice: "overwrite", by: "setting" });
-  assert.deepEqual(decide(undefined, "overwrite", "auto"), { choice: "overwrite", by: "setting" });
+  assert.deepEqual(decide(undefined, "overwrite", "default"), { choice: "overwrite", by: "setting" });
+  assert.deepEqual(decide(undefined, "overwrite", "auto-low"), { choice: "overwrite", by: "setting" });
 });
 
 test("⛔ an agent asking to overwrite with no mode on gets a rename, and it is said", () => {
-  const decision = decide("overwrite", "rename", "off");
+  const decision = decide("overwrite", "rename", "default");
   assert.equal(decision.choice, "rename");
   assert.equal(decision.by, "agent-refused");
 });
 
 test("with a mode on, an agent may ask for an overwrite", () => {
-  assert.deepEqual(decide("overwrite", "rename", "auto"), { choice: "overwrite", by: "asked-for" });
+  assert.deepEqual(decide("overwrite", "rename", "auto-low"), { choice: "overwrite", by: "asked-for" });
   assert.deepEqual(decide("overwrite", "rename", "skip-permissions"), {
     choice: "overwrite",
     by: "asked-for",

@@ -63,7 +63,8 @@ test("⛔ it says what happened, that nothing here can fix it, and what the pers
   // ⛔ The gap this closes: there was no branch, so this was null and an agent got a bare 403.
   assert.ok(advice !== null && advice !== "", "a terms refusal came back with no advice at all");
   assert.match(advice, /not accepted the terms/i, "it does not say what happened");
-  assert.match(advice, /Nothing on this machine can accept them/i, "it does not say that this machine cannot");
+  assert.match(advice, /Nothing an agent runs can accept them/i, "it does not say that an agent cannot");
+  assert.match(advice, /nmts accept-terms/, "it does not name the person's own command");
   assert.match(advice, /person/i, "it does not say who has to act");
   assert.match(advice, /nmts\.me/, "it does not say where");
 });

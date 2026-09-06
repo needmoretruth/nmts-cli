@@ -81,7 +81,12 @@ export async function handle(request, tools, info) {
             return reply({});
         case "tools/list":
             return reply({
-                tools: tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+                tools: tools.map((t) => ({
+                    name: t.name,
+                    description: t.description,
+                    inputSchema: t.inputSchema,
+                    ...(t.annotations === undefined ? {} : { annotations: t.annotations }),
+                })),
             });
         case "tools/call": {
             const name = request.params?.["name"];

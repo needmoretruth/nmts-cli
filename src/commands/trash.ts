@@ -292,7 +292,7 @@ function uniqueById(files: readonly ManifestEntry[]): ManifestEntry[] {
  *   last week and then trashes its folder expects the folder to be gone from the server too — so
  *   `rm` takes this set whole. `restore` cannot: see the note at the call site.
  */
-function filesUnder(entries: readonly ManifestEntry[], rootId: string): ManifestEntry[] {
+export function filesUnder(entries: readonly ManifestEntry[], rootId: string): ManifestEntry[] {
   const root = entries.find((e) => e.id === rootId);
   if (root === undefined) return [];
   if (root.kind === KIND_FILE) return [root];

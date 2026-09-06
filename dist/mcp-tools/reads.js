@@ -6,11 +6,16 @@
 //    the opposite of the habit this tool wants.
 import { publicCode } from "../commands/public-code.js";
 import { balance } from "../commands/balance.js";
+import { devices } from "../commands/devices.js";
+import { legal, notices } from "../commands/documents.js";
 import { expiring } from "../commands/expiring.js";
 import { losses } from "../commands/losses.js";
 import { ls } from "../commands/ls.js";
-import { shares, sharesSent } from "../commands/share.js";
+import { shares } from "../commands/share.js";
+import { sharesSent } from "../commands/shares-sent.js";
 import { usage } from "../commands/usage.js";
+import { walletActivity } from "../commands/wallet-activity.js";
+import { walletStorage } from "../commands/wallet-storage.js";
 import { common, needString, say } from "./context.js";
 const NO_ARGS = { type: "object", properties: {}, additionalProperties: false };
 export function readTools(ctx) {
@@ -78,6 +83,34 @@ export function readTools(ctx) {
             run: () => say((write) => balance({ ...common(ctx), json: true, write })),
         },
         {
+            name: "nmts_wallet_activity",
+            description: "The recent transactions of the wallet this account derives (newest first, 20 at most), " +
+                "each named only where the chain proves it — seal, extend, erase, exchange, send, receive, " +
+                "otherwise 'other' — with its balance changes and an explorer link. Read-only. Gifts to the " +
+                "developer appear as sends here; this tool does not know that address.",
+            inputSchema: NO_ARGS,
+            run: () => say((write) => walletActivity({ ...common(ctx), json: true, write })),
+        },
+        {
+            name: "nmts_wallet_storage",
+            description: "The storage resources (size × time on the storage network) this wallet holds unbound — " +
+                "what deleting a file from the network gave back — with whether each is usable now. " +
+                "Read-only; nothing here spends or signs.",
+            inputSchema: NO_ARGS,
+            run: () => say((write) => walletStorage({ ...common(ctx), json: true, write })),
+        },
+        {
+            name: "nmts_devices",
+            description: "What is signed in to this NMTS account: for each device, when it was first signed in, " +
+                "when it was last used, and when it runs out. ⛔ READ-ONLY. Signing a device out is a " +
+                "person's act at nmts.me and no API key can do it — including this one — so if a row " +
+                "looks wrong, say so and let the person end it rather than looking for a way to do it " +
+                "here. ⚠ The name each device was given is encrypted with the account code, which the " +
+                "server has never had, so no name is returned.",
+            inputSchema: NO_ARGS,
+            run: () => say((write) => devices({ server: ctx.server, json: true, write })),
+        },
+        {
             name: "nmts_public_code",
             description: "The account's PUBLIC CODE — the value other accounts send files to — and whether it has " +
                 "been published yet. Until it is published nobody can send to this account. ⛔ It only " +
@@ -108,6 +141,76 @@ export function readTools(ctx) {
                 additionalProperties: false,
             },
             run: (args) => say((write) => sharesSent(needString(args, "path"), { ...common(ctx), json: true, write })),
+        },
+        // ── The documents this service publishes ──────────────────────────────────────────────────
+        //
+        // ⛔ THEY ARE HERE BECAUSE AN AGENT IS OFTEN THE ONLY READER. An account driven from a program
+        //    is still governed by the Terms, and is still owed the seven days' warning a notice gives
+        //    before a new version takes effect. A surface that could upload but could not read the
+        //    notice saying uploads stop on Tuesday is a surface that keeps somebody uninformed.
+        //
+        // ⛔ NONE OF THEM SAVES A FILE. Keeping a dated copy is `nmts notices --save`, at a command
+        //    line, where a person chose the directory — the rule this whole surface is built on.
+        {
+            name: "nmts_notices",
+            description: "The NMTS notice board as JSON, newest first: interruptions, incidents, and the notice " +
+                "given before a new version of the Terms takes effect. Ids here are what nmts_notice " +
+                "takes. Public and read-only; it costs nothing and needs no account.",
+            inputSchema: NO_ARGS,
+            run: () => say((write) => notices({ ...common(ctx), json: true, write })),
+        },
+        {
+            name: "nmts_notice",
+            description: "One notice in full, as the dated text the board's download button writes — the same " +
+                "bytes. Read this before acting on anything nmts_notices only summarised.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    id: { type: "string", description: "The notice, as nmts_notices lists it." },
+                },
+                required: ["id"],
+                additionalProperties: false,
+            },
+            run: (args) => say((write) => notices({ ...common(ctx), id: needString(args, "id"), write })),
+        },
+        {
+            name: "nmts_terms",
+            description: "The NMTS Terms of Service in force, as text, with its version and effective date at the " +
+                "head. ⛔ Reading them is not accepting them: nothing here or anywhere in this tool can " +
+                "agree to a document on somebody's behalf, and the server refuses until a person does it " +
+                "at nmts.me.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    lang: { type: "string", enum: ["en", "ko"], description: "Absent means English, the canonical text." },
+                    board: { type: "boolean", description: "The message board's terms rather than the service's." },
+                },
+                additionalProperties: false,
+            },
+            run: (args) => say((write) => legal("terms", {
+                ...common(ctx),
+                ...(typeof args["lang"] === "string" ? { lang: args["lang"] } : {}),
+                ...(args["board"] === true ? { board: true } : {}),
+                write,
+            })),
+        },
+        {
+            name: "nmts_privacy",
+            description: "The NMTS Privacy Policy in force, as text, with its version and effective date at the " +
+                "head. It is what the service says it collects and keeps; read it rather than describing " +
+                "it from memory.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    lang: { type: "string", enum: ["en", "ko"], description: "Absent means English, the canonical text." },
+                },
+                additionalProperties: false,
+            },
+            run: (args) => say((write) => legal("privacy", {
+                ...common(ctx),
+                ...(typeof args["lang"] === "string" ? { lang: args["lang"] } : {}),
+                write,
+            })),
         },
     ];
 }

@@ -1,9 +1,10 @@
 // `nmts wallet` — which wallet this account code opens, and what the chain says is in it.
 //
-// ⛔ IT READS. Nothing in this command signs, sends, swaps or spends, and there is no option that
-//    makes it. That is why it asks for no agreement: the agreement ladder stops a program from
-//    signing with a wallet on somebody's behalf, and asking for it here — where nothing can move —
-//    would teach a person to grant the one key that matters in order to look at a number.
+// ⛔ EVERY MODE HERE READS, EXCEPT `send`. Address, balance, activity and storage sign nothing and
+//    ask for no agreement: the agreement ladder stops a program from signing with a wallet on
+//    somebody's behalf, and asking for it where nothing can move would teach a person to grant the
+//    one key that matters in order to look at a number. `send` lives in `wallet-send.ts`, prints a
+//    review, and signs only with --yes and under the wallet agreement.
 //
 // ⛔ THE ADDRESS AND THE BALANCES ARE DIFFERENT KINDS OF FACT, so they fail differently. The
 //    address is computed on this machine from the account code and cannot fail for any reason
@@ -38,6 +39,21 @@ export interface WalletOptions {
   network?: string | undefined;
   json?: boolean;
   write?: (line: string) => void;
+  /** `wallet address --qr`: the address as a code a phone can scan, drawn in the terminal. */
+  qr?: boolean;
+  /** `wallet send`: the operands after "send", and its flags (`wallet-send.ts`). */
+  rest?: readonly string[];
+  yes?: boolean;
+  dryRun?: boolean;
+  feeCap?: string | undefined;
+  /** `wallet swap`: the coin to receive, the venue, the slippage, and the person's say past the gate. */
+  to?: string | undefined;
+  venue?: string | undefined;
+  slippageBps?: string | undefined;
+  acceptExtremes?: boolean;
+  /** `wallet storage split`: what the resource keeps, by size or by epochs (`wallet-storage-ops.ts`). */
+  size?: string | undefined;
+  epochs?: string | undefined;
   /**
    * Where the balances come from.
    *
@@ -50,23 +66,46 @@ export interface WalletOptions {
 }
 
 /** What the operand may say. Anything else is a command line to correct, not a guess to act on. */
-const MODES = ["address", "balance"] as const;
+const MODES = ["address", "balance", "activity", "storage", "send", "donate", "swap"] as const;
 type Mode = (typeof MODES)[number];
 
 function modeOf(what: string | undefined): Mode {
-  if (what === undefined || what === "balance") return "balance";
-  if (what === "address") return "address";
+  if (what === undefined) return "balance";
+  const found = MODES.find((m) => m === what);
+  if (found !== undefined) return found;
   throw new NmtsError(`\`${BINARY_NAME} wallet ${what}\` is not something this command does.`, {
     exitCode: 2,
     nextStep:
-      `\`${BINARY_NAME} wallet\` shows the address and the balances, and ` +
-      `\`${BINARY_NAME} wallet address\` shows the address alone, without touching a network.`,
+      `\`${BINARY_NAME} wallet\` shows the address and the balances; \`${BINARY_NAME} wallet address\` ` +
+      `shows the address alone, without touching a network (add --qr for a code to scan); ` +
+      `\`${BINARY_NAME} wallet activity\` lists the recent transactions; \`${BINARY_NAME} wallet storage\` ` +
+      `lists the storage resources it holds. None of those signs. \`${BINARY_NAME} wallet send <SUI|WAL> ` +
+      `<amount|max> <address>\`, \`${BINARY_NAME} wallet swap <SUI|WAL> <amount|max>\` and ` +
+      `\`${BINARY_NAME} wallet donate <SUI|WAL> <amount>\` are the three that do, and only with --yes.`,
   });
 }
 
 export async function wallet(what: string | undefined, options: WalletOptions = {}): Promise<number> {
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));
   const mode = modeOf(what);
+  // The two lists live in files of their own; each reads through a seam of its own.
+  if (mode === "activity") return (await import("./wallet-activity.ts")).walletActivity(options);
+  if (mode === "storage") {
+    const [sub, ...more] = options.rest ?? [];
+    if (sub === "split" || sub === "merge" || sub === "transfer") {
+      return (await import("./wallet-storage-ops.ts")).walletStorageOps(sub, more, options);
+    }
+    if (sub !== undefined) {
+      throw new NmtsError(`\`${BINARY_NAME} wallet storage ${sub}\` is not something this command does.`, {
+        exitCode: 2,
+        nextStep: `\`${BINARY_NAME} wallet storage\` lists; \`split\`, \`merge\` and \`transfer\` sign — \`${BINARY_NAME} help wallet\`.`,
+      });
+    }
+    return (await import("./wallet-storage.ts")).walletStorage(options);
+  }
+  if (mode === "send") return (await import("./wallet-send.ts")).walletSend(options.rest ?? [], options);
+  if (mode === "donate") return (await import("./wallet-donate.ts")).walletDonate(options.rest ?? [], options);
+  if (mode === "swap") return (await import("./wallet-swap.ts")).walletSwap(options.rest ?? [], options);
   const resolved = await requireAccountCode();
   const address = await walletAddress(resolved.code);
 
@@ -79,6 +118,14 @@ export async function wallet(what: string | undefined, options: WalletOptions = 
       return 0;
     }
     say(`Address  ${address}`);
+    if (options.qr === true) {
+      // ⛔ THE SAME TEXT THE BROWSER'S CODE CARRIES — the bare address, nothing wrapped around it —
+      //    so a phone that reads one reads the other. Medium error correction and a two-module
+      //    quiet zone are the browser's settings too; without the quiet zone many scanners see nothing.
+      const { renderUnicodeCompact } = await import("uqr");
+      say(``);
+      for (const row of renderUnicodeCompact(address, { ecc: "M", border: 2 }).split("\n")) say(`  ${row}`);
+    }
     say(``);
     say(`  Derived on this machine from the account code. Nothing was asked of the NMTS server or`);
     say(`  of any chain, so this says what the wallet is called and nothing about what is in it.`);

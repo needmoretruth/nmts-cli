@@ -9,8 +9,6 @@ import { strict as assert } from "node:assert";
 import { after, test } from "node:test";
 
 import { identityOf } from "../src/account.ts";
-import { setMode } from "../src/autonomy.ts";
-import { NmtsError } from "../src/errors.ts";
 import { whoami } from "../src/commands/whoami.ts";
 import { collect, startFakeDrive, withSandbox } from "./fake-drive.ts";
 
@@ -35,32 +33,6 @@ test("--json hands over the code and nothing else", async () => {
     assert.deepEqual(JSON.parse(out.lines.join("")), {
       account_code: (await identityOf(code)).displayCode,
     });
-  });
-});
-
-test("⛔ a mode that lets an agent decide cannot put the code on the screen", async () => {
-  await withSandbox(drive, "reveal-mode", async () => {
-    setMode("auto", "9.9.9", new Date("2026-09-03T00:00:00Z"));
-    try {
-      const out = collect();
-      const failure = await whoami({ reveal: true, write: out.write }).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert.ok(failure instanceof NmtsError, `it did not refuse — ${String(failure)}`);
-      assert.equal(
-        failure.message,
-        "An agent does not need the code on screen — this tool already holds it.",
-      );
-      assert.equal(
-        failure.nextStep,
-        "A person runs `nmts whoami --reveal` outside mode auto and without --skip-permissions.",
-      );
-      assert.equal(failure.exitCode, 5);
-      assert.deepEqual(out.lines, [], "it printed something on the way to refusing");
-    } finally {
-      setMode("off", "9.9.9", new Date("2026-09-03T00:00:00Z"));
-    }
   });
 });
 
