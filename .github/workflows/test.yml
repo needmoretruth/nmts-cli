@@ -109,12 +109,13 @@ jobs:
       - name: A mounted volume is writable by the user the image runs as
         run: |
           set -euo pipefail
-          docker run --rm -v nmts-config:/config nmts consent grant spend
-          # ⚠ NOT PIPED INTO `grep -q`. That closes the pipe on the first match, the container
-          #   writing into it dies of a broken pipe, and `pipefail` turns a passing check into a
-          #   failing step — intermittently, because it depends on which side finishes first.
-          granted=$(docker run --rm -v nmts-config:/config nmts consent list)
-          printf '%s\n' "$granted" | grep -q 'agreed *spend'
+          # The probe is the write itself, made as the user the image runs as (USER node) into
+          # the directory the tool keeps its files in (NMTS_CONFIG_DIR=/config). It used to be
+          # `consent grant`, but unlocking now needs a person at a terminal, which CI is not.
+          docker run --rm -v nmts-config:/config --entrypoint sh nmts \
+            -c 'touch /config/.writable && rm /config/.writable'
+          # And the tool itself reads that directory: a listing, which asks nobody anything.
+          docker run --rm -v nmts-config:/config nmts consent list > /dev/null
 
       - name: Podman builds it and the command runs, rootless
         run: |

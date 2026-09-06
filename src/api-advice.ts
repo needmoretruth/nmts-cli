@@ -221,6 +221,32 @@ export function adviseFor(code: string): string | null {
         "save was refused and nothing changed. Delete files to shrink the list, or ask the operator " +
         "for a higher ceiling from the inbox (nmts support send) with a sentence on why."
       );
+    // ── The chunked file list (NCF-3 §6.3) ────────────────────────────────────────────────────
+    case "MANIFEST_CHUNK_HASH":
+      return (
+        "The name in the path is not the SHA-256 of the `ct` string being sent, so the server " +
+        "refused to store it under that name. Hash the base64url text exactly as it travels, not " +
+        "the bytes it decodes to, and send it under that name."
+      );
+    case "MANIFEST_CHUNK_TOO_LARGE":
+      return (
+        "One chunk of the file list is over the server's 4 MiB ceiling of sealed bytes. Pack " +
+        "fewer entries per chunk — the format's own bound is on the plaintext, so a chunk built " +
+        "to it is always under this — and send the same index again."
+      );
+    case "MANIFEST_CHUNK_MISSING":
+      return (
+        "The index names chunks this account has not stored. The refusal lists them in " +
+        "details.missing: write exactly those chunks, then send the same index again. Nothing " +
+        "changed and the version did not move."
+      );
+    case "MANIFEST_CHUNKS_EXCEEDED":
+      return (
+        "The account is at its chunk allowance (details.allowed). It is a base allowance plus " +
+        "one chunk for every details.per_verified_items files the storage network has confirmed, " +
+        "so it grows as files are stored; deleting files or packing the list into fewer chunks is " +
+        "what brings this write inside it."
+      );
     case "VERSION_CONFLICT":
       return (
         "Something else changed the drive since this was read. Nothing is lost and nothing is " +
