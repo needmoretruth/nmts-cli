@@ -17,11 +17,15 @@ import { NETWORK_ENV_VAR } from "../src/network.ts";
 import { SERVER_ENV_VAR } from "../src/server.ts";
 import { encodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 import { generateCode, grantConsents, openFileList, sealFileList } from "./helpers.ts";
+import { chunkFake } from "./fake-chunks.ts";
 
 const KEY = ["nmts", "ak1", "Abcdefghijkl"].join("_") + "_" + "x".repeat(43);
 
 let served: { seq: number; ct: string } | null = null;
 let writes = 0;
+// ⛔ The chunk routes answer here too: their address begins with the index's, so without this a
+//    chunk write would be counted as an index write and every save would race itself.
+const chunks = chunkFake();
 
 const server: Server = createServer((req, res) => {
   const url = req.url ?? "";
@@ -29,6 +33,7 @@ const server: Server = createServer((req, res) => {
     res.writeHead(status, { "content-type": "application/json" });
     res.end(JSON.stringify(body));
   };
+  if (chunks.route(req.method ?? "GET", url, req, res)) return;
   if (url.startsWith("/v1/manifest") && req.method === "GET") {
     return served === null
       ? send(200, { state: "absent" })
@@ -76,6 +81,7 @@ async function sandbox(
   process.env[NETWORK_ENV_VAR] = "testnet";
   served = null;
   writes = 0;
+  chunks.reset();
   try {
     await body({ code, dir, tree });
   } finally {
@@ -127,7 +133,7 @@ test("a directory goes up with its shape, and the folders are made", async () =>
     const rec = recorder();
     assert.equal(await push(tree, { send: rec.send, write: () => {} }), 0);
     assert.deepEqual(rec.sent.sort(), ["tree/deep/two.txt", "tree/one.txt"]);
-    const written = await openFileList(code, served?.ct ?? "");
+    const written = await openFileList(code, served?.ct ?? "", chunks.store);
     const folders = written.filter((e) => e.kind === 0).map((e) => e.name).sort();
     assert.deepEqual(folders, ["deep", "tree"], "the local directory becomes a folder, with its own inside");
   });
@@ -145,7 +151,7 @@ test("⛔ files already in the drive are not sent a second time", async () => {
 
     // The drive now names them. `send` above did not write the entries, so put them in by hand —
     // what is being tested is the SKIP, and it reads the list.
-    const held = await openFileList(code, served?.ct ?? "");
+    const held = await openFileList(code, served?.ct ?? "", chunks.store);
     const folder = held.find((e) => e.name === "tree");
     assert.ok(folder !== undefined);
     await serveEntries(code, [

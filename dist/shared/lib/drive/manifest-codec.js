@@ -38,9 +38,9 @@ export async function manifestFingerprint(ct) {
         bin += String.fromCharCode(b);
     return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
-const FLAG_RAW = 0x00;
-const FLAG_GZIP = 0x01;
-function toWire(e) {
+export const FLAG_RAW = 0x00;
+export const FLAG_GZIP = 0x01;
+export function toWire(e) {
     const w = {
         i: e.id,
         p: e.parentId,
@@ -75,7 +75,7 @@ function toWire(e) {
     }
     return w;
 }
-function fromWire(w) {
+export function fromWire(w) {
     const e = {
         id: w.i,
         parentId: w.p ?? null,
@@ -228,21 +228,21 @@ export async function decodeManifest(body) {
     };
 }
 /** Prepend the compression flag byte. */
-function withFlag(flag, body) {
+export function withFlag(flag, body) {
     const out = new Uint8Array(body.length + 1);
     out[0] = flag;
     out.set(body, 1);
     return out;
 }
 /** gzip, or null when the platform has no `CompressionStream`. */
-async function gzip(bytes) {
+export async function gzip(bytes) {
     const C = globalThis.CompressionStream;
     if (!C)
         return null;
     return collect(streamThrough(bytes, new C("gzip")));
 }
 /** gunzip, or null when the platform has no `DecompressionStream`. */
-async function gunzip(bytes) {
+export async function gunzip(bytes) {
     const D = globalThis.DecompressionStream;
     if (!D)
         return null;

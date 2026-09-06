@@ -35,6 +35,11 @@ import { isCryptoGlue, missingExports } from "./crypto-surface.js";
  */
 export const AAD = {
     fileList: "nmts/v3/file-list",
+    // ⚠ THE CHUNK LABEL IS NOT SPELLED HERE. One CHUNK of the chunked file list is sealed under
+    //   `nmts/v3/file-list-chunk` (NCF-3 §6.3.2), and that string is declared in the shared copy of
+    //   the chunk codec as `AAD_FILE_LIST_CHUNK` and used from there. A second spelling in this
+    //   table is exactly how the two halves of the product would come to disagree about a separator
+    //   whose whole job is that a chunk can never be presented as an index.
     /** Wraps a file's own key under the account's data key (NCF-3 §3). */
     dekWrap: "nmts/v3/dek-wrap",
     /**

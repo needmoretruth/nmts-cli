@@ -1,4 +1,5 @@
-import { type Manifest } from "./shared/lib/drive/manifest-codec.ts";
+import type { Manifest } from "./shared/lib/drive/manifest-codec.ts";
+import type { HeldChunk } from "./shared/lib/drive/manifest-pack.ts";
 import type { AccountSettings } from "./shared/lib/drive/manifest-settings.ts";
 import type { PaddingRule } from "./shared/lib/crypto/size-padding.ts";
 /** This machine's copy of one account's sealed file list. */
@@ -56,6 +57,21 @@ export interface FileList {
     serverSeqDisagreed?: number;
     /** True when nothing on this machine could have caught a rollback. */
     firstTimeOnThisMachine: boolean;
+    /**
+     * The sealed format this list turned out to be: 1 for the single blob, 2 for index plus chunks.
+     *
+     * ⚠ READERS ACCEPT BOTH; WRITERS WRITE 2 (NCF-3 §6.3). An account converts on its first save by
+     *   a build that knows version 2, and nothing converts on read.
+     */
+    version?: number;
+    /**
+     * Version 2 only: the chunks this list was read out of, in placement order.
+     *
+     * ⛔ A WRITER NEEDS THEM. Comparing the new entries against these is what lets a save rewrite the
+     *    one chunk that changed instead of the whole list. Empty means "there are none to build on",
+     *    which is both a version-1 list and an account with no items — and both pack from scratch.
+     */
+    chunks?: readonly HeldChunk[];
 }
 /**
  * Fetch and open the account's file list.

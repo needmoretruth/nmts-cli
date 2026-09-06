@@ -25,6 +25,7 @@ import { API_KEY_ENV_VAR, CODE_ENV_VAR, testConfigDir } from "../src/credentials
 import { NmtsError } from "../src/errors.ts";
 import { encodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 import { generateCode, grantConsents, openFileList, sealFileList } from "./helpers.ts";
+import { chunkFake } from "./fake-chunks.ts";
 
 const KEY = ["nmts", "ak1", "Abcdefghijkl"].join("_") + "_" + "x".repeat(43);
 
@@ -33,6 +34,9 @@ let written: string[] = [];
 let calls: string[] = [];
 /** A sealed list another device writes the instant the tool tries to. One shot. */
 let steal: string | null = null;
+// ⛔ The chunk routes answer here too. Without them a chunk write would fall into the index write
+//    below — its address begins with the same prefix — and every save would race itself.
+const chunks = chunkFake();
 
 const server: Server = createServer((req, res) => {
   const url = req.url ?? "";
@@ -42,6 +46,7 @@ const server: Server = createServer((req, res) => {
     res.writeHead(status, { "content-type": "application/json" });
     res.end(JSON.stringify(body));
   };
+  if (chunks.route(method, url, req, res)) return;
   if (method === "GET" && url.startsWith("/v1/manifest")) {
     if (served === null) return json(200, { state: "absent" });
     return json(200, { state: "present", seq: served.seq, ct: served.ct, updated_at: "2026-08-23T00:00:00Z" });
@@ -93,6 +98,7 @@ async function withSandbox(name: string, body: (code: string) => Promise<void>):
   written = [];
   calls = [];
   steal = null;
+  chunks.reset();
   try {
     await body(code);
   } finally {
@@ -134,7 +140,7 @@ async function otherDeviceWrites(code: string, entries: ManifestEntry[]): Promis
 async function lastWritten(code: string): Promise<ManifestEntry[]> {
   const ct = written.at(-1);
   assert.ok(ct !== undefined, "the tool wrote no file list at all");
-  return openFileList(code, ct);
+  return openFileList(code, ct, chunks.store);
 }
 const collect = (): { lines: string[]; write: (line: string) => void } => {
   const lines: string[] = [];

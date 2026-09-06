@@ -19,6 +19,7 @@ import { rmSync } from "node:fs";
 import { API_KEY_ENV_VAR, CODE_ENV_VAR, testConfigDir } from "../src/credentials.ts";
 import { encodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 import { generateCode, grantConsents, openFileList, sealFileList } from "./helpers.ts";
+import { chunkFake, type ChunkFake } from "./fake-chunks.ts";
 import { KEY } from "./fake-drive.ts";
 
 /** One row of `GET /v1/items`, in the server's own spelling. */
@@ -53,8 +54,12 @@ export interface FakeItems {
   calls: string[];
   /** Every sealed list the tool successfully wrote. */
   written: string[];
+  /** The chunk half of this server: what it holds, what it was told, and how it refuses. */
+  readonly chunks: ChunkFake;
   /** Put a list on the server at this version. */
   serve(code: string, entries: ManifestEntry[], seq?: number): Promise<void>;
+  /** Put a CHUNKED list on the server: one chunk per group, in the order given. */
+  serveChunked(code: string, groups: readonly ManifestEntry[][], seq?: number): Promise<void>;
   /** The sealed bytes the server is serving, or null when it is serving nothing. */
   servedCt(): string | null;
   /** Take the list away without clearing anything else — an account whose list went missing. */
@@ -67,6 +72,7 @@ export interface FakeItems {
 
 export async function startFakeItems(): Promise<FakeItems> {
   let served: { seq: number; ct: string } | null = null;
+  const chunks = chunkFake();
   const state = {
     items: [] as ItemRow[],
     trashed: [] as ItemRow[],
@@ -105,6 +111,8 @@ export async function startFakeItems(): Promise<FakeItems> {
     const query = new URL(url, "http://x").searchParams;
     const after = query.get("after");
 
+    // ⛔ BEFORE THE TWO BELOW, because those match on a prefix and these addresses begin with it.
+    if (chunks.route(method, url, req, res)) return;
     if (method === "GET" && url.startsWith("/v1/manifest")) {
       if (served === null) return json(200, { state: "absent" });
       return json(200, { state: "present", seq: served.seq, ct: served.ct, updated_at: "2026-08-24T00:00:00Z" });
@@ -117,6 +125,8 @@ export async function startFakeItems(): Promise<FakeItems> {
         const baseSeq: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "base_seq") : null;
         const ct: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "ct") : null;
         if (typeof ct !== "string") return json(400, { error: { code: "BAD", message: "no ct" } });
+        const refused = chunks.noteIndexWrite(body);
+        if (refused !== null) return json(422, refused);
         // `null` is only true while nothing is stored; a number has to name the current version.
         const expected: number | null = served === null ? null : served.seq;
         const claimed: number | null = typeof baseSeq === "number" ? baseSeq : null;
@@ -195,8 +205,12 @@ export async function startFakeItems(): Promise<FakeItems> {
     get written() {
       return state.written;
     },
+    chunks,
     async serve(code: string, entries: ManifestEntry[], seq = 1): Promise<void> {
       served = { seq, ct: await sealFileList(code, await encodeManifest(entries, seq, seq > 1 ? "x".repeat(43) : undefined)) };
+    },
+    async serveChunked(code: string, groups: readonly ManifestEntry[][], seq = 1): Promise<void> {
+      served = await chunks.publish(code, groups, seq);
     },
     servedCt(): string | null {
       return served === null ? null : served.ct;
@@ -207,9 +221,10 @@ export async function startFakeItems(): Promise<FakeItems> {
     async lastWritten(code: string): Promise<ManifestEntry[]> {
       const ct = state.written.at(-1);
       assert.ok(ct !== undefined, "the tool wrote no file list at all");
-      return openFileList(code, ct);
+      return openFileList(code, ct, chunks.store);
     },
     reset(): void {
+      chunks.reset();
       served = null;
       state.items = [];
       state.trashed = [];

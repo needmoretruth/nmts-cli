@@ -5,8 +5,10 @@
 //    sealed under a key the server does not have. So this is the last step of an upload and the
 //    one that must not be skipped after the money moved.
 //
-// ⛔ THE WHOLE LIST IS REWRITTEN EVERY TIME. There is no "append" on the wire — the blob is sealed
-//    as one piece. That is why this re-reads immediately before writing: the version it builds on
+// ⛔ THE WHOLE LIST IS DECIDED EVERY TIME, EVEN THOUGH ONLY PART OF IT IS SENT. There is no
+//    "append" on the wire: the entries this save means to leave behind are worked out in full and
+//    then packed into chunks, and only the chunks whose contents actually changed are written
+//    (NCF-3 §6.3). That is why this re-reads immediately before writing — the version it builds on
 //    has to be the current one, and anything another device added since must be carried forward,
 //    not overwritten.
 //
@@ -17,11 +19,11 @@
 //      · the `prev` link inside the blob makes a fork visible to the NEXT reader on any device.
 //    The account's own settings ride along for the same reason: they live in this blob or nowhere,
 //    so rewriting the list without them would silently clear them.
-import { request, ServerError } from "./api.js";
-import { AAD, DERIVED, loadCrypto } from "./crypto.js";
+import { ServerError } from "./api.js";
+import { DERIVED, loadCrypto } from "./crypto.js";
 import { NmtsError } from "./errors.js";
+import { writeChunkedList } from "./manifest-chunk-flow.js";
 import { readFileList, recordWrittenList } from "./manifest.js";
-import { encodeManifest } from "./shared/lib/drive/manifest-codec.js";
 import { buildIndex, entryAt, isLive, KIND_FILE, namesIn, normaliseName } from "./drive-paths.js";
 import { decide } from "./collision.js";
 import { applyIntents, applySettingsPatch, } from "./shared/lib/drive/manifest-ops.js";
@@ -100,19 +102,27 @@ export async function applyManyToList(input, make, patch) {
             if (next === entries && settings === held) {
                 return { seq: current.seq ?? 0, reappliedAfterConflict: conflicted, changed: false, entries };
             }
-            const body = await encodeManifest(next, (current.seq ?? 0) + 1, current.fingerprint, settings);
-            const sealed = crypt.envelope_seal(key, new TextEncoder().encode(AAD.fileList), body);
-            body.fill(0);
-            const ct = Buffer.from(sealed).toString("base64url");
+            const io = {
+                server: input.server,
+                apiKey: input.apiKey,
+                accountId: input.accountId,
+                crypt,
+                key,
+            };
             try {
-                const answer = await request(input.server, "/v1/manifest", {
-                    method: "PUT",
-                    token: input.apiKey,
-                    body: { base_seq: current.seq ?? null, ct },
+                // ⛔ ALWAYS VERSION 2 (NCF-3 §6.3.6). A list read as version 1 has no chunks to build on,
+                //    so it is packed from scratch and the index names the version-1 blob as its parent —
+                //    the link crosses the version boundary unchanged, and the account is converted.
+                const written = await writeChunkedList(io, {
+                    previous: current.chunks ?? [],
+                    entries: next,
+                    seq: (current.seq ?? 0) + 1,
+                    ...(current.fingerprint !== undefined ? { prev: current.fingerprint } : {}),
+                    settings,
+                    baseSeq: current.seq ?? null,
                 });
-                const seq = seqOf(answer);
-                await recordWrittenList(input.accountId, seq, ct);
-                return { seq, reappliedAfterConflict: conflicted, changed: true, entries: next };
+                await recordWrittenList(input.accountId, written.seq, written.ct);
+                return { seq: written.seq, reappliedAfterConflict: conflicted, changed: true, entries: next };
             }
             catch (error) {
                 // ⛔ A version conflict is an ORDINARY outcome, not a failure: another device wrote first.
@@ -240,14 +250,4 @@ export async function addEntry(input) {
         reappliedAfterConflict: result.reappliedAfterConflict,
         ...(replaced ? { replaced } : {}),
     };
-}
-function seqOf(answer) {
-    if (typeof answer === "object" && answer !== null) {
-        const seq = Reflect.get(answer, "seq");
-        if (typeof seq === "number" && Number.isSafeInteger(seq) && seq >= 1)
-            return seq;
-    }
-    throw new NmtsError("The file list was written but the server did not say which version it is now.", {
-        nextStep: "The entry is saved. Run `nmts ls` to see it.",
-    });
 }

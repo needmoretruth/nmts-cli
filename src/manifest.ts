@@ -21,6 +21,12 @@
 //    them. A tool that read the list on every run and then threw it away left an account used only
 //    from a terminal with neither. It is written with the record, by the one function that writes
 //    either, so the two can never describe different versions.
+//
+// ⛔ AT FORMAT VERSION 2 THOSE BYTES ARE THE INDEX, AND THE ENTRIES ARE BESIDE IT. The list is an
+//    index plus immutable chunks named by their own hash (NCF-3 §6.3); the index is kept here
+//    exactly as the single blob was, and the chunks are kept by name in the chunk store
+//    (`manifest-chunk-cache.ts`), which is pruned to what the list just read names. So the copy is
+//    still complete — it is simply in two places, and `nmts listfile` writes them out as one file.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -28,7 +34,13 @@ import { request } from "./api.ts";
 import { AAD, DERIVED, loadCrypto } from "./crypto.ts";
 import { configDir } from "./credentials.ts";
 import { NmtsError } from "./errors.ts";
-import { decodeManifest, type Manifest } from "./shared/lib/drive/manifest-codec.ts";
+import { openChunks, type ChunkIO } from "./manifest-chunk-flow.ts";
+import {
+  decodeFileList,
+  FILE_LIST_VERSION_CHUNKED,
+} from "./shared/lib/drive/manifest-chunks.ts";
+import type { Manifest } from "./shared/lib/drive/manifest-codec.ts";
+import type { HeldChunk } from "./shared/lib/drive/manifest-pack.ts";
 import type { AccountSettings } from "./shared/lib/drive/manifest-settings.ts";
 import type { PaddingRule } from "./shared/lib/crypto/size-padding.ts";
 
@@ -212,6 +224,21 @@ export interface FileList {
   serverSeqDisagreed?: number;
   /** True when nothing on this machine could have caught a rollback. */
   firstTimeOnThisMachine: boolean;
+  /**
+   * The sealed format this list turned out to be: 1 for the single blob, 2 for index plus chunks.
+   *
+   * ⚠ READERS ACCEPT BOTH; WRITERS WRITE 2 (NCF-3 §6.3). An account converts on its first save by
+   *   a build that knows version 2, and nothing converts on read.
+   */
+  version?: number;
+  /**
+   * Version 2 only: the chunks this list was read out of, in placement order.
+   *
+   * ⛔ A WRITER NEEDS THEM. Comparing the new entries against these is what lets a save rewrite the
+   *    one chunk that changed instead of the whole list. Empty means "there are none to build on",
+   *    which is both a version-1 list and an account with no items — and both pack from scratch.
+   */
+  chunks?: readonly HeldChunk[];
 }
 
 /**
@@ -267,28 +294,55 @@ export async function readFileList(
   const key = derived.slice(from, to);
   derived.fill(0);
 
-  let body: Uint8Array;
+  // ⛔ THE KEY LIVES UNTIL THE CHUNKS ARE OPEN. A version-2 list is an index plus sealed chunks
+  //    under a label of their own, so the same key opens two kinds of blob and the zeroing has to
+  //    wait for the second kind — which is why one `finally` now wraps the whole read.
   try {
-    body = crypt.envelope_open(key, new TextEncoder().encode(AAD.fileList), Buffer.from(answer.ct, "base64url"));
-  } catch {
-    throw new NmtsError("The file list did not open with this account's key.", {
-      nextStep:
-        "Either the code belongs to a different account, or the stored bytes are not what this " +
-        "account sealed. Nothing was changed.",
-    });
+    let body: Uint8Array;
+    try {
+      body = crypt.envelope_open(key, new TextEncoder().encode(AAD.fileList), Buffer.from(answer.ct, "base64url"));
+    } catch {
+      throw new NmtsError("The file list did not open with this account's key.", {
+        nextStep:
+          "Either the code belongs to a different account, or the stored bytes are not what this " +
+          "account sealed. Nothing was changed.",
+      });
+    }
+
+    const doc = await decodeFileList(body);
+    body.fill(0);
+    const io: ChunkIO = { server: base, apiKey, accountId, crypt, key };
+    // A version-1 blob carries its own entries; a version-2 index names chunks that have to be
+    // fetched, checked against the names it gave them, and read end to end (§6.3.2).
+    const chunks = doc.v === FILE_LIST_VERSION_CHUNKED ? await openChunks(io, doc.index) : [];
+    const manifest: Manifest =
+      doc.v === FILE_LIST_VERSION_CHUNKED
+        ? {
+            v: FILE_LIST_VERSION_CHUNKED,
+            seq: doc.index.seq,
+            ...(doc.index.p !== undefined ? { prev: doc.index.p } : {}),
+            entries: chunks.flatMap((c) => [...c.items]),
+            ...(doc.index.settings !== undefined ? { settings: doc.index.settings } : {}),
+          }
+        : doc.manifest;
+
+    const out: FileList = {
+      manifest,
+      seq: manifest.seq,
+      fingerprint: fp,
+      firstTimeOnThisMachine: first,
+      version: doc.v,
+      chunks,
+    };
+    // ⛔ The sealed number is the authenticated one, so it is what gets recorded and what a later
+    //    run compares against. The column is reported when it differs and otherwise ignored.
+    if (manifest.seq !== answer.seq) out.serverSeqDisagreed = answer.seq;
+    // ⛔ THE VERSION THAT IS KEPT IS THE SEALED ONE, and so are the bytes it came out of. Believing
+    //    the server's column here would let it decide which copy this machine keeps. The bytes are
+    //    the INDEX at version 2; its chunks are kept beside it, by name, in the chunk store.
+    writeSeen(accountId, manifest.seq, fp, answer.ct);
+    return out;
   } finally {
     key.fill(0);
   }
-
-  const manifest = await decodeManifest(body);
-  body.fill(0);
-
-  const out: FileList = { manifest, seq: manifest.seq, fingerprint: fp, firstTimeOnThisMachine: first };
-  // ⛔ The sealed number is the authenticated one, so it is what gets recorded and what a later
-  //    run compares against. The column is reported when it differs and otherwise ignored.
-  if (manifest.seq !== answer.seq) out.serverSeqDisagreed = answer.seq;
-  // ⛔ THE VERSION THAT IS KEPT IS THE SEALED ONE, and so are the bytes it came out of. Believing
-  //    the server's column here would let it decide which copy this machine keeps.
-  writeSeen(accountId, manifest.seq, fp, answer.ct);
-  return out;
 }

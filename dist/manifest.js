@@ -21,13 +21,20 @@
 //    them. A tool that read the list on every run and then threw it away left an account used only
 //    from a terminal with neither. It is written with the record, by the one function that writes
 //    either, so the two can never describe different versions.
+//
+// ⛔ AT FORMAT VERSION 2 THOSE BYTES ARE THE INDEX, AND THE ENTRIES ARE BESIDE IT. The list is an
+//    index plus immutable chunks named by their own hash (NCF-3 §6.3); the index is kept here
+//    exactly as the single blob was, and the chunks are kept by name in the chunk store
+//    (`manifest-chunk-cache.ts`), which is pruned to what the list just read names. So the copy is
+//    still complete — it is simply in two places, and `nmts listfile` writes them out as one file.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { request } from "./api.js";
 import { AAD, DERIVED, loadCrypto } from "./crypto.js";
 import { configDir } from "./credentials.js";
 import { NmtsError } from "./errors.js";
-import { decodeManifest } from "./shared/lib/drive/manifest-codec.js";
+import { openChunks } from "./manifest-chunk-flow.js";
+import { decodeFileList, FILE_LIST_VERSION_CHUNKED, } from "./shared/lib/drive/manifest-chunks.js";
 function asResponse(value) {
     if (typeof value !== "object" || value === null)
         throw new NmtsError("The server's answer was not an object.");
@@ -201,28 +208,54 @@ export async function readFileList(base, apiKey, accountCode, accountId) {
     const derived = crypt.kdf_derive(crypt.account_code_parse(accountCode));
     const key = derived.slice(from, to);
     derived.fill(0);
-    let body;
+    // ⛔ THE KEY LIVES UNTIL THE CHUNKS ARE OPEN. A version-2 list is an index plus sealed chunks
+    //    under a label of their own, so the same key opens two kinds of blob and the zeroing has to
+    //    wait for the second kind — which is why one `finally` now wraps the whole read.
     try {
-        body = crypt.envelope_open(key, new TextEncoder().encode(AAD.fileList), Buffer.from(answer.ct, "base64url"));
-    }
-    catch {
-        throw new NmtsError("The file list did not open with this account's key.", {
-            nextStep: "Either the code belongs to a different account, or the stored bytes are not what this " +
-                "account sealed. Nothing was changed.",
-        });
+        let body;
+        try {
+            body = crypt.envelope_open(key, new TextEncoder().encode(AAD.fileList), Buffer.from(answer.ct, "base64url"));
+        }
+        catch {
+            throw new NmtsError("The file list did not open with this account's key.", {
+                nextStep: "Either the code belongs to a different account, or the stored bytes are not what this " +
+                    "account sealed. Nothing was changed.",
+            });
+        }
+        const doc = await decodeFileList(body);
+        body.fill(0);
+        const io = { server: base, apiKey, accountId, crypt, key };
+        // A version-1 blob carries its own entries; a version-2 index names chunks that have to be
+        // fetched, checked against the names it gave them, and read end to end (§6.3.2).
+        const chunks = doc.v === FILE_LIST_VERSION_CHUNKED ? await openChunks(io, doc.index) : [];
+        const manifest = doc.v === FILE_LIST_VERSION_CHUNKED
+            ? {
+                v: FILE_LIST_VERSION_CHUNKED,
+                seq: doc.index.seq,
+                ...(doc.index.p !== undefined ? { prev: doc.index.p } : {}),
+                entries: chunks.flatMap((c) => [...c.items]),
+                ...(doc.index.settings !== undefined ? { settings: doc.index.settings } : {}),
+            }
+            : doc.manifest;
+        const out = {
+            manifest,
+            seq: manifest.seq,
+            fingerprint: fp,
+            firstTimeOnThisMachine: first,
+            version: doc.v,
+            chunks,
+        };
+        // ⛔ The sealed number is the authenticated one, so it is what gets recorded and what a later
+        //    run compares against. The column is reported when it differs and otherwise ignored.
+        if (manifest.seq !== answer.seq)
+            out.serverSeqDisagreed = answer.seq;
+        // ⛔ THE VERSION THAT IS KEPT IS THE SEALED ONE, and so are the bytes it came out of. Believing
+        //    the server's column here would let it decide which copy this machine keeps. The bytes are
+        //    the INDEX at version 2; its chunks are kept beside it, by name, in the chunk store.
+        writeSeen(accountId, manifest.seq, fp, answer.ct);
+        return out;
     }
     finally {
         key.fill(0);
     }
-    const manifest = await decodeManifest(body);
-    body.fill(0);
-    const out = { manifest, seq: manifest.seq, fingerprint: fp, firstTimeOnThisMachine: first };
-    // ⛔ The sealed number is the authenticated one, so it is what gets recorded and what a later
-    //    run compares against. The column is reported when it differs and otherwise ignored.
-    if (manifest.seq !== answer.seq)
-        out.serverSeqDisagreed = answer.seq;
-    // ⛔ THE VERSION THAT IS KEPT IS THE SEALED ONE, and so are the bytes it came out of. Believing
-    //    the server's column here would let it decide which copy this machine keeps.
-    writeSeen(accountId, manifest.seq, fp, answer.ct);
-    return out;
 }

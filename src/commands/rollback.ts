@@ -5,10 +5,13 @@
 //    one, and the natural response to an empty account is to upload everything a second time. The
 //    server retains the version each write replaced for exactly that day.
 //
-// ⛔ IT DOES NOT READ THE LIST, AND THAT IS THE POINT. Every other command here opens the sealed
-//    blob before it does anything; this one moves bytes the server is holding from one place to
-//    another and never looks inside them. A rollback that refused because the current list would
-//    not open would refuse in the only case it is for.
+// ⛔ IT DOES NOT READ THE CURRENT LIST, AND THAT IS THE POINT. Every other command here opens the
+//    sealed blob before it does anything; this one moves bytes the server is holding from one
+//    place to another. A rollback that refused because the current list would not open would
+//    refuse in the only case it is for.
+//    ⚠ It does open the OLDER one, far enough to read the names of the chunks it is made of and no
+//      further (`namedChunks`). Bytes that will not open answer "no chunks", which is exactly the
+//      request this command has always made — so nothing it used to handle is refused now.
 //
 // ⛔ WHAT IT COSTS: the newer version's additions leave the list. The BYTES are untouched — the
 //    server still holds every row, the storage is still bought, and `nmts rebuild` finds files no
@@ -23,6 +26,7 @@
 import { request } from "../api.ts";
 import { NmtsError } from "../errors.ts";
 import { isRecord } from "../guards.ts";
+import { namedChunks } from "../manifest-chunk-flow.ts";
 import { recordWrittenList } from "../manifest.ts";
 import { BINARY_NAME } from "../product.ts";
 import { openSession } from "../session.ts";
@@ -101,6 +105,13 @@ export async function rollback(options: RollbackOptions = {}): Promise<number> {
     return 5;
   }
 
+  // ⛔ THE OLDER INDEX'S CHUNKS ARE NAMED AGAIN, and nothing is uploaded. At format version 2 the
+  //    entries live in chunks the index names by hash; the server frees a chunk no current or
+  //    retained index names, so a write that named none would put back an index whose contents it
+  //    had just thrown away. The chunks themselves are already there — the server kept what the
+  //    retained version names — which is why this is a list of names and not an upload.
+  const refs = await namedChunks(session.code, previous.ct);
+
   // ⛔ THE SAME COMPARE-AND-SWAP EVERY OTHER WRITE USES, and it is not retried. A conflict here
   //    means somebody wrote the list while this ran, so what would be replaced is no longer the
   //    version this run showed the person — and re-applying it would roll back a version they
@@ -108,7 +119,7 @@ export async function rollback(options: RollbackOptions = {}): Promise<number> {
   const answer: unknown = await request(session.server, "/v1/manifest", {
     method: "PUT",
     token: session.apiKey,
-    body: { base_seq: current.seq, ct: previous.ct },
+    body: { base_seq: current.seq, ct: previous.ct, refs },
   });
   const seq: unknown = isRecord(answer) ? answer["seq"] : undefined;
   if (typeof seq !== "number" || !Number.isSafeInteger(seq) || seq < 1) {

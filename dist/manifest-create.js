@@ -1,4 +1,6 @@
-// Writing VERSION 1 of an account's sealed file list — the only write that builds on nothing.
+// Writing THE FIRST VERSION of an account's sealed file list — the only write that builds on
+// nothing. ("Version 1" here is the store version — `seq` — and not the sealed format version:
+// what this writes is format version 2, an index plus its chunks, like every other write.)
 //
 // ⛔ IT IS A SEPARATE DOOR FROM EVERY OTHER WRITE, AND THAT IS THE POINT. Ordinary edits read the
 //    current list, apply an intent to it and hand the server the version they built on; there is
@@ -12,17 +14,17 @@
 // ⛔ AND THE CALLER MUST STILL LOOK FIRST. The server's refusal is the last line, not the first:
 //    reading the list before building one is what lets this tool say "this account already has a
 //    file list" without spending a listing of the whole account first.
-import { request, ServerError } from "./api.js";
-import { AAD, DERIVED, loadCrypto } from "./crypto.js";
+import { ServerError } from "./api.js";
+import { DERIVED, loadCrypto } from "./crypto.js";
 import { NmtsError } from "./errors.js";
+import { writeChunkedList } from "./manifest-chunk-flow.js";
 import { recordWrittenList } from "./manifest.js";
-import { encodeManifest } from "./shared/lib/drive/manifest-codec.js";
 /**
- * Seal these entries as version 1 and write them, or refuse because a list already exists.
+ * Seal these entries as store version 1 and write them, or refuse because a list already exists.
  *
- * ⛔ NO `prev` LINK, because there is nothing before this. Version 1 is the one version that is
- *    allowed not to name what it continued from; every version after it must, or the fork check
- *    has a hole exactly where a fork would be introduced.
+ * ⛔ NO `prev` LINK, because there is nothing before this. The first version is the one version
+ *    that is allowed not to name what it continued from; every version after it must, or the fork
+ *    check has a hole exactly where a fork would be introduced.
  *
  * ⛔ NO SETTINGS EITHER. Account settings live in this blob or nowhere, and a rebuild has none to
  *    carry: they were in the list that was lost. Writing an empty set is not a loss caused here.
@@ -33,19 +35,24 @@ export async function createFirstList(input, entries) {
     const derived = crypt.kdf_derive(crypt.account_code_parse(input.code));
     const key = derived.slice(from, to);
     derived.fill(0);
+    const io = {
+        server: input.server,
+        apiKey: input.apiKey,
+        accountId: input.accountId,
+        crypt,
+        key,
+    };
     try {
-        const body = await encodeManifest(entries, 1);
-        const sealed = crypt.envelope_seal(key, new TextEncoder().encode(AAD.fileList), body);
-        body.fill(0);
-        const ct = Buffer.from(sealed).toString("base64url");
-        let answer;
+        let written;
         try {
-            answer = await request(input.server, "/v1/manifest", {
-                method: "PUT",
-                token: input.apiKey,
+            written = await writeChunkedList(io, {
+                previous: [],
+                entries,
+                seq: 1,
+                settings: {},
                 // ⛔ `null` IS THE WHOLE SAFETY DEVICE. Any number here would mean "replace the version I
                 //    read", which is exactly what a rebuild must never do.
-                body: { base_seq: null, ct },
+                baseSeq: null,
             });
         }
         catch (error) {
@@ -59,23 +66,12 @@ export async function createFirstList(input, entries) {
             }
             throw error;
         }
-        const seq = seqOf(answer);
         // ⛔ ONLY NOW. Recording a version the server did not accept would leave this machine believing
         //    in a list that never existed, and then refusing the real one as a rollback.
-        await recordWrittenList(input.accountId, seq, ct);
-        return { seq };
+        await recordWrittenList(input.accountId, written.seq, written.ct);
+        return { seq: written.seq };
     }
     finally {
         key.fill(0);
     }
-}
-function seqOf(answer) {
-    if (typeof answer === "object" && answer !== null) {
-        const seq = Reflect.get(answer, "seq");
-        if (typeof seq === "number" && Number.isSafeInteger(seq) && seq >= 1)
-            return seq;
-    }
-    throw new NmtsError("The file list was written but the server did not say which version it is now.", {
-        nextStep: "The list is saved. Run `nmts ls` to see it.",
-    });
 }

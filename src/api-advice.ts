@@ -217,9 +217,11 @@ export function adviseFor(code: string): string | null {
     // ── Two callers, one drive ────────────────────────────────────────────────────────────────
     case "MANIFEST_TOO_LARGE":
       return (
-        "The sealed file list is over the server's ceiling (16 MiB, roughly 60,000 files), so this " +
-        "save was refused and nothing changed. Delete files to shrink the list, or ask the operator " +
-        "for a higher ceiling from the inbox (nmts support send) with a sentence on why."
+        "The sealed file list is over the server's ceiling (16 MiB), so this save was refused and " +
+        "nothing changed. The list is stored as a small index plus chunks, and the index holds one " +
+        "short row per chunk — so an account reaches this only with a list that is not in chunks. " +
+        "Save once more to convert it, or ask the operator for a higher ceiling from the inbox " +
+        "(nmts support send) with a sentence on why."
       );
     // ── The chunked file list (NCF-3 §6.3) ────────────────────────────────────────────────────
     case "MANIFEST_CHUNK_HASH":

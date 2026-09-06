@@ -1,4 +1,4 @@
-import { type ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";
+import type { ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";
 import { type FindOptions } from "./drive-paths.ts";
 import { type OnCollision } from "./collision.ts";
 import { type ManifestIntent, type SettingsPatch } from "./shared/lib/drive/manifest-ops.ts";

@@ -25,6 +25,7 @@ import { API_KEY_ENV_VAR, CODE_ENV_VAR, testConfigDir } from "../src/credentials
 import { NmtsError } from "../src/errors.ts";
 import { encodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 import { generateCode, grantConsents, openFileList, sealFileList } from "./helpers.ts";
+import { chunkFake } from "./fake-chunks.ts";
 
 const KEY = ["nmts", "ak1", "Abcdefghijkl"].join("_") + "_" + "x".repeat(43);
 
@@ -34,6 +35,7 @@ let written: string[] = [];
 let calls: string[] = [];
 /** A sealed list another device writes the instant the tool tries to. One shot. */
 let steal: string | null = null;
+const chunks = chunkFake();
 /** Server rows that answer 404 — what an interrupted run leaves behind. */
 let missingRows = new Set<string>();
 
@@ -45,6 +47,9 @@ const server: Server = createServer((req, res) => {
     res.writeHead(status, { "content-type": "application/json" });
     res.end(JSON.stringify(body));
   };
+  // ⛔ FIRST: a chunk address begins with the index's, so without this a chunk write would be
+  //    taken for an index write and every save would race itself.
+  if (chunks.route(method, url, req, res)) return;
   if (method === "GET" && url.startsWith("/v1/manifest")) {
     if (served === null) return json(200, { state: "absent" });
     return json(200, { state: "present", seq: served.seq, ct: served.ct, updated_at: "2026-08-23T00:00:00Z" });
@@ -98,6 +103,7 @@ async function withSandbox(name: string, body: (code: string) => Promise<void>):
   written = [];
   calls = [];
   steal = null;
+  chunks.reset();
   missingRows = new Set<string>();
   try {
     await body(code);
@@ -122,7 +128,7 @@ async function serve(code: string, entries: ManifestEntry[]): Promise<void> {
 async function lastWritten(code: string): Promise<ManifestEntry[]> {
   const ct = written.at(-1);
   assert.ok(ct !== undefined, "the tool wrote no file list at all");
-  return openFileList(code, ct);
+  return openFileList(code, ct, chunks.store);
 }
 
 const collect = (): { lines: string[]; write: (line: string) => void } => {

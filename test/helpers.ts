@@ -11,7 +11,15 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { modesAreEnforced } from "../src/credentials.ts";
 import { engineDir } from "../src/crypto.ts";
-import { decodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
+import { registerNodeZstd } from "../src/zstd-node.ts";
+import {
+  AAD_FILE_LIST_CHUNK,
+  decodeChunk,
+  decodeFileList,
+  FILE_LIST_VERSION_CHUNKED,
+  type FileListDocument,
+} from "../src/shared/lib/drive/manifest-chunks.ts";
+import type { ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 
 let generate: ((...args: never[]) => unknown) | null = null;
 
@@ -94,6 +102,22 @@ function fn(host: Record<string, unknown>, name: string): (...args: never[]) => 
  *    rather than with the format.
  */
 export async function sealFileList(code: string, body: Uint8Array): Promise<string> {
+  return sealUnder(code, "nmts/v3/file-list", body);
+}
+
+/**
+ * Seal ONE CHUNK of a chunked file list, under the label chunks have of their own.
+ *
+ * ⛔ THE LABEL IS NOT THE INDEX'S, and that is the whole point of the constant. A harness that
+ *    sealed a chunk under the index's label would be testing a document the product can never
+ *    meet, and it would hide the one thing the second label buys: a chunk handed back where an
+ *    index was asked for fails at the seal rather than at the parser.
+ */
+export async function sealFileListChunk(code: string, body: Uint8Array): Promise<string> {
+  return sealUnder(code, AAD_FILE_LIST_CHUNK, body);
+}
+
+async function sealUnder(code: string, aad: string, body: Uint8Array): Promise<string> {
   const glue = await loadEngine();
   const parse = fn(glue, "account_code_parse") as (input: string) => Uint8Array;
   const derive = fn(glue, "kdf_derive") as (bytes: Uint8Array) => Uint8Array;
@@ -102,7 +126,7 @@ export async function sealFileList(code: string, body: Uint8Array): Promise<stri
   const derived = derive(parse(code));
   const key = derived.slice(80, 112);
   derived.fill(0);
-  const out = b64(seal(key, new TextEncoder().encode("nmts/v3/file-list"), body));
+  const out = b64(seal(key, new TextEncoder().encode(aad), body));
   key.fill(0);
   return out;
 }
@@ -114,7 +138,41 @@ export async function sealFileList(code: string, body: Uint8Array): Promise<stri
  *    what the tool THOUGHT it wrote would pass while the bytes on the wire said something else,
  *    which is exactly the failure a sealed format can hide.
  */
-export async function openFileList(code: string, ct: string): Promise<ManifestEntry[]> {
+export async function openFileList(
+  code: string,
+  ct: string,
+  /**
+   * Where the chunks of a version-2 list are, by name. Omit for a list that is one blob.
+   *
+   * ⛔ A version-2 index carries NO entries, so a caller that passes nothing and meets one is told
+   *    so rather than handed an empty array. An empty list is the one answer this format may never
+   *    give by accident.
+   */
+  chunks?: ReadonlyMap<string, string>,
+): Promise<ManifestEntry[]> {
+  registerNodeZstd();
+  const body = await openUnder(code, "nmts/v3/file-list", ct);
+  const doc = await decodeFileList(body);
+  if (doc.v !== FILE_LIST_VERSION_CHUNKED) return [...doc.manifest.entries];
+  const out: ManifestEntry[] = [];
+  for (const ref of doc.index.chunks) {
+    const held = chunks?.get(ref.h);
+    assert.ok(held !== undefined, `the list names a chunk (${ref.h}) this harness was not given`);
+    out.push(...(await decodeChunk(await openUnder(code, AAD_FILE_LIST_CHUNK, held))).items);
+  }
+  return out;
+}
+
+/**
+ * The sealed list as the DOCUMENT it is, whichever version — for the few assertions that are about
+ * the wrapper rather than about the entries: the parent link, the settings, the chunk names.
+ */
+export async function openFileListDoc(code: string, ct: string): Promise<FileListDocument> {
+  registerNodeZstd();
+  return decodeFileList(await openUnder(code, "nmts/v3/file-list", ct));
+}
+
+async function openUnder(code: string, aad: string, ct: string): Promise<Uint8Array> {
   const glue = await loadEngine();
   const parse = fn(glue, "account_code_parse") as (input: string) => Uint8Array;
   const derive = fn(glue, "kdf_derive") as (bytes: Uint8Array) => Uint8Array;
@@ -122,9 +180,9 @@ export async function openFileList(code: string, ct: string): Promise<ManifestEn
   const derived = derive(parse(code));
   const key = derived.slice(80, 112);
   derived.fill(0);
-  const body = open(key, new TextEncoder().encode("nmts/v3/file-list"), Buffer.from(ct, "base64url"));
+  const body = open(key, new TextEncoder().encode(aad), Buffer.from(ct, "base64url"));
   key.fill(0);
-  return [...(await decodeManifest(body)).entries];
+  return body;
 }
 
 /** One part of a sealed file, as the storage network would hold it. */

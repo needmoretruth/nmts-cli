@@ -37,7 +37,7 @@ are open source under Apache-2.0; the server and the web app are not published.
 
 ## Install
 
-Node 22 or newer. Nothing is compiled at install time and there is no native build step: the
+Node 22.15.0 or newer. Nothing is compiled at install time and there is no native build step: the
 encryption engine is a WebAssembly module carried in the repository. It runs wherever Node runs —
 Linux, macOS, Windows, and inside a rootless container.
 
@@ -52,7 +52,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.31.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.32.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 

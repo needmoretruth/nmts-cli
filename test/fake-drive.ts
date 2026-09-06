@@ -16,6 +16,7 @@ import { createServer, type Server } from "node:http";
 
 import { encodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 import { openFileList, sealFileList } from "./helpers.ts";
+import { chunkFake, type ChunkFake } from "./fake-chunks.ts";
 
 /** Shaped like a real key so nothing refuses it before the request is made. */
 export { KEY } from "./fake-rows.ts";
@@ -84,8 +85,12 @@ export interface FakeDrive {
   calls: string[];
   /** Every sealed list the tool successfully wrote. */
   written: string[];
+  /** The chunk half of this server: what it holds, and what each index write named. */
+  readonly chunks: ChunkFake;
   /** Put a list on the server. Version 1 unless a later one is asked for. */
   serve(code: string, entries: ManifestEntry[], seq?: number): Promise<void>;
+  /** Put a CHUNKED list on the server as the version the current one REPLACED. */
+  servePreviousChunked(code: string, groups: readonly ManifestEntry[][], seq?: number): Promise<void>;
   /**
    * Put a list on the server as the version the current one REPLACED.
    *
@@ -108,6 +113,7 @@ export async function startFakeDrive(): Promise<FakeDrive> {
   let served: { seq: number; ct: string } | null = null;
   let previous: { seq: number; ct: string } | null = null;
   let steal: string | null = null;
+  const chunks = chunkFake();
   const state = {
     objects: [] as string[],
     objectsPageSize: 100,
@@ -139,6 +145,8 @@ export async function startFakeDrive(): Promise<FakeDrive> {
 
     if (serveErase(method, url, req, res)) return;
 
+    // ⛔ BEFORE THE ONES BELOW, because those match on a prefix and these addresses begin with it.
+    if (chunks.route(method, url, req, res)) return;
     // ⛔ BEFORE THE ONE BELOW, because that one matches on a prefix and this address begins with
     //    it. A fake that answered the current list here would make a rollback look like a no-op.
     if (method === "GET" && url === "/v1/manifest/previous") {
@@ -162,6 +170,8 @@ export async function startFakeDrive(): Promise<FakeDrive> {
         const baseSeq: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "base_seq") : null;
         const ct: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "ct") : null;
         if (typeof ct !== "string") return json(400, { error: { code: "BAD", message: "no ct" } });
+        const refused = chunks.noteIndexWrite(body);
+        if (refused !== null) return json(422, refused);
         if (steal !== null) {
           const winner = steal;
           steal = null;
@@ -272,75 +282,33 @@ export async function startFakeDrive(): Promise<FakeDrive> {
 
   return {
     base,
-    get objects() {
-      return state.objects;
-    },
-    set objects(v: string[]) {
-      state.objects = v;
-    },
-    get objectsPageSize() {
-      return state.objectsPageSize;
-    },
-    set objectsPageSize(v: number) {
-      state.objectsPageSize = v;
-    },
-    get expiring() {
-      return state.expiring;
-    },
-    set expiring(v: ExpiringRow[]) {
-      state.expiring = v;
-    },
-    get truncated() {
-      return state.truncated;
-    },
-    set truncated(v: boolean) {
-      state.truncated = v;
-    },
-    get expiringRaw(): unknown {
-      return state.expiringRaw;
-    },
-    set expiringRaw(v: unknown) {
-      state.expiringRaw = v;
-    },
-    get extendPreview(): unknown {
-      return state.extendPreview;
-    },
-    set extendPreview(v: unknown) {
-      state.extendPreview = v;
-    },
-    get extendRecorded() {
-      return state.extendRecorded;
-    },
-    get extendRecordFails() {
-      return state.extendRecordFails;
-    },
-    set extendRecordFails(v: boolean) {
-      state.extendRecordFails = v;
-    },
-    get losses() {
-      return state.losses;
-    },
-    set losses(v: LossRow[]) {
-      state.losses = v;
-    },
-    get recheckResult() {
-      return state.recheckResult;
-    },
-    set recheckResult(v: RecheckResult) {
-      state.recheckResult = v;
-    },
-    get sentShares() {
-      return state.sentShares;
-    },
-    set sentShares(v: SentShareRow[]) {
-      state.sentShares = v;
-    },
+    get objects() { return state.objects; },
+    set objects(v: string[]) { state.objects = v; },
+    get objectsPageSize() { return state.objectsPageSize; },
+    set objectsPageSize(v: number) { state.objectsPageSize = v; },
+    get expiring() { return state.expiring; },
+    set expiring(v: ExpiringRow[]) { state.expiring = v; },
+    get truncated() { return state.truncated; },
+    set truncated(v: boolean) { state.truncated = v; },
+    get expiringRaw(): unknown { return state.expiringRaw; },
+    set expiringRaw(v: unknown) { state.expiringRaw = v; },
+    get extendPreview(): unknown { return state.extendPreview; },
+    set extendPreview(v: unknown) { state.extendPreview = v; },
+    get extendRecorded() { return state.extendRecorded; },
+    get extendRecordFails() { return state.extendRecordFails; },
+    set extendRecordFails(v: boolean) { state.extendRecordFails = v; },
+    get losses() { return state.losses; },
+    set losses(v: LossRow[]) { state.losses = v; },
+    get recheckResult() { return state.recheckResult; },
+    set recheckResult(v: RecheckResult) { state.recheckResult = v; },
+    get sentShares() { return state.sentShares; },
+    set sentShares(v: SentShareRow[]) { state.sentShares = v; },
     get parts() { return state.parts; },
-    get calls() {
-      return state.calls;
-    },
-    get written() {
-      return state.written;
+    get calls() { return state.calls; },
+    get written() { return state.written; },
+    chunks,
+    async servePreviousChunked(code: string, groups: readonly ManifestEntry[][], seq = 1): Promise<void> {
+      previous = await chunks.publish(code, groups, seq);
     },
     async serve(code: string, entries: ManifestEntry[], seq = 1): Promise<void> {
       served = { seq, ct: await sealed(code, entries, seq) };
@@ -361,9 +329,10 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     async lastWritten(code: string): Promise<ManifestEntry[]> {
       const ct = state.written.at(-1);
       assert.ok(ct !== undefined, "the tool wrote no file list at all");
-      return openFileList(code, ct);
+      return openFileList(code, ct, chunks.store);
     },
     reset(): void {
+      chunks.reset();
       resetErase();
       resetAccount();
       served = null;

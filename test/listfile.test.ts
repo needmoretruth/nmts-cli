@@ -18,11 +18,12 @@ import { after, test } from "node:test";
 import { identityOf } from "../src/account.ts";
 import { listfile } from "../src/commands/listfile.ts";
 import { ls } from "../src/commands/ls.ts";
-import { LIST_FILE_EXTENSION, LIST_FILE_FORMAT } from "../src/list-file.ts";
+import { buildFileListFile, LIST_FILE_EXTENSION, LIST_FILE_FORMAT, parseFileListFile } from "../src/list-file.ts";
 import { readKeptList, recordWrittenList } from "../src/manifest.ts";
 import { NmtsError } from "../src/errors.ts";
 import { entry } from "./fake-drive.ts";
 import { openFileList } from "./helpers.ts";
+import { nameOf } from "./fake-chunks.ts";
 import { lines, startFakeItems, withAccount } from "./fake-items.ts";
 
 const fake = await startFakeItems();
@@ -191,5 +192,79 @@ test("⛔ a newer version replaces the copy, and an older one never does", async
     assert.ok(first !== null);
     await recordWrittenList(identity.accountId, 1, first.ct);
     assert.equal(readKeptList(identity.accountId)?.seq, 2, "an older list overwrote a newer copy");
+  });
+});
+
+// ── a list in parts goes out whole ────────────────────────────────────────────────────────────
+
+test("a chunked list is written out as its index AND every part it names", async () => {
+  await withAccount(fake, "listfile-chunked", async (code) => {
+    await fake.serveChunked(code, [
+      [entry({ id: "a", name: "budget.xlsx" })],
+      [entry({ id: "b", name: "notes.md" })],
+    ]);
+    await ls(server(lines()));
+
+    const dir = scratch();
+    try {
+      assert.equal(await listfile({ out: dir, write: lines().write }), 0);
+      const identity = await identityOf(code);
+      const slug = identity.accountId.replace(/[^A-Za-z0-9]/g, "").slice(0, 8);
+      const text = readFileSync(join(dir, `nmts-file-list-${slug}-0001.${LIST_FILE_EXTENSION}`), "utf8");
+
+      // ⛔ THE COPY HAS TO OPEN INTO THE ACCOUNT'S NAMES. A wrapper that carried the index alone
+      //    would look right in every field and be a copy of nothing anybody can use.
+      const read = parseFileListFile(text);
+      assert.equal(read.chunks.length, 2, "the parts did not travel with the index");
+      const held = new Map(read.chunks.map((ct) => [nameOf(ct), ct]));
+      const recovered = await openFileList(code, read.sealed, held);
+      assert.deepEqual(recovered.map((e) => e.name).sort(), ["budget.xlsx", "notes.md"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+test("the reader takes both shapes: one blob, and an index with its parts", async () => {
+  const one = buildFileListFile({ accountId: "AbCd1234", seq: 3, sealed: "c2VhbGVk" });
+  const read = parseFileListFile(one.content);
+  assert.equal(read.seq, 3);
+  assert.equal(read.sealed, "c2VhbGVk");
+  assert.deepEqual(read.chunks, [], "a one-blob copy came back claiming parts");
+  assert.match(one.content, /"version": 1/);
+
+  const many = buildFileListFile({
+    accountId: "AbCd1234",
+    seq: 4,
+    sealed: "aW5kZXg",
+    chunks: ["cGFydC1vbmU", "cGFydC10d28"],
+  });
+  assert.match(many.content, /"version": 2/, "a copy carrying parts still calls itself shell 1");
+  assert.deepEqual(parseFileListFile(many.content).chunks, ["cGFydC1vbmU", "cGFydC10d28"]);
+
+  // ⛔ A shell that says it is in parts and carries none is refused rather than read as empty.
+  const broken = many.content.replace(/"chunks": \[[^\]]*\],/, "");
+  assert.throws(() => parseFileListFile(broken), /carries none/);
+});
+
+test("⛔ a machine holding the index but not its parts refuses, and writes nothing", async () => {
+  await withAccount(fake, "listfile-partless", async (code) => {
+    await fake.serveChunked(code, [[entry({ id: "a", name: "budget.xlsx" })]]);
+    await ls(server(lines()));
+    // The parts this machine kept are cleared, exactly as a wiped cache would leave it.
+    rmSync(join(String(process.env["NMTS_CONFIG_DIR"]), "file-list-chunks"), {
+      recursive: true,
+      force: true,
+    });
+
+    const dir = scratch();
+    try {
+      const error = await refusal(listfile({ out: dir, write: lines().write }));
+      assert.equal(error.exitCode, 4);
+      assert.match(String(error.nextStep), /nmts ls/, "it did not say how to get the parts back");
+      assert.deepEqual(readdirSync(dir), [], "it wrote a copy that is missing part of the list");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

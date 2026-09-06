@@ -24,6 +24,7 @@ import { identityOf } from "../account.ts";
 import { requireAccountCode } from "../code-access.ts";
 import { NmtsError } from "../errors.ts";
 import { buildFileListFile } from "../list-file.ts";
+import { keptChunks } from "../manifest-chunk-flow.ts";
 import { readKeptList } from "../manifest.ts";
 import { BINARY_NAME } from "../product.ts";
 
@@ -65,11 +66,18 @@ export async function listfile(options: ListFileOptions = {}): Promise<number> {
     });
   }
 
+  // ⛔ THE PARTS TRAVEL WITH THE INDEX. At format version 2 the kept bytes are an index that names
+  //    chunks; this machine holds those chunks by name beside it, and a copy of the index without
+  //    them is a copy of nothing anybody can use. Null means the kept bytes are a single-blob list,
+  //    which carries its entries itself.
+  const chunks = await keptChunks(resolved.code, identity.accountId, kept.ct);
+
   const file = buildFileListFile({
     accountId: identity.accountId,
     seq: kept.seq,
     savedAt: kept.savedAt,
     sealed: kept.ct,
+    ...(chunks === null ? {} : { chunks }),
   });
 
   if (toStdout) {

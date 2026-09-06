@@ -195,11 +195,11 @@ export async function manifestFingerprint(ct: string): Promise<string> {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-const FLAG_RAW = 0x00;
-const FLAG_GZIP = 0x01;
+export const FLAG_RAW = 0x00;
+export const FLAG_GZIP = 0x01;
 
 /** The compact per-entry shape actually stored. */
-interface WireEntry {
+export interface WireEntry {
   i: string;
   p: string | null;
   k: number;
@@ -239,7 +239,7 @@ interface WireManifest {
   st?: WireSettings;
 }
 
-function toWire(e: ManifestEntry): WireEntry {
+export function toWire(e: ManifestEntry): WireEntry {
   const w: WireEntry = {
     i: e.id,
     p: e.parentId,
@@ -268,7 +268,7 @@ function toWire(e: ManifestEntry): WireEntry {
   return w;
 }
 
-function fromWire(w: WireEntry): ManifestEntry {
+export function fromWire(w: WireEntry): ManifestEntry {
   const e: ManifestEntry = {
     id: w.i,
     parentId: w.p ?? null,
@@ -416,7 +416,7 @@ export async function decodeManifest(body: Uint8Array): Promise<Manifest> {
 }
 
 /** Prepend the compression flag byte. */
-function withFlag(flag: number, body: Uint8Array): Uint8Array {
+export function withFlag(flag: number, body: Uint8Array): Uint8Array {
   const out = new Uint8Array(body.length + 1);
   out[0] = flag;
   out.set(body, 1);
@@ -424,14 +424,14 @@ function withFlag(flag: number, body: Uint8Array): Uint8Array {
 }
 
 /** gzip, or null when the platform has no `CompressionStream`. */
-async function gzip(bytes: Uint8Array): Promise<Uint8Array | null> {
+export async function gzip(bytes: Uint8Array): Promise<Uint8Array | null> {
   const C = (globalThis as { CompressionStream?: typeof CompressionStream }).CompressionStream;
   if (!C) return null;
   return collect(streamThrough(bytes, new C("gzip")));
 }
 
 /** gunzip, or null when the platform has no `DecompressionStream`. */
-async function gunzip(bytes: Uint8Array): Promise<Uint8Array | null> {
+export async function gunzip(bytes: Uint8Array): Promise<Uint8Array | null> {
   const D = (globalThis as { DecompressionStream?: typeof DecompressionStream }).DecompressionStream;
   if (!D) return null;
   return collect(streamThrough(bytes, new D("gzip")));

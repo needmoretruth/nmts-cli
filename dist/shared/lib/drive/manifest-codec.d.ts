@@ -155,6 +155,37 @@ export interface Manifest {
 export declare const MANIFEST_FORMAT_VERSION = 1;
 /** base64url SHA-256 of a sealed blob — the value a later list carries as its `prev`. */
 export declare function manifestFingerprint(ct: string): Promise<string>;
+export declare const FLAG_RAW = 0;
+export declare const FLAG_GZIP = 1;
+/** The compact per-entry shape actually stored. */
+export interface WireEntry {
+    i: string;
+    p: string | null;
+    k: number;
+    n: string;
+    s: number;
+    c: number;
+    u: number;
+    d?: number;
+    w?: string;
+    h?: string;
+    f?: 1;
+    pn?: 1;
+    l?: string[];
+    sn?: number;
+    sh?: WireShareReceipt[];
+}
+/** One share receipt on the wire. Same short-key reason as the entry above it. */
+interface WireShareReceipt {
+    /** address. */
+    a: string;
+    /** at. */
+    t: number;
+    /** revoked. */
+    r?: 1;
+}
+export declare function toWire(e: ManifestEntry): WireEntry;
+export declare function fromWire(w: WireEntry): ManifestEntry;
 /** Thrown when the plaintext is not a manifest this build can read. */
 export declare class ManifestFormatError extends Error {
     constructor(message: string);
@@ -175,3 +206,9 @@ export declare function encodeManifest(entries: readonly ManifestEntry[], seq: n
  * previous version, because rendering an empty drive invites the user to re-upload everything.
  */
 export declare function decodeManifest(body: Uint8Array): Promise<Manifest>;
+/** Prepend the compression flag byte. */
+export declare function withFlag(flag: number, body: Uint8Array): Uint8Array;
+/** gzip, or null when the platform has no `CompressionStream`. */
+export declare function gzip(bytes: Uint8Array): Promise<Uint8Array | null>;
+/** gunzip, or null when the platform has no `DecompressionStream`. */
+export declare function gunzip(bytes: Uint8Array): Promise<Uint8Array | null>;

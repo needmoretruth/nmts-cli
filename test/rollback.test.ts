@@ -95,3 +95,30 @@ test("⛔ the unconfirmed answer never uses the words the finished act uses", as
     assert.equal(drive.written.length, 0, "it wrote the list without being told to go ahead");
   });
 });
+
+test("a retained list in parts goes back named, and not one part is uploaded", async () => {
+  await withSandbox(drive, "rollback-chunked", async (code) => {
+    // The retained version is an index in two parts; the current one is an ordinary later list.
+    await drive.servePreviousChunked(
+      code,
+      [[entry({ id: "a", name: "a.txt" })], [entry({ id: "b", name: "b.txt" })]],
+      1,
+    );
+    await drive.serve(code, [entry({ id: "a", name: "a.txt" })], 2);
+
+    assert.equal(await rollback({ ...opts(collect()), yes: true }), 0);
+
+    // ⛔ THE NAMES TRAVEL, THE BYTES DO NOT. The server keeps what the retained index names, so a
+    //    rollback has nothing to upload — but a write that named nothing would let the server free
+    //    the very chunks it just put back, and the restored list would open into a drive missing
+    //    files.
+    const write = drive.chunks.indexWrites.at(-1);
+    assert.equal(write?.refs.length, 2, `the older index's parts were not named — ${String(write?.refs)}`);
+    assert.equal(
+      drive.calls.filter((c) => c.startsWith("PUT /v1/manifest/chunks/")).length,
+      0,
+      "it uploaded a part the server already holds",
+    );
+    assert.deepEqual((await drive.lastWritten(code)).map((e) => e.name), ["a.txt", "b.txt"]);
+  });
+});

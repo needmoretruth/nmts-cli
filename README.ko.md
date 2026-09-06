@@ -36,7 +36,7 @@ NMTS는 한 사람이 만들고 운영합니다. 이 도구와 암호화 엔진,
 
 ## 설치
 
-Node 22 이상. 설치할 때 컴파일하는 것이 없고 네이티브 빌드 단계도 없습니다. 암호화 엔진은
+Node 22.15.0 이상. 설치할 때 컴파일하는 것이 없고 네이티브 빌드 단계도 없습니다. 암호화 엔진은
 저장소에 실린 WebAssembly 모듈이라, Node가 도는 곳이면 어디서든 돕니다 — 리눅스, macOS, 윈도우,
 그리고 rootless 컨테이너 안에서도.
 
@@ -50,7 +50,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.31.0    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.32.0    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 

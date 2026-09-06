@@ -3,6 +3,16 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.32.0 — 2026-09-06
+
+- The file list is saved in pieces. Editing one file now uploads the piece it is in instead of the
+  whole list, so a rename costs the same on a drive of ten files and a drive of fifty thousand.
+  Nothing about the drive changes and there is nothing to do: the first save after this version
+  converts the account, and the pieces are kept on this machine by name so a later read fetches
+  only what changed. `nmts listfile` writes the index and its pieces out as one file, as before.
+- Node 22.15.0 or newer is now required (it was 22). That is the release where Node's own `zlib`
+  learned zstd, which is what the pieces are compressed with.
+
 ## 0.31.0 — 2026-09-06
 
 - The credit deposit is now a choice: `nmts deposit [credits]` reads and sets what this account
