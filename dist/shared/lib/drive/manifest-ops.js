@@ -177,8 +177,8 @@ export function applySettingsPatch(settings, patch) {
     if (patch.paddingMode !== undefined) {
         // The default is spelled as absence, like every other field here — so two devices that both
         // "choose the default" write the same bytes and neither bumps the list's version.
-        if (patch.paddingMode === "pow2")
-            next.paddingMode = "pow2";
+        if (patch.paddingMode === "pow2" || patch.paddingMode === "none")
+            next.paddingMode = patch.paddingMode;
         else
             delete next.paddingMode;
     }

@@ -132,14 +132,16 @@ export function organiseTools(ctx) {
         {
             name: "nmts_padding",
             description: "Read or set how file sizes are hidden on the storage network: standard (a few fixed " +
-                "sizes per doubling) or pow2 (one per doubling, hides more, costs more storage on " +
-                "average). Applies to the next uploads from every device.",
+                "sizes per doubling), pow2 (one per doubling, hides more, costs more storage on " +
+                "average), or off (no padding — the file's exact length is visible to the network and " +
+                "to anyone who reads the blob, and about 1 % less storage is used). Applies to the next " +
+                "uploads from every device.",
             inputSchema: {
                 type: "object",
                 properties: {
                     mode: {
                         type: "string",
-                        enum: ["standard", "pow2"],
+                        enum: ["standard", "pow2", "off"],
                         description: "Leave it out to read the setting rather than change it.",
                     },
                 },

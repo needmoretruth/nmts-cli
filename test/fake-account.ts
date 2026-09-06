@@ -30,9 +30,25 @@ export interface FakeIssue {
   expires_at: string;
 }
 
+/** One key as `POST /v1/account/api-keys/list-by-code` lists it. */
+export interface FakeKey {
+  key_id: string;
+  scopes: number;
+  created_at: string;
+  expires_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+  uses: number;
+}
+
 export interface AccountState {
   /** What `GET /v1/account/sessions` answers. */
   sessions: FakeSession[];
+  /** What the list door answers, and what the revoke door cuts from. */
+  keys: FakeKey[];
+  /** Every body the tool posted to the list door and to the revoke door, in order. */
+  listRequests: unknown[];
+  revokeRequests: unknown[];
   /** What the next mint hands back. */
   issue: FakeIssue;
   /** Refuse the next mint with this code instead of answering. */
@@ -72,6 +88,9 @@ const DEFAULT_ISSUE: FakeIssue = {
 
 export const accountState: AccountState = {
   sessions: [],
+  keys: [],
+  listRequests: [],
+  revokeRequests: [],
   issue: { ...DEFAULT_ISSUE },
   refuseIssueWith: null,
   issueRequests: [],
@@ -88,6 +107,9 @@ export function resetAccount(): void {
   accountState.issue = { ...DEFAULT_ISSUE };
   accountState.refuseIssueWith = null;
   accountState.issueRequests = [];
+  accountState.keys = [];
+  accountState.listRequests = [];
+  accountState.revokeRequests = [];
   accountState.bearers = [];
   accountState.summary = DEFAULT_SUMMARY;
   accountState.acceptRequests = [];
@@ -176,6 +198,37 @@ export function serveAccount(
       }
       res.writeHead(204);
       res.end();
+    });
+    return true;
+  }
+  if (method === "POST" && url === "/v1/account/api-keys/list-by-code") {
+    accountState.bearers.push(typeof bearer === "string" ? bearer : null);
+    let raw = "";
+    req.on("data", (c: Buffer) => (raw += c.toString("utf8")));
+    req.on("end", () => {
+      accountState.listRequests.push(raw === "" ? null : JSON.parse(raw));
+      json(200, { keys: accountState.keys });
+    });
+    return true;
+  }
+  if (method === "POST" && url === "/v1/account/api-keys/revoke-by-code") {
+    accountState.bearers.push(typeof bearer === "string" ? bearer : null);
+    let raw = "";
+    req.on("data", (c: Buffer) => (raw += c.toString("utf8")));
+    req.on("end", () => {
+      const body: unknown = raw === "" ? null : JSON.parse(raw);
+      accountState.revokeRequests.push(body);
+      const wanted = body !== null && typeof body === "object" && "key_id" in body ? body["key_id"] : undefined;
+      const live = accountState.keys.filter((k) => k.revoked_at === null);
+      if (wanted === undefined || wanted === null) {
+        for (const k of live) k.revoked_at = "2026-09-06T10:00:00Z";
+        return json(200, { revoked: live.length });
+      }
+      const hit = live.find((k) => k.key_id === wanted);
+      // The real server answers 404 for a stranger's handle, a missing one and a cut one alike.
+      if (hit === undefined) return json(404, { error: { code: "NOT_FOUND", message: "no such key" } });
+      hit.revoked_at = "2026-09-06T10:00:00Z";
+      json(200, { revoked: 1 });
     });
     return true;
   }

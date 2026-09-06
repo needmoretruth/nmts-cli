@@ -22,9 +22,11 @@ export interface AccountSettings {
    * SIZE PADDING rule — how coarsely a file's stored size is rounded up.
    *
    * Absent = Padmé, the default: about 32 possible sizes per doubling, ~1% more storage.
-   * `"pow2"` rounds to the next power of two: one size per doubling, ~39% more storage. Those are
-   * the only two, and there is deliberately no "off" — the owner's choice was between two rules,
-   * and switching padding off would mean "this account's files still state their exact size".
+   * `"pow2"` rounds to the next power of two: one size per doubling, ~39% more storage.
+   * `"none"` does not round: the file's exact length is what the stored stream states, and about
+   * 1% less storage is used. It was added on the owner's rule that anything Walrus itself allows
+   * must be reachable here (2026-09-06); the cost of it is stated where the choice is made, which is
+   * what makes it a choice rather than a trap.
    *
    * Here, in the sealed list, for the same reason the other two are: the server must not learn it
    * (it would be a per-account fingerprint the server could hold on to), and it
@@ -33,7 +35,7 @@ export interface AccountSettings {
    * ⚠ It applies to what is uploaded NEXT. Bytes already on the storage network cannot be
    * re-padded, and the screen says so.
    */
-  paddingMode?: "pow2";
+  paddingMode?: "pow2" | "none";
   /**
    * STANDING TIP — the share of every storage payment sent to the developer as a gift, in tenths
    * of a percent (25 = 2.5 %). Absent = 0 = nothing is sent. Set by the person, once, on the
@@ -71,7 +73,7 @@ export interface WireSettings {
    * the default rule instead, on every device, silently. A settings field is not saved because it
    * is declared; it is saved because both functions below name it.
    */
-  pd?: "pow2";
+  pd?: "pow2" | "none";
   /** tipTenths, present only above 0. */
   tp?: number;
   /** tipConsentAt. */
@@ -96,7 +98,7 @@ export function settingsToWire(s: AccountSettings | undefined): WireSettings | n
   ) {
     w.tx = Math.round(s.textScalePct);
   }
-  if (s.paddingMode === "pow2") w.pd = "pow2";
+  if (s.paddingMode === "pow2" || s.paddingMode === "none") w.pd = s.paddingMode;
   if (typeof s.tipTenths === "number" && Number.isInteger(s.tipTenths) && s.tipTenths > 0 && s.tipTenths <= TIP_TENTHS_MAX) {
     w.tp = s.tipTenths;
   }
@@ -133,7 +135,7 @@ export function settingsFromWire(w: unknown): AccountSettings | undefined {
   }
   // An unknown rule is DROPPED, not guessed at: padding a file by a rule this build does not know
   // would give it a size no reader here can undo. Falling back to the default is always readable.
-  if (pd === "pow2") s.paddingMode = "pow2";
+  if (pd === "pow2" || pd === "none") s.paddingMode = pd;
   // A tip outside the bounds is DROPPED, not clamped: sending a share some other build miswrote is
   // worse than sending nothing, which is always what 0 means.
   if (typeof tp === "number" && Number.isInteger(tp) && tp > 0 && tp <= TIP_TENTHS_MAX) s.tipTenths = tp;

@@ -205,6 +205,9 @@ export declare const ACTS: {
         readonly what: "Drop trash entries whose 30 days have run out.";
         readonly asksItself: true;
     };
+    readonly "key.list": {
+        readonly tier: "none";
+    };
     readonly "key.new": {
         readonly tier: "medium";
         readonly what: "Make a new API key for this machine.";

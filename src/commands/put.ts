@@ -23,7 +23,7 @@ import { NmtsError } from "../errors.ts";
 import { Progress, silentSink, stderrSink } from "../progress.ts";
 import { setTrashed } from "../item-trash.ts";
 import { addEntry } from "../manifest-write.ts";
-import { readFileList } from "../manifest.ts";
+import { paddingRuleOf, readFileList } from "../manifest.ts";
 import { resolveNetwork } from "../network.ts";
 import { BINARY_NAME } from "../product.ts";
 import type { PaddingRule } from "../shared/lib/crypto/size-padding.ts";
@@ -192,7 +192,7 @@ export async function put(target: string | undefined, options: PutOptions = {}):
   //    would have cost real money to produce a message about a typo.
   const asked = parseAsked(options.onCollision);
   const list = await readFileList(server, key.key, resolved.code, identity.accountId);
-  const rule: PaddingRule = list.manifest?.settings?.paddingMode === "pow2" ? "pow2" : "padme";
+  const rule: PaddingRule = paddingRuleOf(list.manifest?.settings);
 
   // ⛔ THE PRICE IS ARITHMETIC, NOT A MEASUREMENT: quoting it by sealing would mean reading and
   //    encrypting a very large file to answer `--dry-run`. Every part rounds up to a whole credit

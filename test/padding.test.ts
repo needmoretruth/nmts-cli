@@ -95,6 +95,37 @@ test("going back to the standard rule takes the field away rather than writing t
   });
 });
 
+// ⭐ THE THIRD ANSWER (2026-09-06). Walrus stores a blob at whatever size it is handed, so this tool
+//    has to be able to as well. What makes it a choice rather than a trap is the sentence: setting
+//    it says what is now legible and what it saves, and that IS the confirmation — there is no
+//    second question, and the option is not withheld (owner: safety must not shackle the person).
+test("turning padding off is written to the list, says what it costs, and reads back", async () => {
+  await withSandbox(drive, "padding-off", async (code) => {
+    await drive.serve(code, [entry({ id: "a", name: "a.txt" })]);
+    const set = collect();
+    assert.equal(await padding("off", opts(set)), 0);
+    assert.deepEqual(set.lines, [
+      "Uploads from now on are stored at their exact size: the file's length is visible to the " +
+        "network and to anyone who reads the blob. About 1 % less storage.",
+    ]);
+    assert.equal(drive.written.length, 1, `it wrote the list ${drive.written.length} times`);
+
+    const read = collect();
+    assert.equal(await padding(undefined, opts(read)), 0);
+    assert.deepEqual(read.lines, [
+      "File sizes are not hidden: a stored piece states the file's exact length.",
+      "Anyone can read the size of a piece stored on the storage network, and with padding off " +
+        "that size is the file's own.",
+    ]);
+
+    // ⛔ AND IT MUST NOT WRITE TWICE. A no-op costs every other device on the account a download.
+    const again = collect();
+    assert.equal(await padding("off", opts(again)), 0);
+    assert.deepEqual(again.lines, ["Already off (exact size). Nothing changed."]);
+    assert.equal(drive.written.length, 1, "the second run rewrote the list for nothing");
+  });
+});
+
 test("--json names the rule, whether it was read or set", async () => {
   await withSandbox(drive, "padding-json", async (code) => {
     await drive.serve(code, [entry({ id: "a", name: "a.txt" })]);
@@ -105,6 +136,13 @@ test("--json names the rule, whether it was read or set", async () => {
     const set = collect();
     assert.equal(await padding("pow2", { ...opts(set), json: true }), 0);
     assert.deepEqual(JSON.parse(set.lines.join("")), { padding: "pow2" });
+
+    const off = collect();
+    assert.equal(await padding("off", { ...opts(off), json: true }), 0);
+    assert.deepEqual(JSON.parse(off.lines.join("")), { padding: "off" });
+    const back = collect();
+    assert.equal(await padding(undefined, { ...opts(back), json: true }), 0);
+    assert.deepEqual(JSON.parse(back.lines.join("")), { padding: "off" });
   });
 });
 
@@ -112,7 +150,7 @@ test("⛔ a rule this tool does not know is refused before anything is asked of 
   await withSandbox(drive, "padding-unknown", async () => {
     const failure = await padding("pow-2", opts(collect())).then(() => null, (e: unknown) => e);
     assert.ok(failure instanceof NmtsError, `it did not refuse — ${String(failure)}`);
-    assert.equal(failure.message, '`nmts padding` takes standard or pow2, not "pow-2".');
+    assert.equal(failure.message, '`nmts padding` takes standard, pow2 or off, not "pow-2".');
     assert.equal(failure.exitCode, 2);
     assert.deepEqual(drive.calls, [], `it asked the server: ${drive.calls.join(" · ")}`);
   });

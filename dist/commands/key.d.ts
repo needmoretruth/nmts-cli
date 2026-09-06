@@ -14,12 +14,15 @@ export interface KeyOptions {
 /**
  * `nmts key <verb>`.
  *
- * ⛔ A VERB AND NOT A BARE COMMAND, because the other verbs a person will look for here — listing
- *    the account's keys, revoking one — are things the server refuses to a key on purpose and
- *    would need the account code re-entered besides. `key` with no verb says which one exists
- *    rather than doing the only one it has, so `nmts key` never turns out to have made something.
+ * ⛔ A VERB AND NOT A BARE COMMAND. Three verbs: `new` mints, `list` shows, `revoke` cuts
+ *    (`key-manage.ts` for the last two). All three present the account code's proof and none is
+ *    reachable with a key — a key cannot cut another key off, and that is what makes revoking
+ *    mean something. `key` with no verb says which ones exist rather than doing one of them, so
+ *    `nmts key` never turns out to have made something.
  */
 export declare function key(verb: string | undefined, args: ParsedArgs): Promise<number>;
 /** Turn `read,write` into the bitmask the server takes, refusing anything it does not define. */
 export declare function scopeMask(spelled: string): number;
+/** The permission names a bitmask stands for, in the order they are defined. */
+export declare function scopeNames(mask: number): string[];
 export declare function keyNew(options?: KeyOptions): Promise<number>;

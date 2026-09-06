@@ -158,11 +158,11 @@ test("the server's two refusals arrive with advice a caller can act on", async (
   });
 });
 
-test("`key` with no verb, or a verb that is not `new`, says which one exists", async () => {
+test("`key` with no verb, or a verb it does not have, names the three that exist", async () => {
   // ⚠ Driven through the real parser rather than a hand-built options object: the dispatcher's
   //   whole job is reading the operand `main.ts` hands it, and a fabricated shape would not test
   //   that the operand is where this thinks it is.
-  for (const typed of [["key"], ["key", "list"], ["key", "revoke"]]) {
+  for (const typed of [["key"], ["key", "make"]]) {
     const args = parseArgs(typed);
     await assert.rejects(
       () => key(args.operands[0], args),
@@ -170,8 +170,8 @@ test("`key` with no verb, or a verb that is not `new`, says which one exists", a
         assert.ok(error instanceof NmtsError);
         assert.equal(error.exitCode, 2);
         assert.match(error.nextStep ?? "", /nmts key new/);
-        // ⛔ It names where listing and revoking happen instead of leaving a reader to guess.
-        assert.match(error.nextStep ?? "", /nmts\.me/);
+        assert.match(error.nextStep ?? "", /nmts key list/);
+        assert.match(error.nextStep ?? "", /nmts key revoke/);
         return true;
       },
     );

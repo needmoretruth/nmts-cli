@@ -50,8 +50,8 @@ a person, all at the beginning. If you are being set up, hand this list back in 
 
 | Step | Who | Where | How often |
 |---|---|---|---|
-| 1. Make the account | a person | nmts.me | once |
-| 2. Make an API key for you | a person | the account screen at nmts.me, or `nmts key new` on a machine that holds the code | once, and again if it is revoked |
+| 1. Make the account | a person | nmts.me, or `nmts create` at a terminal (it makes the code on that machine and hands the person a one-time link to finish in a browser) | once |
+| 2. Make an API key for you | a person | the account screen at nmts.me, or `nmts key new` on a machine that holds the code (`key list` and `key revoke` live there too) | once, and again if it is revoked |
 | 3. Pass the check that says a person is here | a person | nmts.me, one short code | **every four weeks**, and only for step 1, step 4 and sharing |
 | 4. Get credits into the account | a person | nmts.me — the free trial, or a funded wallet | once, then as they run out |
 
@@ -131,7 +131,7 @@ folders, marks), **low** (reversible but worth a word: the trash, a setting, a r
 | Subject | Commands |
 |---|---|
 | where am I | `env` · `whoami` · `mode` · `unlock` / `lock` |
-| credentials | `login` · `logout` · `key` · `devices` · `verify` |
+| credentials | `login` · `logout` · `key` (new · list · revoke) · `devices` · `verify` |
 | files | `ls` / `listfile` · `get` · `pull` · `put` · `push` · `rm` / `restore` / `sweep` · `mkdir` / `mv` / `rename` · `star` / `pin` / `label` |
 | the account | `usage` / `balance` / `expiring` · `losses` · `trial` · `public-code` · `create` · `delete-account` · `accept-terms` |
 | paying and the wallet | `extend` · `wallet` (address · activity · storage · send · swap · donate · hall) |

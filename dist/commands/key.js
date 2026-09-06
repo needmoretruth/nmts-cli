@@ -67,19 +67,28 @@ const DEFAULT_DAYS = 30;
 /**
  * `nmts key <verb>`.
  *
- * ⛔ A VERB AND NOT A BARE COMMAND, because the other verbs a person will look for here — listing
- *    the account's keys, revoking one — are things the server refuses to a key on purpose and
- *    would need the account code re-entered besides. `key` with no verb says which one exists
- *    rather than doing the only one it has, so `nmts key` never turns out to have made something.
+ * ⛔ A VERB AND NOT A BARE COMMAND. Three verbs: `new` mints, `list` shows, `revoke` cuts
+ *    (`key-manage.ts` for the last two). All three present the account code's proof and none is
+ *    reachable with a key — a key cannot cut another key off, and that is what makes revoking
+ *    mean something. `key` with no verb says which ones exist rather than doing one of them, so
+ *    `nmts key` never turns out to have made something.
  */
 export async function key(verb, args) {
+    if (verb === "list") {
+        const { keyList } = await import("./key-manage.js");
+        return await keyList({ server: args.server, json: args.json });
+    }
+    if (verb === "revoke") {
+        const { keyRevoke } = await import("./key-manage.js");
+        return await keyRevoke(args.operands[1], args, { server: args.server, json: args.json });
+    }
     if (verb !== "new") {
         throw new NmtsError(verb === undefined ? `\`${BINARY_NAME} key\` needs a verb.` : `\`${verb}\` is not a key verb.`, {
             exitCode: 2,
-            nextStep: `The one verb is \`${BINARY_NAME} key new\`, which makes an API key for this machine ` +
-                `from the account code it already holds. Listing and revoking keys are done at ` +
-                `${HOME_URL}: a key cannot cut another key off, and that is what makes revoking mean ` +
-                `something.`,
+            nextStep: `The verbs are \`${BINARY_NAME} key new\` (make an API key for this machine from the ` +
+                `account code it already holds), \`${BINARY_NAME} key list\` and ` +
+                `\`${BINARY_NAME} key revoke <id|all>\`. Each needs the account code on this machine; ` +
+                `a key alone cannot list or cut keys.`,
         });
     }
     return await keyNew({
@@ -121,7 +130,7 @@ export function scopeMask(spelled) {
     return mask;
 }
 /** The permission names a bitmask stands for, in the order they are defined. */
-function scopeNames(mask) {
+export function scopeNames(mask) {
     return Object.entries(SCOPE_BITS)
         .filter(([, bit]) => (mask & bit) !== 0)
         .map(([name]) => name);

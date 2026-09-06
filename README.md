@@ -52,7 +52,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.24.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.25.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -264,8 +264,9 @@ whichever way the account's switch is set — today only the browser's small-fil
 Files whose name is already in the destination are skipped, so running it again is safe. Names
 beginning with a dot are left alone unless `--hidden` is given, and symbolic links are not followed.
 
-`nmts padding` shows how file sizes are hidden, and `nmts padding standard` or `nmts padding pow2`
-changes it for every device's next uploads. Anyone can read the size of a piece on the storage
+`nmts padding` shows how file sizes are hidden, and `nmts padding standard`, `nmts padding pow2` or
+`nmts padding off` changes it for every device's next uploads (`off` stores the exact size: the
+file's length is visible to the network and to anyone who reads the blob, for about 1 % less storage). Anyone can read the size of a piece on the storage
 network; blank bytes make that size one of a set of fixed values. Powers of two hide more and cost
 more storage on average.
 

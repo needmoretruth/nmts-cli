@@ -50,7 +50,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.24.0    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.25.0    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -256,8 +256,9 @@ nmts put film.mov --pay wallet --storage fit        # 지갑이 이미 든 저�
 이름이 이미 있는 파일은 건너뛰므로 다시 돌려도 안전합니다. 점으로 시작하는 이름은 `--hidden`을
 주지 않는 한 건드리지 않고, 심볼릭 링크는 따라가지 않습니다.
 
-`nmts padding`은 파일 크기를 어떻게 가리는지 보여 주고, `nmts padding standard`나
-`nmts padding pow2`는 모든 기기의 다음 업로드부터 바꿉니다. 저장 네트워크에 놓인 조각의 크기는
+`nmts padding`은 파일 크기를 어떻게 가리는지 보여 주고, `nmts padding standard`·`nmts padding pow2`·
+`nmts padding off`는 모든 기기의 다음 업로드부터 바꿉니다(`off`는 정확한 크기로 저장합니다. 파일의 길이가
+네트워크와 블롭을 읽는 모든 사람에게 보이고, 저장 공간을 약 1 % 덜 씁니다). 저장 네트워크에 놓인 조각의 크기는
 누구나 읽을 수 있고, 빈 바이트가 그 크기를 정해진 값 중 하나로 만듭니다. 2의 거듭제곱은 더 많이
 가리고 저장 공간이 평균적으로 더 듭니다.
 

@@ -10,9 +10,11 @@ export interface AccountSettings {
      * SIZE PADDING rule — how coarsely a file's stored size is rounded up.
      *
      * Absent = Padmé, the default: about 32 possible sizes per doubling, ~1% more storage.
-     * `"pow2"` rounds to the next power of two: one size per doubling, ~39% more storage. Those are
-     * the only two, and there is deliberately no "off" — the owner's choice was between two rules,
-     * and switching padding off would mean "this account's files still state their exact size".
+     * `"pow2"` rounds to the next power of two: one size per doubling, ~39% more storage.
+     * `"none"` does not round: the file's exact length is what the stored stream states, and about
+     * 1% less storage is used. It was added on the owner's rule that anything Walrus itself allows
+     * must be reachable here (2026-09-06); the cost of it is stated where the choice is made, which is
+     * what makes it a choice rather than a trap.
      *
      * Here, in the sealed list, for the same reason the other two are: the server must not learn it
      * (it would be a per-account fingerprint the server could hold on to), and it
@@ -21,7 +23,7 @@ export interface AccountSettings {
      * ⚠ It applies to what is uploaded NEXT. Bytes already on the storage network cannot be
      * re-padded, and the screen says so.
      */
-    paddingMode?: "pow2";
+    paddingMode?: "pow2" | "none";
     /**
      * STANDING TIP — the share of every storage payment sent to the developer as a gift, in tenths
      * of a percent (25 = 2.5 %). Absent = 0 = nothing is sent. Set by the person, once, on the
@@ -56,7 +58,7 @@ export interface WireSettings {
      * the default rule instead, on every device, silently. A settings field is not saved because it
      * is declared; it is saved because both functions below name it.
      */
-    pd?: "pow2";
+    pd?: "pow2" | "none";
     /** tipTenths, present only above 0. */
     tp?: number;
     /** tipConsentAt. */

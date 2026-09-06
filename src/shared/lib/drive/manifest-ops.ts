@@ -257,12 +257,12 @@ function withShares(
  *    byte-for-byte into the `nmts` command-line package, and a type reaching out of it into the
  *    crypto tree would drag that whole tree along with it for the sake of two string literals.
  */
-export type PaddingMode = "padme" | "pow2";
+export type PaddingMode = "padme" | "pow2" | "none";
 
 export interface SettingsPatch {
   developerMode?: boolean;
   textScalePct?: number;
-  /** Which size-padding rule to seal future uploads under. `"padme"` = the default. */
+  /** Which rule seals future uploads: `"padme"` = the default, `"none"` = the file's exact length. */
   paddingMode?: PaddingMode;
   /** The standing tip in tenths of a percent (0 = none) and the instant its terms were agreed to (0 clears). */
   tipTenths?: number;
@@ -288,7 +288,7 @@ export function applySettingsPatch(
   if (patch.paddingMode !== undefined) {
     // The default is spelled as absence, like every other field here — so two devices that both
     // "choose the default" write the same bytes and neither bumps the list's version.
-    if (patch.paddingMode === "pow2") next.paddingMode = "pow2";
+    if (patch.paddingMode === "pow2" || patch.paddingMode === "none") next.paddingMode = patch.paddingMode;
     else delete next.paddingMode;
   }
   if (patch.textScalePct !== undefined && Number.isFinite(patch.textScalePct)) {

@@ -67,6 +67,21 @@ function keptListPath(accountId) {
     }
     return join(configDir(), `file-list-${accountId}.json`);
 }
+/** This machine's copy of one account's sealed file list. */
+/**
+ * Which size-padding rule an account's settings select for what this run seals.
+ *
+ * ⛔ ONE PLACE, because four commands seal uploads. A rule read four ways is a rule some of them
+ *    eventually get wrong, and the way it shows up is that an account which asked to store files
+ *    at their exact size quietly pays for rounded-up bytes from one command and not another.
+ *
+ * A spelling this build does not know reads as the DEFAULT rather than as "no padding": sealing by
+ * a rule this copy cannot reproduce would give a file a size no reader here can account for.
+ */
+export function paddingRuleOf(settings) {
+    const mode = settings?.paddingMode;
+    return mode === "pow2" || mode === "none" ? mode : "padme";
+}
 function isKeptList(value) {
     if (typeof value !== "object" || value === null)
         return false;

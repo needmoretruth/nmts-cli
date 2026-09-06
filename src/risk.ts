@@ -108,6 +108,7 @@ export const ACTS = {
   put: { tier: "medium", what: "Upload this file and spend credits on its storage. Credits are not refundable." },
   push: { tier: "medium", what: "Upload this directory and spend credits on its storage. Credits are not refundable." },
   sweep: { tier: "medium", what: "Drop trash entries whose 30 days have run out.", asksItself: true },
+  "key.list": { tier: "none" },
   "key.new": { tier: "medium", what: "Make a new API key for this machine." },
   "key.revoke": { tier: "medium", what: "Revoke an API key. Whatever used it stops working." },
   "public-code.publish": { tier: "medium", what: "Publish this account's public code. Publishing cannot be undone." },

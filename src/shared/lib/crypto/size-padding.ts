@@ -18,8 +18,14 @@
 // It depends on nothing, and the two numbers it needs about the sealing format are arguments rather
 // than imports, so that the program using it supplies the ones its own sealing actually uses.
 
-/** How coarsely a stored length is rounded up. */
-export type PaddingRule = "padme" | "pow2";
+/**
+ * How coarsely a stored length is rounded up.
+ *
+ * `"none"` does not round at all: the sealed length IS the real one, so the stored stream states
+ * the file's exact size. It is a choice somebody makes with what it costs them written beside it
+ * (2026-09-06) — never a default, and never what an unrecognised spelling falls back to.
+ */
+export type PaddingRule = "padme" | "pow2" | "none";
 
 /**
  * Padmé: round up to a multiple of 2^(E−S), where E = floor(log2 L) and S = floor(log2 E)+1.
@@ -98,6 +104,10 @@ export function paddedPlaintextLen(
   if (!Number.isSafeInteger(len) || len < 0) {
     throw new RangeError(`padded length needs a non-negative safe integer, got ${len}`);
   }
+  // ⛔ `none` RETURNS THE LENGTH ITSELF, THE FREE FLOOR INCLUDED. Filling out bytes already paid
+  //    for costs nothing, but it still rounds — and a person who asked to store their exact size
+  //    and got the next billing boundary instead was told one thing and given another.
+  if (rule === "none") return len;
   const byRule = rule === "pow2" ? pow2Len(len) : padmeLen(len);
   return Math.max(len, byRule, freeCeiling(len, options.unitBytes, options.shape));
 }

@@ -30,8 +30,8 @@ export function settingsToWire(s) {
         s.textScalePct <= TEXT_SCALE_MAX_PCT) {
         w.tx = Math.round(s.textScalePct);
     }
-    if (s.paddingMode === "pow2")
-        w.pd = "pow2";
+    if (s.paddingMode === "pow2" || s.paddingMode === "none")
+        w.pd = s.paddingMode;
     if (typeof s.tipTenths === "number" && Number.isInteger(s.tipTenths) && s.tipTenths > 0 && s.tipTenths <= TIP_TENTHS_MAX) {
         w.tp = s.tipTenths;
     }
@@ -67,8 +67,8 @@ export function settingsFromWire(w) {
     }
     // An unknown rule is DROPPED, not guessed at: padding a file by a rule this build does not know
     // would give it a size no reader here can undo. Falling back to the default is always readable.
-    if (pd === "pow2")
-        s.paddingMode = "pow2";
+    if (pd === "pow2" || pd === "none")
+        s.paddingMode = pd;
     // A tip outside the bounds is DROPPED, not clamped: sending a share some other build miswrote is
     // worse than sending nothing, which is always what 0 means.
     if (typeof tp === "number" && Number.isInteger(tp) && tp > 0 && tp <= TIP_TENTHS_MAX)

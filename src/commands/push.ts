@@ -26,7 +26,7 @@ import { NmtsError } from "../errors.ts";
 import { addEntry } from "../manifest-write.ts";
 import { parseAsked, type OnCollision } from "../collision.ts";
 import { setTrashed } from "../item-trash.ts";
-import { readFileList } from "../manifest.ts";
+import { paddingRuleOf, readFileList } from "../manifest.ts";
 import { BINARY_NAME } from "../product.ts";
 import { Progress, silentSink, stderrSink } from "../progress.ts";
 import { openSession } from "../session.ts";
@@ -127,7 +127,7 @@ export async function push(target: string | undefined, options: PushOptions = {}
   // ⛔ READ BEFORE ANYTHING IS SEALED OR PAID FOR — a typo must not surface after the money.
   const asked = parseAsked(options.onCollision);
   const list = await readFileList(session.server, session.apiKey, session.code, session.accountId);
-  const rule: PaddingRule = list.manifest?.settings?.paddingMode === "pow2" ? "pow2" : "padme";
+  const rule: PaddingRule = paddingRuleOf(list.manifest?.settings);
 
   // ⛔ WHAT IS ALREADY THERE IS DECIDED BEFORE ANYTHING IS PRICED, so the number printed is what
   //    this run will actually spend rather than what a first run would have.

@@ -27,7 +27,7 @@ import { API_KEY_ENV_VAR, readCredentialsFile, resolveApiKey } from "../credenti
 import { NmtsError } from "../errors.ts";
 import { setTrashed } from "../item-trash.ts";
 import { addEntry } from "../manifest-write.ts";
-import { readFileList } from "../manifest.ts";
+import { paddingRuleOf, readFileList } from "../manifest.ts";
 import { resolveNetwork, type Network } from "../network.ts";
 import { BINARY_NAME } from "../product.ts";
 import { Progress, silentSink, stderrSink } from "../progress.ts";
@@ -131,7 +131,7 @@ export async function putWithWallet(target: string | undefined, options: PutWall
   const crypt = await loadCrypto();
   const asked = parseAsked(options.onCollision);
   const list = await readFileList(server, key.key, resolved.code, identity.accountId);
-  const rule: PaddingRule = list.manifest?.settings?.paddingMode === "pow2" ? "pow2" : "padme";
+  const rule: PaddingRule = paddingRuleOf(list.manifest?.settings);
   const name = options.name ?? basename(localPath);
   const destination = (options.to ?? "").replace(/^\.?\//, "").replace(/\/$/, "");
   const parentId = folderIdFor(options.to, list.manifest?.entries ?? []);

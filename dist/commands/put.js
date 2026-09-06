@@ -21,7 +21,7 @@ import { NmtsError } from "../errors.js";
 import { Progress, silentSink, stderrSink } from "../progress.js";
 import { setTrashed } from "../item-trash.js";
 import { addEntry } from "../manifest-write.js";
-import { readFileList } from "../manifest.js";
+import { paddingRuleOf, readFileList } from "../manifest.js";
 import { resolveNetwork } from "../network.js";
 import { BINARY_NAME } from "../product.js";
 import { resolveServer } from "../server.js";
@@ -134,7 +134,7 @@ export async function put(target, options = {}) {
     //    would have cost real money to produce a message about a typo.
     const asked = parseAsked(options.onCollision);
     const list = await readFileList(server, key.key, resolved.code, identity.accountId);
-    const rule = list.manifest?.settings?.paddingMode === "pow2" ? "pow2" : "padme";
+    const rule = paddingRuleOf(list.manifest?.settings);
     // ⛔ THE PRICE IS ARITHMETIC, NOT A MEASUREMENT: quoting it by sealing would mean reading and
     //    encrypting a very large file to answer `--dry-run`. Every part rounds up to a whole credit
     //    on its own, exactly as the server charges each reservation, so a file in several parts is

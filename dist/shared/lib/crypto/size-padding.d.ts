@@ -1,5 +1,11 @@
-/** How coarsely a stored length is rounded up. */
-export type PaddingRule = "padme" | "pow2";
+/**
+ * How coarsely a stored length is rounded up.
+ *
+ * `"none"` does not round at all: the sealed length IS the real one, so the stored stream states
+ * the file's exact size. It is a choice somebody makes with what it costs them written beside it
+ * (2026-09-06) — never a default, and never what an unrecognised spelling falls back to.
+ */
+export type PaddingRule = "padme" | "pow2" | "none";
 /**
  * Padmé: round up to a multiple of 2^(E−S), where E = floor(log2 L) and S = floor(log2 E)+1.
  *

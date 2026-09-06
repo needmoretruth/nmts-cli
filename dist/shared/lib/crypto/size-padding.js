@@ -84,6 +84,11 @@ export function paddedPlaintextLen(len, rule, options) {
     if (!Number.isSafeInteger(len) || len < 0) {
         throw new RangeError(`padded length needs a non-negative safe integer, got ${len}`);
     }
+    // ⛔ `none` RETURNS THE LENGTH ITSELF, THE FREE FLOOR INCLUDED. Filling out bytes already paid
+    //    for costs nothing, but it still rounds — and a person who asked to store their exact size
+    //    and got the next billing boundary instead was told one thing and given another.
+    if (rule === "none")
+        return len;
     const byRule = rule === "pow2" ? pow2Len(len) : padmeLen(len);
     return Math.max(len, byRule, freeCeiling(len, options.unitBytes, options.shape));
 }
