@@ -122,13 +122,25 @@ jobs:
           NOTES
           sed -i "s|#TAG|#$GITHUB_REF_NAME|" notes.md
           sed -i "s|@VERSION|@${GITHUB_REF_NAME#v}|" notes.md
+          # What changed comes from CHANGELOG.md: the section whose heading is this version. A
+          # release page that says only how to install says nothing to somebody deciding whether
+          # to update, and nothing to a program summarising the project.
+          : > changes.md
+          if [ -f CHANGELOG.md ]; then
+            awk -v v="${GITHUB_REF_NAME#v}" '$0 ~ ("^## " v "( |$)") {p=1; next} /^## / {p=0} p' CHANGELOG.md > changes.md
+          fi
+          if [ -s changes.md ]; then
+            { echo "## What changed"; echo; cat changes.md; echo; echo "## Install"; echo; cat notes.md; } > body.md
+          else
+            cp notes.md body.md
+          fi
           # ⛔ TWO COPIES OF ONE FILE, ON PURPOSE. The version-stamped name is what somebody pins
           #    to. The plain one is what `…/releases/latest/download/nmts.tgz` resolves to, and
           #    that URL is the only install line that does not have to be edited every release.
           cp "./$TARBALL" nmts.tgz
           gh release create "$GITHUB_REF_NAME" "./$TARBALL" ./nmts.tgz \
             --title "$GITHUB_REF_NAME" \
-            --notes-file notes.md
+            --notes-file body.md
 
   # ──────────────────────────────────────────────────────────────────────────────────────────────
   # OFF BY DEFAULT. Publishing to the npm registry needs a one-time setup on the registry side that

@@ -50,7 +50,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.29.0    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.30.0    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 

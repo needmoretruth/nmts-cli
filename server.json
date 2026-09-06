@@ -1,0 +1,28 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.needmoretruth/nmts",
+  "description": "End-to-end encrypted storage on the Walrus network, as MCP tools: upload, download, list, share, credits and the wallet, from the machine it runs on.",
+  "repository": {
+    "url": "https://github.com/needmoretruth/nmts-cli",
+    "source": "github"
+  },
+  "version": "0.30.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@needmoretruth/nmts-cli",
+      "version": "0.30.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ],
+      "runtimeHint": "npx"
+    }
+  ]
+}
