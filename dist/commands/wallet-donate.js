@@ -21,6 +21,7 @@ import { isRecord } from "../guards.js";
 import { resolveNetwork } from "../network.js";
 import { BINARY_NAME } from "../product.js";
 import { resolveServer } from "../server.js";
+import { THANKS_EN, THANKS_KO } from "../standing-tip.js";
 import { explorerTxUrl } from "../shared/lib/wallet/activity.js";
 import { clampGasBudgetMist, isValidSuiAddress, parseTokenAmountToBaseUnits, validateSendForm, } from "../shared/lib/wallet/send-rules.js";
 import { coinAmount, walCoinType, walletAddress } from "../wallet.js";
@@ -151,5 +152,12 @@ export async function walletDonate(operands, options = {}) {
     say(`  Thank you — your gift was sent. Transaction ${digest}`);
     say(`  ${explorerTxUrl(digest, network)}`);
     say(`  Keep that id: no record of this gift exists anywhere else.`);
+    // ⛔ THE OWNER'S OWN THANKS, IN BOTH LANGUAGES, after every gift whatever its size — the same two
+    //    sentences the browser shows and the standing tip prints, held in one place so they cannot
+    //    drift apart.
+    say(``);
+    say(`  ${THANKS_EN}`);
+    say(`  ${THANKS_KO}`);
+    say(`  To be listed by name on nmts.me/hall: ${BINARY_NAME} wallet hall --name <name>`);
     return 0;
 }

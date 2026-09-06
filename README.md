@@ -52,7 +52,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.23.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.24.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -177,8 +177,9 @@ rotated while keeping the account. **Use an account you would be willing to lose
 | `nmts wallet send <SUI\|WAL> <amount\|max> <address>` | Send coins to an address — **signs and spends from the wallet**. Prints the review; sends only with `--yes` |
 | `nmts wallet swap <SUI\|WAL> <amount\|max>` | Swap one coin for the other on DeepBook or Bluefin — **signs and spends from the wallet**. Without `--venue` prints both quotes and stops; swaps only with `--yes` |
 | `nmts wallet donate <SUI\|WAL> <amount>` | A voluntary gift to the developer, in either coin — **signs and spends**. Locked until `nmts unlock donate`, and `--yes` every run |
+| `nmts wallet hall [--name <name>\|--remove]` | The gift hall of fame; `--name` lists you by a name you choose, signed by your wallet |
 | `nmts trial` | What is left of this week's free credits. `trial apply` asks for some |
-| `nmts create` | Make a NEW account and print its code once. Nothing can print it again |
+| `nmts create` | Make a NEW account and print its code once. Nothing can print it again. With no verified key on this machine it makes the code here, prints an address, and waits while a person opens it, types that code and passes the human check — the account exists the moment they finish. `--no-wait` prints the address and stops |
 | `nmts verify` | Ask a person to pass the check that opens this account's limits. Only the account holder can: signed in to this account in that browser, or typing its account code there |
 | `nmts public-code` | The code other accounts send files to. `--publish` makes it reachable |
 | `nmts share <path> <address>` | Give one file to another account — **withdrawing does not recall it**. Locked until `nmts unlock share`; every share stops and `--yes` answers for that one file |

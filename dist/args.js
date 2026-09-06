@@ -83,6 +83,7 @@ const FLAG_OPTIONS = {
     "--plain": "plain",
     "--env": "env",
     "--status": "status",
+    "--no-wait": "noWait",
     "--desc": "desc",
     "--hidden": "hidden",
     "--reveal": "reveal",
@@ -91,6 +92,7 @@ const FLAG_OPTIONS = {
     "--qr": "qr",
     "--board": "board",
     "--save": "save",
+    "--remove": "remove",
     "--accept-extremes": "acceptExtremes",
 };
 // ⛔ Derived from the tables, not written again. A hand-kept list is how an option ends up tested
@@ -130,7 +132,7 @@ const FLAG_DEFAULTS = {
     help: false, version: false, json: false, all: false, force: false, dryRun: false, releaseStorage: false,
     yes: false, publish: false, plain: false, env: false, status: false,
     desc: false, hidden: false, reveal: false, print: false, qr: false, board: false,
-    save: false, acceptExtremes: false,
+    save: false, acceptExtremes: false, remove: false, noWait: false,
 };
 export function parseArgs(argv) {
     const parsed = { command: null, operands: [], ...FLAG_DEFAULTS };

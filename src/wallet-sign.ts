@@ -3,8 +3,12 @@
 //    storage (`signExtension`), sending SUI or WAL to an address (`signTransfer`), swapping one for
 //    the other on a venue (`signSwap`), and the two halves of a wallet-paid upload — registering one
 //    part's blob (`signBlobRegister`, which buys the storage or binds a held resource and pays the
-//    relay's tip) and certifying it (`signBlobCertify`, gas only). A sixth shape is a decision made
-//    here, in the open — the test pins the export list.
+//    relay's tip) and certifying it (`signBlobCertify`, gas only). Another transaction shape is a
+//    decision made here, in the open — the test pins the export list.
+//
+// ⛔ AND ONE THING THAT IS NOT A TRANSACTION. `signMessage` signs a short text under the
+//    personal-message intent: it moves nothing, it cannot be replayed as a transaction, and it
+//    exists so somebody can prove an address is theirs — all the hall of fame asks for.
 //
 // ⛔ IT IS REACHED FROM `commands/extend.ts`, `commands/wallet-send.ts`, `commands/wallet-donate.ts`,
 //    `commands/wallet-swap.ts` and `upload-wallet.ts` (the wallet rail `commands/put-wallet.ts`
@@ -200,6 +204,27 @@ export const signTransfer: SignTransfer = async ({ network, code, shape }) => {
   await client.waitForTransaction({ digest: result.digest }).catch(() => undefined);
   return result.digest;
 };
+
+/**
+ * Sign one short message with the account's own wallet. NOT a transaction: nothing moves.
+ *
+ * ⛔ THE MESSAGE IS THE CALLER'S, WHOLE AND UNCHANGED — the server rebuilds the same bytes from
+ *    the fields it was sent, so a byte added here would invalidate every signature this tool
+ *    makes. `signPersonalMessage` and not `sign`: that intent is the domain separator which stops
+ *    signed text from ever being read as a transaction this wallet authorised.
+ */
+export const signMessage: SignMessage = async ({ code, message }) => {
+  const keypair = await keypairFor(code);
+  const { signature } = await keypair.signPersonalMessage(new TextEncoder().encode(message));
+  return signature;
+};
+
+/** The seam `commands/wallet-hall.ts` signs through. Returns the base64 signature, nothing else. */
+export type SignMessage = (input: {
+  /** ⛔ The account code. It never leaves this machine: it derives the wallet and nothing else. */
+  code: string;
+  message: string;
+}) => Promise<string>;
 
 /** The seam `commands/wallet-send.ts` signs through. Returns the transaction digest. */
 export type SignTransfer = (input: {

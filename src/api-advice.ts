@@ -57,6 +57,12 @@ export function adviseFor(code: string): string | null {
         "account's key. Ask the person to run `nmts verify` and to follow what it prints — it " +
         "gives them a code to type at a browser, and nothing here can pass that check for them."
       );
+    case "SUPPORT_DUPLICATE":
+      return (
+        "The same message reached the developer within the last day, so this one was not filed " +
+        "twice — nothing was lost. Sending it again will be refused again: say something the " +
+        "first message did not, or read the reply on the thread that is already open."
+      );
     // ⛔ THE REFUSAL IS CORRECT AND THERE IS NOTHING HERE TO WORK AROUND. Accepting terms is a
     //    person reading a document and agreeing to it; a program doing it for them would be
     //    signing on somebody else's behalf, and this tool holds an API key, not a person. So the

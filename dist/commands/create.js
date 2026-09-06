@@ -29,38 +29,56 @@
 //    server has created the account would mean an account exists whose only key we are about to
 //    drop. If the creation then fails, the file is removed again — no account, no code, no trace.
 //
-// ⛔ THE FIRST DOOR OF `POST /v1/accounts` IS NOT AVAILABLE TO THIS TOOL AND NEVER WILL BE. The
-//    server takes either a solved human check with no credential, or an API key whose account had
-//    a PERSON pass that check within four of its weeks. A machine cannot solve the first, so this
-//    command works only for a caller that already has an account and a verified key — and it says
-//    that plainly, before it makes anything, rather than failing with a message about scopes.
-import { mkdirSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+// ⛔⭐ THERE ARE TWO PATHS, AND WHICH ONE RUNS IS DECIDED BY WHAT THIS MACHINE HOLDS (2026-09-05).
+//    `POST /v1/accounts` takes either a solved human check — which no machine can produce
+//    — or an API key whose account had a PERSON pass that check within four of its weeks. That
+//    second door is this file, and it is only open to a caller that ALREADY has an account.
+//    ▶ With no such key, the command does not refuse any more: it makes the code here, buys a
+//    one-time address with a proof of work, and prints it for a PERSON to open (`create-link.ts`).
+//    The person types the code in a browser and the account is made there. ⚠ The person is not
+//    optional in either path — what changes is whether they are being asked to pass a check for an
+//    account they already have, or to finish one that does not exist yet.
+import { rmSync } from "node:fs";
 import { request, ServerError } from "../api.js";
-import { readCredentialsFile } from "../credentials.js";
+import { readCredentialsFile, resolveApiKey } from "../credentials.js";
 import { NmtsError } from "../errors.js";
 import { isRecord } from "../guards.js";
-import { askAPersonToVerify, humanCheck } from "../human-check.js";
+import { humanCheck } from "../human-check.js";
 import { resolveNetwork } from "../network.js";
 import { BINARY_NAME, HOME_URL } from "../product.js";
 import { newAccountCode, registrationProofOf } from "../registration.js";
 import { resolveServer } from "../server.js";
-import { requireApiKey } from "../session.js";
-import { STDOUT_TARGET } from "../stdout.js";
+import { codeFileTarget, jsonNeedsAFile, writeCodeFile } from "./create-code-file.js";
 export async function create(options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
-    const apiKey = requireApiKey();
+    const held = resolveApiKey();
     const stored = readCredentialsFile();
     const server = resolveServer(options.server ?? stored?.server);
     const network = resolveNetwork(server, options.network ?? stored?.network);
+    // ⛔ THE KEY PATH IS TAKEN ONLY WHEN IT WOULD ACTUALLY WORK. A key whose account has no live
+    //    human check cannot create anything (the server refuses it), and refusing here instead
+    //    would leave the caller with no way to make a first account at all — which is the wall this
+    //    tool used to end at. ⚠ A key that is revoked or unreadable still fails LOUDLY: `humanCheck`
+    //    throws for those, and falling through to the other path would hide a broken credential
+    //    behind a flow that happens to work.
+    const check = held === null ? null : await humanCheck(server, held.key);
+    if (held === null || check === null || !check.live) {
+        const { createThroughLink } = await import("./create-link.js");
+        return await createThroughLink({
+            server,
+            network,
+            out: options.out,
+            json: options.json === true,
+            noWait: options.noWait,
+            write: options.write,
+        });
+    }
+    const apiKey = held.key;
     // ⛔ EVERY REFUSAL THAT DOES NOT NEED THE NETWORK HAPPENS FIRST, so a run that was never going
     //    to work does not spend one of the creator's two accounts for the day finding that out.
     const codeFile = codeFileTarget(options.out);
     if (options.json === true && codeFile === null)
         throw jsonNeedsAFile();
-    const check = await humanCheck(server, apiKey);
-    if (!check.live)
-        throw askAPersonToVerify("No account can be created");
     const inForce = await termsInForce(server, apiKey);
     const accepted = inForce === null ? null : acceptanceOffered(inForce, options);
     const code = await newAccountCode();
@@ -113,74 +131,6 @@ export async function create(options = {}) {
     else
         sayWhereTheCodeWent(say, codeFile);
     return 0;
-}
-/**
- * Where the code goes, or `null` for the screen.
- *
- * ⛔ `-` IS REFUSED, WHICH IS THE OPPOSITE OF WHAT IT MEANS EVERYWHERE ELSE IN THIS TOOL. In
- *    `get` and `listfile` it means "hand the bytes to whatever is reading stdout", and that is
- *    right for a file somebody already has. Here it would mean putting the only copy of an
- *    account code into the same stream a program is parsing — which is the one place this command
- *    exists to keep it out of.
- */
-function codeFileTarget(out) {
-    if (out === undefined || out === "")
-        return null;
-    if (out === STDOUT_TARGET) {
-        throw new NmtsError("The new account code will not be sent to stdout.", {
-            exitCode: 2,
-            nextStep: `Nothing was created. stdout is what a program reads and a log keeps, and this is the ` +
-                `only copy of the code. Name a file — \`--out ./account-code.txt\` — or leave --out off ` +
-                `and read it off the screen.`,
-        });
-    }
-    const path = isAbsolute(out) ? out : resolve(process.cwd(), out);
-    let existing = null;
-    try {
-        existing = statSync(path);
-    }
-    catch {
-        // Not there is exactly what this wants.
-    }
-    if (existing !== null) {
-        // ⛔ NO `--force` HERE, DELIBERATELY. Everywhere else in this tool --force replaces a file
-        //    that can be fetched again. The file this would replace may be the only copy of ANOTHER
-        //    account's code, and overwriting it destroys that account with no way back.
-        throw new NmtsError(`${path} is already there.`, {
-            exitCode: 4,
-            nextStep: existing.isDirectory()
-                ? `--out names the FILE the code goes into, not a directory.`
-                : `Nothing was created. That file is not replaced, whatever --force says: it may hold ` +
-                    `the only copy of another account's code. Name one that does not exist.`,
-        });
-    }
-    return path;
-}
-/**
- * Write the code where the caller pointed, readable by nobody else.
- *
- * ⚠ `wx` FAILS IF THE NAME APPEARED SINCE THE CHECK ABOVE, which is the point of using it rather
- *   than trusting that check: between the two, something else may have written there.
- *
- * ⚠ ON WINDOWS THE MODE IS IGNORED and the file inherits the folder's permissions — the same
- *   limit `credentials.ts` documents, and claiming otherwise would be claiming a guarantee the
- *   platform does not give.
- */
-function writeCodeFile(path, code) {
-    const dir = resolve(path, "..");
-    mkdirSync(dir, { recursive: true, mode: 0o700 });
-    try {
-        writeFileSync(path, `${code}\n`, { mode: 0o600, flag: "wx" });
-    }
-    catch (error) {
-        // ⛔ THE CAUSE IS NAMED BUT THE CODE IS NOT. `writeFileSync`'s errno line carries the path and
-        //    never the contents, so it is safe to pass on; the code itself appears in no message here.
-        throw new NmtsError(`The account code could not be written to ${path}.`, {
-            exitCode: 1,
-            nextStep: `Nothing was created — the file is written before the account is asked for, so that a ` +
-                `failure here costs nothing. Cause: ${error instanceof Error ? error.message : String(error)}`,
-        });
-    }
 }
 /** What documents this server is enforcing, read from the one route a key may ask. */
 async function termsInForce(server, apiKey) {
@@ -301,15 +251,6 @@ function uncertain(path, cause) {
             ``,
             `Cause: ${cause instanceof Error ? cause.message : String(cause)}`,
         ].join("\n"),
-    });
-}
-function jsonNeedsAFile() {
-    return new NmtsError("--json needs --out, because the account code will not go into the output.", {
-        exitCode: 2,
-        nextStep: `Nothing was created. Machine-readable output is read by a program and kept by a log, and ` +
-            `the code is the only key this account will ever have. \`--out ./account-code.txt\` writes ` +
-            `it to a file only you can read; the JSON then names that file. Without --json the code is ` +
-            `printed on the screen for a person to keep.`,
     });
 }
 /** One field of the answer's `account` object, or null. The server's shape, not ours. */

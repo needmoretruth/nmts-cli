@@ -22,6 +22,7 @@ import { isRecord } from "../guards.ts";
 import { resolveNetwork, type Network } from "../network.ts";
 import { BINARY_NAME } from "../product.ts";
 import { resolveServer } from "../server.ts";
+import { THANKS_EN, THANKS_KO } from "../standing-tip.ts";
 import { explorerTxUrl } from "../shared/lib/wallet/activity.ts";
 import {
   clampGasBudgetMist,
@@ -192,5 +193,12 @@ export async function walletDonate(operands: readonly string[], options: WalletD
   say(`  Thank you — your gift was sent. Transaction ${digest}`);
   say(`  ${explorerTxUrl(digest, network)}`);
   say(`  Keep that id: no record of this gift exists anywhere else.`);
+  // ⛔ THE OWNER'S OWN THANKS, IN BOTH LANGUAGES, after every gift whatever its size — the same two
+  //    sentences the browser shows and the standing tip prints, held in one place so they cannot
+  //    drift apart.
+  say(``);
+  say(`  ${THANKS_EN}`);
+  say(`  ${THANKS_KO}`);
+  say(`  To be listed by name on nmts.me/hall: ${BINARY_NAME} wallet hall --name <name>`);
   return 0;
 }

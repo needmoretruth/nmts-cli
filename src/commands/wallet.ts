@@ -54,6 +54,9 @@ export interface WalletOptions {
   /** `wallet storage split`: what the resource keeps, by size or by epochs (`wallet-storage-ops.ts`). */
   size?: string | undefined;
   epochs?: string | undefined;
+  /** `wallet hall`: the name to be listed under, or `remove` to go back to a shortened address. */
+  name?: string | undefined;
+  remove?: boolean;
   /**
    * Where the balances come from.
    *
@@ -66,7 +69,7 @@ export interface WalletOptions {
 }
 
 /** What the operand may say. Anything else is a command line to correct, not a guess to act on. */
-const MODES = ["address", "balance", "activity", "storage", "send", "donate", "swap"] as const;
+const MODES = ["address", "balance", "activity", "storage", "send", "donate", "swap", "hall"] as const;
 type Mode = (typeof MODES)[number];
 
 function modeOf(what: string | undefined): Mode {
@@ -81,7 +84,8 @@ function modeOf(what: string | undefined): Mode {
       `\`${BINARY_NAME} wallet activity\` lists the recent transactions; \`${BINARY_NAME} wallet storage\` ` +
       `lists the storage resources it holds. None of those signs. \`${BINARY_NAME} wallet send <SUI|WAL> ` +
       `<amount|max> <address>\`, \`${BINARY_NAME} wallet swap <SUI|WAL> <amount|max>\` and ` +
-      `\`${BINARY_NAME} wallet donate <SUI|WAL> <amount>\` are the three that do, and only with --yes.`,
+      `\`${BINARY_NAME} wallet donate <SUI|WAL> <amount>\` are the three that do, and only with --yes. ` +
+      `\`${BINARY_NAME} wallet hall\` shows the gift hall of fame; with --name it signs a name into it.`,
   });
 }
 
@@ -106,6 +110,7 @@ export async function wallet(what: string | undefined, options: WalletOptions = 
   if (mode === "send") return (await import("./wallet-send.ts")).walletSend(options.rest ?? [], options);
   if (mode === "donate") return (await import("./wallet-donate.ts")).walletDonate(options.rest ?? [], options);
   if (mode === "swap") return (await import("./wallet-swap.ts")).walletSwap(options.rest ?? [], options);
+  if (mode === "hall") return (await import("./wallet-hall.ts")).walletHall(options);
   const resolved = await requireAccountCode();
   const address = await walletAddress(resolved.code);
 

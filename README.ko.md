@@ -50,7 +50,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.23.0    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.24.0    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -173,8 +173,9 @@ nmts get x     # 파일 하나 다운로드
 | `nmts wallet send <SUI\|WAL> <amount\|max> <address>` | 주소로 코인을 보냅니다 — **지갑으로 서명하고 씁니다**. 검토를 찍고 `--yes`가 있을 때만 보냅니다 |
 | `nmts wallet swap <SUI\|WAL> <amount\|max>` | DeepBook 또는 Bluefin에서 한 코인을 다른 코인으로 바꿉니다 — **지갑으로 서명하고 씁니다**. `--venue`가 없으면 두 견적을 찍고 멈추며, `--yes`가 있을 때만 바꿉니다 |
 | `nmts wallet donate <SUI\|WAL> <amount>` | 개발자에게 보내는 자발적 후원, 두 코인 중 어느 쪽이든 — **서명하고 씁니다**. `nmts unlock donate`로 열기 전에는 잠겨 있고, 매번 `--yes` |
+| `nmts wallet hall [--name <이름>\|--remove]` | 후원 명예의 전당. `--name`은 고른 이름으로 올립니다 — 지갑이 서명합니다 |
 | `nmts trial` | 이번 주 무료 크레딧이 얼마나 남았는지. `trial apply`가 신청합니다 |
-| `nmts create` | 새 계정을 만들고 코드를 한 번 찍습니다. 다시 찍을 수 있는 것은 없습니다 |
+| `nmts create` | 새 계정을 만들고 코드를 한 번 찍습니다. 다시 찍을 수 있는 것은 없습니다. 이 기기에 확인된 키가 없으면 코드를 여기서 만들고 주소 하나를 찍은 뒤, 사람이 그 주소를 열어 그 코드를 입력하고 사람 확인을 통과할 때까지 기다립니다 — 그 순간 계정이 생깁니다. `--no-wait`는 주소만 찍고 멈춥니다 |
 | `nmts verify` | 이 계정의 한도를 여는 사람 확인을 부탁합니다. 계정 주인만 할 수 있습니다 — 그 브라우저에서 이 계정에 로그인돼 있거나, 거기서 계정 코드를 입력합니다 |
 | `nmts public-code` | 다른 계정이 파일을 보내는 코드. `--publish`가 받을 수 있게 합니다 |
 | `nmts share <path> <address>` | 파일 하나를 다른 계정에 줍니다 — **거둬도 이미 받아 간 사본은 못 되돌립니다**. `nmts unlock share`로 열기 전에는 잠겨 있고, 공유마다 멈춰서 `--yes`가 이 파일 하나에 답합니다 |

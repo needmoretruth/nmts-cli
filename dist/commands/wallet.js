@@ -24,7 +24,7 @@ import { BINARY_NAME } from "../product.js";
 import { resolveServer } from "../server.js";
 import { coinAmount, readBalances, walCoinType, walletAddress, SUI_COIN_TYPE, } from "../wallet.js";
 /** What the operand may say. Anything else is a command line to correct, not a guess to act on. */
-const MODES = ["address", "balance", "activity", "storage", "send", "donate", "swap"];
+const MODES = ["address", "balance", "activity", "storage", "send", "donate", "swap", "hall"];
 function modeOf(what) {
     if (what === undefined)
         return "balance";
@@ -38,7 +38,8 @@ function modeOf(what) {
             `\`${BINARY_NAME} wallet activity\` lists the recent transactions; \`${BINARY_NAME} wallet storage\` ` +
             `lists the storage resources it holds. None of those signs. \`${BINARY_NAME} wallet send <SUI|WAL> ` +
             `<amount|max> <address>\`, \`${BINARY_NAME} wallet swap <SUI|WAL> <amount|max>\` and ` +
-            `\`${BINARY_NAME} wallet donate <SUI|WAL> <amount>\` are the three that do, and only with --yes.`,
+            `\`${BINARY_NAME} wallet donate <SUI|WAL> <amount>\` are the three that do, and only with --yes. ` +
+            `\`${BINARY_NAME} wallet hall\` shows the gift hall of fame; with --name it signs a name into it.`,
     });
 }
 export async function wallet(what, options = {}) {
@@ -66,6 +67,8 @@ export async function wallet(what, options = {}) {
         return (await import("./wallet-donate.js")).walletDonate(options.rest ?? [], options);
     if (mode === "swap")
         return (await import("./wallet-swap.js")).walletSwap(options.rest ?? [], options);
+    if (mode === "hall")
+        return (await import("./wallet-hall.js")).walletHall(options);
     const resolved = await requireAccountCode();
     const address = await walletAddress(resolved.code);
     if (mode === "address") {

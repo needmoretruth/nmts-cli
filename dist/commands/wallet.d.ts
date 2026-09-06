@@ -20,6 +20,9 @@ export interface WalletOptions {
     /** `wallet storage split`: what the resource keeps, by size or by epochs (`wallet-storage-ops.ts`). */
     size?: string | undefined;
     epochs?: string | undefined;
+    /** `wallet hall`: the name to be listed under, or `remove` to go back to a shortened address. */
+    name?: string | undefined;
+    remove?: boolean;
     /**
      * Where the balances come from.
      *

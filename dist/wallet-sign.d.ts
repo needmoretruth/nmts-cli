@@ -41,6 +41,21 @@ export declare const signExtension: SignExtension;
  * ⚠ A FAILURE HERE IS NOT PROOF THAT NOTHING HAPPENED — the same words as the extension above.
  */
 export declare const signTransfer: SignTransfer;
+/**
+ * Sign one short message with the account's own wallet. NOT a transaction: nothing moves.
+ *
+ * ⛔ THE MESSAGE IS THE CALLER'S, WHOLE AND UNCHANGED — the server rebuilds the same bytes from
+ *    the fields it was sent, so a byte added here would invalidate every signature this tool
+ *    makes. `signPersonalMessage` and not `sign`: that intent is the domain separator which stops
+ *    signed text from ever being read as a transaction this wallet authorised.
+ */
+export declare const signMessage: SignMessage;
+/** The seam `commands/wallet-hall.ts` signs through. Returns the base64 signature, nothing else. */
+export type SignMessage = (input: {
+    /** ⛔ The account code. It never leaves this machine: it derives the wallet and nothing else. */
+    code: string;
+    message: string;
+}) => Promise<string>;
 /** The seam `commands/wallet-send.ts` signs through. Returns the transaction digest. */
 export type SignTransfer = (input: {
     network: string;

@@ -327,6 +327,13 @@ export declare const ACTS: {
         readonly what: "Send a gift to the developer from the wallet.";
         readonly asksItself: true;
     };
+    readonly "wallet.hall": {
+        readonly tier: "none";
+    };
+    readonly "wallet.hall.set": {
+        readonly tier: "medium";
+        readonly what: "Publish this name beside your wallet's address in the gift hall of fame.";
+    };
     readonly "wallet.storage.reshape": {
         readonly tier: "high";
         readonly lock: "wallet";

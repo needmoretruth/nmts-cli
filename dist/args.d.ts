@@ -34,12 +34,8 @@ export interface ParsedArgs {
     env: boolean;
     /** `verify`: report whether the human check is live and stop, asking for no new code. */
     status: boolean;
-    /**
-     * `mode`: turn an autonomy mode on.
-     *
-     * ⛔ Spelled out rather than short. It is the sentence that lets an agent stop asking, and the
-     *    length is the point — nobody types it by accident, and anybody reading a script sees it.
-     */
+    /** `create`: print the registration address and stop, rather than waiting for a person. */
+    noWait?: boolean;
     /** `ls`: keep only files whose name contains this text, case-insensitively. */
     find?: string;
     /** `ls`: which order to list in — `name`, `size` or `date`. Absent = the path order. */
@@ -119,7 +115,6 @@ export interface ParsedArgs {
     messageFile?: string;
     /**
      * `support send`: attach the run log, and how many runs of it.
-     *
      * ⛔ THE EMPTY STRING IS "GIVEN WITH NO NUMBER", which is different from absent. A boolean
      *    beside a count would be two fields answering one question, and the pair can disagree.
      */
@@ -146,6 +141,8 @@ export interface ParsedArgs {
     print: boolean;
     /** `nmts wallet address --qr` — the address as a QR code in the terminal as well. */
     qr: boolean;
+    /** `wallet hall --remove`: be listed by a shortened address again. Never with `--name`. */
+    remove: boolean;
     /** `terms`/`privacy`: which language to fetch — `en` or `ko`. Absent = English. */
     lang?: string;
     /** `terms`: the message board's terms rather than the service's. */

@@ -9,6 +9,7 @@ import { test } from "node:test";
 import { GIFT_NOTICES, asDonationConfig, walletDonate, type DonationConfig } from "../src/commands/wallet-donate.ts";
 import { CODE_ENV_VAR, testConfigDir } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
+import { THANKS_EN, THANKS_KO } from "../src/standing-tip.ts";
 import { readWalletGrant } from "../src/wallet-grant.ts";
 import type { SendReads, TransferShape } from "../src/wallet-send-chain.ts";
 import type { SignTransfer } from "../src/wallet-sign.ts";
@@ -133,5 +134,24 @@ test("with --yes the gift goes to the published address, and the wallet agreemen
     assert.match(out.lines.join("\n"), /Thank you — your gift was sent\. Transaction 3nJqYd2f/);
     assert.match(out.lines.join("\n"), /Keep that id/);
     assert.equal(readWalletGrant(), null, "a gift wrote a wallet agreement, or charged one");
+  });
+});
+
+test("a gift that went is thanked in both languages, and told where a name can be listed", async () => {
+  await withAccount("wallet-donate-thanks", async () => {
+    const out = collect();
+    assert.equal(
+      await walletDonate(["WAL", "1"], {
+        network: "testnet", yes: true, write: out.write,
+        readDonation: async () => OPEN, readChain: () => reads(), sign: recordingSigner(),
+      }),
+      0,
+    );
+    const text = out.lines.join("\n");
+    // ⛔ BOTH LINES, WHOLE. They are the owner's own words in the owner's own languages; a test
+    //    that matched a fragment would pass while half a sentence was missing.
+    assert.ok(text.includes(THANKS_EN), "the English thanks is missing");
+    assert.ok(text.includes(THANKS_KO), "the Korean thanks is missing");
+    assert.match(text, /To be listed by name on nmts\.me\/hall: nmts wallet hall --name <name>/);
   });
 });

@@ -138,6 +138,11 @@ export const ACTS = {
     asksItself: true,
   },
   "wallet.donate": { tier: "high", lock: "donate", what: "Send a gift to the developer from the wallet.", asksItself: true },
+  // ⛔ READING THE HALL IS `none` AND LISTING A NAME IS `medium`. The read signs nothing and asks
+  //    nobody's wallet a question; setting a name PUBLISHES a name beside an address on a public
+  //    page, which is undone by one more run of the same command but cannot be unseen.
+  "wallet.hall": { tier: "none" },
+  "wallet.hall.set": { tier: "medium", what: "Publish this name beside your wallet's address in the gift hall of fame." },
   "wallet.storage.reshape": { tier: "high", lock: "wallet", what: "Cut or join a storage resource the wallet holds — a signed transaction.", asksItself: true },
   "wallet.storage.give": { tier: "high", lock: "wallet", what: "Hand a storage resource to another address — signed, and not undoable.", asksItself: true },
 } as const satisfies Record<string, Act>;
@@ -167,6 +172,9 @@ export function actOf(args: ParsedArgs): ActId | null {
         const what = args.operands[1] ?? "";
         return what === "transfer" ? "wallet.storage.give" : what === "split" || what === "merge" ? "wallet.storage.reshape" : "wallet";
       }
+      // ⛔ `hall` READS UNTIL A NAME IS NAMED. `--name` and `--remove` both write the listing, so
+      //    both land on the act that publishes; the bare command is a read like `wallet` itself.
+      if (sub === "hall") return args.name !== undefined || args.remove ? "wallet.hall.set" : "wallet.hall";
       return sub === "send" ? "wallet.send" : sub === "swap" ? "wallet.swap" : sub === "donate" ? "wallet.donate" : "wallet";
     case "put":
       return args.pay === "wallet" ? "put.wallet" : "put";

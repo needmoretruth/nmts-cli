@@ -37,6 +37,8 @@ let refuseCreateWith: string | null = null;
 /** When set, the connection is dropped after the body arrives — an answer that never comes. */
 let dropOnCreate = false;
 let received: Record<string, unknown> | null = null;
+/** The account id the LINK path claimed an address for, if a run took that path. */
+let linkedId: string | null = null;
 let calls: string[] = [];
 let base = "";
 
@@ -89,6 +91,28 @@ const server: Server = createServer((req, res) => {
     });
     return;
   }
+  // The link path's first two doors, so a run that falls onto it gets as far as printing an
+  // address. What that path DOES with them is `create-link.test.ts`'s subject, not this file's.
+  if (method === "GET" && path === "/v1/accounts/registration-challenge") {
+    return send(200, {
+      challenge: "test-challenge",
+      difficulty_bits: 1,
+      expires_at: "2026-09-05T00:02:00Z",
+    });
+  }
+  if (method === "POST" && path === "/v1/accounts/registration-links") {
+    let raw = "";
+    req.on("data", (chunk: Buffer) => (raw += chunk.toString("utf8")));
+    req.on("end", () => {
+      const body: unknown = JSON.parse(raw);
+      linkedId = isRecord(body) && typeof body["account_id"] === "string" ? body["account_id"] : null;
+      send(201, {
+        url: "https://nmts.me/register/" + "L".repeat(43),
+        expires_at: "2026-09-05T00:30:00Z",
+      });
+    });
+    return;
+  }
   send(404, { error: { code: "NOT_FOUND", message: "no such route" } });
 });
 await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -108,6 +132,7 @@ async function withSandbox(name: string, body: (dir: string) => Promise<void>): 
   refuseCreateWith = null;
   dropOnCreate = false;
   received = null;
+  linkedId = null;
   calls = [];
   try {
     await body(dir);
@@ -118,6 +143,10 @@ async function withSandbox(name: string, body: (dir: string) => Promise<void>): 
       else process.env[n] = v;
     }
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function collect(): { lines: string[]; write: (line: string) => void } {
@@ -187,20 +216,35 @@ test("⛔ the new code is not written into this machine's credential store", asy
   });
 });
 
-test("⛔ with no live human check the caller is sent to `nmts verify`, not to its key", async () => {
+/**
+ * ⛔⭐ THE RULE CHANGED HERE ON 2026-09-05, AND THIS TEST IS WHERE IT SHOWS. Until then a
+ * key whose account had no live human check was REFUSED, with a message naming `nmts verify` — and
+ * that refusal was the wall a machine with no account at all ended at, because the same command is
+ * the only way to make a first one. Now the run falls onto the registration address instead: the
+ * code is still made here, and a PERSON finishes the account in a browser.
+ *
+ * What has NOT changed, and is asserted below: an unverified key never reaches `POST /v1/accounts`.
+ */
+test("⛔ with no live human check the run takes the registration address, not the key door", async () => {
   await withSandbox("create-unverified", async () => {
     verified = false;
     const out = collect();
-    const failed = await create({ server: base, network: "testnet", write: out.write }).then(
-      () => null,
-      (error: unknown) => error,
+    const code = await create({
+      server: base,
+      network: "testnet",
+      noWait: true,
+      write: out.write,
+    });
+    assert.equal(code, 0, "the run refused instead of printing an address");
+    assert.equal(received, null, "an unverified key was used to create an account");
+    assert.ok(
+      out.lines.some((line) => line.includes("https://nmts.me/register/")),
+      "no address was printed for a person to open",
     );
-    assert.ok(failed instanceof NmtsError, "an unverified account was allowed to create one");
-    assert.match(failed.message, /human check/u);
-    assert.match(String(failed.nextStep), /nmts verify/u);
-    // ⛔ THE POINT OF THE PRE-FLIGHT: nothing about permissions, and no account attempted.
-    assert.ok(!/scope|permission/iu.test(`${failed.message} ${failed.nextStep}`));
-    assert.equal(received, null, "an account was created for an unverified caller");
+    // ⛔ AND THE ADDRESS IS FOR THE CODE THIS RUN MADE. A run that claimed some other id would
+    //    print an address that opens an account whose code nobody holds.
+    const printed = await printedCode(out.lines);
+    assert.equal(linkedId, (await identityOf(printed)).accountId);
   });
 });
 

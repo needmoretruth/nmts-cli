@@ -134,7 +134,7 @@ folders, marks), **low** (reversible but worth a word: the trash, a setting, a r
 | credentials | `login` · `logout` · `key` · `devices` · `verify` |
 | files | `ls` / `listfile` · `get` · `pull` · `put` · `push` · `rm` / `restore` / `sweep` · `mkdir` / `mv` / `rename` · `star` / `pin` / `label` |
 | the account | `usage` / `balance` / `expiring` · `losses` · `trial` · `public-code` · `create` · `delete-account` · `accept-terms` |
-| paying and the wallet | `extend` · `wallet` (address · activity · storage · send · swap · donate) |
+| paying and the wallet | `extend` · `wallet` (address · activity · storage · send · swap · donate · hall) |
 | other accounts | `share` / `shares` / `receive` / `unshare` |
 | settings | `on-collision` · `padding` · `tip` |
 | for the day NMTS is not there | `recovery` / `recovery-list` / `kit` · `rebuild` / `rollback` |
