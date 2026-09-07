@@ -240,8 +240,8 @@ export function adviseFor(code: string): string | null {
         "The sealed file list is over the server's ceiling (16 MiB), so this save was refused and " +
         "nothing changed. The list is stored as a small index plus chunks, and the index holds one " +
         "short row per chunk — so an account reaches this only with a list that is not in chunks. " +
-        "Save once more to convert it, or ask the operator for a higher ceiling from the inbox " +
-        "(nmts support send) with a sentence on why."
+        "Save once more to convert it; the ceiling is then the account's chunk allowance, which " +
+        "grows with confirmed files (details.allowed on MANIFEST_CHUNKS_EXCEEDED)."
       );
     // ── The chunked file list (NCF-3 §6.3) ────────────────────────────────────────────────────
     case "MANIFEST_CHUNK_HASH":

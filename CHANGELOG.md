@@ -3,6 +3,14 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.34.1 — 2026-09-07
+
+- The advice printed for `MANIFEST_TOO_LARGE` no longer tells a program to ask the operator for a
+  higher ceiling. The file list is stored in chunks and the room an account has for it grows with
+  the files the storage network has confirmed; nobody raises it by hand. The advice now says to
+  save once more so an old single-piece list becomes chunks, after which the ceiling is that
+  allowance (`details.allowed` on `MANIFEST_CHUNKS_EXCEEDED`).
+
 ## 0.34.0 — 2026-09-07
 
 - `nmts credits transfer --to <account identifier> <credits>` moves credits from this account to
