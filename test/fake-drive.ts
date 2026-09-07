@@ -275,6 +275,11 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     return json(404, { error: { code: "NOT_FOUND", message: "no such route" } });
   });
 
+  // ⛔ NO IDLE CLOSE (2026-09-07). Node closes a kept-alive socket after 5 s of silence; under a loaded
+  //    full run the gap between two tests in one file can pass that, and the next POST then meets the
+  //    close mid-flight and comes back as `fetch failed` ("Could not reach …"). Seen twice in the
+  //    check chain, never in the file alone. A test server has no reason to time anything out.
+  server.keepAliveTimeout = 0;
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (address === null || typeof address !== "object") throw new Error("test server did not bind a port");
