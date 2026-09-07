@@ -1,6 +1,7 @@
-// The swap transaction and its live reads: the wallet's balances, Bluefin's current package, the
-// testnet facility's rate, and the fee a dry run measures. The quotes live next door in
-// `wallet-swap-quote.ts`; both files read, and only `wallet-sign.ts` signs.
+// The swap transaction and its live reads: the wallet's balances, the version check on Bluefin's
+// PINNED package, the testnet facility's rate, and the fee a dry run measures. Bluefin's package id
+// itself is NOT a live read — see the block above `checkedBluefinBinding`. The quotes live next door
+// in `wallet-swap-quote.ts`; both files read, and only `wallet-sign.ts` signs.
 //
 // ⛔ ONE BUILDER FOR THE FEE AND THE SIGNATURE. `estimateFee` and `wallet-sign.ts` both call
 //    `swapTransaction`, so the fee printed is the fee of the transaction that is then signed.
@@ -20,7 +21,7 @@ import { coinWithBalance, Transaction } from "@mysten/sui/transactions";
 import { TESTNET_WALRUS_PACKAGE_CONFIG } from "@mysten/walrus";
 import { walrusClient, netGasFee } from "./extend-chain.js";
 import { isRecord } from "./guards.js";
-import { BLUEFIN_GLOBAL_CONFIG_IDS, BLUEFIN_MAX_SQRT_PRICE, BLUEFIN_MIN_SQRT_PRICE, BLUEFIN_PACKAGE_IDS, BLUEFIN_UPGRADE_CAP_IDS, BLUEFIN_WAL_SUI_POOLS, DEEP_COIN_TYPES, DEEPBOOK_PACKAGE_IDS, DEEPBOOK_WAL_SUI_POOLS, } from "./shared/lib/wallet/venue-ids.js";
+import { BLUEFIN_GLOBAL_CONFIG_IDS, BLUEFIN_MAX_SQRT_PRICE, BLUEFIN_MIN_SQRT_PRICE, BLUEFIN_PACKAGE_IDS, BLUEFIN_WAL_SUI_POOLS, DEEP_COIN_TYPES, DEEPBOOK_PACKAGE_IDS, DEEPBOOK_WAL_SUI_POOLS, } from "./shared/lib/wallet/venue-ids.js";
 import { readBalances, SUI_COIN_TYPE, walCoinType } from "./wallet.js";
 import { chainReader } from "./wallet-chain.js";
 import { quoteVenue, QUOTE_SENDER } from "./wallet-swap-quote.js";
@@ -86,38 +87,36 @@ export function swapTransaction(input) {
         tx.setGasBudget(input.gasBudgetMist);
     return tx;
 }
-const FULL_ADDRESS = /^0x[0-9a-f]{64}$/;
 /** `fields.<name>` of a Move object's content, as a string, or null when the shape differs. */
 function fieldOf(content, name) {
     const fields = isRecord(content) ? content["fields"] : undefined;
     return isRecord(fields) ? fields[name] : undefined;
 }
+/** Does the chain still accept this package? `config::verify_version` under devInspect: no signature,
+ *  no gas. False when the chain refuses AND when the RPC cannot answer — both mean "no Bluefin". */
+async function versionPasses(rpc, packageId, globalConfigId) {
+    try {
+        const tx = new Transaction();
+        tx.moveCall({ target: `${packageId}::config::verify_version`, arguments: [tx.object(globalConfigId)] });
+        const res = await rpc.devInspectTransactionBlock({ sender: QUOTE_SENDER, transactionBlock: tx });
+        return !res.error;
+    }
+    catch {
+        return false;
+    }
+}
+/** The pinned addresses, returned only once the chain confirms the pinned package still verifies.
+ *  A refusal ends it: this function has no other address to return. Exported so the test can hold an
+ *  RPC that names a different package and watch it change nothing. */
+export async function checkedBluefinBinding(pinned, rpc) {
+    if (!(await versionPasses(rpc, pinned.packageId, pinned.globalConfigId))) {
+        throw new Error("Bluefin's on-chain version check refused the package address this tool pins.");
+    }
+    return pinned;
+}
 export function swapReads(network) {
     const client = walrusClient(network);
     let bluefin = null;
-    async function livePackage(upgradeCapId) {
-        try {
-            const obj = await client.getObject({ id: upgradeCapId, options: { showContent: true, showType: true } });
-            if (obj.data?.type !== "0x2::package::UpgradeCap")
-                return null;
-            const pkg = fieldOf(obj.data.content, "package");
-            return typeof pkg === "string" && FULL_ADDRESS.test(pkg) ? pkg : null;
-        }
-        catch {
-            return null;
-        }
-    }
-    async function versionPasses(packageId, globalConfigId) {
-        try {
-            const tx = new Transaction();
-            tx.moveCall({ target: `${packageId}::config::verify_version`, arguments: [tx.object(globalConfigId)] });
-            const res = await client.devInspectTransactionBlock({ sender: QUOTE_SENDER, transactionBlock: tx });
-            return !res.error;
-        }
-        catch {
-            return false;
-        }
-    }
     return {
         async readWallet(address) {
             return readBalances(chainReader(network, address), walCoinType(network));
@@ -127,19 +126,13 @@ export function swapReads(network) {
             if (bluefin !== null)
                 return bluefin;
             const pending = (async () => {
-                const pinned = BLUEFIN_PACKAGE_IDS[network];
-                const capId = BLUEFIN_UPGRADE_CAP_IDS[network];
+                const packageId = BLUEFIN_PACKAGE_IDS[network];
                 const globalConfigId = BLUEFIN_GLOBAL_CONFIG_IDS[network];
                 const poolId = BLUEFIN_WAL_SUI_POOLS[network];
-                if (pinned === null || capId === null || globalConfigId === null || poolId === null) {
+                if (packageId === null || globalConfigId === null || poolId === null) {
                     throw new Error(`This tool knows no Bluefin WAL/SUI pool on ${network}.`);
                 }
-                const live = await livePackage(capId);
-                for (const packageId of live === null ? [pinned] : [live, pinned]) {
-                    if (await versionPasses(packageId, globalConfigId))
-                        return { packageId, globalConfigId, poolId };
-                }
-                throw new Error("Bluefin's on-chain version check refused every package address this tool knows.");
+                return checkedBluefinBinding({ packageId, globalConfigId, poolId }, client);
             })();
             bluefin = pending;
             pending.catch(() => {

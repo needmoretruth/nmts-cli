@@ -5,6 +5,8 @@
 
 import { strict as assert } from "node:assert";
 import { rmSync } from "node:fs";
+
+import type { Transaction } from "@mysten/sui/transactions";
 import { test } from "node:test";
 
 import { setMode } from "../src/autonomy.ts";
@@ -13,7 +15,7 @@ import { CODE_ENV_VAR, testConfigDir } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
 import { minOutFromQuote, SLIPPAGE_BPS_DEFAULT } from "../src/shared/lib/wallet/swap-rules.ts";
 import { parseWalletGrant, readWalletGrant, writeWalletGrant } from "../src/wallet-grant.ts";
-import type { SwapReads, SwapShape } from "../src/wallet-swap-chain.ts";
+import { checkedBluefinBinding, type SwapReads, type SwapShape } from "../src/wallet-swap-chain.ts";
 import type { SignSwap } from "../src/wallet-sign.ts";
 import { generateCode, grantConsents } from "./helpers.ts";
 
@@ -268,4 +270,51 @@ test("on testnet the rail is the official facility: SUI→WAL only, no venue, no
     assert.match(unread.message, /could not be read, so what it would give is unknown/);
     assert.equal(sign.calls, 0);
   });
+});
+
+// ── Which package a person signs into (2026-09-07) ───────────────────────────────────────────
+//
+// ⛔ Until this date the binding was RESOLVED from Bluefin's UpgradeCap over a public mirror RPC and
+//    the chain-supplied id was preferred over the pinned one, with a devInspect from the SAME server
+//    as its only validation. One lying mirror was therefore enough to have a person sign
+//    `gateway::swap_assets` into the attacker's package with their own coin as the argument. These two
+//    tests hold the rule that replaced it: the pinned id is the only one, and the version check can
+//    only refuse. ⛔ No chain: the RPC is a fake, and it lies on purpose.
+
+const PINNED_BINDING = { packageId: "0x" + "a1".repeat(32), globalConfigId: "0x" + "b2".repeat(32), poolId: "0x" + "c3".repeat(32) };
+/** What the fake RPC calls "the live package" — the attacker's address in the old design. */
+const RPC_PACKAGE = "0x" + "99".repeat(32);
+
+/**
+ * An RPC that names a different package as the live one and answers the version check as told.
+ * `getObject` is where the old code read that name; nothing calls it now, and having an answer sitting
+ * there ready is exactly the point — it must change nothing.
+ */
+function fakeRpc(options: { refuses: boolean }) {
+  const asked: string[] = [];
+  return {
+    asked,
+    getObject: async () => ({ data: { type: "0x2::package::UpgradeCap", content: { fields: { package: RPC_PACKAGE } } } }),
+    devInspectTransactionBlock: async (input: { sender: string; transactionBlock: Transaction }) => {
+      const command = input.transactionBlock.getData().commands[0];
+      if (command?.$kind !== "MoveCall") throw new Error("the version check was not a Move call");
+      asked.push(`${command.MoveCall.package}::${command.MoveCall.module}::${command.MoveCall.function}`);
+      return { error: options.refuses ? "MoveAbort(config::verify_version) 1001" : null };
+    },
+  };
+}
+
+test("the Bluefin binding is the PINNED package, even when the RPC names another one", async () => {
+  const rpc = fakeRpc({ refuses: false });
+  const binding = await checkedBluefinBinding(PINNED_BINDING, rpc);
+  assert.equal(binding.packageId, PINNED_BINDING.packageId);
+  assert.notEqual(binding.packageId, RPC_PACKAGE);
+  // The question itself was about the pinned package: the address the RPC offers reaches no transaction.
+  assert.deepEqual(rpc.asked, [`${PINNED_BINDING.packageId}::config::verify_version`]);
+});
+
+test("⛔ a refused version check ends in refusal: there is no second address to fall back to", async () => {
+  const rpc = fakeRpc({ refuses: true });
+  await assert.rejects(checkedBluefinBinding(PINNED_BINDING, rpc), /version check refused/);
+  assert.equal(rpc.asked.length, 1, "it asked about a second address after the refusal");
 });

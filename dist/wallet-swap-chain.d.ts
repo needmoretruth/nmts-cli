@@ -5,7 +5,7 @@ import { type WalletBalances } from "./wallet.ts";
 import { type VenueQuote } from "./wallet-swap-quote.ts";
 /** Where a swap runs: one of the two mainnet venues, or the official testnet facility. */
 export type SwapRail = SwapVenue | "exchange";
-/** Bluefin's addresses, with the package RESOLVED and version-checked on chain, never assumed. */
+/** Bluefin's addresses: the package PINNED in this release, confirmed on chain before it is used. */
 export interface BluefinBinding {
     packageId: string;
     globalConfigId: string;
@@ -40,7 +40,7 @@ export declare function swapTransaction(input: SwapShape & {
 /** What `commands/wallet-swap.ts` reads before it prints a review. */
 export interface SwapReads {
     readWallet(address: string): Promise<WalletBalances>;
-    /** Bluefin's current package, version-checked. Throws when no known package passes. */
+    /** Bluefin's pinned package, version-checked. Throws when the chain refuses that package. */
     resolveBluefin(): Promise<BluefinBinding>;
     /** The testnet facility and its rate. Throws off testnet, or when the object cannot be read. */
     readExchange(): Promise<ExchangeFacility>;
@@ -49,4 +49,18 @@ export interface SwapReads {
     /** The fee in MIST measured by dry-running this exact swap, or null when it could not be. */
     estimateFee(shape: SwapShape, sender: string): Promise<bigint | null>;
 }
+/** All this path uses of an RPC: one devInspect and its `error`. Narrow on purpose — the type itself
+ *  has no place for a chain-supplied ADDRESS to enter, and a test can hand it a fake. */
+export interface BluefinVersionRpc {
+    devInspectTransactionBlock(input: {
+        sender: string;
+        transactionBlock: Transaction;
+    }): Promise<{
+        error?: string | null;
+    }>;
+}
+/** The pinned addresses, returned only once the chain confirms the pinned package still verifies.
+ *  A refusal ends it: this function has no other address to return. Exported so the test can hold an
+ *  RPC that names a different package and watch it change nothing. */
+export declare function checkedBluefinBinding(pinned: BluefinBinding, rpc: BluefinVersionRpc): Promise<BluefinBinding>;
 export declare function swapReads(network: Network): SwapReads;

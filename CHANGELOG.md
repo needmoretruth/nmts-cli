@@ -3,6 +3,15 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.34.3 — 2026-09-07
+
+- Security. `nmts wallet swap` on Bluefin now calls only the contract package pinned in this
+  release. Before, it read the "current" package from a public Sui node and preferred that answer,
+  so a node giving a false answer could have sent the swap into someone else's code with your coin
+  as the argument. The pinned package is still checked against the chain before a quote is shown;
+  if that check refuses it, the Bluefin venue is unavailable until a release bumps the pin. DeepBook
+  was never affected. No such node was observed and no loss is known.
+
 ## 0.34.2 — 2026-09-07
 
 - The README and the agent document open with what the name stands for — NMTS is
