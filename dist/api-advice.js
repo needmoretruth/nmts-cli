@@ -168,6 +168,10 @@ export function adviseFor(code) {
         case "RELEASE_NOT_SPONSORED":
             return ("This file's storage was not paid for with credits, so it is not the server's to release. " +
                 "Storage bought from a wallet is released by that wallet.");
+        case "SPONSORED_IDEM_MISMATCH":
+            return ("This reservation key already names a different blob: the piece was re-encrypted after it " +
+                "was reserved. Repeating the call under this key cannot work. Start the upload again so it " +
+                "derives new keys; nothing was charged for this call.");
         case "SPONSORED_STATE":
             return ("The upload is not at the step that call belongs to — the steps have an order and one was " +
                 "skipped or already done. Start the upload again rather than repeating this call.");

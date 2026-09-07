@@ -3,6 +3,13 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.34.4 — 2026-09-07
+
+- The advice for `SPONSORED_IDEM_MISMATCH`: the server now refuses a credit reservation repeated
+  under the same key with a different blob (the piece was re-encrypted after it was reserved).
+  Repeating the call cannot work; the advice says to start the upload again so new keys are
+  derived, and that nothing was charged for the refused call.
+
 ## 0.34.3 — 2026-09-07
 
 - Security. `nmts wallet swap` on Bluefin now calls only the contract package pinned in this
