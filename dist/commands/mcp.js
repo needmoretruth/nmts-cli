@@ -42,6 +42,7 @@ export { destinationFor };
 import { BINARY_NAME, PRODUCT_NAME, VERSION } from "../product.js";
 import { resolveNetwork } from "../network.js";
 import { resolveServer } from "../server.js";
+import { creditTools } from "../mcp-tools/credits.js";
 import { fileTools } from "../mcp-tools/files.js";
 import { organiseTools } from "../mcp-tools/organise.js";
 import { readTools } from "../mcp-tools/reads.js";
@@ -93,6 +94,7 @@ export function mcpToolSchemas() {
         ...readTools(ctx),
         ...fileTools(ctx),
         ...organiseTools(ctx),
+        ...creditTools(ctx),
         ...shareTools(ctx),
         ...supportTools(ctx),
     ];
@@ -154,6 +156,7 @@ export async function mcp(options = {}) {
         ...readTools(ctx),
         ...fileTools(ctx),
         ...organiseTools(ctx),
+        ...creditTools(ctx),
         ...shareTools(ctx),
         // ⛔ LAST, AND NOT BECAUSE IT MATTERS LEAST. The order is the order a client shows them in,
         //    and writing to the developer is the one thing here that is not about this account's

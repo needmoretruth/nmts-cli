@@ -52,7 +52,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.33.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.34.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -497,12 +497,13 @@ the arguments `mcp --out <directory>`, for example in opencode's own file:
 { "mcp": { "nmts": { "type": "local", "command": ["nmts", "mcp", "--out", "/where/files/should/land"] } } }
 ```
 
-It offers thirty-seven tools: reading the account (`nmts_whoami`, `nmts_list`, `nmts_usage`,
+It offers thirty-eight tools: reading the account (`nmts_whoami`, `nmts_list`, `nmts_usage`,
 `nmts_expiring`, `nmts_balance`, `nmts_shares`, `nmts_shares_sent`), the wallet's own reads
 (`nmts_wallet_activity`, `nmts_wallet_storage`), the signed-in devices (`nmts_devices`), storage the daily check could
 not find (`nmts_losses`, `nmts_loss_recheck`), fetching (`nmts_get`, `nmts_pull`, `nmts_receive`),
 uploading (`nmts_put`, `nmts_push`, `nmts_padding`, `nmts_deposit`), rearranging (`nmts_mkdir`, `nmts_move`,
 `nmts_rename`, `nmts_mark`, `nmts_label_rename`, `nmts_unlabel_all`, `nmts_trash`, `nmts_restore`),
+moving credits between accounts of your own (`nmts_credits_transfer`),
 sharing (`nmts_public_code`, `nmts_share`, `nmts_unshare`), writing to the developer
 (`nmts_support_send`, `nmts_support_list`, `nmts_support_show`, `nmts_support_reply`) and the
 documents this service publishes (`nmts_notices`, `nmts_notice`, `nmts_terms`, `nmts_privacy`).

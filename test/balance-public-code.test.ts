@@ -146,6 +146,48 @@ test("--json hands back the shape and prints nothing else", async () => {
   });
 });
 
+// ⛔ AN AI ACCOUNT IS AN ORDINARY ACCOUNT IN EVERY WAY BUT ONE — its own key, its own
+//    wallet, its own empty drive — so nothing in this output distinguished it from the account its
+//    maker uses. `whoami` cannot say it: that command asks the server nothing.
+test("an account made under another one is named as one, before the numbers", async () => {
+  await sandbox("balance-ai-account", async () => {
+    summary.ai_account = true;
+    const lines: string[] = [];
+    assert.equal(await balance({ write: (l) => lines.push(l) }), 0);
+    assert.equal(
+      lines[0],
+      "AI account (not the main account)",
+      `the line is missing or not first — ${JSON.stringify(lines.slice(0, 3))}`,
+    );
+  });
+});
+
+test("an ordinary account is told nothing, and so is one whose server never said", async () => {
+  await sandbox("balance-not-ai", async () => {
+    // ⚠ Two states in one test on purpose: `false` and ABSENT must behave the same, and absent is
+    //   what every server older than the field answers with.
+    const said: string[] = [];
+    assert.equal(await balance({ write: (l) => said.push(l) }), 0);
+    summary.ai_account = false;
+    const again: string[] = [];
+    assert.equal(await balance({ write: (l) => again.push(l) }), 0);
+    for (const lines of [said, again]) {
+      assert.doesNotMatch(lines.join("\n"), /AI account/, "an ordinary account was called one");
+    }
+  });
+});
+
+test("--json carries the same fact, which is what the MCP tool hands a model", async () => {
+  await sandbox("balance-ai-json", async () => {
+    summary.ai_account = true;
+    const lines: string[] = [];
+    assert.equal(await balance({ json: true, write: (l) => lines.push(l) }), 0);
+    const parsed: unknown = JSON.parse(lines[0] ?? "");
+    assert.ok(typeof parsed === "object" && parsed !== null);
+    assert.equal(Reflect.get(parsed, "ai_account"), true);
+  });
+});
+
 test("⛔ an answer this version cannot read is refused, not half-read", async () => {
   // A missing field read as zero would print "0 credits" to somebody who has plenty, and the next
   // thing they do is buy credits they already had.

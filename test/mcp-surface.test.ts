@@ -33,6 +33,11 @@ test("⛔ nothing a machine must not do is in the surface, and the reads that ar
   const names = mcpToolSchemas().map((t) => t.name).sort();
   assert.deepEqual(names, [
     "nmts_balance",
+    // ⛔ MOVING CREDITS IS IN, WHERE THE FREE TRIAL IS OUT. Asking for something for
+    //    nothing on somebody's behalf is a person's act; moving what the account already holds
+    //    between two of that person's own accounts reaches nobody else, spends nothing, and is
+    //    undone by the same call the other way.
+    "nmts_credits_transfer",
     "nmts_deposit",
     "nmts_devices",
     "nmts_expiring",

@@ -115,6 +115,12 @@ export async function run(argv: readonly string[]): Promise<number> {
       const { balance } = await import("./commands/balance.ts");
       return await balance({ server: args.server, network: args.network, json: args.json });
     }
+    case "credits": {
+      const { credits } = await import("./commands/credits.ts");
+      return await credits(args.operands[0], args.operands[1], {
+        server: args.server, network: args.network, json: args.json, to: args.to,
+      });
+    }
     case "public-code": {
       const { publicCode } = await import("./commands/public-code.ts");
       return await publicCode({ server: args.server, network: args.network, publish: args.publish, json: args.json });

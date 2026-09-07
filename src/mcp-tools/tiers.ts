@@ -57,6 +57,14 @@ export const TOOL_TIERS: Readonly<Record<string, ToolTier>> = {
   nmts_unlabel_all: { act: "unlabel" },
   nmts_padding: { act: (args) => (typeof args["mode"] === "string" ? "padding.set" : "padding") },
   nmts_deposit: { act: (args) => (typeof args["credits"] === "number" ? "deposit.set" : "deposit") },
+  nmts_credits_transfer: {
+    act: "credits.transfer",
+    question: (args) =>
+      `Move ${String(args["credits"])} credits from this account to ${String(args["to"])}?\n\n` +
+      "Both are accounts of yours — the server refuses any other recipient. Nothing is spent by " +
+      "moving them and the same move the other way puts them back, but the credits keep the date " +
+      "they were already going to lapse on: moving them does not renew them.",
+  },
   nmts_trash: { act: "rm" },
   nmts_restore: { act: "restore" },
   nmts_share: {

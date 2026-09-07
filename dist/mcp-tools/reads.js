@@ -78,7 +78,8 @@ export function readTools(ctx) {
             name: "nmts_balance",
             description: "How many credits this account has left, what that buys, and the ceilings on spending. " +
                 "Read this before uploading anything large: the price of an upload is printed, but only " +
-                "this says whether the account can pay it.",
+                "this says whether the account can pay it. `ai_account` is true when the account was made " +
+                "under somebody else's for an AI to work in, so it is not that person's own account.",
             inputSchema: NO_ARGS,
             run: () => say((write) => balance({ ...common(ctx), json: true, write })),
         },

@@ -38,6 +38,9 @@ export declare const ACTS: {
     readonly balance: {
         readonly tier: "none";
     };
+    readonly credits: {
+        readonly tier: "none";
+    };
     readonly trial: {
         readonly tier: "none";
     };
@@ -230,6 +233,10 @@ export declare const ACTS: {
     readonly "losses.dismiss": {
         readonly tier: "medium";
         readonly what: "Put this loss notice down. It will not be shown again.";
+    };
+    readonly "credits.transfer": {
+        readonly tier: "medium";
+        readonly what: "Move credits to another account of your own.";
     };
     readonly rebuild: {
         readonly tier: "medium";

@@ -44,6 +44,7 @@ export { destinationFor };
 import { BINARY_NAME, PRODUCT_NAME, VERSION } from "../product.ts";
 import { resolveNetwork } from "../network.ts";
 import { resolveServer } from "../server.ts";
+import { creditTools } from "../mcp-tools/credits.ts";
 import { fileTools } from "../mcp-tools/files.ts";
 import { organiseTools } from "../mcp-tools/organise.ts";
 import { readTools } from "../mcp-tools/reads.ts";
@@ -111,6 +112,7 @@ export function mcpToolSchemas(): { name: string; inputSchema: Record<string, un
     ...readTools(ctx),
     ...fileTools(ctx),
     ...organiseTools(ctx),
+    ...creditTools(ctx),
     ...shareTools(ctx),
     ...supportTools(ctx),
   ];
@@ -177,6 +179,7 @@ export async function mcp(options: McpOptions = {}): Promise<number> {
     ...readTools(ctx),
     ...fileTools(ctx),
     ...organiseTools(ctx),
+    ...creditTools(ctx),
     ...shareTools(ctx),
     // ⛔ LAST, AND NOT BECAUSE IT MATTERS LEAST. The order is the order a client shows them in,
     //    and writing to the developer is the one thing here that is not about this account's

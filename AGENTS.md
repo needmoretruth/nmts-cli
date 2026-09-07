@@ -55,20 +55,23 @@ a person, all at the beginning. If you are being set up, hand this list back in 
 | 3. Pass the check that says a person is here | a person | nmts.me, one short code | **every four weeks**, and only for step 1, step 4 and sharing |
 | 4. Get credits into the account | you, for the free trial (`nmts trial apply`, while step 3 is live) — a person, for a funded wallet | a terminal, or nmts.me | once, then as they run out |
 
-**Step 3 does not gate the work.** Reading, writing, listing, folders, the trash, the recovery
-files and the wallet's balances never ask about it. Exactly three things do — making another account,
-the free trial, and creating a share. A lapsed check does not stop you storing and fetching files;
-it stops you growing the account, and the account runs in a tighter rate tier until a person
-checks in again. `nmts verify --status` says whether it is live and until when;
-you cannot pass it (`nmts help verify`).
+**Step 3 does not gate the work.** Reading, writing, listing, folders, the trash, the recovery files and the
+wallet's balances never ask about it. Exactly four things do — making another account, the free trial,
+creating a share, and moving credits between your own accounts. A lapsed check does not stop you storing and
+fetching files; it stops you growing the account, and the account runs in a tighter rate tier until a person
+checks in again. `nmts verify --status` says whether it is live and until when; you cannot pass it
+(`nmts help verify`).
 
-With a key that carries `files:write` and a live check behind it, `nmts create` makes further
-accounts with no browser — **two a day and five a week** per key, each starting with no credits
-(`nmts help create`).
+**An account and the accounts made under it count as one.** The check is shared — one passed anywhere in that
+group is live for all of it — and so is the free trial: the whole group gets one application a week, not one
+each. Credits can be moved between accounts of the group and nowhere else — `nmts credits transfer --to
+<account identifier> <credits>` — so the place the trial lands on can be sent to whichever account needs it.
 
-**What to say when you are blocked:** name the step. "The account has no credits, which is step 4
-— this week's free places are gone, so it needs a funded wallet" is something a person can act on
-in a minute.
+With a key that carries `files:write` and a live check behind it, `nmts create` makes further accounts with no
+browser — **two a day and five a week** per key, each starting with no credits (`nmts help create`).
+
+**What to say when you are blocked:** name the step. "The account has no credits, which is step 4 — this
+week's free places are gone, so it needs a funded wallet" is something a person can act on in a minute.
 
 ## Rules
 
@@ -106,11 +109,10 @@ folders, marks), **low** (reversible but worth a word: the trash, a setting, a r
 | high | unlock, then asks | unlock, then asks | unlock, then asks | runs |
 | ultra-high | a person types | refused | refused | `--reason` and `--yes` |
 
-- **Asks** means a y/N question at a terminal; with no terminal, exit **5** and the sentence to run
-  the same command with `--yes` once the person has said so. Nothing was done, so retrying after
-  they agree is safe. Explain before you ask, in the words somebody who has never seen this tool
-  would use: not "grant the spend consent" — "this uploads a file, which spends credits from your
-  account". Do not paste the tool's text and leave them to work it out.
+- **Asks** means a y/N question at a terminal; with no terminal, exit **5** and the sentence to run the same
+  command with `--yes` once the person has said so. Nothing was done, so retrying after they agree is safe.
+  Explain before you ask, in the words somebody who has never seen this tool would use: not "grant the spend
+  consent" — "this uploads a file, which spends credits from your account". Do not paste the tool's text.
 - **Your judgement** means the tool does not block: in an auto mode you decide whether this is
   what the person wants. Auto-high is the mode where they asked you to think further ahead.
   Where a choice has a safe side, take it: a name already taken gets the numbered copy.
@@ -134,7 +136,7 @@ folders, marks), **low** (reversible but worth a word: the trash, a setting, a r
 | where am I | `env` · `whoami` · `mode` · `unlock` / `lock` |
 | credentials | `login` · `logout` · `key` (new · list · revoke) · `devices` · `verify` |
 | files | `ls` / `listfile` · `get` · `pull` · `put` · `push` · `rm` / `restore` / `sweep` · `mkdir` / `mv` / `rename` · `star` / `pin` / `label` |
-| the account | `usage` / `balance` / `expiring` · `losses` · `trial` · `public-code` · `create` · `delete-account` · `accept-terms` |
+| the account | `usage` / `balance` / `expiring` · `losses` · `trial` · `credits` · `public-code` · `create` · `delete-account` · `accept-terms` |
 | paying and the wallet | `extend` · `wallet` (address · activity · storage · send · swap · donate · hall) |
 | other accounts | `share` / `shares` / `receive` / `unshare` |
 | settings | `on-collision` · `padding` · `deposit` · `tip` |

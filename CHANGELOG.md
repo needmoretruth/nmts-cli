@@ -3,6 +3,21 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.34.0 — 2026-09-07
+
+- `nmts credits transfer --to <account identifier> <credits>` moves credits from this account to
+  another account of the same family — the account a person made, and every account made under it.
+  Nothing reaches anyone else: a recipient outside the family and an account that does not exist
+  are refused in the same words. The free trial's one place a week belongs to the whole family, so
+  this is how the credits get to the account that needs them. Both balances come back, `--json`
+  carries them, and there is an `nmts_credits_transfer` MCP tool. It is a medium act and needs the
+  account's human check, like the trial; the credits keep the expiry they already had.
+
+- `nmts balance` opens with `AI account (not the main account)` when the account it is signed in
+  to was made under somebody else's for an AI to work in. Such an account has its own NMTS key,
+  its own wallet and its own drive, and nothing said which kind you were holding. `--json` and the
+  `nmts_balance` MCP tool carry the same fact as `ai_account`; an ordinary account sees nothing.
+
 ## 0.33.0 — 2026-09-06
 
 - The secret that opens an account is now called your **NMTS key**. It was the account code; only

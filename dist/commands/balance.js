@@ -63,6 +63,7 @@ function asSummary(value) {
             earliest_expiry_epoch: typeof epoch === "number" ? epoch : null,
         },
         terms: { acceptance_required: isRecord(terms) && terms["acceptance_required"] === true },
+        ai_account: value["ai_account"] === true,
         deposits: depositRows(credits["deposits"]),
     };
 }
@@ -101,6 +102,13 @@ export async function balance(options = {}) {
         return 0;
     }
     const { credits, quota, storage } = summary;
+    // ⛔ FIRST, AND NOT UNDER THE NUMBERS. Whoever is reading has to know WHICH account these
+    //    figures belong to before they mean anything: an AI account has its own key, its own wallet
+    //    and its own empty drive, so "nothing here" is the ordinary answer rather than a loss.
+    if (summary.ai_account) {
+        say(`AI account (not the main account)`);
+        say(``);
+    }
     say(`credits    ${plural(credits.remaining, "credit", "credits")}`);
     // ⛔ SAID AS BYTES TOO, because "one credit" means nothing until you know what it buys. It is the
     //    same number, not a second one — the server derives it from the same ledger read.

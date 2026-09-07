@@ -109,6 +109,12 @@ export async function run(argv) {
             const { balance } = await import("./commands/balance.js");
             return await balance({ server: args.server, network: args.network, json: args.json });
         }
+        case "credits": {
+            const { credits } = await import("./commands/credits.js");
+            return await credits(args.operands[0], args.operands[1], {
+                server: args.server, network: args.network, json: args.json, to: args.to,
+            });
+        }
         case "public-code": {
             const { publicCode } = await import("./commands/public-code.js");
             return await publicCode({ server: args.server, network: args.network, publish: args.publish, json: args.json });

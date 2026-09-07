@@ -158,6 +158,26 @@ export function adviseFor(code: string): string | null {
         "The account has spent its allowance for today. The refusal carries the cap and what is " +
         "spent. Waiting for the day to turn is the only remedy — buying credits does not lift it."
       );
+    // ⛔ FOUR CODES, FOUR REMEDIES, and that is why the server did not send one. They are cleared
+    //    by four different acts — name an account of your own · name a different one · send less ·
+    //    send some — and a retry loop that could not tell them apart would do the wrong one.
+    case "CREDIT_TRANSFER_OUTSIDE_FAMILY":
+      return (
+        "Credits move between one person's own accounts — the account they made and every account " +
+        "under it — and nowhere else. The recipient named is not one of them, or does not exist: " +
+        "the server answers both the same way, so this cannot be used to find out which " +
+        "identifiers are real. Nothing was moved, and no credential changes this."
+      );
+    case "CREDIT_TRANSFER_SELF":
+      return "The recipient named is the account sending. Name another account of the same family. Nothing was moved.";
+    case "CREDIT_TRANSFER_INSUFFICIENT":
+      return (
+        "The sending account cannot cover that amount; the refusal carries what was needed and " +
+        "what it can spend. Nothing was moved and nothing is held. Send the smaller number, or " +
+        "get credits into that account first (`nmts trial`, or a funded wallet)."
+      );
+    case "CREDIT_TRANSFER_ZERO":
+      return "The transfer named no credits. Send a whole number above zero; nothing was moved.";
     case "TRIAL_CLOSED":
       return "The free trial is not open at all right now. Credits have to come from a funded wallet.";
     case "TRIAL_FULL":

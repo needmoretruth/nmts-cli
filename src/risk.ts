@@ -55,6 +55,8 @@ export const ACTS = {
   ls: { tier: "none" },
   usage: { tier: "none" },
   balance: { tier: "none" },
+  // The bare word does nothing but name its one verb; the verb itself is `credits.transfer` below.
+  credits: { tier: "none" },
   trial: { tier: "none" },
   expiring: { tier: "none" },
   losses: { tier: "none" },
@@ -115,6 +117,10 @@ export const ACTS = {
   "key.revoke": { tier: "medium", what: "Revoke an API key. Whatever used it stops working." },
   "public-code.publish": { tier: "medium", what: "Publish this account's public code. Publishing cannot be undone." },
   "losses.dismiss": { tier: "medium", what: "Put this loss notice down. It will not be shown again." },
+  // ⛔ MEDIUM AND NOT HIGH. It moves value, so it is not `low`; but it moves it INSIDE one person's
+  //    own family of accounts — nothing reaches a third party, nothing is spent, and the same
+  //    command in the other direction puts it back. `high` is where a stranger or the chain is.
+  "credits.transfer": { tier: "medium", what: "Move credits to another account of your own." },
   rebuild: { tier: "medium", what: "Build a file list from the server's rows and write it as this account's list." },
   // ── high: locked until a person unlocks, asked on every run ──
   share: { tier: "high", lock: "share", what: "Give another account this file.", asksItself: true },
@@ -187,6 +193,8 @@ export function actOf(args: ParsedArgs): ActId | null {
       return sub === "new" ? "key.new" : sub === "revoke" ? "key.revoke" : "key";
     case "trial":
       return sub === "apply" ? "trial.apply" : "trial";
+    case "credits":
+      return sub === "transfer" ? "credits.transfer" : "credits";
     case "losses":
       return args.dismiss !== undefined ? "losses.dismiss" : "losses";
     case "public-code":

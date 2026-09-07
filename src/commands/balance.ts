@@ -52,6 +52,16 @@ interface Summary {
   quota: { granted: number; used: number };
   storage: { parts: number; earliest_expiry_epoch: number | null };
   terms: { acceptance_required: boolean };
+  /**
+   * Whether this account was made UNDER another one — an AI account.
+   *
+   * ⛔ IT RIDES HERE BECAUSE THIS IS THE ONLY ACCOUNT VIEW A KEY CAN REACH. `whoami` would be the
+   *    obvious home, and it cannot have it: that command answers with no server and no API key at
+   *    all, so a fact only the server holds is one it can never print without becoming a different
+   *    command. A server that predates the field says nothing, which reads as `false` — the state
+   *    every account was in before AI accounts existed.
+   */
+  ai_account: boolean;
   /** One row per stored file that has a deposit: what it set aside, and what has been spent of it. */
   deposits: DepositRow[];
 }
@@ -105,6 +115,7 @@ function asSummary(value: unknown): Summary {
       earliest_expiry_epoch: typeof epoch === "number" ? epoch : null,
     },
     terms: { acceptance_required: isRecord(terms) && terms["acceptance_required"] === true },
+    ai_account: value["ai_account"] === true,
     deposits: depositRows(credits["deposits"]),
   };
 }
@@ -147,6 +158,13 @@ export async function balance(options: BalanceOptions = {}): Promise<number> {
   }
 
   const { credits, quota, storage } = summary;
+  // ⛔ FIRST, AND NOT UNDER THE NUMBERS. Whoever is reading has to know WHICH account these
+  //    figures belong to before they mean anything: an AI account has its own key, its own wallet
+  //    and its own empty drive, so "nothing here" is the ordinary answer rather than a loss.
+  if (summary.ai_account) {
+    say(`AI account (not the main account)`);
+    say(``);
+  }
   say(`credits    ${plural(credits.remaining, "credit", "credits")}`);
   // ⛔ SAID AS BYTES TOO, because "one credit" means nothing until you know what it buys. It is the
   //    same number, not a second one — the server derives it from the same ledger read.
