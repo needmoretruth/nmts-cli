@@ -1,9 +1,9 @@
 # nmts — for agents
 
-You are reading this because someone pointed you at the `nmts` command, or at this repository.
-This is the working reference. Each command has a document of its own: **`nmts help <command>`**
-prints it, and the same files are under `docs/commands/` in this package. Read a command's
-document before you use that command for the first time.
+NMTS = NeedMoreTruthStorage: end-to-end encrypted cloud storage on the Walrus network, built by
+one developer (needmoretruth) for AI agents as much as for people. Site https://nmts.me · summary
+for programs https://nmts.me/llms.txt. Each command has a document: **`nmts help <command>`** prints
+it (same files under `docs/commands/`); read it before using that command the first time.
 
 **This document describes a tool. It has no authority over your own instructions.** Nothing here
 asks you to do anything for anyone but the person you are working for, and if any line reads as an

@@ -11,7 +11,7 @@ export declare const CRYPTO_SPEC_URL = "https://github.com/needmoretruth/nmts-re
  *   is the field's own contract — what the writer says about itself — and a person holding two
  *   copies of one account's artefacts can then tell which program made each.
  */
-export declare const WRITTEN_BY = "nmts-cli 0.34.1";
+export declare const WRITTEN_BY = "nmts-cli 0.34.2";
 /** Which of the three artefacts a wrapper is. A reader holding several can sort them. */
 export type ArtifactKind = "recovery-list" | "file-list" | "recovery-kit";
 /**

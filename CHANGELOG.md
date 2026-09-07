@@ -3,6 +3,12 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.34.2 — 2026-09-07
+
+- The README and the agent document open with what the name stands for — NMTS is
+  NeedMoreTruthStorage — who builds it, and the site, https://nmts.me; the package description
+  says the same. No behaviour changed.
+
 ## 0.34.1 — 2026-09-07
 
 - The advice printed for `MANIFEST_TOO_LARGE` no longer tells a program to ask the operator for a

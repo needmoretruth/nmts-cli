@@ -1,7 +1,8 @@
 # nmts
 
-Command-line access to [NMTS](https://nmts.me) — end-to-end encrypted storage on the Walrus
-network. For people at a terminal, and for the agents they run.
+Command-line access to [NMTS](https://nmts.me) — **NeedMoreTruthStorage**, end-to-end encrypted
+cloud storage on the Walrus network, built by one developer ([needmoretruth](https://github.com/needmoretruth)).
+For people at a terminal, and for the AI agents they run. The site is **https://nmts.me**.
 
 > **[한국어 문서](README.ko.md)** · Talk about NMTS on [Discord](https://discord.gg/pcmRkVmVZk),
 > in English or Korean.
@@ -12,7 +13,7 @@ network. For people at a terminal, and for the agents they run.
 > **Status: early.** The interface may still change before 1.0. `nmts --help` is the current truth
 > about what exists.
 
-## What NMTS is
+## 🧭 What NMTS is
 
 Storage where **the encryption happens on your machine and the keys never leave it.** The server
 receives sealed bytes it cannot open. File contents, names and folders all live inside a sealed
@@ -35,7 +36,7 @@ things to know before you start:
 NMTS is built and run by one developer. This tool, the encryption engine and the recovery program
 are open source under Apache-2.0; the server and the web app are not published.
 
-## Install
+## 📦 Install
 
 Node 22.15.0 or newer. Nothing is compiled at install time and there is no native build step: the
 encryption engine is a WebAssembly module carried in the repository. It runs wherever Node runs —
@@ -52,7 +53,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.34.1    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.34.2    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -61,7 +62,7 @@ that short name as too close to names already published.
 
 To work on the source instead, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Staying up to date
+## 🔄 Staying up to date
 
 ```sh
 nmts update            # installs the newest release over this one
@@ -74,7 +75,7 @@ That request carries no NMTS key, no API key and no command name, and it is the 
 the tool makes that no command asked for. Setting `NMTS_NO_UPDATE_CHECK` to anything stops both
 halves, and `nmts env` shows what the check last found.
 
-## First run
+## 🚀 First run
 
 ```sh
 nmts env       # what this machine is, and whether credentials are in reach. Contacts nothing.
@@ -87,7 +88,7 @@ nmts get x     # download one file
 Run `nmts env` first on any machine you do not know — a container, a CI runner, someone else's
 laptop. It needs no credential and reports what a credential here would be exposed to.
 
-## The two credentials
+## 🔑 The two credentials
 
 They do different jobs and they are not interchangeable.
 
@@ -139,13 +140,13 @@ behind the same agreement.
 three clear the environment before starting one. Sign in with `nmts login` instead, or put the
 variables in the server's own `env` block. `nmts env` names the agent it can see.
 
-## Before you hand this to an agent
+## 🤖 Before you hand this to an agent
 
 Your NMTS key is everything at once. A program that has it can read every file, upload,
 delete and sign with the wallet, and its requests cannot be told apart from yours. It cannot be
 rotated while keeping the account. **Use an account you would be willing to lose.**
 
-## Commands
+## 🧰 Commands
 
 | Command | What it does |
 |---|---|
@@ -406,7 +407,7 @@ account) is a typed sentence. `nmts unlock` lists the keys; each unlock prints w
 could go wrong and what it does not cover before it asks. `nmts help <command>` prints any
 command's document, with its tier at the top.
 
-## Containers
+## 🐳 Containers
 
 It runs unchanged in Docker and Podman, rootless. There is no published image; this repository has
 a `Dockerfile`, and both container tools build and run it on every push.
@@ -477,7 +478,7 @@ $ rclone copy drive:drive ./somewhere
 $ rclone copy --size-only ./somewhere drive:drive
 ```
 
-## For an agent that speaks MCP
+## 🔌 For an agent that speaks MCP
 
 `nmts mcp` is a local MCP server over stdin and stdout. Sign in first (`nmts login`); it never
 takes an NMTS key on a command line, and it never prompts, so a sealed NMTS key with no `NMTS_PASSPHRASE`

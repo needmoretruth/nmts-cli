@@ -2,8 +2,9 @@
 
 *[English](README.md)*
 
-[NMTS](https://nmts.me)를 터미널에서 쓰는 도구입니다 — Walrus 네트워크 위의 종단 간 암호화 저장소를,
-터미널 앞의 사람과 그 사람이 돌리는 에이전트를 위해.
+[NMTS](https://nmts.me)를 터미널에서 쓰는 도구입니다 — NMTS는 **NeedMoreTruthStorage**의 줄임말로,
+개발자 한 사람([needmoretruth](https://github.com/needmoretruth))이 만든 Walrus 네트워크 위의 종단간
+암호화 클라우드 스토리지입니다. 터미널 앞의 사람과 그 사람이 돌리는 AI 에이전트를 위해. 사이트는 **https://nmts.me** 입니다.
 
 > **이야기를 나누는 곳: [디스코드](https://discord.gg/pcmRkVmVZk).** 영어와 한국어 둘 다 읽습니다.
 >
@@ -50,7 +51,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.34.1    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.34.2    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
