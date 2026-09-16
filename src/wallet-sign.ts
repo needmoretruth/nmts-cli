@@ -50,6 +50,24 @@ import {
 import type { RegisterShape } from "./upload-wallet-plan.ts";
 import type { Certificate } from "./upload-wire.ts";
 import { BUILT_IN_WALLET_INDEX } from "./wallet.ts";
+import type {
+  SignBlobCertify,
+  SignBlobRegister,
+  SignMessage,
+  SignStorageOp,
+  SignSwap,
+  SignTransfer,
+} from "./wallet-sign-seams.ts";
+
+// ⛔ RE-EXPORTED UNCHANGED, so every caller keeps one import path: the signing file.
+export type {
+  SignBlobCertify,
+  SignBlobRegister,
+  SignMessage,
+  SignStorageOp,
+  SignSwap,
+  SignTransfer,
+} from "./wallet-sign-seams.ts";
 
 /**
  * The keypair the NMTS key derives.
@@ -57,7 +75,7 @@ import { BUILT_IN_WALLET_INDEX } from "./wallet.ts";
  * ⛔ NOT EXPORTED. A caller that could hold this could sign anything, and the whole of this tool's
  *    story about the wallet is that one command signs one shape of transaction.
  */
-async function keypairFor(code: string): Promise<Ed25519Keypair> {
+async function keypairFor(code: string, index: number): Promise<Ed25519Keypair> {
   // The one refusal text for a malformed code lives in `account.ts`, so a typo fails here the same
   // way it fails everywhere else in this tool rather than as an engine error.
   await assertUsableCode(code);
@@ -73,7 +91,7 @@ async function keypairFor(code: string): Promise<Ed25519Keypair> {
     derived = glue.kdf_derive(bytes);
     const [from, to] = DERIVED.walletRoot;
     root = derived.slice(from, to);
-    seed = glue.wallet_seed_for(root, BUILT_IN_WALLET_INDEX);
+    seed = glue.wallet_seed_for(root, index);
     return Ed25519Keypair.fromSecretKey(seed);
   } catch (error) {
     if (error instanceof NmtsError) throw error;
@@ -96,8 +114,8 @@ async function keypairFor(code: string): Promise<Ed25519Keypair> {
  *    part is silent — a signature from an address with nothing in it, or worse, money sent to an
  *    address that signs nothing. A test compares them, offline, for free.
  */
-export async function signerAddress(code: string): Promise<string> {
-  return (await keypairFor(code)).toSuiAddress();
+export async function signerAddress(code: string, index = BUILT_IN_WALLET_INDEX): Promise<string> {
+  return (await keypairFor(code, index)).toSuiAddress();
 }
 
 /**
@@ -115,7 +133,7 @@ export async function signerAddress(code: string): Promise<string> {
  *   was executed. The caller re-reads the chain rather than offering a second attempt against
  *   numbers it read before.
  */
-export const signExtension: SignExtension = async ({ network, code, objectIds, epochs }) => {
+export const signExtension: SignExtension = async ({ network, code, wallet, objectIds, epochs }) => {
   const unique = [...new Set(objectIds)];
   if (unique.length === 0) {
     throw new NmtsError("There is nothing on this file that can be extended.", { exitCode: 4 });
@@ -125,7 +143,7 @@ export const signExtension: SignExtension = async ({ network, code, objectIds, e
   }
 
   const client = walrusClient(network);
-  const keypair = await keypairFor(code);
+  const keypair = await keypairFor(code, wallet);
   const tx = new Transaction();
   // The sender must be set before the fragments resolve: paying with the SDK's default coin
   // selection picks the WAL coins from the sender's own address.
@@ -177,9 +195,9 @@ export const signExtension: SignExtension = async ({ network, code, objectIds, e
  *
  * ⚠ A FAILURE HERE IS NOT PROOF THAT NOTHING HAPPENED — the same words as the extension above.
  */
-export const signTransfer: SignTransfer = async ({ network, code, shape }) => {
+export const signTransfer: SignTransfer = async ({ network, code, wallet, shape }) => {
   const client = walrusClient(network);
-  const keypair = await keypairFor(code);
+  const keypair = await keypairFor(code, wallet);
   const tx = transferTransaction({ ...shape, sender: keypair.toSuiAddress() });
   const result = await client.signAndExecuteTransaction({
     transaction: tx,
@@ -214,25 +232,13 @@ export const signTransfer: SignTransfer = async ({ network, code, shape }) => {
  *    signed text from ever being read as a transaction this wallet authorised.
  */
 export const signMessage: SignMessage = async ({ code, message }) => {
-  const keypair = await keypairFor(code);
+  // ⚠ THE FIRST WALLET SIGNS THE NAME — the address that stands in the hall is that wallet's, and
+  //   the account's choice of paying wallet does not reach this command yet.
+  const keypair = await keypairFor(code, BUILT_IN_WALLET_INDEX);
   const { signature } = await keypair.signPersonalMessage(new TextEncoder().encode(message));
   return signature;
 };
 
-/** The seam `commands/wallet-hall.ts` signs through. Returns the base64 signature, nothing else. */
-export type SignMessage = (input: {
-  /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
-  code: string;
-  message: string;
-}) => Promise<string>;
-
-/** The seam `commands/wallet-send.ts` signs through. Returns the transaction digest. */
-export type SignTransfer = (input: {
-  network: string;
-  /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
-  code: string;
-  shape: TransferShape;
-}) => Promise<string>;
 
 /**
  * Swap SUI for WAL or WAL for SUI on the named venue, in ONE transaction, signed by the account's
@@ -247,7 +253,10 @@ export type SignTransfer = (input: {
  */
 export const signSwap: SignSwap = async ({ network, code, shape }) => {
   const client = walrusClient(network);
-  const keypair = await keypairFor(code);
+  // ⚠ SWAPS FROM THE FIRST WALLET — the coins being swapped are that wallet's, and the account's
+  //   choice of paying wallet does not reach this command yet. The day it does, this line and the
+  //   review above it carry the same number.
+  const keypair = await keypairFor(code, BUILT_IN_WALLET_INDEX);
   const tx = swapTransaction({ ...shape, network, sender: keypair.toSuiAddress() });
   const result = await client.signAndExecuteTransaction({
     transaction: tx,
@@ -267,14 +276,6 @@ export const signSwap: SignSwap = async ({ network, code, shape }) => {
   await client.waitForTransaction({ digest: result.digest }).catch(() => undefined);
   return result.digest;
 };
-
-/** The seam `commands/wallet-swap.ts` signs through. Returns the transaction digest. */
-export type SignSwap = (input: {
-  network: Network;
-  /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
-  code: string;
-  shape: SwapShape;
-}) => Promise<string>;
 
 /** What a refused execution said, or null when the effects say it went through. */
 function refusedBecause(result: unknown): string | null {
@@ -297,9 +298,9 @@ function refusedBecause(result: unknown): string | null {
  * ⚠ A FAILURE HERE IS NOT PROOF THAT NOTHING HAPPENED — the same words as the extension above.
  *   The caller keeps its record and re-reads it rather than registering again.
  */
-export const signBlobRegister: SignBlobRegister = async ({ network, code, relayUrl, ...shape }) => {
+export const signBlobRegister: SignBlobRegister = async ({ network, code, wallet, relayUrl, ...shape }) => {
   const client = payingClient(network, relayUrl);
-  const keypair = await keypairFor(code);
+  const keypair = await keypairFor(code, wallet);
   const tx = await registerTransaction(client, network, { ...shape, sender: keypair.toSuiAddress() });
   const result = await client.signAndExecuteTransaction({
     transaction: tx,
@@ -322,9 +323,9 @@ export const signBlobRegister: SignBlobRegister = async ({ network, code, relayU
 };
 
 /** Certify ONE registered part from the relay's certificate. Gas only; nothing else leaves the wallet. */
-export const signBlobCertify: SignBlobCertify = async ({ network, code, relayUrl, ...shape }) => {
+export const signBlobCertify: SignBlobCertify = async ({ network, code, wallet, relayUrl, ...shape }) => {
   const client = payingClient(network, relayUrl);
-  const keypair = await keypairFor(code);
+  const keypair = await keypairFor(code, wallet);
   const tx = certifyTransaction(client, shape);
   tx.setSender(keypair.toSuiAddress());
   const result = await client.signAndExecuteTransaction({
@@ -345,28 +346,7 @@ export const signBlobCertify: SignBlobCertify = async ({ network, code, relayUrl
   return result.digest;
 };
 
-/** The seam the wallet rail registers through. */
-export type SignBlobRegister = (
-  input: { network: Network; code: string; relayUrl: string } & RegisterShape,
-) => Promise<{ digest: string; blobObjectId: string; endEpoch: number }>;
 
-/** The seam the wallet rail certifies through. Returns the transaction digest. */
-export type SignBlobCertify = (input: {
-  network: Network;
-  code: string;
-  relayUrl: string;
-  blobId: string;
-  blobObjectId: string;
-  certificate: Certificate;
-}) => Promise<string>;
-
-/** How a storage-resource operation is signed; the shape carries what the review priced. */
-export type SignStorageOp = (input: {
-  network: Network;
-  code: string;
-  shape: StorageOpShape;
-  walrusPackageId: string;
-}) => Promise<string>;
 
 /**
  * Cut, join or hand over a storage resource, in ONE transaction, signed by the account's own wallet.
@@ -377,7 +357,9 @@ export type SignStorageOp = (input: {
  */
 export const signStorageOp: SignStorageOp = async ({ network, code, shape, walrusPackageId }) => {
   const client = walrusClient(network);
-  const keypair = await keypairFor(code);
+  // ⚠ RESHAPES THE FIRST WALLET'S STORAGE — that wallet holds the resource; the paying-wallet choice
+  //   does not reach this command yet.
+  const keypair = await keypairFor(code, BUILT_IN_WALLET_INDEX);
   const tx = storageOpTransaction(shape, { walrusPackageId, sender: keypair.toSuiAddress() });
   const result = await client.signAndExecuteTransaction({ transaction: tx, signer: keypair, options: { showEffects: true } });
   const effects: unknown = result.effects;

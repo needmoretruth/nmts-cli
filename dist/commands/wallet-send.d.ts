@@ -12,6 +12,10 @@ export interface WalletSendOptions {
     dryRun?: boolean;
     /** A ceiling on the fee, in SUI ("0.01"). Clamped to the usable range, never refused. */
     feeCap?: string | undefined;
+    /** `--wallet N`: which wallet pays, this run only. Absent = the account's own number. */
+    wallet?: string | undefined;
+    /** ⚠ A SEAM, NOT AN OPTION — where that number is read from (`wallet-pay-index.ts`). */
+    readActiveWallet?: () => Promise<number>;
     /** The instant to measure the wallet agreement against. */
     now?: number;
     /** ⚠ A SEAM, NOT AN OPTION — no flag reaches it. */

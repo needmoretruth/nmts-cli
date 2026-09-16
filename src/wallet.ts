@@ -22,16 +22,16 @@ import { NmtsError } from "./errors.ts";
 import type { Network } from "./network.ts";
 
 /**
- * The wallet this NMTS key opens by itself.
+ * The wallet this NMTS key opens by itself, when nobody has said which one.
  *
- * ⛔ IT IS WALLET 0 BECAUSE THAT IS THE ONE THE BROWSER OPENS. Every wallet, including this one,
- *    comes out of `wallet_seed_for` — there is no special case for the first — so the index is the
- *    whole of the difference between "the account's wallet" and somebody else's.
+ * ⛔ IT IS WALLET 0 BECAUSE THAT IS THE ONE EVERY ACCOUNT STARTS WITH. Every wallet, including this
+ *    one, comes out of `wallet_seed_for` — there is no special case for the first — so the index is
+ *    the whole of the difference between one wallet of this key and another.
  *
- * ⛔ EXPORTED SO THE SIGNER CANNOT PICK ITS OWN. `extend-sign.ts` derives a keypair from the same
- *    root and has to reach the SAME wallet as the address printed here; a second literal `0` over
- *    there would be a second answer to a question with one right one, and the failure is silent —
- *    a signature from an address nobody funded. `extend-sign.test.ts` compares the two.
+ * ⚠ IT IS THE OFFLINE ANSWER, NOT THE PAYING ONE (2026-09-16). `nmts wallet address` asks
+ *   nothing of anybody and so cannot know which wallet the account pays from; every command that
+ *   SPENDS reads that number out of the sealed file list first (`wallet-pay-index.ts`) and refuses
+ *   rather than falling back here — paying from the wrong wallet is not a thing to guess at.
  */
 export const BUILT_IN_WALLET_INDEX = 0;
 
@@ -92,12 +92,12 @@ export function addressFromSeed(seed: Uint8Array): string {
 }
 
 /**
- * The address of the wallet this NMTS key derives. Offline: nothing is asked of anybody.
+ * The address of one of the wallets this NMTS key derives. Offline: nothing is asked of anybody.
  *
- * The same address on every network — an account has one wallet, and which chain it is looked up
- * on is a separate question from what it is called.
+ * The same address on every network — a wallet is the same wallet on every chain, and which chain
+ * it is looked up on is a separate question from what it is called.
  */
-export async function walletAddress(code: string): Promise<string> {
+export async function walletAddress(code: string, index = BUILT_IN_WALLET_INDEX): Promise<string> {
   // ⛔ The one refusal text for a malformed code lives in `account.ts`. Checking here means a typo
   //    fails the same way it fails everywhere else in this tool rather than as an engine error.
   await assertUsableCode(code);
@@ -116,7 +116,7 @@ export async function walletAddress(code: string): Promise<string> {
   //    everything sliced out of it, on the failing paths as well as the good one.
   const derived = glue.kdf_derive(bytes);
   try {
-    return addressFromDerived(glue, derived);
+    return addressFromDerived(glue, derived, index);
   } finally {
     derived.fill(0);
     bytes.fill(0);
@@ -141,12 +141,12 @@ export type WalletGlue = Pick<CryptoGlue, "wallet_seed_for">;
  *    engine expands from it — are wiped before it returns, on the failing path as well as the
  *    good one. Neither one leaves.
  */
-export function addressFromDerived(glue: WalletGlue, derived: Uint8Array): string {
+export function addressFromDerived(glue: WalletGlue, derived: Uint8Array, index = BUILT_IN_WALLET_INDEX): string {
   const [from, to] = DERIVED.walletRoot;
   const root = derived.slice(from, to);
   let seed: Uint8Array | null = null;
   try {
-    seed = glue.wallet_seed_for(root, BUILT_IN_WALLET_INDEX);
+    seed = glue.wallet_seed_for(root, index);
     return addressFromSeed(seed);
   } finally {
     root.fill(0);

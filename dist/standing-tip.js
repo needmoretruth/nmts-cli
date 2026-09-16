@@ -37,6 +37,7 @@ export async function standingTipAfter(input) {
         const digest = await sign({
             network: input.network,
             code: input.code,
+            wallet: input.wallet,
             shape: { coin: "WAL", amountBaseUnits: amount, destination: config.devAddress, walType: walCoinType(input.network) },
         });
         input.say(`  Your standing ${percentText(tenths)} % gift — ${coinAmount(amount)} WAL — went to the developer. Transaction ${digest}`);

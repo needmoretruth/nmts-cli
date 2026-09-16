@@ -15,6 +15,13 @@ import type { SendReads, TransferShape } from "../src/wallet-send-chain.ts";
 import type { SignTransfer } from "../src/wallet-sign.ts";
 import { generateCode, grantConsents } from "./helpers.ts";
 
+/**
+ * ⚠ THESE TESTS CANNOT REACH THE SEALED FILE LIST (there is no server). The default reads the paying
+ *   wallet's number out of that list (`wallet-pay-index.ts`), so here it is pinned to the first
+ *   wallet — what is measured is the order of review, consent and signature, not the number.
+ */
+const FIRST_WALLET = { readActiveWallet: async (): Promise<number> => 0 };
+
 function collect(): { lines: string[]; write: (line: string) => void } {
   const lines: string[] = [];
   return { lines, write: (line) => lines.push(line) };
@@ -93,7 +100,7 @@ test("⛔ without --yes the review is printed, with the whole address and the fe
     const out = collect();
     const sign = refuseToSign();
     const chain = reads();
-    const failure = await refusal(walletSend(["WAL", "1.5", TO], { network: "testnet", write: out.write, readChain: () => chain, sign, now: AT }));
+    const failure = await refusal(walletSend(["WAL", "1.5", TO], { ...FIRST_WALLET, network: "testnet", write: out.write, readChain: () => chain, sign, now: AT }));
     assert.equal(failure.exitCode, 4);
     assert.match(String(failure.nextStep), /--yes/);
     const text = out.lines.join("\n");
@@ -110,31 +117,31 @@ test("⛔ without --yes the review is printed, with the whole address and the fe
 test("⛔ the browser's rules judge the address and the amount, and an unread balance stops the run as unread", async () => {
   await withAccount("wallet-send-rules", async () => {
     const quiet = { write: () => undefined, network: "testnet", sign: refuseToSign(), now: AT };
-    assert.equal((await refusal(walletSend(["SUI", "1", "0x1234"], { ...quiet, readChain: () => reads() }))).exitCode, 2);
-    assert.equal((await refusal(walletSend(["SUI", "0", TO], { ...quiet, readChain: () => reads() }))).exitCode, 2);
-    const short = await refusal(walletSend(["SUI", "0.99", TO], { ...quiet, readChain: () => reads() }));
+    assert.equal((await refusal(walletSend(["SUI", "1", "0x1234"], { ...FIRST_WALLET, ...quiet, readChain: () => reads() }))).exitCode, 2);
+    assert.equal((await refusal(walletSend(["SUI", "0", TO], { ...FIRST_WALLET, ...quiet, readChain: () => reads() }))).exitCode, 2);
+    const short = await refusal(walletSend(["SUI", "0.99", TO], { ...FIRST_WALLET, ...quiet, readChain: () => reads() }));
     assert.equal(short.exitCode, 4, "0.99 of 1 SUI passes the reserve — refused, not signed");
     assert.match(String(short.nextStep), /most that can be sent is 0\.95 SUI/);
-    const gas = await refusal(walletSend(["WAL", "1", TO], { ...quiet, readChain: () => reads({ sui: 1_000n }) }));
+    const gas = await refusal(walletSend(["WAL", "1", TO], { ...FIRST_WALLET, ...quiet, readChain: () => reads({ sui: 1_000n }) }));
     assert.match(gas.message, /pays its fee in SUI/);
-    const unread = await refusal(walletSend(["WAL", "1", TO], { ...quiet, readChain: () => reads({ wal: null }) }));
+    const unread = await refusal(walletSend(["WAL", "1", TO], { ...FIRST_WALLET, ...quiet, readChain: () => reads({ wal: null }) }));
     assert.equal(unread.exitCode, 1);
     assert.match(String(unread.nextStep), /not an empty wallet — WAL: the node did not answer/);
-    assert.equal((await refusal(walletSend(["BTC", "1", TO], { ...quiet, readChain: () => reads() }))).exitCode, 2);
+    assert.equal((await refusal(walletSend(["BTC", "1", TO], { ...FIRST_WALLET, ...quiet, readChain: () => reads() }))).exitCode, 2);
   });
 });
 
 test("⛔ --yes still needs a wallet agreement with scope all, and the ceiling counts the fee", async () => {
   await withAccount("wallet-send-grant", async () => {
     const quiet = { write: () => undefined, network: "testnet", yes: true, readChain: () => reads(), now: AT };
-    const none = await refusal(walletSend(["SUI", "0.1", TO], { ...quiet, sign: refuseToSign() }));
+    const none = await refusal(walletSend(["SUI", "0.1", TO], { ...FIRST_WALLET, ...quiet, sign: refuseToSign() }));
     assert.equal(none.exitCode, 5);
     writeWalletGrant(parseWalletGrant({ days: "7" }, new Date(AT), "t"));
-    const storageOnly = await refusal(walletSend(["SUI", "0.1", TO], { ...quiet, sign: refuseToSign() }));
+    const storageOnly = await refusal(walletSend(["SUI", "0.1", TO], { ...FIRST_WALLET, ...quiet, sign: refuseToSign() }));
     assert.equal(storageOnly.exitCode, 5);
     assert.match(storageOnly.message, /covers storage only, and this would send/);
     writeWalletGrant(parseWalletGrant({ days: "7", scope: "all", capSui: "0.1" }, new Date(AT), "t"));
-    const capped = await refusal(walletSend(["SUI", "0.1", TO], { ...quiet, sign: refuseToSign() }));
+    const capped = await refusal(walletSend(["SUI", "0.1", TO], { ...FIRST_WALLET, ...quiet, sign: refuseToSign() }));
     assert.match(capped.message, /0\.102 SUI in fees .* 0\.1 SUI left/);
   });
 });
@@ -145,7 +152,7 @@ test("with --yes and an agreement, the signed shape is what was reviewed, max ke
     const sign = recordingSigner();
     const out = collect();
     assert.equal(
-      await walletSend(["sui", "max", TO.toUpperCase()], { network: "testnet", yes: true, feeCap: "0.5", write: out.write, readChain: () => reads(), sign, now: AT }),
+      await walletSend(["sui", "max", TO.toUpperCase()], { ...FIRST_WALLET, network: "testnet", yes: true, feeCap: "0.5", write: out.write, readChain: () => reads(), sign, now: AT }),
       0,
     );
     assert.deepEqual(sign.asked, [
@@ -157,7 +164,7 @@ test("with --yes and an agreement, the signed shape is what was reviewed, max ke
 
     const json = collect();
     assert.equal(
-      await walletSend(["WAL", "2", TO], { network: "testnet", yes: true, json: true, write: json.write, readChain: () => reads(), sign, now: AT }),
+      await walletSend(["WAL", "2", TO], { ...FIRST_WALLET, network: "testnet", yes: true, json: true, write: json.write, readChain: () => reads(), sign, now: AT }),
       0,
     );
     const parsed: unknown = JSON.parse(json.lines.join(""));

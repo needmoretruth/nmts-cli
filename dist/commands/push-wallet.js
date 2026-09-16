@@ -3,6 +3,8 @@
 //
 // ⛔ SPLIT OUT OF `push.ts` FOR THE LENGTH GATE, and along the one seam that was already there:
 //    `push.ts` decides WHICH files go and where; this decides how the wallet pays for each.
+import { payingWalletIndex } from "../wallet-pay-index.js";
+import { activeWalletOf } from "../shared/lib/drive/manifest-settings.js";
 import { loadCrypto } from "../crypto.js";
 import { NmtsError } from "../errors.js";
 import { resolveNetwork } from "../network.js";
@@ -24,6 +26,10 @@ export async function pushWithWallet(session, options, run) {
         rule: run.rule,
         onCollision: run.asked,
         settings: run.settings,
+        wallet: await payingWalletIndex({
+            ...options,
+            readActiveWallet: async () => activeWalletOf(run.settings),
+        }),
         progress: new Progress(options.json === true ? silentSink() : stderrSink(), "uploading"),
         say,
         json: options.json === true,

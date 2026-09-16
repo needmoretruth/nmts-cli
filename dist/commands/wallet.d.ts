@@ -7,6 +7,10 @@ export interface WalletOptions {
     write?: (line: string) => void;
     /** `wallet address --qr`: the address as a code a phone can scan, drawn in the terminal. */
     qr?: boolean;
+    /** `wallet address --index N`: which of this key's wallets to print. Absent = the first one. */
+    index?: string | undefined;
+    /** `wallet send`/`donate --wallet N`: which wallet pays, this run only (`wallet-pay-index.ts`). */
+    wallet?: string | undefined;
     /** `wallet send`: the operands after "send", and its flags (`wallet-send.ts`). */
     rest?: readonly string[];
     yes?: boolean;

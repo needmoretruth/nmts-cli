@@ -51,12 +51,58 @@ export interface AccountSettings {
      * = never agreed: raising the tip above 0 asks for that agreement once, and later changes do not.
      */
     tipConsentAt?: number;
+    /**
+     * WHICH WALLET PAYS — the index the NMTS key derives it at (NCF-3 §1.3, `walletSeed(N)`). Absent
+     * = 0, the wallet every account has had since the beginning.
+     *
+     * ⛔ HERE, IN THE SEALED LIST, AND NOT BESIDE THE derived/imported SWITCH. That switch is about
+     * this DEVICE (which key this browser opens), so it lives in device storage; the number is about
+     * the ACCOUNT — it decides which address the storage is paid from, and a phone and a laptop that
+     * disagreed about it would spend from two different balances for one person.
+     *
+     * Whole, 0 to just under 2^31: the format derives a wallet at every index and this is the range
+     * an index is written in.
+     */
+    activeWallet?: number;
+    /**
+     * HOW MANY WALLETS THIS ACCOUNT HAS MADE — the list the wallets screen draws, 1 to 1000. Absent
+     * = 1, the one wallet an account starts with.
+     *
+     * ⚠ IT IS A COUNT, NOT A SET. Numbers come from the key, so a wallet cannot be deleted and the
+     * list is always 0…count-1; "making the next wallet" is this number going up by one, and a scan
+     * that finds a funded wallet further out pulls it up to that number + 1.
+     */
+    walletCount?: number;
 }
 /** The sanity bounds a stored text scale must sit in to be USED. One place; codec and UI agree. */
 export declare const TEXT_SCALE_MIN_PCT = 80;
 export declare const TEXT_SCALE_MAX_PCT = 160;
 /** Follow the device. Not written to the wire — absence is the only spelling of it. */
 export declare const TEXT_SCALE_DEFAULT_PCT = 100;
+/**
+ * The index range a wallet number is written in: whole, 0 to just under 2^31.
+ *
+ * ⛔ THE CEILING IS THE WIRE'S, NOT THE FORMAT'S. `walletSeed(N)` is defined for every N the
+ * engine can be handed; what is bounded here is what this build will WRITE and read back, so a
+ * number some other build miswrote cannot come back as something no screen can draw.
+ */
+export declare const WALLET_INDEX_LIMIT: number;
+/** The wallet an account pays from when nobody chose. Not written to the wire — absence spells it. */
+export declare const ACTIVE_WALLET_DEFAULT = 0;
+/** The most wallets one account's list holds. */
+export declare const WALLET_COUNT_MAX = 1000;
+/** What an account's list holds before anybody made a second one. Absence spells it. */
+export declare const WALLET_COUNT_DEFAULT = 1;
+/** Which wallet this account pays from. Absence is wallet 0, never "unknown". */
+export declare function activeWalletOf(settings: AccountSettings | null | undefined): number;
+/**
+ * How many wallets this account's list holds.
+ *
+ * ⛔ THE INVARIANT LIVES HERE: the paying wallet is always IN the list. A stored count that does
+ * not reach the active number is raised to hold it — never the other way round, because lowering
+ * it would hide a wallet somebody is paying from, and a wallet cannot be deleted anyway.
+ */
+export declare function walletCountOf(settings: AccountSettings | null | undefined): number;
 export interface WireSettings {
     /** developerMode. */
     dm?: 1;
@@ -84,6 +130,15 @@ export interface WireSettings {
     tp?: number;
     /** tipConsentAt. */
     tc?: number;
+    /** activeWallet, present only when it is not wallet 0. */
+    aw?: number;
+    /**
+     * walletCount, present only when the account has made more than one.
+     *
+     * ⚠ A count above the ceiling is DROPPED on both sides, and nothing is lost by that: the read
+     * below raises the count to hold `aw` again, so the paying wallet stays in the list either way.
+     */
+    wc?: number;
 }
 /** The most a standing tip can be: the whole payment. Above the dial's 10 % it is typed and confirmed. */
 export declare const TIP_TENTHS_MAX = 1000;
@@ -107,7 +162,3 @@ export declare function settingsToWire(s: AccountSettings | undefined): WireSett
  * to the device's own size, which is always readable.
  */
 export declare function settingsFromWire(w: unknown): AccountSettings | undefined;
-/** Folds a deposit patch into a settings copy: out-of-range is clamped, the full deposit clears. */
-export declare function applyDepositPatch(next: AccountSettings, depositDefault?: number): void;
-/** Folds a tip patch into a settings copy: 0 clears, above the cap is capped, fractions are rounded. */
-export declare function applyTipPatch(next: AccountSettings, tipTenths?: number, tipConsentAt?: number): void;

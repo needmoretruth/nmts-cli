@@ -15,6 +15,8 @@ export interface WalletPayOptions {
     epochs?: string | number | undefined;
     /** `fit`, `whole`, or a held resource's object id. Absent = buy new storage. */
     storage?: string | undefined;
+    /** `--wallet N`: which wallet pays, this run only. Absent = the account's own number. */
+    wallet?: string | undefined;
     /** The instant the wallet agreement is measured against. */
     now?: number;
     /** ⚠ A SEAM, NOT AN OPTION — no flag reaches it. */
@@ -54,16 +56,20 @@ export interface WalletUploadContext {
     onCollision?: OnCollision | undefined;
     /** The sealed list's account settings, as read for this run — the standing tip lives in them. */
     settings?: AccountSettings | undefined;
+    /** Which of this key's wallets pays (`wallet-pay-index.ts`). Read from the same list as above. */
+    wallet: number;
     progress: Progress;
     say: (line: string) => void;
     json: boolean;
 }
 export declare function putWithWallet(target: string | undefined, options: PutWalletOptions): Promise<number>;
 /**
- * Review, agree, upload and record ONE file. Null when `--dry-run` stopped at the review.
+ * Review, agree, upload and record ONE file for a person who is watching. Null when `--dry-run`
+ * stopped at the review.
  *
- * ⛔ THE SIGNING MODULE IS LOADED AFTER THE AGREEMENT, and only then — a dry run and a refusal
- *    never bring the code that can spend into memory.
+ * ⛔ THE AGREEMENT HANDED IN BELOW IS THIS MACHINE'S GRANT, held against the total the review
+ *    names. It is the one gate between a program and somebody's wallet, and the reason it is
+ *    handed to the library rather than living inside it: a library call has nobody to ask.
  */
 export declare function uploadOneWithWallet(ctx: WalletUploadContext, file: WalletUploadFile, options: WalletPayOptions & {
     dryRun?: boolean | undefined;

@@ -21,14 +21,7 @@
 // CLOCKS: every instant in a manifest comes from the browser that wrote it. Never compare one
 //   against a server timestamp (`GET /v1/objects`, item rows): those come from the database clock
 //   and the two only agree by accident. Reconciliation matches on id.
-import type { AccountSettings, ManifestEntry, ShareReceipt } from "./manifest-codec.ts";
-// Runtime import (relative + .ts — the header's node --test rule) for the bounds the patch obeys.
-import {
-  TEXT_SCALE_DEFAULT_PCT,
-  TEXT_SCALE_MAX_PCT,
-  TEXT_SCALE_MIN_PCT,
-} from "./manifest-codec.ts";
-import { applyDepositPatch, applyTipPatch } from "./manifest-settings.ts";
+import type { ManifestEntry, ShareReceipt } from "./manifest-codec.ts";
 
 /** One drive edit, in a form that can be replayed onto a newer list. */
 export type ManifestIntent =
@@ -243,70 +236,19 @@ function withShares(
 }
 
 /**
- * Which size-padding rule an account seals its next upload under.
+ * The account settings' own vocabulary — the padding rule, one settings edit, and how an edit
+ * lands — comes back out of `manifest-settings-patch.ts`, beside the fields it names.
  *
- * ⛔ DECLARED BESIDE THE PATCH THAT CARRIES IT, not in `lib/crypto/padding.ts` where the padding
- *    itself lives. `padding.ts` imports it from here. The direction matters: this file is copied
- *    byte-for-byte into the `nmts` command-line package, and a type reaching out of it into the
- *    crypto tree would drag that whole tree along with it for the sake of two string literals.
+ * ⛔ RE-EXPORTED RATHER THAN MOVED AWAY. Every caller in both packages spells it `manifest-ops`,
+ *    and a settings patch IS one of this file's intents as far as they are concerned. It moved
+ *    because the settings write path had grown into the file's ceiling (`check:size`), and
+ *    splitting it puts each rule beside the field it is about.
  */
-export type PaddingMode = "padme" | "pow2" | "none";
-
-/**
- * One account-settings edit, as DESIRED STATE per field — never "toggle", so replaying it onto a
- * list another device wrote lands the same answer. A default value means absence in the codec.
- */
-export interface SettingsPatch {
-  developerMode?: boolean;
-  textScalePct?: number;
-  /** Which rule seals future uploads: `"padme"` = the default, `"none"` = the file's exact length. */
-  paddingMode?: PaddingMode;
-  /** Credits held back with each credit-paid upload, 0 to `DEPOSIT_MAX_CREDITS`. */
-  depositDefault?: number;
-  /** The standing tip in tenths of a percent (0 = none) and the instant its terms were agreed to (0 clears). */
-  tipTenths?: number;
-  tipConsentAt?: number;
-}
-
-/**
- * Apply one settings patch, returning new settings. Returns the SAME reference when nothing
- * changed, so callers can skip a save (a version bump every other device must download).
- *
- * A text scale is CLAMPED into the codec's bounds here — this is the one write path, so a value
- * the slider or the typed field lets through never reaches the wire out of range.
- */
-export function applySettingsPatch(
-  settings: AccountSettings,
-  patch: SettingsPatch,
-): AccountSettings {
-  const next: AccountSettings = { ...settings };
-  if (patch.developerMode !== undefined) {
-    if (patch.developerMode) next.developerMode = true;
-    else delete next.developerMode;
-  }
-  if (patch.paddingMode !== undefined) {
-    // The default is spelled as absence, like every other field here — so two devices that both
-    // "choose the default" write the same bytes and neither bumps the list's version.
-    if (patch.paddingMode === "pow2" || patch.paddingMode === "none") next.paddingMode = patch.paddingMode;
-    else delete next.paddingMode;
-  }
-  if (patch.textScalePct !== undefined && Number.isFinite(patch.textScalePct)) {
-    const pct = Math.round(
-      Math.min(TEXT_SCALE_MAX_PCT, Math.max(TEXT_SCALE_MIN_PCT, patch.textScalePct)),
-    );
-    if (pct === TEXT_SCALE_DEFAULT_PCT) delete next.textScalePct;
-    else next.textScalePct = pct;
-  }
-  applyDepositPatch(next, patch.depositDefault);
-  applyTipPatch(next, patch.tipTenths, patch.tipConsentAt);
-  const same =
-    (next.developerMode === true) === (settings.developerMode === true) &&
-    next.paddingMode === settings.paddingMode && next.depositDefault === settings.depositDefault &&
-    next.textScalePct === settings.textScalePct &&
-    next.tipTenths === settings.tipTenths &&
-    next.tipConsentAt === settings.tipConsentAt;
-  return same ? settings : next;
-}
+export {
+  applySettingsPatch,
+  type PaddingMode,
+  type SettingsPatch,
+} from "./manifest-settings-patch.ts";
 
 /** Replay a whole queue in order. Used to rebuild after a version conflict. */
 export function applyIntents(

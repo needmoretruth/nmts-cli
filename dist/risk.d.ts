@@ -344,6 +344,10 @@ export declare const ACTS: {
         readonly what: "Send a gift to the developer from the wallet.";
         readonly asksItself: true;
     };
+    readonly "wallet.use": {
+        readonly tier: "low";
+        readonly what: "Change which of this key's wallets pays for storage.";
+    };
     readonly "wallet.hall": {
         readonly tier: "none";
     };

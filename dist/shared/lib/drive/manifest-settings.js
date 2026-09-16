@@ -14,6 +14,48 @@ export const TEXT_SCALE_MIN_PCT = 80;
 export const TEXT_SCALE_MAX_PCT = 160;
 /** Follow the device. Not written to the wire — absence is the only spelling of it. */
 export const TEXT_SCALE_DEFAULT_PCT = 100;
+/**
+ * The index range a wallet number is written in: whole, 0 to just under 2^31.
+ *
+ * ⛔ THE CEILING IS THE WIRE'S, NOT THE FORMAT'S. `walletSeed(N)` is defined for every N the
+ * engine can be handed; what is bounded here is what this build will WRITE and read back, so a
+ * number some other build miswrote cannot come back as something no screen can draw.
+ */
+export const WALLET_INDEX_LIMIT = 2 ** 31;
+/** The wallet an account pays from when nobody chose. Not written to the wire — absence spells it. */
+export const ACTIVE_WALLET_DEFAULT = 0;
+/** The most wallets one account's list holds. */
+export const WALLET_COUNT_MAX = 1000;
+/** What an account's list holds before anybody made a second one. Absence spells it. */
+export const WALLET_COUNT_DEFAULT = 1;
+/** Is this a wallet index this build writes and reads? */
+function usableWalletIndex(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0 && value < WALLET_INDEX_LIMIT;
+}
+/** Is this a wallet count this build writes and reads? */
+function usableWalletCount(value) {
+    return (typeof value === "number" &&
+        Number.isInteger(value) &&
+        value >= WALLET_COUNT_DEFAULT &&
+        value <= WALLET_COUNT_MAX);
+}
+/** Which wallet this account pays from. Absence is wallet 0, never "unknown". */
+export function activeWalletOf(settings) {
+    const stored = settings?.activeWallet;
+    return usableWalletIndex(stored) ? stored : ACTIVE_WALLET_DEFAULT;
+}
+/**
+ * How many wallets this account's list holds.
+ *
+ * ⛔ THE INVARIANT LIVES HERE: the paying wallet is always IN the list. A stored count that does
+ * not reach the active number is raised to hold it — never the other way round, because lowering
+ * it would hide a wallet somebody is paying from, and a wallet cannot be deleted anyway.
+ */
+export function walletCountOf(settings) {
+    const stored = settings?.walletCount;
+    const held = usableWalletCount(stored) ? stored : WALLET_COUNT_DEFAULT;
+    return Math.max(held, activeWalletOf(settings) + 1);
+}
 /** The most a standing tip can be: the whole payment. Above the dial's 10 % it is typed and confirmed. */
 export const TIP_TENTHS_MAX = 1000;
 /**
@@ -59,12 +101,18 @@ export function settingsToWire(s) {
     if (typeof s.tipConsentAt === "number" && Number.isFinite(s.tipConsentAt) && s.tipConsentAt > 0) {
         w.tc = Math.round(s.tipConsentAt);
     }
+    if (usableWalletIndex(s.activeWallet) && s.activeWallet !== ACTIVE_WALLET_DEFAULT)
+        w.aw = s.activeWallet;
+    if (usableWalletCount(s.walletCount) && s.walletCount !== WALLET_COUNT_DEFAULT)
+        w.wc = s.walletCount;
     return w.dm !== undefined ||
         w.tx !== undefined ||
         w.pd !== undefined ||
         w.dd !== undefined ||
         w.tp !== undefined ||
-        w.tc !== undefined
+        w.tc !== undefined ||
+        w.aw !== undefined ||
+        w.wc !== undefined
         ? w
         : null;
 }
@@ -84,6 +132,8 @@ export function settingsFromWire(w) {
     const dd = Reflect.get(w, "dd");
     const tp = Reflect.get(w, "tp");
     const tc = Reflect.get(w, "tc");
+    const aw = Reflect.get(w, "aw");
+    const wc = Reflect.get(w, "wc");
     const s = {};
     if (dm === 1)
         s.developerMode = true;
@@ -109,38 +159,26 @@ export function settingsFromWire(w) {
         s.tipTenths = tp;
     if (typeof tc === "number" && Number.isFinite(tc) && tc > 0)
         s.tipConsentAt = Math.round(tc);
+    // A wallet number outside the range is DROPPED, not clamped: paying from a wallet some other
+    // build miswrote would spend from an address this person has never seen, and wallet 0 is the one
+    // every account already has.
+    if (usableWalletIndex(aw) && aw !== ACTIVE_WALLET_DEFAULT)
+        s.activeWallet = aw;
+    if (usableWalletCount(wc) && wc !== WALLET_COUNT_DEFAULT)
+        s.walletCount = wc;
+    // ⛔ AND THE INVARIANT IS RESTORED HERE, UPWARDS ONLY (`walletCountOf`). A list whose count does
+    // not reach the paying wallet would draw a screen the paying wallet is missing from.
+    const counted = walletCountOf(s);
+    if (counted !== WALLET_COUNT_DEFAULT)
+        s.walletCount = counted;
     return s.developerMode !== undefined ||
         s.textScalePct !== undefined ||
         s.paddingMode !== undefined ||
         s.depositDefault !== undefined ||
         s.tipTenths !== undefined ||
-        s.tipConsentAt !== undefined
+        s.tipConsentAt !== undefined ||
+        s.activeWallet !== undefined ||
+        s.walletCount !== undefined
         ? s
         : undefined;
-}
-/** Folds a deposit patch into a settings copy: out-of-range is clamped, the full deposit clears. */
-export function applyDepositPatch(next, depositDefault) {
-    if (depositDefault === undefined || !Number.isFinite(depositDefault))
-        return;
-    const credits = Math.round(Math.min(DEPOSIT_MAX_CREDITS, Math.max(0, depositDefault)));
-    if (credits === DEPOSIT_DEFAULT_CREDITS)
-        delete next.depositDefault;
-    else
-        next.depositDefault = credits;
-}
-/** Folds a tip patch into a settings copy: 0 clears, above the cap is capped, fractions are rounded. */
-export function applyTipPatch(next, tipTenths, tipConsentAt) {
-    if (tipTenths !== undefined && Number.isFinite(tipTenths)) {
-        const t = Math.round(Math.min(TIP_TENTHS_MAX, Math.max(0, tipTenths)));
-        if (t === 0)
-            delete next.tipTenths;
-        else
-            next.tipTenths = t;
-    }
-    if (tipConsentAt !== undefined && Number.isFinite(tipConsentAt)) {
-        if (tipConsentAt <= 0)
-            delete next.tipConsentAt;
-        else
-            next.tipConsentAt = Math.round(tipConsentAt);
-    }
 }

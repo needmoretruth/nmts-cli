@@ -31,32 +31,9 @@ import { createUploadApi } from "../upload-api.js";
 import { fileSource, partKeysOf, uploadFile } from "../upload-file.js";
 import { CREDIT_BYTES, creditsFor, measureLocal, partSizeFor, planAndPrice, UPLOAD_EPOCHS, } from "../upload-price.js";
 import { createBlobProtocol, readCurrentEpoch } from "../walrus-write.js";
-/** Who pays, or a refusal for a payer this tool does not know. */
-export function payerOf(pay) {
-    if (pay === undefined || pay === "credits")
-        return "credits";
-    if (pay === "wallet")
-        return "wallet";
-    throw new NmtsError(`--pay takes credits or wallet, not "${pay}".`, {
-        exitCode: 2,
-        nextStep: `Nothing was sent. --pay wallet buys the storage from the wallet this NMTS key derives; without it credits pay.`,
-    });
-}
-/** The two options that only mean something when the wallet pays, refused when it does not. */
-export function refuseWalletOnlyOptions(options) {
-    if (options.epochs !== undefined) {
-        throw new NmtsError("--epochs only applies with --pay wallet: one credit buys a fixed term.", {
-            exitCode: 2,
-            nextStep: `Nothing was sent. Add --pay wallet to choose the term, or leave --epochs off to pay with credits.`,
-        });
-    }
-    if (options.storage !== undefined) {
-        throw new NmtsError("--storage only applies with --pay wallet: credits buy storage from the treasury.", {
-            exitCode: 2,
-            nextStep: `Nothing was sent. Add --pay wallet to use a storage resource this wallet holds.`,
-        });
-    }
-}
+/** Who pays, and the options that lose their meaning under that answer — the rule is in `put-payer.ts`; this is its one road. */
+import { payerOf, refuseWalletOnlyOptions } from "./put-payer.js";
+export { payerOf, refuseWalletOnlyOptions };
 /**
  * The folder id `--to` names, or null for the root. Refuses rather than guessing.
  *

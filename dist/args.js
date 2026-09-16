@@ -32,6 +32,8 @@ const VALUE_OPTIONS = {
     "--fee-cap": "feeCap",
     "--venue": "venue",
     "--slippage-bps": "slippageBps",
+    "--index": "index",
+    "--wallet": "wallet",
     "--port": "port",
     "--accept-terms": "acceptTerms",
     "--accept-privacy": "acceptPrivacy",

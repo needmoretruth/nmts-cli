@@ -1,6 +1,3 @@
-// Runtime import (relative + .ts — the header's node --test rule) for the bounds the patch obeys.
-import { TEXT_SCALE_DEFAULT_PCT, TEXT_SCALE_MAX_PCT, TEXT_SCALE_MIN_PCT, } from "./manifest-codec.js";
-import { applyDepositPatch, applyTipPatch } from "./manifest-settings.js";
 /**
  * Apply one intent, returning a new list. The input is never mutated: the store keeps the
  * pre-save snapshot around to rebuild from after a version conflict.
@@ -160,44 +157,15 @@ function withShares(e, shares, at) {
     return { ...e, shares, updatedAt: at };
 }
 /**
- * Apply one settings patch, returning new settings. Returns the SAME reference when nothing
- * changed, so callers can skip a save (a version bump every other device must download).
+ * The account settings' own vocabulary — the padding rule, one settings edit, and how an edit
+ * lands — comes back out of `manifest-settings-patch.ts`, beside the fields it names.
  *
- * A text scale is CLAMPED into the codec's bounds here — this is the one write path, so a value
- * the slider or the typed field lets through never reaches the wire out of range.
+ * ⛔ RE-EXPORTED RATHER THAN MOVED AWAY. Every caller in both packages spells it `manifest-ops`,
+ *    and a settings patch IS one of this file's intents as far as they are concerned. It moved
+ *    because the settings write path had grown into the file's ceiling (`check:size`), and
+ *    splitting it puts each rule beside the field it is about.
  */
-export function applySettingsPatch(settings, patch) {
-    const next = { ...settings };
-    if (patch.developerMode !== undefined) {
-        if (patch.developerMode)
-            next.developerMode = true;
-        else
-            delete next.developerMode;
-    }
-    if (patch.paddingMode !== undefined) {
-        // The default is spelled as absence, like every other field here — so two devices that both
-        // "choose the default" write the same bytes and neither bumps the list's version.
-        if (patch.paddingMode === "pow2" || patch.paddingMode === "none")
-            next.paddingMode = patch.paddingMode;
-        else
-            delete next.paddingMode;
-    }
-    if (patch.textScalePct !== undefined && Number.isFinite(patch.textScalePct)) {
-        const pct = Math.round(Math.min(TEXT_SCALE_MAX_PCT, Math.max(TEXT_SCALE_MIN_PCT, patch.textScalePct)));
-        if (pct === TEXT_SCALE_DEFAULT_PCT)
-            delete next.textScalePct;
-        else
-            next.textScalePct = pct;
-    }
-    applyDepositPatch(next, patch.depositDefault);
-    applyTipPatch(next, patch.tipTenths, patch.tipConsentAt);
-    const same = (next.developerMode === true) === (settings.developerMode === true) &&
-        next.paddingMode === settings.paddingMode && next.depositDefault === settings.depositDefault &&
-        next.textScalePct === settings.textScalePct &&
-        next.tipTenths === settings.tipTenths &&
-        next.tipConsentAt === settings.tipConsentAt;
-    return same ? settings : next;
-}
+export { applySettingsPatch, } from "./manifest-settings-patch.js";
 /** Replay a whole queue in order. Used to rebuild after a version conflict. */
 export function applyIntents(entries, intents) {
     return intents.reduce(applyIntent, entries);

@@ -32,6 +32,7 @@ import {
   type SendCoin,
 } from "../shared/lib/wallet/send-rules.ts";
 import { coinAmount, walCoinType, walletAddress } from "../wallet.ts";
+import { payingWalletIndex } from "../wallet-pay-index.ts";
 import type { SendReads, TransferShape } from "../wallet-send-chain.ts";
 import type { SignTransfer } from "../wallet-sign.ts";
 
@@ -50,7 +51,10 @@ export interface WalletDonateOptions {
   yes?: boolean;
   dryRun?: boolean;
   feeCap?: string | undefined;
+  /** `--wallet N`: which wallet the gift comes from, this run only. Absent = the account's number. */
+  wallet?: string | undefined;
   /** ⚠ SEAMS, NOT OPTIONS — no flag reaches them. */
+  readActiveWallet?: () => Promise<number>;
   readDonation?: (server: string) => Promise<DonationConfig>;
   readChain?: (network: Network) => SendReads | Promise<SendReads>;
   sign?: SignTransfer;
@@ -90,7 +94,10 @@ export async function walletDonate(operands: readonly string[], options: WalletD
   }
 
   const resolved = await requireAccountCode();
-  const address = await walletAddress(resolved.code);
+  // ⛔ A gift leaves the same wallet storage is paid from, and it is resolved before the review is
+  //    priced — so the address a person reads is the address the coins leave.
+  const wallet = await payingWalletIndex(options);
+  const address = await walletAddress(resolved.code, wallet);
   const stored =
     resolved.source === "file" || resolved.source === "file-locked" ? readCredentialsFile() : null;
   const server = resolveServer(options.server ?? stored?.server);
@@ -184,7 +191,7 @@ export async function walletDonate(operands: readonly string[], options: WalletD
   }
 
   const sign = options.sign ?? (await import("../wallet-sign.ts")).signTransfer;
-  const digest = await sign({ network, code: resolved.code, shape });
+  const digest = await sign({ network, code: resolved.code, wallet, shape });
   if (options.json) {
     say(JSON.stringify({ ...facts, signed: true, digest, explorerUrl: explorerTxUrl(digest, network) }));
     return 0;

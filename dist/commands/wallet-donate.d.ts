@@ -15,7 +15,10 @@ export interface WalletDonateOptions {
     yes?: boolean;
     dryRun?: boolean;
     feeCap?: string | undefined;
+    /** `--wallet N`: which wallet the gift comes from, this run only. Absent = the account's number. */
+    wallet?: string | undefined;
     /** ⚠ SEAMS, NOT OPTIONS — no flag reaches them. */
+    readActiveWallet?: () => Promise<number>;
     readDonation?: (server: string) => Promise<DonationConfig>;
     readChain?: (network: Network) => SendReads | Promise<SendReads>;
     sign?: SignTransfer;

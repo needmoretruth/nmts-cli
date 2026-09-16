@@ -108,6 +108,7 @@ async function buyAndPushPartWithWallet(ctx, input) {
         registered = await ctx.signRegister({
             network: ctx.network,
             code: ctx.code,
+            wallet: ctx.wallet,
             relayUrl: input.relayUrl,
             epochs: ctx.epochs,
             storage: ctx.storage.kind === "buy" ? { kind: "buy" } : ctx.storage,
@@ -173,6 +174,7 @@ async function certify(ctx, input, key, record, certificate) {
         digest = await ctx.signCertify({
             network: ctx.network,
             code: ctx.code,
+            wallet: ctx.wallet,
             relayUrl: record.relayUrl,
             blobId: record.blobId,
             blobObjectId: record.blobObjectId,

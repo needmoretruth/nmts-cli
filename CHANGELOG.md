@@ -3,6 +3,23 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.35.0 — 2026-09-16
+
+- Many wallets from one NMTS key. The key derives a wallet at every number from 0 upwards, and one
+  of them pays. `wallet list` scans the numbers in order, shows each wallet's address and balances,
+  marks the one that pays, and stops after twenty unused wallets in a row. `wallet use <number>`
+  moves which one pays; the number is kept inside your sealed file list, so the browser, this tool
+  and every other device agree on it. `wallet address --index <number>` derives any of them offline.
+- Paying commands (`put --pay wallet`, `push --pay wallet`, `wallet send`, `extend`, `wallet donate`)
+  sign from the wallet that pays, and `--wallet <number>` pays from another one for that run only.
+  If the file list cannot be read they refuse rather than falling back to wallet 0.
+- Library: `walletPut` — the wallet-paid upload without the terminal (plan, quote, dry-run the fee,
+  read both balances, refuse a shortfall before any signature, sign, upload, record) — plus
+  `discoverWallets`, `activeWalletOf`, `walletCountOf`, `hasHistory` and `walCoinType`, for the SDK
+  and other programs built on this package.
+- Not yet on the paying wallet: `wallet swap`, `wallet storage split|merge|transfer` and `wallet hall`
+  still sign from wallet 0; a later version moves them together with the review they print.
+
 ## 0.34.4 — 2026-09-07
 
 - The advice for `SPONSORED_IDEM_MISMATCH`: the server now refuses a credit reservation repeated

@@ -124,7 +124,7 @@ export async function run(argv) {
             return await wallet(args.operands[0], {
                 server: args.server, network: args.network, json: args.json, qr: args.qr,
                 rest: args.operands.slice(1), yes: args.yes, dryRun: args.dryRun, feeCap: args.feeCap,
-                to: args.to, venue: args.venue, slippageBps: args.slippageBps, acceptExtremes: args.acceptExtremes, size: args.size, epochs: args.epochs, name: args.name, remove: args.remove,
+                to: args.to, venue: args.venue, slippageBps: args.slippageBps, acceptExtremes: args.acceptExtremes, size: args.size, epochs: args.epochs, name: args.name, remove: args.remove, index: args.index, wallet: args.wallet,
             });
         }
         case "expiring": {
@@ -149,7 +149,7 @@ export async function run(argv) {
                 epochs: args.epochs,
                 dryRun: args.dryRun,
                 yes: args.yes,
-                json: args.json,
+                json: args.json, wallet: args.wallet,
             });
         }
         case "create": {
@@ -191,7 +191,7 @@ export async function run(argv) {
                 pay: args.pay,
                 epochs: args.epochs,
                 storage: args.storage,
-                json: args.json,
+                json: args.json, wallet: args.wallet,
             });
         }
         case "push": {
@@ -208,7 +208,7 @@ export async function run(argv) {
                 pay: args.pay,
                 epochs: args.epochs,
                 storage: args.storage,
-                json: args.json,
+                json: args.json, wallet: args.wallet,
             });
         }
         case "rm": {

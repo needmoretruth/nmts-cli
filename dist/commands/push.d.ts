@@ -19,6 +19,8 @@ export interface PushOptions {
     epochs?: string | number | undefined;
     /** ⛔ Refused here: a held resource holds ONE blob, and a directory is many. */
     storage?: string | undefined;
+    /** `--pay wallet`: which of this key's wallets pays, this run only. Absent = the account's own. */
+    wallet?: string | undefined;
     json?: boolean;
     write?: (line: string) => void;
     /**

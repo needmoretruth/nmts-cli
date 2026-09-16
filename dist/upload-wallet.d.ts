@@ -7,6 +7,9 @@ export interface WalletRailContext {
     network: Network;
     /** ⛔ The NMTS key. Held for the signatures and never written anywhere. */
     code: string;
+    /** Which of this key's wallets pays — the account's own number, resolved before anything was
+     *  priced (`wallet-pay-index.ts`), so the address in the review is the address that signs. */
+    wallet: number;
     relayUrl: string;
     epochs: number;
     /** Where the storage comes from. A held resource serves one blob, so it applies to a one-part file. */

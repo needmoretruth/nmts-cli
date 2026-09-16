@@ -37,13 +37,26 @@ export { clearItemRecord, clearReservation } from "./upload-store.js";
 export { UploadError } from "./upload-wire.js";
 export { DEFAULT_PART_BYTES } from "./seal.js";
 export { createBlobProtocol, readCurrentEpoch } from "./walrus-write.js";
+// Uploading paid by the account's OWN WALLET instead of credits: the same seal-buy-push-record
+// path, priced and refused before anything is signed. `nmts put --pay wallet` is this plus a
+// terminal; the spending ledger and the standing gift are the command's and are not here.
+export { walletPut } from "./upload-wallet-put.js";
+export { DEFAULT_UPLOAD_EPOCHS } from "./upload-wallet-plan.js";
 // Downloading: fetching sealed parts from the storage network and opening them here.
 export { fetchFile, fetchWithKey } from "./download.js";
 export { fileSink } from "./download-sink.js";
 export { AGGREGATOR_ENV_VAR, readBlob, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./walrus.js";
 // The wallet the NMTS key derives: reading it, and signing with it.
-export { coinAmount, readBalances, walletAddress } from "./wallet.js";
+export { coinAmount, readBalances, walCoinType, walletAddress } from "./wallet.js";
 export { chainReader } from "./wallet-chain.js";
 export { signerAddress, signExtension, signTransfer } from "./wallet-sign.js";
+// WHICH of this key's wallets, and which of them have been used. One key derives a wallet at every
+// index (NCF-3 §1.3), so the account's own number is read out of the sealed list and the rest is a
+// walk. Both are here so that a library built on this package finds the SAME wallets under the same
+// numbers as `nmts wallet list` — a second walk, or a second reading of the setting, would be a
+// second answer to a question that has to have exactly one.
+export { activeWalletOf, walletCountOf, WALLET_INDEX_LIMIT } from "./shared/lib/drive/manifest-settings.js";
+export { discoverWallets, WALLET_SCAN_GAP } from "./shared/lib/wallet/discover.js";
+export { hasHistory } from "./wallet-list-chain.js";
 // What this package is.
 export { HOME_URL, PRODUCT_NAME, SOURCE_URL, SUPPORT_EMAIL, VERSION } from "./product.js";

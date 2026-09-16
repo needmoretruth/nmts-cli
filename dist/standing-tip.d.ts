@@ -15,6 +15,9 @@ export interface StandingTipInput {
     } | undefined;
     /** What was just paid for storage, in WAL base units. */
     paidWalFrost: bigint;
+    /** ⛔ The wallet the storage was just paid from — a gift from a different one would come out of
+     *  a balance nobody was looking at, and the payment above named this one. */
+    wallet: number;
     say: (line: string) => void;
     /** Seams for tests. */
     readDonation?: (server: string) => Promise<DonationConfig>;

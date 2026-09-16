@@ -29,5 +29,7 @@ export interface ExtendOptions {
     now?: number;
     /** ⚠ SEAMS, NOT OPTIONS — the standing tip's own read and signature. No flag reaches them. */
     tip?: Pick<StandingTipInput, "readDonation" | "sign">;
+    /** `--wallet N`: which wallet pays, this run only. Absent = the account's own number. */
+    wallet?: string | undefined;
 }
 export declare function extend(target: string | undefined, options?: ExtendOptions): Promise<number>;

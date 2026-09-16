@@ -32,6 +32,9 @@ export interface StandingTipInput {
   settings: { tipTenths?: number; tipConsentAt?: number } | undefined;
   /** What was just paid for storage, in WAL base units. */
   paidWalFrost: bigint;
+  /** ⛔ The wallet the storage was just paid from — a gift from a different one would come out of
+   *  a balance nobody was looking at, and the payment above named this one. */
+  wallet: number;
   say: (line: string) => void;
   /** Seams for tests. */
   readDonation?: (server: string) => Promise<DonationConfig>;
@@ -54,6 +57,7 @@ export async function standingTipAfter(input: StandingTipInput): Promise<"none" 
     const digest = await sign({
       network: input.network,
       code: input.code,
+      wallet: input.wallet,
       shape: { coin: "WAL", amountBaseUnits: amount, destination: config.devAddress, walType: walCoinType(input.network) },
     });
     input.say(`  Your standing ${percentText(tenths)} % gift — ${coinAmount(amount)} WAL — went to the developer. Transaction ${digest}`);

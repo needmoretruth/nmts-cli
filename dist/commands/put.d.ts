@@ -35,16 +35,14 @@ export interface PutOptions {
     epochs?: string | number | undefined;
     /** `--pay wallet`: a held storage resource to use — `fit`, `whole`, or its object id. */
     storage?: string | undefined;
+    /** `--pay wallet`: which of this key's wallets pays, this run only. Absent = the account's own. */
+    wallet?: string | undefined;
     json?: boolean;
     write?: (line: string) => void;
 }
-/** Who pays, or a refusal for a payer this tool does not know. */
-export declare function payerOf(pay: string | undefined): "credits" | "wallet";
-/** The two options that only mean something when the wallet pays, refused when it does not. */
-export declare function refuseWalletOnlyOptions(options: {
-    epochs?: string | number | undefined;
-    storage?: string | undefined;
-}): void;
+/** Who pays, and the options that lose their meaning under that answer — the rule is in `put-payer.ts`; this is its one road. */
+import { payerOf, refuseWalletOnlyOptions } from "./put-payer.ts";
+export { payerOf, refuseWalletOnlyOptions };
 /**
  * The folder id `--to` names, or null for the root. Refuses rather than guessing.
  *

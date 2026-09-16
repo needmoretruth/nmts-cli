@@ -15,6 +15,13 @@ import type { SendReads, TransferShape } from "../src/wallet-send-chain.ts";
 import type { SignTransfer } from "../src/wallet-sign.ts";
 import { generateCode, grantConsents } from "./helpers.ts";
 
+/**
+ * ⚠ THESE TESTS CANNOT REACH THE SEALED FILE LIST (there is no server). The default reads the paying
+ *   wallet's number out of that list (`wallet-pay-index.ts`), so here it is pinned to the first
+ *   wallet — what is measured is the order of review, consent and signature, not the number.
+ */
+const FIRST_WALLET = { readActiveWallet: async (): Promise<number> => 0 };
+
 function collect(): { lines: string[]; write: (line: string) => void } {
   const lines: string[] = [];
   return { lines, write: (line) => lines.push(line) };
@@ -96,7 +103,7 @@ test("⛔ without --yes the facts are printed and nothing is signed; a closed ca
     const out = collect();
     const sign = refuseToSign();
     const failure = await refusal(
-      walletDonate(["WAL", "2"], { network: "testnet", write: out.write, readDonation: async () => OPEN, readChain: () => reads(), sign }),
+      walletDonate(["WAL", "2"], { ...FIRST_WALLET, network: "testnet", write: out.write, readDonation: async () => OPEN, readChain: () => reads(), sign }),
     );
     assert.equal(failure.exitCode, 4);
     assert.match(String(failure.nextStep), /--yes/);
@@ -108,12 +115,12 @@ test("⛔ without --yes the facts are printed and nothing is signed; a closed ca
     for (const line of GIFT_NOTICES) assert.ok(line.length > 0);
 
     const closed = await refusal(
-      walletDonate(["SUI", "0.1"], { network: "testnet", write: () => undefined, readDonation: async () => ({ ...OPEN, sendEnabled: false }), readChain: () => reads(), sign }),
+      walletDonate(["SUI", "0.1"], { ...FIRST_WALLET, network: "testnet", write: () => undefined, readDonation: async () => ({ ...OPEN, sendEnabled: false }), readChain: () => reads(), sign }),
     );
     assert.equal(closed.exitCode, 4);
     assert.match(closed.message, /not open right now/);
     const noWal = await refusal(
-      walletDonate(["WAL", "1"], { network: "testnet", write: () => undefined, readDonation: async () => ({ ...OPEN, walEnabled: false }), readChain: () => reads(), sign }),
+      walletDonate(["WAL", "1"], { ...FIRST_WALLET, network: "testnet", write: () => undefined, readDonation: async () => ({ ...OPEN, walEnabled: false }), readChain: () => reads(), sign }),
     );
     assert.match(noWal.message, /WAL are not open/);
     assert.equal(asDonationConfig({ devAddress: DEV, sendEnabled: "1" }).sendEnabled, false, "only a true is open");
@@ -125,7 +132,7 @@ test("with --yes the gift goes to the published address, and the wallet agreemen
     const sign = recordingSigner();
     const out = collect();
     assert.equal(
-      await walletDonate(["sui", "0.25"], { network: "testnet", yes: true, write: out.write, readDonation: async () => OPEN, readChain: () => reads(), sign }),
+      await walletDonate(["sui", "0.25"], { ...FIRST_WALLET, network: "testnet", yes: true, write: out.write, readDonation: async () => OPEN, readChain: () => reads(), sign }),
       0,
     );
     assert.equal(sign.asked.length, 1);
@@ -141,7 +148,7 @@ test("a gift that went is thanked in both languages, and told where a name can b
   await withAccount("wallet-donate-thanks", async () => {
     const out = collect();
     assert.equal(
-      await walletDonate(["WAL", "1"], {
+      await walletDonate(["WAL", "1"], { ...FIRST_WALLET,
         network: "testnet", yes: true, write: out.write,
         readDonation: async () => OPEN, readChain: () => reads(), sign: recordingSigner(),
       }),

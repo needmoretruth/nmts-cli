@@ -150,6 +150,10 @@ export const ACTS = {
   // ⛔ READING THE HALL IS `none` AND LISTING A NAME IS `medium`. The read signs nothing and asks
   //    nobody's wallet a question; setting a name PUBLISHES a name beside an address on a public
   //    page, which is undone by one more run of the same command but cannot be unseen.
+  // ⛔ `list` READS; `use` WRITES — it changes which address every later payment leaves from, on
+  //    every device. Low rather than high because it signs nothing and moves nothing, and running
+  //    it again puts the old number back.
+  "wallet.use": { tier: "low", what: "Change which of this key's wallets pays for storage." },
   "wallet.hall": { tier: "none" },
   "wallet.hall.set": { tier: "medium", what: "Publish this name beside your wallet's address in the gift hall of fame." },
   "wallet.storage.reshape": { tier: "high", lock: "wallet", what: "Cut or join a storage resource the wallet holds — a signed transaction.", asksItself: true },
@@ -184,6 +188,7 @@ export function actOf(args: ParsedArgs): ActId | null {
       // ⛔ `hall` READS UNTIL A NAME IS NAMED. `--name` and `--remove` both write the listing, so
       //    both land on the act that publishes; the bare command is a read like `wallet` itself.
       if (sub === "hall") return args.name !== undefined || args.remove ? "wallet.hall.set" : "wallet.hall";
+      if (sub === "use") return "wallet.use";
       return sub === "send" ? "wallet.send" : sub === "swap" ? "wallet.swap" : sub === "donate" ? "wallet.donate" : "wallet";
     case "put":
       return args.pay === "wallet" ? "put.wallet" : "put";

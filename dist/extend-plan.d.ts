@@ -143,6 +143,8 @@ export type SignExtension = (input: {
     network: string;
     /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
     code: string;
+    /** Which of this key's wallets pays — the account's own number (`wallet-pay-index.ts`). */
+    wallet: number;
     objectIds: readonly string[];
     epochs: number;
 }) => Promise<string>;

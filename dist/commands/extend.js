@@ -31,6 +31,8 @@ import { resolveNetwork } from "../network.js";
 import { BINARY_NAME } from "../product.js";
 import { openSession } from "../session.js";
 import { coinAmount, walletAddress } from "../wallet.js";
+import { payingWalletIndex } from "../wallet-pay-index.js";
+import { activeWalletOf } from "../shared/lib/drive/manifest-settings.js";
 import { budgetFacts, describeBudget, readBudget, shortfallNextStep } from "../extend-budget.js";
 export async function extend(target, options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
@@ -110,7 +112,10 @@ export async function extend(target, options = {}) {
     const cohort = Math.max(0, ...preview.targets.map((t) => t.sharedItems));
     const unreachable = preview.treasuryParts + preview.untrackedParts;
     // What the wallet holds and what the chain would charge — read, never assumed (`extend-budget.ts`).
-    const address = await walletAddress(session.code);
+    // ⛔ WHICH WALLET PAYS comes out of the list this run already read, before the price is measured
+    //    against a balance: the address below is the one that will sign (`wallet-pay-index.ts`).
+    const wallet = await payingWalletIndex({ ...options, readActiveWallet: async () => activeWalletOf(settings) });
+    const address = await walletAddress(session.code, wallet);
     const budget = await readBudget(reads, {
         address,
         objectIds: preview.targets.map((t) => t.objectId),
@@ -182,6 +187,7 @@ export async function extend(target, options = {}) {
     const digest = await sign({
         network: session.network,
         code: session.code,
+        wallet,
         objectIds: preview.targets.map((t) => t.objectId),
         epochs,
     });
@@ -227,6 +233,7 @@ export async function extend(target, options = {}) {
         network: resolveNetwork(session.server, session.network),
         code: session.code,
         settings,
+        wallet,
         paidWalFrost: frost,
         say: options.json === true ? (line) => void process.stderr.write(`${line}\n`) : say,
         ...(options.tip ?? {}),

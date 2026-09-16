@@ -1,12 +1,26 @@
 # nmts wallet — the wallet your NMTS key derives
 
 Commands: wallet
-Tiers: wallet=none · wallet.send=high(wallet) · wallet.swap=high(wallet) · wallet.donate=high(donate) · wallet.storage.reshape=high(wallet) · wallet.storage.give=high(wallet) · wallet.hall=none · wallet.hall.set=medium
+Tiers: wallet=none · wallet.use=low · wallet.send=high(wallet) · wallet.swap=high(wallet) · wallet.donate=high(donate) · wallet.storage.reshape=high(wallet) · wallet.storage.give=high(wallet) · wallet.hall=none · wallet.hall.set=medium
 
 `wallet` shows the address and its SUI and WAL balances; `wallet address` derives the address
-offline (`--qr` draws it); `wallet activity` lists recent transactions, named only where the chain
-proves it; `wallet storage` lists storage resources (size × time) held outside any file. None of
-these signs.
+offline (`--qr` draws it, `--index N` derives another of this key's wallets); `wallet activity`
+lists recent transactions, named only where the chain proves it; `wallet storage` lists storage
+resources (size × time) held outside any file. None of these signs.
+
+## One key, many wallets
+
+Your NMTS key derives a wallet at every number from 0 upwards, and one of them pays. `wallet list`
+walks them — it shows each number, its address and its balances, marks the one that pays, and stops
+after twenty unused wallets in a row. `wallet use <number>` moves which one pays: the number is
+kept inside your sealed file list, so the browser, this tool and every other device agree on it.
+Numbers come from the key, so a wallet cannot be deleted, and a wallet you leave keeps whatever is
+in it.
+
+`put`, `push`, `extend`, `wallet send` and `wallet donate` all pay from that wallet, and each takes
+`--wallet <number>` to pay from a different one for that run only, without changing the setting.
+⛔ If the file list cannot be read, they refuse rather than falling back to wallet 0 — paying from
+a wallet nobody chose is not a thing to guess at.
 
 ## Where SUI comes from, and why it is SUI
 

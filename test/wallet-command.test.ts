@@ -114,12 +114,34 @@ test("⛔ `wallet address` answers from the NMTS key alone and opens no chain", 
   });
 });
 
-test("`wallet address --json` is the address and nothing else", async () => {
+test("`wallet address --json` is one wallet's address and its number, and nothing else", async () => {
   await withAccount("wallet-address-json", async (code) => {
     const out = collect();
     assert.equal(await wallet("address", { json: true, write: out.write, openChain: noChain() }), 0);
     const parsed: unknown = JSON.parse(out.lines.join(""));
-    assert.deepEqual(parsed, { address: await walletAddress(code) });
+    // ⛔ THE NUMBER IS PART OF THE ANSWER: one NMTS key opens a wallet at every index, so
+    //    an address without its number does not say which wallet it is. Still no network field —
+    //    nothing was looked up anywhere.
+    assert.deepEqual(parsed, { address: await walletAddress(code), index: 0 });
+  });
+});
+
+test("⛔ `wallet address --index N` prints THAT wallet, offline, and a bad number is refused", async () => {
+  await withAccount("wallet-address-index", async (code) => {
+    const out = collect();
+    assert.equal(await wallet("address", { json: true, index: "3", write: out.write, openChain: noChain() }), 0);
+    // The same derivation the browser and the signer use, at the number that was asked for — and
+    // it is NOT wallet 0, which is what makes this a test of the index rather than of the default.
+    const third = await walletAddress(code, 3);
+    assert.deepEqual(JSON.parse(out.lines.join("")), { address: third, index: 3 });
+    assert.notEqual(third, await walletAddress(code));
+    // ⛔ A number that is not one is a command line to fix, never rounded to a neighbour.
+    for (const bad of ["-1", "1.5", "x"]) {
+      await assert.rejects(
+        wallet("address", { index: bad, write: () => undefined, openChain: noChain() }),
+        (error: unknown) => error instanceof NmtsError && error.exitCode === 2,
+      );
+    }
   });
 });
 

@@ -21,6 +21,7 @@ import { resolveServer } from "../server.js";
 import { explorerTxUrl } from "../shared/lib/wallet/activity.js";
 import { clampGasBudgetMist, maxSendableBaseUnits, parseTokenAmountToBaseUnits, validateSendForm, } from "../shared/lib/wallet/send-rules.js";
 import { coinAmount, walCoinType, walletAddress } from "../wallet.js";
+import { payingWalletIndex } from "../wallet-pay-index.js";
 import { recordWalletSpend, requireWalletGrant } from "../wallet-grant.js";
 const COIN_WORDS = {
     invalidAddress: "That is not a Sui address: it is 0x followed by 64 hexadecimal characters.",
@@ -48,7 +49,10 @@ export async function walletSend(operands, options = {}) {
         });
     }
     const resolved = await requireAccountCode();
-    const address = await walletAddress(resolved.code);
+    // ⛔ WHICH WALLET PAYS, FIRST — everything below is about one address: the balances that are
+    //    read, the fee that is measured, the line the review prints, and the key that signs.
+    const wallet = await payingWalletIndex(options);
+    const address = await walletAddress(resolved.code, wallet);
     const stored = resolved.source === "file" || resolved.source === "file-locked" ? readCredentialsFile() : null;
     const server = resolveServer(options.server ?? stored?.server);
     const network = resolveNetwork(server, options.network ?? stored?.network);
@@ -140,7 +144,7 @@ export async function walletSend(operands, options = {}) {
     requireWalletGrant("send", spend, new Date(options.now ?? Date.now()));
     // ⑦ The signature.
     const sign = options.sign ?? (await import("../wallet-sign.js")).signTransfer;
-    const digest = await sign({ network, code: resolved.code, shape });
+    const digest = await sign({ network, code: resolved.code, wallet, shape });
     recordWalletSpend(spend);
     if (options.json) {
         say(JSON.stringify({ ...facts, signed: true, digest, explorerUrl: explorerTxUrl(digest, network) }));

@@ -29,6 +29,7 @@ import {
   type SendValidationError,
 } from "../shared/lib/wallet/send-rules.ts";
 import { coinAmount, walCoinType, walletAddress } from "../wallet.ts";
+import { payingWalletIndex } from "../wallet-pay-index.ts";
 import { recordWalletSpend, requireWalletGrant } from "../wallet-grant.ts";
 import type { SendReads, TransferShape } from "../wallet-send-chain.ts";
 import type { SignTransfer } from "../wallet-sign.ts";
@@ -44,6 +45,10 @@ export interface WalletSendOptions {
   dryRun?: boolean;
   /** A ceiling on the fee, in SUI ("0.01"). Clamped to the usable range, never refused. */
   feeCap?: string | undefined;
+  /** `--wallet N`: which wallet pays, this run only. Absent = the account's own number. */
+  wallet?: string | undefined;
+  /** ⚠ A SEAM, NOT AN OPTION — where that number is read from (`wallet-pay-index.ts`). */
+  readActiveWallet?: () => Promise<number>;
   /** The instant to measure the wallet agreement against. */
   now?: number;
   /** ⚠ A SEAM, NOT AN OPTION — no flag reaches it. */
@@ -80,7 +85,10 @@ export async function walletSend(operands: readonly string[], options: WalletSen
   }
 
   const resolved = await requireAccountCode();
-  const address = await walletAddress(resolved.code);
+  // ⛔ WHICH WALLET PAYS, FIRST — everything below is about one address: the balances that are
+  //    read, the fee that is measured, the line the review prints, and the key that signs.
+  const wallet = await payingWalletIndex(options);
+  const address = await walletAddress(resolved.code, wallet);
   const stored =
     resolved.source === "file" || resolved.source === "file-locked" ? readCredentialsFile() : null;
   const server = resolveServer(options.server ?? stored?.server);
@@ -183,7 +191,7 @@ export async function walletSend(operands: readonly string[], options: WalletSen
 
   // ⑦ The signature.
   const sign = options.sign ?? (await import("../wallet-sign.ts")).signTransfer;
-  const digest = await sign({ network, code: resolved.code, shape });
+  const digest = await sign({ network, code: resolved.code, wallet, shape });
   recordWalletSpend(spend);
 
   if (options.json) {

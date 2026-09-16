@@ -1,16 +1,14 @@
 // `nmts put <file> --pay wallet` — one file in, sealed on this machine, its storage bought by the
 // PERSON'S OWN WALLET on the storage network instead of by credits.
 //
-// ⛔ IT PRICES BEFORE IT SIGNS, ALWAYS, in the order `extend` set: the parts are planned, the chain
-//    quotes each part in WAL and the relay's tip in SUI, the register transaction is dry-run for
-//    its fee, both balances are read — and only then is the review printed, a known shortfall
-//    refused, and the `wallet` agreement (scope `storage`) held against the total. `--dry-run`
-//    stops at the review and never loads the signing module.
+// ⛔ THE UPLOAD ITSELF IS NOT HERE. `upload-wallet-put.ts` prices, refuses, signs, pushes and
+//    records; this file is the terminal around it — the arguments, the printed review, the wallet
+//    agreement this machine holds, the spending ledger and the standing gift. The split is what
+//    lets the SDK pay from a wallet without a second copy of the order that keeps money safe.
 //
-// ⛔ THE SERVER IS TOLD THE STORAGE IS THE PERSON'S BY SAYING NOTHING ELSE. `POST /v1/items` forces
-//    treasury ownership only on a part that names a certified reservation; a wallet-paid part names
-//    none and carries the blob object and the end epoch instead, exactly as the browser's own
-//    wallet-paid commit does (`upload-steps.ts`).
+// ⛔ THE REVIEW IS PRINTED BEFORE ANY REFUSAL, and the agreement is asked for only after a known
+//    shortfall has already stopped the run — so a person who cannot afford it reads the numbers
+//    instead of a question. `--dry-run` stops at the review and never loads the signing module.
 //
 // ⛔ A HELD RESOURCE IS OFFERED, NEVER CHOSEN FOR THE PERSON — the owner's rule for storage
 //    resources: the leftover is shown in bytes and the person decides. The review names how many
@@ -22,43 +20,27 @@ import { basename, resolve } from "node:path";
 import { identityOf } from "../account.ts";
 import { requireAccountCode } from "../code-access.ts";
 import { parseAsked, type OnCollision } from "../collision.ts";
-import { DERIVED, loadCrypto, type CryptoGlue } from "../crypto.ts";
+import { loadCrypto, type CryptoGlue } from "../crypto.ts";
 import { API_KEY_ENV_VAR, readCredentialsFile, resolveApiKey } from "../credentials.ts";
 import { NmtsError } from "../errors.ts";
-import { setTrashed } from "../item-trash.ts";
-import { addEntry } from "../manifest-write.ts";
+import { payingWalletIndex } from "../wallet-pay-index.ts";
+import { activeWalletOf } from "../shared/lib/drive/manifest-settings.ts";
 import { paddingRuleOf, readFileList } from "../manifest.ts";
 import { resolveNetwork, type Network } from "../network.ts";
 import { BINARY_NAME } from "../product.ts";
 import { Progress, silentSink, stderrSink } from "../progress.ts";
-import { sealedLenFor } from "../seal.ts";
 import { resolveServer } from "../server.ts";
 import type { PaddingRule } from "../shared/lib/crypto/size-padding.ts";
 import type { AccountSettings } from "../shared/lib/drive/manifest-settings.ts";
-import { statusOf } from "../shared/lib/storage-control/plan.ts";
-import { createUploadApi } from "../upload-api.ts";
-import { fileSource, partKeysOf, uploadFile, type FileUploadStep } from "../upload-file.ts";
-import { CREDIT_BYTES, measureLocal, partSizeFor, planAndPrice } from "../upload-price.ts";
-import { clearItemRecord, clearReservation } from "../upload-store.ts";
 import type { StandingTipInput } from "../standing-tip.ts";
-import { walletRail } from "../upload-wallet.ts";
-import {
-  chooseUploadEpochs,
-  daysOf,
-  describeUploadReview,
-  parseStorageAsk,
-  pickResource,
-  uploadBudget,
-  uploadShortfallNextStep,
-  walPrice,
-  type StorageChoice,
-  type WalletUploadReads,
-} from "../upload-wallet-plan.ts";
+import { fileSource, type FileUploadStep } from "../upload-file.ts";
+import { measureLocal, partSizeFor } from "../upload-price.ts";
+import { describeUploadReview, type WalletUploadReads } from "../upload-wallet-plan.ts";
+import { walletPut, type WalletPutReview } from "../upload-wallet-put.ts";
 import type { BlobProtocol, UploadApi } from "../upload-wire.ts";
-import { coinAmount, walletAddress } from "../wallet.ts";
+import { coinAmount } from "../wallet.ts";
 import { recordWalletSpend, requireWalletGrant } from "../wallet-grant.ts";
 import type { SignBlobCertify, SignBlobRegister } from "../wallet-sign.ts";
-import { createBlobProtocol } from "../walrus-write.ts";
 import { folderIdFor, type PutOptions } from "./put.ts";
 
 /** What paying from the wallet adds to an upload command. */
@@ -67,6 +49,8 @@ export interface WalletPayOptions {
   epochs?: string | number | undefined;
   /** `fit`, `whole`, or a held resource's object id. Absent = buy new storage. */
   storage?: string | undefined;
+  /** `--wallet N`: which wallet pays, this run only. Absent = the account's own number. */
+  wallet?: string | undefined;
   /** The instant the wallet agreement is measured against. */
   now?: number;
   /** ⚠ A SEAM, NOT AN OPTION — no flag reaches it. */
@@ -104,6 +88,8 @@ export interface WalletUploadContext {
   onCollision?: OnCollision | undefined;
   /** The sealed list's account settings, as read for this run — the standing tip lives in them. */
   settings?: AccountSettings | undefined;
+  /** Which of this key's wallets pays (`wallet-pay-index.ts`). Read from the same list as above. */
+  wallet: number;
   progress: Progress;
   say: (line: string) => void;
   json: boolean;
@@ -132,6 +118,12 @@ export async function putWithWallet(target: string | undefined, options: PutWall
   const asked = parseAsked(options.onCollision);
   const list = await readFileList(server, key.key, resolved.code, identity.accountId);
   const rule: PaddingRule = paddingRuleOf(list.manifest?.settings);
+  // ⛔ WHICH WALLET PAYS, BEFORE ANYTHING IS PRICED — out of the list that was just read, so this
+  //    costs no second request and the address in the review is the address that signs.
+  const wallet = await payingWalletIndex({
+    ...options,
+    readActiveWallet: async () => activeWalletOf(list.manifest?.settings),
+  });
   const name = options.name ?? basename(localPath);
   const destination = (options.to ?? "").replace(/^\.?\//, "").replace(/\/$/, "");
   const parentId = folderIdFor(options.to, list.manifest?.entries ?? []);
@@ -147,6 +139,7 @@ export async function putWithWallet(target: string | undefined, options: PutWall
     rule,
     onCollision: asked,
     settings: list.manifest?.settings,
+    wallet,
     progress: new Progress(options.json === true ? silentSink() : stderrSink(), "uploading"),
     say,
     json: options.json === true,
@@ -165,10 +158,12 @@ export async function putWithWallet(target: string | undefined, options: PutWall
 }
 
 /**
- * Review, agree, upload and record ONE file. Null when `--dry-run` stopped at the review.
+ * Review, agree, upload and record ONE file for a person who is watching. Null when `--dry-run`
+ * stopped at the review.
  *
- * ⛔ THE SIGNING MODULE IS LOADED AFTER THE AGREEMENT, and only then — a dry run and a refusal
- *    never bring the code that can spend into memory.
+ * ⛔ THE AGREEMENT HANDED IN BELOW IS THIS MACHINE'S GRANT, held against the total the review
+ *    names. It is the one gate between a program and somebody's wallet, and the reason it is
+ *    handed to the library rather than living inside it: a library call has nobody to ask.
  */
 export async function uploadOneWithWallet(
   ctx: WalletUploadContext,
@@ -176,167 +171,74 @@ export async function uploadOneWithWallet(
   options: WalletPayOptions & { dryRun?: boolean | undefined },
 ): Promise<{ itemId: string; savedAs: string; replaced: string | null; seq: number; resumed: boolean; facts: Record<string, unknown> } | null> {
   const { say } = ctx;
-  const { plan, sealedBytes, sealFor } = planAndPrice(file.size, ctx.partSize, ctx.rule);
-  const sealedLens = plan.map((range) => sealedLenFor(sealFor(range)));
-  const storageAsk = parseStorageAsk(options.storage);
-  if (storageAsk !== null && plan.length > 1) {
-    throw new NmtsError(`A held storage resource holds one blob, and this file is ${plan.length} parts.`, {
-      exitCode: 4,
-      nextStep: `Nothing was signed. Leave --storage off, or raise --part-size so the file is one part.`,
-    });
-  }
-  const protocol = (options.protocol ?? createBlobProtocol)(ctx.network, sealedBytes, (sent, total) => ctx.progress.update(sent, total));
-  const reads = await (options.readChain ?? defaultReads)(ctx.network, protocol.relayUrl);
-  const window = await reads.readWindow();
-  if (window === null) {
-    throw new NmtsError(`The ${ctx.network} storage network could not be read.`, {
-      exitCode: 1,
-      nextStep: `Nothing was signed and nothing was sent. Which epoch the network is in, and how far ahead it will sell, are facts only the chain has — this tool will not spend against a guess.`,
-    });
-  }
-  const epochs = chooseUploadEpochs(options.epochs, window);
-  const endEpoch = window.clock.current + epochs;
-  const quotes = await reads.quoteParts(sealedLens, epochs);
-  const address = await walletAddress(ctx.code);
-
-  let storage: StorageChoice = { kind: "buy" };
-  let heldResources: number | null = null;
-  if (storageAsk !== null) {
-    const firstQuote = quotes[0];
-    const firstLen = sealedLens[0];
-    if (firstQuote === undefined || firstLen === undefined) throw new NmtsError("unreachable: a plan with no part");
-    let resources;
-    try {
-      resources = await reads.readStorage(address);
-    } catch (error) {
-      throw new NmtsError("The storage resources this wallet holds could not be read.", {
-        exitCode: 1,
-        nextStep: `Nothing was signed. That is not the same as holding none. Cause: ${error instanceof Error ? error.message : String(error)}`,
-      });
-    }
-    const encoded = await reads.encodedLength(address, firstLen);
-    storage = pickResource(storageAsk, resources, encoded, window.clock.current, endEpoch, firstQuote.writeFrost);
-  } else {
-    heldResources = await reads.readStorage(address).then(
-      (rows) => rows.filter((r) => statusOf(r, window.clock.current) === "usable").length,
-      () => null,
+  let outcome;
+  try {
+    outcome = await walletPut(
+      {
+        code: ctx.code,
+        apiKey: ctx.apiKey,
+        server: ctx.server,
+        network: ctx.network,
+        accountId: ctx.accountId,
+        crypt: ctx.crypt,
+        wallet: ctx.wallet,
+        partSize: ctx.partSize,
+        rule: ctx.rule,
+        onCollision: ctx.onCollision,
+      },
+      { source: fileSource(file.localPath, file.size), name: file.name, parentId: file.parentId, destination: file.destination },
+      {
+        epochs: options.epochs,
+        storage: options.storage,
+        dryRun: options.dryRun,
+        readChain: options.readChain,
+        sign: options.sign,
+        protocol: options.protocol,
+        api: options.api,
+        onProgress: (sent, total) => ctx.progress.update(sent, total),
+        onStep: (step) => tell(ctx, file.size, step),
+        onReview: (review) => {
+          if (ctx.json) return;
+          describeUploadReview(
+            say,
+            {
+              name: review.name,
+              bytes: review.bytes,
+              parts: review.parts,
+              epochs: review.epochs,
+              days: review.days,
+              endEpoch: review.endEpoch,
+              walNeeded: review.budget.walNeededFrost,
+              tipMist: review.tipMist,
+              storage: review.storage,
+              heldResources: review.heldResources,
+            },
+            review.budget,
+          );
+        },
+        agree: (review) => {
+          requireWalletGrant(
+            "seal",
+            { walFrost: review.budget.walNeededFrost, suiMist: review.budget.suiNeededMist },
+            new Date(options.now ?? Date.now()),
+          );
+        },
+        onSpend: recordWalletSpend,
+      },
     );
+  } finally {
+    ctx.progress.done();
   }
-
-  const [purse, feeMist] = await Promise.all([
-    reads.readWallet(address),
-    reads.estimateRegisterGas({
-      sender: address,
-      sealedLen: Math.max(...sealedLens),
-      epochs,
-      storage: storage.kind === "buy" ? storage : { kind: "reuse", objectId: storage.objectId, cutToBytes: storage.cutToBytes, writeFrost: storage.writeFrost },
-    }),
-  ]);
-  const budget = uploadBudget({ address, purse, feeMist, quotes, storage });
-  const tipMist = quotes.reduce((sum, q) => sum + q.tipMist, 0n);
-  const facts: Record<string, unknown> = {
-    bytes: file.size,
-    sealedBytes,
-    parts: plan.length,
-    epochs,
-    days: daysOf(window, epochs),
-    endEpoch,
-    paidFrom: "wallet",
-    priceFrost: budget.walNeededFrost.toString(),
-    priceWal: coinAmount(budget.walNeededFrost),
-    tipMist: tipMist.toString(),
-    tipSui: coinAmount(tipMist),
-    feeMist: feeMist === null ? null : feeMist.toString(),
-    feeSui: feeMist === null ? null : coinAmount(feeMist),
-    wallet: address,
-    walletWal: budget.walFrost === null ? null : coinAmount(budget.walFrost),
-    walletSui: budget.suiMist === null ? null : coinAmount(budget.suiMist),
-    storage:
-      storage.kind === "buy"
-        ? { kind: "buy" }
-        : { kind: "reuse", objectId: storage.objectId, cutToBytes: storage.cutToBytes, leftoverBytes: storage.leftoverBytes },
-  };
-
-  if (!ctx.json) {
-    describeUploadReview(say, { name: file.name, bytes: file.size, parts: plan.length, epochs, days: daysOf(window, epochs), endEpoch, walNeeded: walPrice(quotes, storage), tipMist, storage, heldResources }, budget);
-  }
-  if (options.dryRun === true) {
-    if (ctx.json) say(JSON.stringify({ dryRun: true, name: file.name, ...facts, signed: false }));
+  const facts = factsOf(outcome.review);
+  if (outcome.kind === "review") {
+    if (ctx.json) say(JSON.stringify({ dryRun: true, name: outcome.review.name, ...facts, signed: false }));
     else {
       say(``);
-      if (budget.shortfall !== null) say(`  ⚠ ${budget.shortfall} As it stands, it would be refused.`);
+      if (outcome.review.budget.shortfall !== null) say(`  ⚠ ${outcome.review.budget.shortfall} As it stands, it would be refused.`);
       say(`  Nothing was signed and nothing was sent. Run the same command without --dry-run to upload it.`);
     }
     return null;
   }
-  // ⛔ A WALLET KNOWN TO BE SHORT IS REFUSED BEFORE THE AGREEMENT IS ASKED FOR (`extend-budget.ts`).
-  if (budget.shortfall !== null) {
-    throw new NmtsError(budget.shortfall, { exitCode: 4, nextStep: uploadShortfallNextStep(budget) });
-  }
-  // ⛔ THE ONE GATE BETWEEN A PROGRAM AND SOMEBODY'S WALLET. Everything above is a read.
-  requireWalletGrant("seal", { walFrost: budget.walNeededFrost, suiMist: budget.suiNeededMist }, new Date(options.now ?? Date.now()));
-  const sign = options.sign ?? (await signers());
-
-  const derived = ctx.crypt.kdf_derive(ctx.crypt.account_code_parse(ctx.code));
-  const dataKey = derived.slice(DERIVED.dataKey[0], DERIVED.dataKey[1]);
-  derived.fill(0);
-  let result;
-  try {
-    result = await uploadFile({
-      api: options.api ?? createUploadApi(ctx.server, ctx.apiKey),
-      protocol,
-      crypt: ctx.crypt,
-      dataKey,
-      source: fileSource(file.localPath, file.size),
-      name: file.name,
-      parentId: file.parentId,
-      destination: file.destination,
-      relayUrl: protocol.relayUrl,
-      epochs,
-      currentEpoch: window.clock.current,
-      partSize: ctx.partSize,
-      padding: { rule: ctx.rule, unitBytes: CREDIT_BYTES },
-      onStep: (step) => tell(ctx, file.size, step),
-      buy: walletRail({
-        network: ctx.network,
-        code: ctx.code,
-        relayUrl: protocol.relayUrl,
-        epochs,
-        storage,
-        quotes,
-        feeMist,
-        signRegister: sign.register,
-        signCertify: sign.certify,
-        onSpend: recordWalletSpend,
-      }),
-    });
-  } finally {
-    ctx.progress.done();
-    dataKey.fill(0);
-  }
-  const now = Date.now();
-  const added = await addEntry({
-    server: ctx.server,
-    apiKey: ctx.apiKey,
-    code: ctx.code,
-    accountId: ctx.accountId,
-    ...(ctx.onCollision !== undefined ? { onCollision: ctx.onCollision } : {}),
-    entry: {
-      id: result.itemId,
-      parentId: file.parentId,
-      kind: 1,
-      name: result.entry.name,
-      size: result.entry.plaintextLen,
-      createdAt: now,
-      updatedAt: now,
-      dekWrapped: result.entry.dekWrapped,
-      contentHashCt: result.entry.contentHashCt,
-    },
-  });
-  // ⛔ ONLY NOW, AND EVERY PART — the same order `put.ts` keeps and for the same reason.
-  clearItemRecord(result.fileKey);
-  for (const record of partKeysOf(result.fileKey, result.parts)) clearReservation(record);
-  if (added.replaced) await setTrashed(ctx.server, ctx.apiKey, added.replaced.id, true);
   // ⛔ THE STANDING SHARE, AFTER THE PAYMENT AND NEVER INSIDE IT: a gift that fails must not fail
   //    the upload. A resumed run paid nothing now, so it owes nothing now. In --json the tip speaks
   //    on stderr — stdout carries the machine's one answer and nothing else.
@@ -345,11 +247,39 @@ export async function uploadOneWithWallet(
     network: ctx.network,
     code: ctx.code,
     settings: ctx.settings,
-    paidWalFrost: result.resumed ? 0n : budget.walNeededFrost,
+    wallet: ctx.wallet,
+    paidWalFrost: outcome.resumed ? 0n : outcome.review.budget.walNeededFrost,
     say: ctx.json ? (line: string): void => void process.stderr.write(`${line}\n`) : say,
     ...(options.tip ?? {}),
   });
-  return { itemId: result.itemId, savedAs: added.name, replaced: added.replaced?.id ?? null, seq: added.seq, resumed: result.resumed, facts };
+  return { itemId: outcome.itemId, savedAs: outcome.savedAs, replaced: outcome.replaced, seq: outcome.fileListVersion, resumed: outcome.resumed, facts };
+}
+
+/** The review as `--json` prints it: base units as strings, with the coin amounts beside them. */
+function factsOf(review: WalletPutReview): Record<string, unknown> {
+  const { budget, storage } = review;
+  return {
+    bytes: review.bytes,
+    sealedBytes: review.sealedBytes,
+    parts: review.parts,
+    epochs: review.epochs,
+    days: review.days,
+    endEpoch: review.endEpoch,
+    paidFrom: "wallet",
+    priceFrost: budget.walNeededFrost.toString(),
+    priceWal: coinAmount(budget.walNeededFrost),
+    tipMist: review.tipMist.toString(),
+    tipSui: coinAmount(review.tipMist),
+    feeMist: budget.feeMist === null ? null : budget.feeMist.toString(),
+    feeSui: budget.feeMist === null ? null : coinAmount(budget.feeMist),
+    wallet: budget.address,
+    walletWal: budget.walFrost === null ? null : coinAmount(budget.walFrost),
+    walletSui: budget.suiMist === null ? null : coinAmount(budget.suiMist),
+    storage:
+      storage.kind === "buy"
+        ? { kind: "buy" }
+        : { kind: "reuse", objectId: storage.objectId, cutToBytes: storage.cutToBytes, leftoverBytes: storage.leftoverBytes },
+  };
 }
 
 /** Each step, for a person watching. The signatures are named as what they are. */
@@ -368,13 +298,4 @@ function tell(ctx: WalletUploadContext, size: number, step: FileUploadStep): voi
     say(`  signing the certification${where} — gas only`);
   }
   if (step.step === "committing") say(`  saving to the drive`);
-}
-
-async function defaultReads(network: Network, relayUrl: string): Promise<WalletUploadReads> {
-  return (await import("../upload-wallet-chain.ts")).walletUploadReads(network, relayUrl);
-}
-
-async function signers(): Promise<{ register: SignBlobRegister; certify: SignBlobCertify }> {
-  const signing = await import("../wallet-sign.ts");
-  return { register: signing.signBlobRegister, certify: signing.signBlobCertify };
 }

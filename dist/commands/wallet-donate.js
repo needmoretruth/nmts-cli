@@ -25,6 +25,7 @@ import { THANKS_EN, THANKS_KO } from "../standing-tip.js";
 import { explorerTxUrl } from "../shared/lib/wallet/activity.js";
 import { clampGasBudgetMist, isValidSuiAddress, parseTokenAmountToBaseUnits, validateSendForm, } from "../shared/lib/wallet/send-rules.js";
 import { coinAmount, walCoinType, walletAddress } from "../wallet.js";
+import { payingWalletIndex } from "../wallet-pay-index.js";
 /** The four facts and the promise, as the screens say them, in the order a person reads them. */
 export const GIFT_NOTICES = [
     "This is a voluntary gift. Nothing is provided in return, it is non-refundable, and it cannot be undone once sent.",
@@ -57,7 +58,10 @@ export async function walletDonate(operands, options = {}) {
         throw new NmtsError("Say how much.", { exitCode: 2, nextStep: `\`${BINARY_NAME} wallet donate ${coin} <amount> --yes\`` });
     }
     const resolved = await requireAccountCode();
-    const address = await walletAddress(resolved.code);
+    // ⛔ A gift leaves the same wallet storage is paid from, and it is resolved before the review is
+    //    priced — so the address a person reads is the address the coins leave.
+    const wallet = await payingWalletIndex(options);
+    const address = await walletAddress(resolved.code, wallet);
     const stored = resolved.source === "file" || resolved.source === "file-locked" ? readCredentialsFile() : null;
     const server = resolveServer(options.server ?? stored?.server);
     const network = resolveNetwork(server, options.network ?? stored?.network);
@@ -143,7 +147,7 @@ export async function walletDonate(operands, options = {}) {
         });
     }
     const sign = options.sign ?? (await import("../wallet-sign.js")).signTransfer;
-    const digest = await sign({ network, code: resolved.code, shape });
+    const digest = await sign({ network, code: resolved.code, wallet, shape });
     if (options.json) {
         say(JSON.stringify({ ...facts, signed: true, digest, explorerUrl: explorerTxUrl(digest, network) }));
         return 0;

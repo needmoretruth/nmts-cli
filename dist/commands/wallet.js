@@ -22,9 +22,10 @@ import { NmtsError } from "../errors.js";
 import { resolveNetwork } from "../network.js";
 import { BINARY_NAME } from "../product.js";
 import { resolveServer } from "../server.js";
-import { coinAmount, readBalances, walCoinType, walletAddress, SUI_COIN_TYPE, } from "../wallet.js";
+import { walletIndexOf } from "../wallet-pay-index.js";
+import { BUILT_IN_WALLET_INDEX, coinAmount, readBalances, walCoinType, walletAddress, SUI_COIN_TYPE, } from "../wallet.js";
 /** What the operand may say. Anything else is a command line to correct, not a guess to act on. */
-const MODES = ["address", "balance", "activity", "storage", "send", "donate", "swap", "hall"];
+const MODES = ["address", "balance", "list", "use", "activity", "storage", "send", "donate", "swap", "hall"];
 function modeOf(what) {
     if (what === undefined)
         return "balance";
@@ -33,7 +34,9 @@ function modeOf(what) {
         return found;
     throw new NmtsError(`\`${BINARY_NAME} wallet ${what}\` is not something this command does.`, {
         exitCode: 2,
-        nextStep: `\`${BINARY_NAME} wallet\` shows the address and the balances; \`${BINARY_NAME} wallet address\` ` +
+        nextStep: `\`${BINARY_NAME} wallet\` shows the address and the balances; \`${BINARY_NAME} wallet list\` ` +
+            `shows every wallet this key has and which one pays, and \`${BINARY_NAME} wallet use <number>\` ` +
+            `moves that. \`${BINARY_NAME} wallet address\` ` +
             `shows the address alone, without touching a network (add --qr for a code to scan); ` +
             `\`${BINARY_NAME} wallet activity\` lists the recent transactions; \`${BINARY_NAME} wallet storage\` ` +
             `lists the storage resources it holds. None of those signs. \`${BINARY_NAME} wallet send <SUI|WAL> ` +
@@ -48,6 +51,11 @@ export async function wallet(what, options = {}) {
     // The two lists live in files of their own; each reads through a seam of its own.
     if (mode === "activity")
         return (await import("./wallet-activity.js")).walletActivity(options);
+    // Every wallet of this key and which one pays: listing reads, choosing writes one line of the list.
+    if (mode === "list")
+        return (await import("./wallet-list.js")).walletList(options);
+    if (mode === "use")
+        return (await import("./wallet-use.js")).walletUse(options.rest?.[0], options);
     if (mode === "storage") {
         const [sub, ...more] = options.rest ?? [];
         if (sub === "split" || sub === "merge" || sub === "transfer") {
@@ -70,13 +78,17 @@ export async function wallet(what, options = {}) {
     if (mode === "hall")
         return (await import("./wallet-hall.js")).walletHall(options);
     const resolved = await requireAccountCode();
-    const address = await walletAddress(resolved.code);
+    // ⛔ `wallet address --index N` IS OFFLINE — the person named the number, so there is no list to
+    //    read; without a number it is the first wallet. "Which one pays" is a question the list
+    //    answers, and `wallet list` is where it is asked.
+    const index = options.index === undefined || options.index === "" ? BUILT_IN_WALLET_INDEX : walletIndexOf(options.index);
+    const address = await walletAddress(resolved.code, index);
     if (mode === "address") {
         if (options.json) {
-            // ⛔ NO `network` FIELD. There is no network in this answer — an account has one wallet and
-            //    it is called the same thing on every chain — and a field naming one would invite a
-            //    reader to believe this address was looked up somewhere.
-            say(JSON.stringify({ address }));
+            // ⛔ NO `network` FIELD. There is no network in this answer — a wallet is the same wallet on
+            //    every chain — and a field naming one would invite a reader to believe this address was
+            //    looked up somewhere. The NUMBER is here, because it is what the address came from.
+            say(JSON.stringify({ address, index }));
             return 0;
         }
         say(`Address  ${address}`);

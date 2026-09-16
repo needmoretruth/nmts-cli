@@ -1,10 +1,6 @@
 import type { SignExtension } from "./extend-plan.ts";
-import { type TransferShape } from "./wallet-send-chain.ts";
-import { type StorageOpShape } from "./storage-control-chain.ts";
-import { type SwapShape } from "./wallet-swap-chain.ts";
-import type { Network } from "./network.ts";
-import type { RegisterShape } from "./upload-wallet-plan.ts";
-import type { Certificate } from "./upload-wire.ts";
+import type { SignBlobCertify, SignBlobRegister, SignMessage, SignStorageOp, SignSwap, SignTransfer } from "./wallet-sign-seams.ts";
+export type { SignBlobCertify, SignBlobRegister, SignMessage, SignStorageOp, SignSwap, SignTransfer, } from "./wallet-sign-seams.ts";
 /**
  * The address this tool would sign as.
  *
@@ -14,7 +10,7 @@ import type { Certificate } from "./upload-wire.ts";
  *    part is silent — a signature from an address with nothing in it, or worse, money sent to an
  *    address that signs nothing. A test compares them, offline, for free.
  */
-export declare function signerAddress(code: string): Promise<string>;
+export declare function signerAddress(code: string, index?: number): Promise<string>;
 /**
  * Extend every listed blob by `epochs`, in ONE transaction, signed by the account's own wallet.
  *
@@ -50,19 +46,6 @@ export declare const signTransfer: SignTransfer;
  *    signed text from ever being read as a transaction this wallet authorised.
  */
 export declare const signMessage: SignMessage;
-/** The seam `commands/wallet-hall.ts` signs through. Returns the base64 signature, nothing else. */
-export type SignMessage = (input: {
-    /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
-    code: string;
-    message: string;
-}) => Promise<string>;
-/** The seam `commands/wallet-send.ts` signs through. Returns the transaction digest. */
-export type SignTransfer = (input: {
-    network: string;
-    /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
-    code: string;
-    shape: TransferShape;
-}) => Promise<string>;
 /**
  * Swap SUI for WAL or WAL for SUI on the named venue, in ONE transaction, signed by the account's
  * own wallet. Every output goes back to the signer — DeepBook's three coins are sent there by this
@@ -75,13 +58,6 @@ export type SignTransfer = (input: {
  * ⚠ A FAILURE HERE IS NOT PROOF THAT NOTHING HAPPENED — the same words as the extension above.
  */
 export declare const signSwap: SignSwap;
-/** The seam `commands/wallet-swap.ts` signs through. Returns the transaction digest. */
-export type SignSwap = (input: {
-    network: Network;
-    /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
-    code: string;
-    shape: SwapShape;
-}) => Promise<string>;
 /**
  * Register ONE part's blob, signed by the account's own wallet: the relay's tip, then the storage
  * — bought for `epochs`, or a resource the wallet already holds, cut to fit first if asked.
@@ -97,32 +73,6 @@ export type SignSwap = (input: {
 export declare const signBlobRegister: SignBlobRegister;
 /** Certify ONE registered part from the relay's certificate. Gas only; nothing else leaves the wallet. */
 export declare const signBlobCertify: SignBlobCertify;
-/** The seam the wallet rail registers through. */
-export type SignBlobRegister = (input: {
-    network: Network;
-    code: string;
-    relayUrl: string;
-} & RegisterShape) => Promise<{
-    digest: string;
-    blobObjectId: string;
-    endEpoch: number;
-}>;
-/** The seam the wallet rail certifies through. Returns the transaction digest. */
-export type SignBlobCertify = (input: {
-    network: Network;
-    code: string;
-    relayUrl: string;
-    blobId: string;
-    blobObjectId: string;
-    certificate: Certificate;
-}) => Promise<string>;
-/** How a storage-resource operation is signed; the shape carries what the review priced. */
-export type SignStorageOp = (input: {
-    network: Network;
-    code: string;
-    shape: StorageOpShape;
-    walrusPackageId: string;
-}) => Promise<string>;
 /**
  * Cut, join or hand over a storage resource, in ONE transaction, signed by the account's own wallet.
  *

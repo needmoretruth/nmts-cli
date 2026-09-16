@@ -83,6 +83,21 @@ export type { PaddingRule } from "./shared/lib/crypto/size-padding.ts";
 export { DEFAULT_PART_BYTES } from "./seal.ts";
 export { createBlobProtocol, readCurrentEpoch } from "./walrus-write.ts";
 
+// Uploading paid by the account's OWN WALLET instead of credits: the same seal-buy-push-record
+// path, priced and refused before anything is signed. `nmts put --pay wallet` is this plus a
+// terminal; the spending ledger and the standing gift are the command's and are not here.
+export { walletPut } from "./upload-wallet-put.ts";
+export type {
+  WalletPutContext,
+  WalletPutFile,
+  WalletPutOutcome,
+  WalletPutReview,
+  WalletPutSeams,
+} from "./upload-wallet-put.ts";
+export { DEFAULT_UPLOAD_EPOCHS } from "./upload-wallet-plan.ts";
+export type { PartQuote, StorageChoice, UploadBudget, WalletUploadReads } from "./upload-wallet-plan.ts";
+export type { Spend } from "./wallet-grant.ts";
+
 // Downloading: fetching sealed parts from the storage network and opening them here.
 export { fetchFile, fetchWithKey } from "./download.ts";
 export type { FetchedFile, FetchInput } from "./download.ts";
@@ -92,11 +107,21 @@ export { AGGREGATOR_ENV_VAR, readBlob, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./
 export type { ReadOptions } from "./walrus.ts";
 
 // The wallet the NMTS key derives: reading it, and signing with it.
-export { coinAmount, readBalances, walletAddress } from "./wallet.ts";
+export { coinAmount, readBalances, walCoinType, walletAddress } from "./wallet.ts";
 export type { ChainReader, CoinBalance, WalletBalances } from "./wallet.ts";
 export { chainReader } from "./wallet-chain.ts";
 export { signerAddress, signExtension, signTransfer } from "./wallet-sign.ts";
 export type { SignTransfer } from "./wallet-sign.ts";
+
+// WHICH of this key's wallets, and which of them have been used. One key derives a wallet at every
+// index (NCF-3 §1.3), so the account's own number is read out of the sealed list and the rest is a
+// walk. Both are here so that a library built on this package finds the SAME wallets under the same
+// numbers as `nmts wallet list` — a second walk, or a second reading of the setting, would be a
+// second answer to a question that has to have exactly one.
+export { activeWalletOf, walletCountOf, WALLET_INDEX_LIMIT } from "./shared/lib/drive/manifest-settings.ts";
+export { discoverWallets, WALLET_SCAN_GAP } from "./shared/lib/wallet/discover.ts";
+export type { WalletProbe, WalletScan } from "./shared/lib/wallet/discover.ts";
+export { hasHistory } from "./wallet-list-chain.ts";
 
 // What this package is.
 export { HOME_URL, PRODUCT_NAME, SOURCE_URL, SUPPORT_EMAIL, VERSION } from "./product.ts";
