@@ -8,7 +8,7 @@ gives the same thing to parse. It reports the operating system; whether this is 
 container and whether root here is root on the host; whether a file written here can be kept
 private (measured, not guessed); whether there is a terminal and whether a browser could be
 opened; whether an NMTS key and an API key were found and where each came from; if the stored
-code is sealed, whether a passphrase is actually reachable; which agent left a marker here; and
+NMTS key is sealed, whether a passphrase is actually reachable; which agent left a marker here; and
 what the version check last found. The `advice` it returns is written to be repeated to the person
 as-is — do that when something in it is a `warn`.
 

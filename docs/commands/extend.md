@@ -15,9 +15,6 @@ nmts extend notes/report.pdf --epochs 4   # how many epochs to add (default 2)
 If the account holds a standing share (`nmts tip`), that share of the WAL just paid goes to the
 developer right after the extension, without a question.
 
-```sh
-```
-
 Both forms print the price in WAL, the chain fee in SUI measured by a dry run of the exact
 transaction (`null` in `--json` when it could not be measured, never 0), and what the wallet
 holds. A wallet short of either exits 4 with the two numbers before anything else; a balance the

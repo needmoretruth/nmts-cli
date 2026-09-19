@@ -74,12 +74,10 @@ Three coin subcommands sign, and every signed transaction is irreversible by any
   explorer. It is outside the wallet unlock and its ceiling. A standing share of every WAL
   payment is `nmts tip`, not a gift on its own.
 
-One more reads the gifts back, and one flag on it publishes a name:
-
-- `wallet hall` prints the gift hall of fame — the developer, then the ten largest senders as read
-  from the public chain, with the rest of the list at nmts.me/hall; reading it signs nothing and
-  needs no NMTS key. `--name <name>` (1 to 24 characters, no links, not an address) signs a
-  short message with the wallet this account pays from — the wallet a gift left from — so the
-  server shows that name beside its address, and `--remove` puts the entry back to a shortened
-  address. Reading which wallet that is opens the file list, so naming yourself needs an API key
-  where reading the hall needs none.
+`wallet hall` prints the gift hall of fame — the developer, then the ten largest senders as read
+from the public chain, with the rest of the list at nmts.me/hall; reading it signs nothing and
+needs no NMTS key. `--name <name>` (1 to 24 characters, no links, not an address) signs a
+short message with the wallet this account pays from — the wallet a gift left from — so the
+server shows that name beside its address, and `--remove` puts the entry back to a shortened
+address. Reading which wallet that is opens the file list, so naming yourself needs an API key
+where reading the hall needs none.

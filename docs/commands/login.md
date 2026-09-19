@@ -7,7 +7,7 @@ Tiers: login=none · login.plain=high(unsafe-code-storage) · login.env=high(pla
 (`NMTS_API_KEY_FILE`, `NMTS_API_KEY`) with the server, and stores that too. It prints the key's
 public handle and never the key. It does not replace a stored key unless the run says so.
 
-Every later command needs the passphrase, from `NMTS_PASSPHRASE` or a terminal. A sealed code with
+Every later command needs the passphrase, from `NMTS_PASSPHRASE` or a terminal. A sealed key with
 no passphrase in reach is not a usable credential; `nmts env` says which case this machine is in.
 
 Two other shapes exist and both are locked until a person opens them once, at a terminal:

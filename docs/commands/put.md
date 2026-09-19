@@ -3,8 +3,8 @@
 Commands: put
 Tiers: put=medium · put.wallet=high(wallet)
 
-This is the command that spends. The price is one credit per started mebibyte, printed before the
-upload starts. In the default mode it asks first (answer at the terminal, or run with `--yes`);
+`put` spends credits: one per started mebibyte, and the price is printed before the upload
+starts. In the default mode it asks first (answer at the terminal, or run with `--yes`);
 in an auto mode it runs when you judge it is what the person wants.
 
 ```sh

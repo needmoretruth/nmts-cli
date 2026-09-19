@@ -28,6 +28,6 @@ codex    mcp add nmts -- nmts mcp --out /where/files/should/land
 opencode mcp add nmts -- nmts mcp --out /where/files/should/land
 ```
 
-A sealed stored code is opened once, at startup; `nmts mcp` never prompts, so a sealed code with
+A sealed stored NMTS key is opened once, at startup; `nmts mcp` never prompts, so a sealed key with
 no `NMTS_PASSPHRASE` exits 3 at startup rather than hang. Arguments are checked against what each
 tool declares — `"dry_run": "true"` is a refusal, not an upload.
