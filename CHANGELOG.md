@@ -3,6 +3,11 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.36.3 — 2026-09-19
+
+- `--help` had the `--on-collision` lines in the middle of the `--part-size` description, so the
+  second half of that description read as part of the other option. The two are separate again.
+
 ## 0.36.2 — 2026-09-19
 
 - On Windows, `platform keygen` now restricts the key file instead of only reporting that no file
