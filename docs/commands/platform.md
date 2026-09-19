@@ -4,7 +4,8 @@ Commands: platform
 Tiers: platform=none · platform.keygen=medium
 
 `platform keygen` makes an Ed25519 key pair and writes both halves to `nmts-business-key.json`, or
-to `--out <file>`, with mode 0600 (Windows applies no file mode, and the command says so). It
+to `--out <file>`, with mode 0600 (on Windows, where no file mode applies, it removes the inherited
+permissions with `icacls` and leaves your account alone on the file, and says so if that fails). It
 refuses a name that already exists, whatever `--force` says, and prints only the public half.
 `platform register` cannot register it: that needs a signed-in browser session at nmts.me, under
 Settings › Developer › Platform, and the command prints that path and exits 2.

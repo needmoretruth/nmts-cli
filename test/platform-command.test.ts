@@ -4,6 +4,7 @@
 //    is a shape; this is the promise.
 
 import { strict as assert } from "node:assert";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -35,7 +36,8 @@ test("⛔ keygen writes both halves to a file only its owner can read, and print
     assert.ok(!printed.includes(String(privateKey)), "the private key reached the screen");
     assert.ok(printed.includes(out), "the file it wrote was not named");
     assertModeWhereEnforced(out, 0o600, "the key file is readable by someone other than its owner");
-    assert.equal(printed.includes("Windows applies no POSIX file mode"), !modesAreEnforced());
+    // Windows: the file is cut off from its folder, and the command says which way it went.
+    assert.equal(printed.includes("only your Windows account can open this file"), !modesAreEnforced());
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -77,5 +79,20 @@ test("a missing or unknown subcommand is a command-line error, not a failure", (
       assert.equal(error.exitCode, 2);
       return true;
     });
+  }
+});
+
+
+test("on Windows the key file keeps no inherited permission", { skip: modesAreEnforced() }, () => {
+  const dir = sandbox();
+  try {
+    const out = join(dir, "keys.json");
+    assert.equal(platform("keygen", { out, write: () => undefined }), 0);
+    const listed = spawnSync("icacls", [out], { encoding: "utf8" });
+    assert.equal(listed.status, 0, "icacls could not list the file");
+    // icacls marks an inherited entry with (I); none may be left.
+    assert.ok(!listed.stdout.includes("(I)"), `inherited entries remain:\n${listed.stdout}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });

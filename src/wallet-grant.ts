@@ -109,7 +109,7 @@ export function parseWalletGrant(
   if (expiresMs > ceiling) {
     throw new NmtsError(`A wallet agreement lasts at most ${MAX_GRANT_DAYS} days.`, {
       exitCode: 2,
-      nextStep: `Grant it again when it runs out. That is the point: a grant nobody remembers giving should run out on its own.`,
+      nextStep: `Grant it again when it runs out. An agreement ends on its own so that one nobody remembers giving does not stay open.`,
     });
   }
   return {

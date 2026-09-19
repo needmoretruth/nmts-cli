@@ -3,6 +3,15 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.36.2 — 2026-09-19
+
+- On Windows, `platform keygen` now restricts the key file instead of only reporting that no file
+  mode applies: it removes the permissions inherited from the folder and grants your account
+  alone (`icacls`). The file is written wherever the command runs, which may be a shared folder.
+  If that step fails the command says so and the file is still written.
+- Three filler words are gone from the advice printed by `share`, a resumed upload and a wallet
+  agreement that asks for too long a term.
+
 ## 0.36.1 — 2026-09-19
 
 - On Windows, `platform keygen` says that the key file inherits its folder's permissions, because

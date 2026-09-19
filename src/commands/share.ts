@@ -165,7 +165,7 @@ export async function share(
       throw new NmtsError("That public code has never published an identity to share to.", {
         exitCode: 4,
         nextStep:
-          "Nothing was shared. The code may be right and simply unused — somebody has to open " +
+          "Nothing was shared. The code may be right and unused — somebody has to open " +
           "their account once before anything can be encrypted to them.",
       });
     }

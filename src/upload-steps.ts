@@ -73,7 +73,7 @@ export async function pushPart(
       paid: true,
       nextStep:
         "The bytes are on the network. Certifying moves no money, so running the same command " +
-        "again simply finishes the job.",
+        "again finishes the job.",
     });
   }
 }

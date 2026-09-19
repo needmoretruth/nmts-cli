@@ -12,7 +12,9 @@
 // ⛔ AND THE FILE IS NEVER REPLACED. `--force` does not open it: the file it would overwrite may
 //    hold the only copy of a key a business is already registered under, and replacing it locks
 //    that business out of its own door with nothing able to bring the key back.
+import { spawnSync } from "node:child_process";
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
+import { userInfo } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import { modesAreEnforced } from "../credentials.js";
 import { NmtsError } from "../errors.js";
@@ -45,13 +47,41 @@ function keygen(out, say) {
     writeKeyFile(path, keys);
     say(`Public key: ${keys.publicKey}`);
     say(`Written to: ${path}`);
-    // The same sentence `nmts doctor` uses for a stored key: where no mode applies, say so.
     if (!modesAreEnforced()) {
-        say(`Windows applies no POSIX file mode, so this file inherits its folder's permissions ` +
-            `rather than being restricted to one user.`);
+        // ⚠ THIS FILE LANDS WHEREVER THE COMMAND WAS RUN, which may be a shared folder — unlike the
+        //   stored NMTS key, which lives under the user's own profile. So on Windows the mode is not
+        //   merely reported as absent: the file is cut off from the folder's permissions.
+        say(restrictToCurrentUser(path)
+            ? `Inherited permissions were removed; only your Windows account can open this file.`
+            : `Windows applies no POSIX file mode, and restricting the file with icacls failed, so it ` +
+                `inherits its folder's permissions. Move it somewhere only you can read.`);
     }
     say(`Register the public key at ${HOME_URL} — ${REGISTER_PATH}. The private half stays in that file.`);
     return 0;
+}
+/**
+ * Windows only: drop the inherited entries and grant the current account alone.
+ *
+ * ⛔ `icacls`, NOT A HAND-ROLLED ACL. It ships with every supported Windows, and this is the shape
+ *    OpenSSH asks of a private key there. One invocation does both halves, so there is no moment
+ *    with the inheritance gone and nobody granted.
+ * ⚠ A FAILURE IS REPORTED, NOT THROWN: the pair is already written and is the only copy, so the
+ *   command must still print the public half and say plainly what protects the file.
+ */
+function restrictToCurrentUser(path) {
+    try {
+        const name = userInfo().username;
+        const domain = process.env.USERDOMAIN;
+        const account = domain === undefined || domain === "" ? name : `${domain}\\${name}`;
+        const done = spawnSync("icacls", [path, "/inheritance:r", "/grant:r", `${account}:F`], {
+            windowsHide: true,
+            stdio: "ignore",
+        });
+        return done.status === 0;
+    }
+    catch {
+        return false;
+    }
 }
 /**
  * Say where registering happens, and stop.
@@ -101,9 +131,8 @@ function targetFor(out) {
  * ⚠ `wx` FAILS IF THE NAME APPEARED SINCE THE CHECK ABOVE, which is the point of using it rather
  *   than trusting that check: between the two, something else may have written there.
  *
- * ⚠ ON WINDOWS THE MODE IS IGNORED and the file inherits the folder's permissions — the same limit
- *   every other file this tool writes has, and claiming otherwise would claim a guarantee the
- *   platform does not give.
+ * ⚠ ON WINDOWS THE MODE IS IGNORED; `keygen` restricts the file afterwards with `icacls` and says
+ *   which of the two happened.
  */
 function writeKeyFile(path, keys) {
     mkdirSync(resolve(path, ".."), { recursive: true, mode: 0o700 });
