@@ -2,6 +2,8 @@ import { type CryptoGlue } from "./crypto.ts";
 import { type PaddingRule } from "./shared/lib/crypto/size-padding.ts";
 import { entryOf } from "./upload.ts";
 import type { BlobProtocol, PaidPart, UploadApi, UploadInput, UploadResult, UploadStep } from "./upload-wire.ts";
+/** How much plaintext is handed to the engine at a time. Matches the format's own chunk size. */
+export declare const READ_CHUNK_BYTES: number;
 /**
  * Where the plaintext comes from.
  *
@@ -15,8 +17,6 @@ export interface PlaintextSource {
     /** Read `[offset, offset + length)`, in pieces small enough to hold. */
     read(offset: number, length: number): AsyncIterable<Uint8Array>;
 }
-/** Read a file off the disk, a chunk at a time. */
-export declare function fileSource(path: string, size: number): PlaintextSource;
 export interface FileUploadInput {
     api: UploadApi;
     protocol: BlobProtocol;

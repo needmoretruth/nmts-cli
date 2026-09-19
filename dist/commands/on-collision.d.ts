@@ -3,4 +3,4 @@ export interface OnCollisionOptions {
     write?: (line: string) => void;
     now?: () => Date;
 }
-export declare function onCollision(wanted: string | undefined, options?: OnCollisionOptions): number;
+export declare function onCollision(wanted: string | undefined, options?: OnCollisionOptions): Promise<number>;

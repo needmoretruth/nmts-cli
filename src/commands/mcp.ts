@@ -196,6 +196,11 @@ export async function mcp(options: McpOptions = {}): Promise<number> {
   note(`${PRODUCT_NAME} · ${identity.accountId} · ${network} · files land in ${outDir}`);
   note(`Tools: ${tools.map((t) => t.name).join(" · ")}`);
 
+  // ⚠ READ ONCE, BEFORE THE SERVER STARTS. The line below is written from a callback the
+  //   protocol drives, and a callback that had to await would report the setting after the
+  //   sentence it belongs to.
+  const announcedMode = await currentMode();
+
   await serve({
     input: options.input ?? process.stdin,
     output: options.output ?? ((line: string) => process.stdout.write(`${line}\n`)),
@@ -216,7 +221,7 @@ export async function mcp(options: McpOptions = {}): Promise<number> {
       // ⚠ A MODE THAT IS ON DECIDES THIS, so it is read here rather than assumed. Saying "every
       //   share will ask you" to somebody who turned a mode on would be telling them the opposite
       //   of what their own setting does.
-      if (currentMode() !== "default") return;
+      if (announcedMode !== "default") return;
       note(
         built === null
           ? "This client cannot show you a question, so sharing is refused here. Share from a terminal."

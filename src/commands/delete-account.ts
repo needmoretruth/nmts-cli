@@ -42,7 +42,7 @@ export async function deleteAccount(options: DeleteAccountOptions = {}): Promise
   // The tier gate has already refused the auto modes and, under skip-permissions, taken a
   // --reason and the --yes. ⛔ THE SENTENCE IS STILL TYPED IN EVERY OTHER MODE: `--yes` alone does
   //    not stand for it — only the mode that turned every question off does.
-  const typedFor = options.yes === true && currentMode() === "skip-permissions";
+  const typedFor = options.yes === true && (await currentMode()) === "skip-permissions";
   const ask = options.readLine ?? promptLine;
   if (!typedFor && options.readLine === undefined && !stdinIsATerminal()) {
     throw new NmtsError("There is no terminal to type into (stdin is not a TTY).", {

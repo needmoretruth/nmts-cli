@@ -1,5 +1,5 @@
 export declare const DEFAULT_SERVER = "https://nmts.me";
-export declare const SERVER_ENV_VAR = "NMTS_SERVER";
+export { SERVER_ENV_VAR } from "./env-vars.ts";
 /**
  * Resolve the server for this run: an explicit argument, then the environment, then the default.
  *

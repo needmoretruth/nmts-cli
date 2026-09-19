@@ -1,6 +1,6 @@
-import { type Hash } from "node:crypto";
-/** Where unfinished uploads live. */
-export declare function uploadsDir(): string;
+import { sha256 } from "@noble/hashes/sha2.js";
+/** The running hash a reservation key is built in. */
+export type ReservationHash = ReturnType<typeof sha256.create>;
 /**
  * A stable, account-scoped name for one file's upload attempt.
  *
@@ -36,9 +36,9 @@ export declare function reservationKeyStreamed(dataKey: Uint8Array, plaintextChu
  *    the SHA-256 the account checks its contents against; handing the caller the running hash is
  *    what lets both come out of a single pass instead of two reads of a very large file.
  */
-export declare function startReservationKey(dataKey: Uint8Array): Hash;
+export declare function startReservationKey(dataKey: Uint8Array): ReservationHash;
 /** Finish it. The name and the destination go in last, exactly as the one-shot form does. */
-export declare function finishReservationKey(hash: Hash, name: string, destination: string): string;
+export declare function finishReservationKey(hash: ReservationHash, name: string, destination: string): string;
 /**
  * The record name for ONE part of a file.
  *
@@ -131,7 +131,7 @@ export interface Reservation {
  *    resume that only needs to commit still reads every byte of a very large upload off the disk.
  *    They are fetched separately, by the one step that actually pushes them.
  */
-export declare function readReservationRecord(key: string): Reservation | null;
+export declare function readReservationRecord(key: string): Promise<Reservation | null>;
 /**
  * The sealed bytes a reservation bought.
  *
@@ -139,14 +139,14 @@ export declare function readReservationRecord(key: string): Reservation | null;
  *    different blob from the one the treasury registered — the relay refuses them, forever, and
  *    the credits are gone.
  */
-export declare function readReservationBytes(key: string): Uint8Array;
+export declare function readReservationBytes(key: string): Promise<Uint8Array>;
 /** The record and its bytes together, for the callers that need both. */
-export declare function readReservation(key: string): {
+export declare function readReservation(key: string): Promise<{
     record: Reservation;
     sealed: Uint8Array;
-} | null;
+} | null>;
 /** Write the record and its sealed bytes. Called BEFORE the reserve, and again after it answers. */
-export declare function writeReservation(key: string, record: Reservation, sealed: Uint8Array): void;
+export declare function writeReservation(key: string, record: Reservation, sealed: Uint8Array): Promise<void>;
 /**
  * Forget a reservation.
  *
@@ -154,7 +154,7 @@ export declare function writeReservation(key: string, record: Reservation, seale
  *   upload already succeeded" was not true of every caller. What IS true of all of them is that
  *   nothing further depends on the record, which is why it never throws.
  */
-export declare function clearReservation(key: string): void;
+export declare function clearReservation(key: string): Promise<void>;
 /**
  * The FILE-level half of an unfinished upload: what happened after every part was paid for.
  *
@@ -175,8 +175,8 @@ export interface ItemRecord {
     attempt: number;
 }
 /** What is known about this file's commit, or `null` when it has not been attempted. */
-export declare function readItemRecord(fileKey: string): ItemRecord | null;
+export declare function readItemRecord(fileKey: string): Promise<ItemRecord | null>;
 /** Write the file-level record. Called before the commit, and again once it has an id. */
-export declare function writeItemRecord(fileKey: string, record: ItemRecord): void;
+export declare function writeItemRecord(fileKey: string, record: ItemRecord): Promise<void>;
 /** Forget the file-level record. Never throws, for the same reason `clearReservation` does not. */
-export declare function clearItemRecord(fileKey: string): void;
+export declare function clearItemRecord(fileKey: string): Promise<void>;

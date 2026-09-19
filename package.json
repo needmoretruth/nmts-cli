@@ -1,6 +1,6 @@
 {
   "name": "@needmoretruth/nmts-cli",
-  "version": "0.35.0",
+  "version": "0.36.0",
   "description": "Command-line and MCP access to NMTS (NeedMoreTruthStorage, https://nmts.me): open-source, end-to-end encrypted storage on the Walrus network. No fee to NMTS; you pay the network from your own wallet. For people and for their agents.",
   "license": "Apache-2.0",
   "publishConfig": {
@@ -40,6 +40,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./portable": {
+      "types": "./dist/portable.d.ts",
+      "default": "./dist/portable.js"
+    },
+    "./host": {
+      "types": "./dist/host.d.ts",
+      "default": "./dist/host.js"
     },
     "./api": {
       "types": "./dist/api.d.ts",
@@ -81,6 +89,7 @@
       "types": "./dist/wallet-sign.d.ts",
       "default": "./dist/wallet-sign.js"
     },
+    "./vendor/nmts-crypto/*": "./vendor/nmts-crypto/*",
     "./package.json": "./package.json"
   },
   "engines": {
@@ -100,7 +109,7 @@
   "scripts": {
     "compile": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test \"test/**/*.test.ts\""
+    "test": "node --import ./test/host.ts --test \"test/**/*.test.ts\""
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
@@ -109,6 +118,8 @@
   "dependencies": {
     "@mysten/sui": "^2.20.1",
     "@mysten/walrus": "^1.2.3",
+    "@noble/curves": "^2.3.0",
+    "@noble/hashes": "^2.2.0",
     "uqr": "^0.1.3"
   },
   "mcpName": "io.github.needmoretruth/nmts"

@@ -22,8 +22,11 @@ export interface WalletSwapOptions {
     slippageBps?: string | undefined;
     /** `--accept-extremes`: go on past the extremes gate. A person's act — refused outside mode off. */
     acceptExtremes?: boolean;
+    /** `--wallet N`: which wallet swaps, this run only. Absent = the account's own number. */
+    wallet?: string | undefined;
     now?: number;
     /** ⚠ SEAMS, NOT OPTIONS — no flag reaches them. */
+    readActiveWallet?: () => Promise<number>;
     readChain?: (network: Network) => SwapReads | Promise<SwapReads>;
     readPrices?: (server: string) => Promise<MarketPrices | null>;
     sign?: SignSwap;

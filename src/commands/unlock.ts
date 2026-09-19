@@ -90,7 +90,7 @@ export async function unlock(
 
   if (action === "unlock") {
     const key = keyOrFail(target);
-    if (options.readLine === undefined && !stdinIsATerminal() && currentMode() !== "skip-permissions") {
+    if (options.readLine === undefined && !stdinIsATerminal() && (await currentMode()) !== "skip-permissions") {
       throw new NmtsError(`A person unlocks, at a terminal — stdin here is not one.`, {
         exitCode: 5,
         nextStep:
@@ -104,7 +104,7 @@ export async function unlock(
     say(c.what);
     say(`  ${c.risk}`);
     say(`  ${c.limit}`);
-    if (currentMode() !== "skip-permissions") {
+    if ((await currentMode()) !== "skip-permissions") {
       const ask = options.readLine ?? promptLine;
       const answer = (await ask(`Unlock ${key} on this machine? [y/N] `)).trim();
       if (answer !== "y" && answer !== "Y") {

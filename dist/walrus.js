@@ -10,7 +10,9 @@
 //    them: here, the browser build, and the standalone recovery tool. One copy going stale shows
 //    up as "file not found", which reads as "the file is gone" — so the machine holds them level
 //    rather than a person remembering to.
+import { AGGREGATOR_ENV_VAR, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./env-vars.js";
 import { NmtsError } from "./errors.js";
+import { host as runtime } from "./host.js";
 /** Curated Walrus aggregator (read) endpoints per network, preference order. */
 export const AGGREGATOR_HOSTS = {
     testnet: ["https://aggregator.walrus-testnet.walrus.space"],
@@ -50,34 +52,21 @@ export const SUI_RPC_HOSTS = {
 };
 /** How long one host gets before the next is tried. A read that stalls is a read that failed. */
 export const READ_TIMEOUT_MS = 60_000;
-/**
- * Point reads at somebody else's aggregator, or at a development stack.
- *
- * ⚠ It replaces the list rather than adding to it, and that is deliberate: a run should read from
- *   where it was told to read, not from there AND the public hosts. Comma-separated for more
- *   than one, tried in the order given.
- */
-export const AGGREGATOR_ENV_VAR = "NMTS_AGGREGATOR";
-/**
- * Push writes through somebody else's relay, or through a development stack.
- *
- * ⚠ ONE host, not a list. Unlike reads there is nothing to fail over to — see `RELAY_HOSTS`.
- */
-export const RELAY_ENV_VAR = "NMTS_RELAY";
-/** Ask a different Sui JSON-RPC node the shard-count question. */
-export const SUI_RPC_ENV_VAR = "NMTS_SUI_RPC";
+// Re-exported so every caller still finds them here; the names themselves live in a module with no
+// imports, because `nmts --help` prints them (`env-vars.ts`).
+export { AGGREGATOR_ENV_VAR, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./env-vars.js";
 /** The relay this run writes through: the environment's if it named one, else the network's. */
 export function relayHost(network) {
-    const named = process.env[RELAY_ENV_VAR]?.trim();
+    const named = runtime().env(RELAY_ENV_VAR)?.trim();
     if (named)
         return named;
-    const host = RELAY_HOSTS[network]?.[0];
-    if (host === undefined) {
+    const known = RELAY_HOSTS[network]?.[0];
+    if (known === undefined) {
         throw new NmtsError(`No upload relay is known for the ${network} storage network.`, {
             nextStep: `Name one in ${RELAY_ENV_VAR} to upload anyway.`,
         });
     }
-    return host;
+    return known;
 }
 /**
  * Every Sui JSON-RPC node this run may ask, in order.
@@ -88,7 +77,7 @@ export function relayHost(network) {
  *    they did not choose.
  */
 export function suiRpcHosts(network) {
-    const named = process.env[SUI_RPC_ENV_VAR]?.trim();
+    const named = runtime().env(SUI_RPC_ENV_VAR)?.trim();
     if (named)
         return [named];
     const hosts = SUI_RPC_HOSTS[network];
@@ -104,7 +93,7 @@ export function suiRpcHost(network) {
     return suiRpcHosts(network)[0] ?? "";
 }
 function fromEnvironment() {
-    const raw = process.env[AGGREGATOR_ENV_VAR];
+    const raw = runtime().env(AGGREGATOR_ENV_VAR);
     if (raw === undefined)
         return null;
     const hosts = raw.split(",").map((h) => h.trim()).filter((h) => h !== "");

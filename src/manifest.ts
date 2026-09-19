@@ -27,13 +27,11 @@
 //    exactly as the single blob was, and the chunks are kept by name in the chunk store
 //    (`manifest-chunk-cache.ts`), which is pruned to what the list just read names. So the copy is
 //    still complete — it is simply in two places, and `nmts listfile` writes them out as one file.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { request } from "./api.ts";
+import { fromBase64Url, fromUtf8, toBase64Url, utf8 } from "./bytes.ts";
 import { AAD, DERIVED, loadCrypto } from "./crypto.ts";
-import { configDir } from "./credentials.ts";
 import { NmtsError } from "./errors.ts";
+import { host } from "./host.ts";
 import { openChunks, type ChunkIO } from "./manifest-chunk-flow.ts";
 import {
   decodeFileList,
@@ -68,28 +66,28 @@ function asResponse(value: unknown): ManifestResponse {
 
 /** base64url SHA-256 of a sealed blob — the value a later list carries as its `prev`. */
 async function fingerprint(ct: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ct));
-  return Buffer.from(digest).toString("base64url");
+  const digest = await crypto.subtle.digest("SHA-256", utf8(ct));
+  return toBase64Url(new Uint8Array(digest));
 }
 
-function statePath(): string {
-  return join(configDir(), "file-list-state.json");
-}
+/** The one key this machine's record of what it has seen lives under. */
+const STATE_KEY = "manifest/state";
 
 /**
- * Where this machine keeps one account's sealed file list.
+ * The key this machine keeps one account's sealed file list under.
  *
- * ⛔ AN ACCOUNT ID BECOMES PART OF A PATH HERE, so it is CHECKED rather than trusted. Every id this
- *    tool has comes from its own derivation and is base64url, but a value that reaches a path join
- *    unchecked is how `..` becomes a write somewhere else, and the check costs one line.
+ * ⛔ AN ACCOUNT ID BECOMES PART OF A KEY HERE, so it is CHECKED rather than trusted. Every id this
+ *    tool has comes from its own derivation and is base64url, but a value that reaches a key
+ *    unchecked is how `..` becomes a write somewhere else on a host that spells keys as paths, and
+ *    the check costs one line.
  */
-function keptListPath(accountId: string): string {
+function keptListKey(accountId: string): string {
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(accountId)) {
     throw new NmtsError("That is not an account id this tool derived.", {
       nextStep: "Nothing was written. This is a fault in the tool rather than in the account.",
     });
   }
-  return join(configDir(), `file-list-${accountId}.json`);
+  return `manifest/${accountId}`;
 }
 
 /** This machine's copy of one account's sealed file list. */
@@ -134,9 +132,11 @@ function isKeptList(value: unknown): value is KeptList {
  *   write out a good copy because an old one is unreadable would be refusing the very thing it is
  *   for.
  */
-export function readKeptList(accountId: string): KeptList | null {
+export async function readKeptList(accountId: string): Promise<KeptList | null> {
   try {
-    const parsed: unknown = JSON.parse(readFileSync(keptListPath(accountId), "utf8"));
+    const held = await host().state.read(keptListKey(accountId));
+    if (held === undefined) return null;
+    const parsed: unknown = JSON.parse(fromUtf8(held));
     return isKeptList(parsed) ? parsed : null;
   } catch {
     return null;
@@ -151,12 +151,11 @@ export function readKeptList(accountId: string): KeptList | null {
  *    a run that then read an older list from the server must not overwrite the newest copy with
  *    it. The record refuses a lower version while it exists; this is what holds when it does not.
  */
-function writeKept(accountId: string, seq: number, ct: string): void {
-  const held = readKeptList(accountId);
+async function writeKept(accountId: string, seq: number, ct: string): Promise<void> {
+  const held = await readKeptList(accountId);
   if (held !== null && held.seq > seq) return;
   const copy: KeptList = { seq, savedAt: new Date().toISOString(), ct };
-  mkdirSync(configDir(), { recursive: true, mode: 0o700 });
-  writeFileSync(keptListPath(accountId), `${JSON.stringify(copy, null, 2)}\n`, { mode: 0o600 });
+  await host().state.write(keptListKey(accountId), utf8(`${JSON.stringify(copy, null, 2)}\n`));
 }
 
 interface SeenState {
@@ -164,9 +163,11 @@ interface SeenState {
   [accountId: string]: { seq: number; fingerprint: string };
 }
 
-function readSeen(): SeenState {
+async function readSeen(): Promise<SeenState> {
   try {
-    const parsed: unknown = JSON.parse(readFileSync(statePath(), "utf8"));
+    const held = await host().state.read(STATE_KEY);
+    if (held === undefined) return {};
+    const parsed: unknown = JSON.parse(fromUtf8(held));
     return typeof parsed === "object" && parsed !== null ? (parsed as SeenState) : {};
   } catch {
     // A missing or unreadable record means "nothing to compare against", which is the same
@@ -182,14 +183,13 @@ function readSeen(): SeenState {
  *    would be two chances for a caller to update one and not the other — after which the machine
  *    would hold a copy of one version while claiming to have seen another.
  */
-function writeSeen(accountId: string, seq: number, fp: string, ct: string): void {
-  const all = readSeen();
+async function writeSeen(accountId: string, seq: number, fp: string, ct: string): Promise<void> {
+  const all = await readSeen();
   all[accountId] = { seq, fingerprint: fp };
-  mkdirSync(configDir(), { recursive: true, mode: 0o700 });
-  writeFileSync(statePath(), `${JSON.stringify(all, null, 2)}\n`, { mode: 0o600 });
+  await host().state.write(STATE_KEY, utf8(`${JSON.stringify(all, null, 2)}\n`));
   // The record goes first: it is the safety device, and a machine that failed to keep a copy must
   // still refuse an older list afterwards.
-  writeKept(accountId, seq, ct);
+  await writeKept(accountId, seq, ct);
 }
 
 /**
@@ -200,12 +200,12 @@ function writeSeen(accountId: string, seq: number, fp: string, ct: string): void
  *    a rollback.
  */
 export async function recordWrittenList(accountId: string, seq: number, ct: string): Promise<void> {
-  writeSeen(accountId, seq, await fingerprint(ct), ct);
+  await writeSeen(accountId, seq, await fingerprint(ct), ct);
 }
 
 /** True when this machine has a record for the account — i.e. a rollback would be visible. */
-export function hasSeenBefore(accountId: string): boolean {
-  return existsSync(statePath()) && accountId in readSeen();
+export async function hasSeenBefore(accountId: string): Promise<boolean> {
+  return accountId in (await readSeen());
 }
 
 export interface FileList {
@@ -254,10 +254,10 @@ export async function readFileList(
   accountId: string,
 ): Promise<FileList> {
   const answer = asResponse(await request(base, "/v1/manifest", { token: apiKey }));
-  const first = !hasSeenBefore(accountId);
+  const first = !(await hasSeenBefore(accountId));
   if (answer.state === "absent") return { manifest: null, firstTimeOnThisMachine: first };
 
-  const seen = readSeen()[accountId];
+  const seen = (await readSeen())[accountId];
   if (seen !== undefined && answer.seq < seen.seq) {
     throw new NmtsError(
       `The server offered file-list version ${answer.seq}; this machine already saw ${seen.seq}.`,
@@ -300,7 +300,7 @@ export async function readFileList(
   try {
     let body: Uint8Array;
     try {
-      body = crypt.envelope_open(key, new TextEncoder().encode(AAD.fileList), Buffer.from(answer.ct, "base64url"));
+      body = crypt.envelope_open(key, utf8(AAD.fileList), fromBase64Url(answer.ct));
     } catch {
       throw new NmtsError("The file list did not open with this account's key.", {
         nextStep:
@@ -340,7 +340,7 @@ export async function readFileList(
     // ⛔ THE VERSION THAT IS KEPT IS THE SEALED ONE, and so are the bytes it came out of. Believing
     //    the server's column here would let it decide which copy this machine keeps. The bytes are
     //    the INDEX at version 2; its chunks are kept beside it, by name, in the chunk store.
-    writeSeen(accountId, manifest.seq, fp, answer.ct);
+    await writeSeen(accountId, manifest.seq, fp, answer.ct);
     return out;
   } finally {
     key.fill(0);

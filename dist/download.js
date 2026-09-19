@@ -26,7 +26,8 @@
 //    the engine's own buffer for the chunk it is assembling, and the one chunk of plaintext it
 //    hands back — 4 MiB each in NCF-3. A hundred-gigabyte file costs the same as a hundred-megabyte
 //    one. The exception is `--out -`, which is bounded by `STDOUT_HOLD_LIMIT` and refuses above it.
-import { createHash } from "node:crypto";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { fromBase64Url, utf8 } from "./bytes.js";
 import { request } from "./api.js";
 import { AAD, DERIVED, loadCrypto } from "./crypto.js";
 import { asParts, fetchPart, openPart } from "./download-part.js";
@@ -69,7 +70,7 @@ export async function fetchFile(input) {
     derived.fill(0);
     let dek;
     try {
-        dek = crypt.envelope_open(dataKey, new TextEncoder().encode(AAD.dekWrap), Buffer.from(input.dekWrapped, "base64url"));
+        dek = crypt.envelope_open(dataKey, utf8(AAD.dekWrap), fromBase64Url(input.dekWrapped));
     }
     catch {
         dataKey.fill(0);
@@ -80,7 +81,7 @@ export async function fetchFile(input) {
     let expected = null;
     if (input.contentHashCt !== undefined && input.contentHashCt !== "") {
         try {
-            expected = crypt.envelope_open(dataKey, new TextEncoder().encode(AAD.contentHash), Buffer.from(input.contentHashCt, "base64url"));
+            expected = crypt.envelope_open(dataKey, utf8(AAD.contentHash), fromBase64Url(input.contentHashCt));
         }
         catch {
             dataKey.fill(0);
@@ -115,7 +116,7 @@ export async function fetchFile(input) {
  *    sees the finished file or sees nothing under that name.
  */
 async function collect(crypt, ordered, dek, expected, size, chain, read, sink) {
-    const hasher = createHash("sha256");
+    const hasher = sha256.create();
     let remaining = size;
     try {
         // ⛔ Asked before a byte is fetched. A destination that cannot take a file this size says so

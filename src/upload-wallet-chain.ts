@@ -29,6 +29,7 @@ import {
   walrus,
 } from "@mysten/walrus";
 
+import { fromBase64Url } from "./bytes.ts";
 import { NmtsError } from "./errors.ts";
 import { extendReads, netGasFee, readBlobLease } from "./extend-chain.ts";
 import type { Network } from "./network.ts";
@@ -142,8 +143,8 @@ export function certifyTransaction(
     deletable: true,
     certificate: {
       signers: input.certificate.signers,
-      serializedMessage: new Uint8Array(Buffer.from(input.certificate.serialized_message_b64, "base64url")),
-      signature: new Uint8Array(Buffer.from(input.certificate.signature_b64, "base64url")),
+      serializedMessage: fromBase64Url(input.certificate.serialized_message_b64),
+      signature: fromBase64Url(input.certificate.signature_b64),
     },
   });
 }

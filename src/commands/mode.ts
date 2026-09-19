@@ -47,9 +47,9 @@ export async function mode(
   const now = options.now ?? (() => new Date());
 
   if (wanted === undefined || wanted === "") {
-    const at = currentMode();
+    const at = await currentMode();
     if (options.json === true) {
-      say(JSON.stringify({ mode: at, setAt: setAt(), means: MODE_MEANS[at] }));
+      say(JSON.stringify({ mode: at, setAt: await setAt(), means: MODE_MEANS[at] }));
       return 0;
     }
     say(`${at} — ${MODE_MEANS[at]}`);

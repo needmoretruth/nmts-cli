@@ -37,11 +37,11 @@ test("the happy path spends once, uploads once and commits once", async () => {
 test("⛔ the reservation is written down BEFORE the credits move", async () => {
   const dir = isolate();
   try {
-    let recordAtReserveTime: ReturnType<typeof readReservation> = null;
+    let recordAtReserveTime: Awaited<ReturnType<typeof readReservation>> = null;
     const { api } = apiThat({
       async reserve(body) {
         // Read from disk at the exact moment the server is being asked to spend.
-        recordAtReserveTime = readReservation("k2");
+        recordAtReserveTime = await readReservation("k2");
         return {
           ledger_id: 5,
           state: "registered",
@@ -178,7 +178,7 @@ test("⛔ a dead reservation is KEPT and counted up — clearing it would brick 
         ),
       ),
     );
-    assert.equal(readReservation("k6")?.record.attempt, 0);
+    assert.equal((await readReservation("k6"))?.record.attempt, 0);
 
     const dead = apiThat({
       async status() {
@@ -190,7 +190,7 @@ test("⛔ a dead reservation is KEPT and counted up — clearing it would brick 
       assert.match(error.message, /failed/);
       return true;
     });
-    const after = readReservation("k6");
+    const after = await readReservation("k6");
     assert.notEqual(after, null, "the record is what carries the attempt number");
     assert.equal(after?.record.attempt, 1, "the next reservation asks under a different key");
     assert.equal(after?.record.ledgerId, undefined, "the dead reservation is not carried forward");
@@ -211,9 +211,9 @@ test("⛔ the record OUTLIVES the commit — the file list has not been written 
   try {
     const { api } = apiThat();
     const result = await uploadOnePart(inputFor(api, protocolThat(), "k7"));
-    const after = readReservation("k7");
+    const after = await readReservation("k7");
     assert.notEqual(after, null, "clearing here would lose a paid, stored, invisible file");
-    assert.equal(readItemRecord("k7")?.itemId, result.itemId);
+    assert.equal((await readItemRecord("k7"))?.itemId, result.itemId);
 
     // A run that finds a committed record does not touch the server at all.
     const again = apiThat();
@@ -221,8 +221,8 @@ test("⛔ the record OUTLIVES the commit — the file list has not been written 
     assert.equal(second.itemId, result.itemId);
     assert.deepEqual([again.calls.reserve, again.calls.status, again.calls.createItem], [0, 0, 0]);
 
-    clearReservation("k7");
-    assert.equal(readReservation("k7"), null);
+    await clearReservation("k7");
+    assert.equal(await readReservation("k7"), null);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -288,7 +288,7 @@ test("an interrupted run leaves the sealed bytes on disk, and they are the bytes
       },
     });
     await assert.rejects(uploadOnePart(inputFor(failing.api, protocolThat(), "k9")));
-    const stored = readReservation("k9");
+    const stored = await readReservation("k9");
     assert.deepEqual(Array.from(stored?.sealed ?? []), Array.from(SEALED));
     assert.ok(existsSync(join(dir, "uploads", "k9.bin")));
   } finally {

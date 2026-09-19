@@ -19,13 +19,13 @@ export declare const DEFAULT_COLLISION: OnCollision;
  * ⛔ Unreadable counts as `rename`, for the same reason autonomy unreadable counts as off: the
  *    fail-safe direction for "I do not know" is the one that destroys nothing.
  */
-export declare function currentChoice(): OnCollision;
+export declare function currentChoice(): Promise<OnCollision>;
 /** Has anybody answered on this machine? Used to know whether setup still has to ask. */
-export declare function hasChosen(): boolean;
+export declare function hasChosen(): Promise<boolean>;
 /** Write the choice down, with the date and the version that asked. */
-export declare function setChoice(choice: OnCollision, version: string, now: Date): void;
+export declare function setChoice(choice: OnCollision, version: string, now: Date): Promise<void>;
 /** Forget the answer, so setup asks again. */
-export declare function forgetChoice(): void;
+export declare function forgetChoice(): Promise<void>;
 /** What decided, so the tool can say so rather than acting silently. */
 export interface Decision {
     readonly choice: OnCollision;
@@ -54,7 +54,7 @@ export interface Decision {
  */
 export declare function decide(
 /** What this run asked for, if anything. `undefined` means "use what this machine is set to". */
-askedFor?: OnCollision, setting?: OnCollision, mode?: Autonomy): Decision;
+askedFor?: OnCollision, setting?: OnCollision, mode?: Autonomy): Promise<Decision>;
 /** How the two answers are numbered where setup asks. Kept here so the question and the reading agree. */
 export declare const ANSWER_NUMBER: Readonly<Record<OnCollision, string>>;
 /**

@@ -231,10 +231,10 @@ export const signTransfer: SignTransfer = async ({ network, code, wallet, shape 
  *    makes. `signPersonalMessage` and not `sign`: that intent is the domain separator which stops
  *    signed text from ever being read as a transaction this wallet authorised.
  */
-export const signMessage: SignMessage = async ({ code, message }) => {
-  // ⚠ THE FIRST WALLET SIGNS THE NAME — the address that stands in the hall is that wallet's, and
-  //   the account's choice of paying wallet does not reach this command yet.
-  const keypair = await keypairFor(code, BUILT_IN_WALLET_INDEX);
+export const signMessage: SignMessage = async ({ code, wallet, message }) => {
+  // The wallet the caller resolved signs it: the hall entry is that wallet's address, and it is
+  // the wallet a gift left from, so any other one would name an address that gave nothing.
+  const keypair = await keypairFor(code, wallet);
   const { signature } = await keypair.signPersonalMessage(new TextEncoder().encode(message));
   return signature;
 };
@@ -251,12 +251,9 @@ export const signMessage: SignMessage = async ({ code, message }) => {
  *
  * ⚠ A FAILURE HERE IS NOT PROOF THAT NOTHING HAPPENED — the same words as the extension above.
  */
-export const signSwap: SignSwap = async ({ network, code, shape }) => {
+export const signSwap: SignSwap = async ({ network, code, wallet, shape }) => {
   const client = walrusClient(network);
-  // ⚠ SWAPS FROM THE FIRST WALLET — the coins being swapped are that wallet's, and the account's
-  //   choice of paying wallet does not reach this command yet. The day it does, this line and the
-  //   review above it carry the same number.
-  const keypair = await keypairFor(code, BUILT_IN_WALLET_INDEX);
+  const keypair = await keypairFor(code, wallet);
   const tx = swapTransaction({ ...shape, network, sender: keypair.toSuiAddress() });
   const result = await client.signAndExecuteTransaction({
     transaction: tx,
@@ -355,11 +352,11 @@ export const signBlobCertify: SignBlobCertify = async ({ network, code, wallet, 
  *    so what is signed is what was reviewed. A failed execution still has a digest and still
  *    spent its gas, so the status is read and a failure is said as one.
  */
-export const signStorageOp: SignStorageOp = async ({ network, code, shape, walrusPackageId }) => {
+export const signStorageOp: SignStorageOp = async ({ network, code, wallet, shape, walrusPackageId }) => {
   const client = walrusClient(network);
-  // ⚠ RESHAPES THE FIRST WALLET'S STORAGE — that wallet holds the resource; the paying-wallet choice
-  //   does not reach this command yet.
-  const keypair = await keypairFor(code, BUILT_IN_WALLET_INDEX);
+  // The resource the review named was read from this wallet's address, so this wallet is the one
+  // that can reshape or hand it over.
+  const keypair = await keypairFor(code, wallet);
   const tx = storageOpTransaction(shape, { walrusPackageId, sender: keypair.toSuiAddress() });
   const result = await client.signAndExecuteTransaction({ transaction: tx, signer: keypair, options: { showEffects: true } });
   const effects: unknown = result.effects;

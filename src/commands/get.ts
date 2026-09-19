@@ -30,7 +30,7 @@ import { basename, resolve } from "node:path";
 
 import { CODE_ENV_VAR } from "../credentials.ts";
 import { fetchFile } from "../download.ts";
-import { fileSink, stdoutSink } from "../download-sink.ts";
+import { fileSink, stdoutSink } from "../download-sink-node.ts";
 import { buildIndex, entryAt, fullPathOf, KIND_FILE, normalisePath } from "../drive-paths.ts";
 import { NmtsError } from "../errors.ts";
 import { readFileList } from "../manifest.ts";

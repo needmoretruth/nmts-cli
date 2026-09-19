@@ -25,6 +25,7 @@ import { explorerTxUrl } from "../shared/lib/wallet/activity.ts";
 import { isValidSuiAddress } from "../shared/lib/wallet/send-rules.ts";
 import { storageOpsReads, type StorageOpShape, type StorageOpsReads } from "../storage-control-chain.ts";
 import { coinAmount, walletAddress } from "../wallet.ts";
+import { payingWalletIndex } from "../wallet-pay-index.ts";
 import { recordWalletSpend, requireWalletGrant, type WalletAction } from "../wallet-grant.ts";
 import type { SignStorageOp } from "../wallet-sign.ts";
 import { formatBytes } from "./wallet-storage.ts";
@@ -42,8 +43,11 @@ export interface StorageOpsOptions {
   size?: string | undefined;
   /** `split --epochs <n>`: how many epochs, from its start, the named resource keeps. */
   epochs?: string | undefined;
+  /** `--wallet N`: whose resources these are, this run only. Absent = the account's own number. */
+  wallet?: string | undefined;
   now?: number;
-  /** ⚠ A SEAM, NOT AN OPTION — no flag reaches it. */
+  /** ⚠ SEAMS, NOT OPTIONS — no flag reaches them. */
+  readActiveWallet?: () => Promise<number>;
   storageReads?: (network: Network) => StorageOpsReads;
   /** ⛔ SEPARATE FROM THE READS so a test can prove the review stops before this. */
   signStorage?: SignStorageOp;
@@ -59,7 +63,10 @@ const FUSE_WHY = {
 export async function walletStorageOps(op: StorageOp, rest: readonly string[], options: StorageOpsOptions = {}): Promise<number> {
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));
   const resolved = await requireAccountCode();
-  const address = await walletAddress(resolved.code);
+  // ⛔ WHICH WALLET, FIRST — the resources are read from this address, the review names it, and the
+  //    same wallet signs; a resource is reshaped by the wallet that holds it and by no other.
+  const wallet = await payingWalletIndex(options);
+  const address = await walletAddress(resolved.code, wallet);
   const stored = resolved.source === "file" || resolved.source === "file-locked" ? readCredentialsFile() : null;
   const server = resolveServer(options.server ?? stored?.server);
   const network = resolveNetwork(server, options.network ?? stored?.network);
@@ -104,6 +111,7 @@ export async function walletStorageOps(op: StorageOp, rest: readonly string[], o
   // ④ The review.
   if (!options.json) {
     say(`Would ${lines.what}`);
+    say(`  from  ${address} (wallet ${wallet})`);
     for (const l of lines.detail) say(`  ${l}`);
     say(
       feeMist === null
@@ -136,7 +144,7 @@ export async function walletStorageOps(op: StorageOp, rest: readonly string[], o
   const spend = { walFrost: 0n, suiMist: feeMist ?? 0n };
   requireWalletGrant(action, spend, new Date(options.now ?? Date.now()));
   const sign = options.signStorage ?? (await import("../wallet-sign.ts")).signStorageOp;
-  const digest = await sign({ network, code: resolved.code, shape, walrusPackageId });
+  const digest = await sign({ network, code: resolved.code, wallet, shape, walrusPackageId });
   recordWalletSpend(spend);
 
   if (options.json) {

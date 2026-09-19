@@ -4,7 +4,6 @@ export interface ProgressSink {
     /** True for a terminal that can rewrite its last line. */
     interactive: boolean;
 }
-export declare function stderrSink(): ProgressSink;
 /** A reporter that says nothing. What `--json` gets, and what a test gets by default. */
 export declare function silentSink(): ProgressSink;
 /**

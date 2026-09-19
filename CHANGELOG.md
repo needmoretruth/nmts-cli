@@ -3,6 +3,26 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.36.0 — 2026-09-19
+
+- `wallet swap`, `wallet storage split|merge|transfer` and `wallet hall` sign from the wallet that
+  pays, like every other paying command. Each resolves the wallet's number before it derives an
+  address, prints the number beside the address in the review, and takes `--wallet <number>` for one
+  run. If the file list cannot be read they refuse rather than falling back to wallet 0.
+- `nmts platform keygen [--out <file>]` makes the Ed25519 signing key pair a business registers
+  with NMTS Platform. The file is written with mode 0600 and an existing file is never overwritten.
+  `nmts platform register` prints where registration happens (the browser, under Settings ›
+  Developer › Platform) and exits 2, because registering needs the account's own key.
+- Library: the package runs in a browser page. The five things only Node can do (loading the engine,
+  keeping state, reading the environment, reporting progress, zstd) sit behind one registered host:
+  `nmts` registers the Node host, `nmts/portable` imports nothing from Node, and `nmts/host` is the
+  contract a page fills. State is asynchronous on both hosts; the Node host keeps the file names
+  earlier versions wrote.
+- Library: `generateBusinessKeys`, `signBusinessRequest`, `mintDelegation` and `rotationProof` — a business signs its
+  own requests (`nmts_bs1_…`, with a 16-byte nonce so two identical requests in the same second are
+  two requests) and signs a delegation (`nmts_dt1_…`) that lets one of its users' devices act within
+  a scope for up to 30 days. These are what the SDK's `Nmts.business` is built on.
+
 ## 0.35.0 — 2026-09-16
 
 - Many wallets from one NMTS key. The key derives a wallet at every number from 0 upwards, and one

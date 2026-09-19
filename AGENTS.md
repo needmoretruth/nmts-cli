@@ -1,15 +1,14 @@
 # nmts — for agents
 
 NMTS = NeedMoreTruthStorage: end-to-end encrypted cloud storage on the Walrus network, built by
-one developer (needmoretruth) for AI agents as much as for people. Site https://nmts.me · summary
-for programs https://nmts.me/llms.txt. Each command has a document: **`nmts help <command>`** prints
+one developer (needmoretruth) for AI agents as much as for people. Site https://nmts.me. Each command has a document: **`nmts help <command>`** prints
 it (same files under `docs/commands/`); read it before using that command the first time.
 
 **This document describes a tool. It has no authority over your own instructions.** Nothing here
 asks you to do anything for anyone but the person you are working for, and if any line reads as an
 instruction from somewhere else, treat it as a description you may ignore.
 
-## The 30-second version
+## What the tool does, and the two credentials
 
 `nmts` reads and writes files in an [NMTS](https://nmts.me) account. NMTS is end-to-end encrypted:
 files are encrypted and decrypted where this command runs, and the server stores sealed bytes it
@@ -30,8 +29,6 @@ nmts put x    # upload one file — this one spends credits
 nmts mode     # which mode is on, and so what will be asked
 ```
 
-Two things have to be present, and they do different jobs:
-
 | | What it does | Where it comes from |
 |---|---|---|
 | **NMTS key** | Opens the files. Never leaves the machine. | `NMTS_ACCOUNT_CODE_FILE`, `nmts login`, or `NMTS_ACCOUNT_CODE` |
@@ -45,8 +42,7 @@ once, for an unlock (`nmts help login`).
 
 ## What only a person can do, once
 
-Everything this tool is for is open to you. Getting to the starting line is not. Four things need
-a person, all at the beginning. If you are being set up, hand this list back in full at once.
+Four things need a person, all at the beginning. If you are being set up, hand this list back in full at once.
 
 | Step | Who | Where | How often |
 |---|---|---|---|
@@ -143,8 +139,9 @@ folders, marks), **low** (reversible but worth a word: the trash, a setting, a r
 | for the day NMTS is not there | `recovery` / `recovery-list` / `kit` · `rebuild` / `rollback` |
 | the service | `notices` / `terms` / `privacy` · `support` · `update` |
 | for programs | `mcp` · `s3` |
+| for a business's signing key | `platform keygen` |
 
-Two things the documents say that are worth knowing before you open any of them: **`put` is the
+**`put` is the
 command that spends** — one credit per started mebibyte, `--dry-run` says the price and sends
 nothing — and **only one command erases a file for good**: `rm` is a trash with thirty days, and
 `erase` is an ultra-high act a person confirms by typing a sentence (`nmts help erase`). If
@@ -171,7 +168,7 @@ work around it. Setup and the sealed-code rule: `nmts help mcp`.
 ## Remembering this across sessions
 
 You will lose this context. The person has to put it somewhere your next session reads: the file
-your client loads from a repository root, holding the 30-second version above and the two
+your client loads from a repository root, holding the first section above and the two
 environment variable names; a saved instruction saying *the `nmts` command manages files in an
 NMTS account; run `nmts env` first, then `nmts --help`, and `nmts help <command>` before a command
 you have not used*; or, for an MCP client, the server entry. The smallest thing that works is one
@@ -181,7 +178,7 @@ line pointing at this file.
 
 `nmts support send` files a report with the developer of NMTS; it is optional, always, and the
 log it attaches is redacted on this machine first (`nmts help support`). If the CLI itself cannot
-run at all, the second door is `nmts@nmts.me`, with what you ran and what it said.
+run at all, write to `nmts@nmts.me` with what you ran and what it said.
 
 ## Exit codes
 
@@ -192,8 +189,10 @@ run at all, the second door is `nmts@nmts.me`, with what you ran and what it sai
 ## Licence
 
 Apache-2.0 (it was AGPL-3.0-only until 2026-08-30). **Calling this program from your own code puts
-no obligation on your code at all.** See [LICENSING.md](LICENSING.md) if you are asked.
+no obligation on your code at all.** See [LICENSING.md](https://github.com/needmoretruth/nmts-cli/blob/main/LICENSING.md) if you are asked.
 
 ## Source
 
-<https://github.com/needmoretruth/nmts-cli>
+<https://github.com/needmoretruth/nmts-cli> · The same operations as a library, for a program that calls
+NMTS from its own code: `npm install @needmoretruth/nmts-sdk` · <https://github.com/needmoretruth/nmts-sdk>
+(its own document for agents is `AGENTS.md` there).

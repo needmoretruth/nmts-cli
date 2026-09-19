@@ -20,6 +20,8 @@
 //   text a person reads before sending asks them to keep personal details out: the machine covers
 //   what a machine can recognise, and the sentence covers the rest.
 
+import { host } from "./host.ts";
+
 /**
  * One thing that is taken out, and how it is recognised.
  *
@@ -197,9 +199,9 @@ function escapeForRegExp(value: string): string {
  */
 export function environmentRules(): RedactionRule[] {
   const found: { name: string; value: string }[] = [];
-  for (const [name, value] of Object.entries(process.env)) {
+  for (const { name, value } of host().envEntries()) {
     if (!name.startsWith("NMTS_")) continue;
-    if (value === undefined || value.length < SHORTEST_ENV_VALUE) continue;
+    if (value.length < SHORTEST_ENV_VALUE) continue;
     found.push({ name, value });
   }
   found.sort((a, b) => b.value.length - a.value.length);

@@ -40,6 +40,7 @@ import {
   type SwapVenue,
 } from "../shared/lib/wallet/swap-rules.ts";
 import { coinAmount, walletAddress } from "../wallet.ts";
+import { payingWalletIndex } from "../wallet-pay-index.ts";
 import { recordWalletSpend, requireWalletGrant } from "../wallet-grant.ts";
 import { railsFor, type BluefinBinding, type SwapReads, type SwapShape } from "../wallet-swap-chain.ts";
 import type { VenueQuote } from "../wallet-swap-quote.ts";
@@ -67,8 +68,11 @@ export interface WalletSwapOptions {
   slippageBps?: string | undefined;
   /** `--accept-extremes`: go on past the extremes gate. A person's act — refused outside mode off. */
   acceptExtremes?: boolean;
+  /** `--wallet N`: which wallet swaps, this run only. Absent = the account's own number. */
+  wallet?: string | undefined;
   now?: number;
   /** ⚠ SEAMS, NOT OPTIONS — no flag reaches them. */
+  readActiveWallet?: () => Promise<number>;
   readChain?: (network: Network) => SwapReads | Promise<SwapReads>;
   readPrices?: (server: string) => Promise<MarketPrices | null>;
   sign?: SignSwap;
@@ -125,7 +129,10 @@ export async function walletSwap(operands: readonly string[], options: WalletSwa
   }
 
   const resolved = await requireAccountCode();
-  const address = await walletAddress(resolved.code);
+  // ⛔ WHICH WALLET SWAPS, FIRST — the coins that are read, the quote that is priced, the address
+  //    the review names and the key that signs are all this one wallet's.
+  const wallet = await payingWalletIndex(options);
+  const address = await walletAddress(resolved.code, wallet);
   const stored = resolved.source === "file" || resolved.source === "file-locked" ? readCredentialsFile() : null;
   const server = resolveServer(options.server ?? stored?.server);
   const network = resolveNetwork(server, options.network ?? stored?.network);
@@ -268,7 +275,7 @@ export async function walletSwap(operands: readonly string[], options: WalletSwa
   // ⑥ The review, every time.
   if (!options.json) {
     say(`Swapping ${facts.amountIn} ${coinIn} for ${coinOut} on ${venueName(venue)}`);
-    say(`  from      ${address}`);
+    say(`  from      ${address} (wallet ${wallet})`);
     say(`  Quoted    ${facts.quotedOut} ${coinOut} — the chain's answer just now, not a promise${quote.leftoverInUnits > 0n ? `; ${coinAmount(quote.leftoverInUnits)} ${coinIn} would come back unused` : ""}`);
     if (venue === "exchange") say(`  Rate      ${exchange?.rateWal} WAL per ${exchange?.rateSui} SUI, read off the facility; it takes no minimum`);
     else say(`  At least  ${facts.minOut} ${coinOut}, or the swap fails on chain — slippage ${slippageBps} bps (${pct(slippageBps)})`);
@@ -298,7 +305,7 @@ export async function walletSwap(operands: readonly string[], options: WalletSwa
         nextStep: `Choose again (--slippage-bps 50, a different --fee-cap, the other venue, or later), or — as a person — add --accept-extremes to go on anyway.`,
       });
     }
-    const mode = currentMode();
+    const mode = await currentMode();
     if (mode === "auto-low" || mode === "auto-high") {
       throw new NmtsError("Going past the extremes gate is a person's act.", { exitCode: 5, nextStep: `Nothing was signed. --accept-extremes is refused in mode auto and with --skip-permissions.` });
     }
@@ -330,7 +337,7 @@ export async function walletSwap(operands: readonly string[], options: WalletSwa
 
   // ⑩ The signature.
   const sign = options.sign ?? (await import("../wallet-sign.ts")).signSwap;
-  const digest = await sign({ network, code: resolved.code, shape });
+  const digest = await sign({ network, code: resolved.code, wallet, shape });
   recordWalletSpend(spend);
 
   if (options.json) {

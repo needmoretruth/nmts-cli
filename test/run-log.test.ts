@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { modesAreEnforced, testConfigDir } from "../src/credentials.ts";
+import { statePath } from "../src/host-node.ts";
 import {
   forgetRun,
   MAX_LOG_BYTES,
@@ -23,9 +24,12 @@ import {
   noteRequest,
   readRuns,
   recordRun,
-  runLogPath,
+  RUN_LOG_KEY,
   safeArgs,
 } from "../src/run-log.ts";
+
+/** Where the record lands on this machine — the one place a test needs the file itself. */
+const runLogPath = (): string => statePath(RUN_LOG_KEY);
 
 /** A config directory of this test's own, put back afterwards. */
 async function inSandbox(name: string, body: (dir: string) => Promise<void> | void): Promise<void> {
@@ -49,13 +53,13 @@ async function inSandbox(name: string, body: (dir: string) => Promise<void> | vo
 }
 
 test("one run is one line: the command, its arguments, what came back and what failed", async () => {
-  await inSandbox("one", () => {
+  await inSandbox("one", async () => {
     noteRequest("GET", "/v1/manifest", 200);
     noteRequest("GET", "/v1/items/abc", 404, "no such item");
     noteFailure("There is no photos/a.jpg in this account.");
-    recordRun(["get", "photos/a.jpg", "--out", "-"], 4, 312, new Date("2026-09-04T10:00:00Z"));
+    await recordRun(["get", "photos/a.jpg", "--out", "-"], 4, 312, new Date("2026-09-04T10:00:00Z"));
 
-    const runs = readRuns(10);
+    const runs = await readRuns(10);
     assert.equal(runs.length, 1);
     const run = runs[0];
     assert.ok(run !== undefined);
@@ -73,15 +77,15 @@ test("one run is one line: the command, its arguments, what came back and what f
 });
 
 test("⛔ what is written is redacted, in the arguments and in what the server said", async () => {
-  await inSandbox("redacted", () => {
+  await inSandbox("redacted", async () => {
     const key = `nmts_ak1_Abcdefghijkl_${"x".repeat(43)}`;
     noteRequest("POST", `/v1/x?token=${key}`, 401, `the key ${key} was revoked`);
-    recordRun(["login", "--message", "my private note", `--server=https://nmts.me`], 0, 5);
+    await recordRun(["login", "--message", "my private note", `--server=https://nmts.me`], 0, 5);
 
     const line = readFileSync(runLogPath(), "utf8");
     assert.ok(!line.includes(key), "the key reached the disk");
     assert.ok(!line.includes("my private note"), "a message value reached the disk");
-    const run = readRuns(1)[0];
+    const run = (await readRuns(1))[0];
     assert.ok(run !== undefined);
     assert.deepEqual(run.args, ["--message", "[message]", "--server=https://nmts.me"]);
   });
@@ -98,12 +102,12 @@ test("the value of an option that must not be written goes in both spellings", (
 });
 
 test("⛔ the no-run-log switch, when set, writes nothing at all", async () => {
-  await inSandbox("off", () => {
+  await inSandbox("off", async () => {
     process.env["NMTS_NO_RUN_LOG"] = "1";
     noteRequest("GET", "/v1/manifest", 200);
-    recordRun(["ls"], 0, 1);
+    await recordRun(["ls"], 0, 1);
     assert.equal(existsSync(runLogPath()), false, "a file was written with the log turned off");
-    assert.deepEqual(readRuns(5), []);
+    assert.deepEqual(await readRuns(5), []);
   });
 });
 
@@ -119,8 +123,8 @@ test("⛔ a log that cannot be written does not fail the command", async () => {
     noteFailure("something went wrong");
     // The whole assertion: this returns. The entry point calls it after the command has already
     // produced its exit code, so a throw here would turn a finished run into a failed one.
-    recordRun(["ls"], 0, 1);
-    assert.deepEqual(readRuns(5), []);
+    await recordRun(["ls"], 0, 1);
+    assert.deepEqual(await readRuns(5), []);
   } finally {
     rmSync(testConfigDir("runlog-blocked"), { recursive: true, force: true });
     if (before === undefined) delete process.env["NMTS_CONFIG_DIR"];
@@ -129,10 +133,10 @@ test("⛔ a log that cannot be written does not fail the command", async () => {
 });
 
 test("⛔ the file is capped, the oldest whole lines go, and no half line is left", async () => {
-  await inSandbox("rotation", () => {
+  await inSandbox("rotation", async () => {
     // Each run carries about four kibibytes, so a hundred of them is well past the cap.
     const bulky = "x".repeat(4000);
-    for (let i = 0; i < 100; i += 1) recordRun(["ls", `${i}`, bulky], 0, 1);
+    for (let i = 0; i < 100; i += 1) await recordRun(["ls", `${i}`, bulky], 0, 1);
 
     const size = statSync(runLogPath()).size;
     assert.ok(size <= MAX_LOG_BYTES, `the log grew to ${size} bytes, past ${MAX_LOG_BYTES}`);
@@ -142,7 +146,7 @@ test("⛔ the file is capped, the oldest whole lines go, and no half line is lef
       // Every surviving line is a whole JSON object. A byte-offset cut would fail here.
       JSON.parse(line);
     }
-    const runs = readRuns(1000);
+    const runs = await readRuns(1000);
     assert.ok(runs.length > 1, "the trim left one line — it is dropping too much");
     assert.ok(runs.length < 100, "nothing was dropped — the cap did not act");
     // The NEWEST run survives: that is the one a report is about.
@@ -151,10 +155,10 @@ test("⛔ the file is capped, the oldest whole lines go, and no half line is lef
 });
 
 test("readRuns hands back the newest, oldest first", async () => {
-  await inSandbox("newest", () => {
-    for (const n of ["a", "b", "c", "d"]) recordRun(["ls", n], 0, 1);
+  await inSandbox("newest", async () => {
+    for (const n of ["a", "b", "c", "d"]) await recordRun(["ls", n], 0, 1);
     assert.deepEqual(
-      readRuns(2).map((r) => r.args[0]),
+      (await readRuns(2)).map((r) => r.args[0]),
       ["c", "d"],
     );
   });
@@ -162,17 +166,17 @@ test("readRuns hands back the newest, oldest first", async () => {
 
 test("the file is created 0600 where the platform honours it", async (t) => {
   if (!modesAreEnforced()) return t.skip("this platform applies no POSIX mode");
-  await inSandbox("mode", () => {
-    recordRun(["ls"], 0, 1);
+  await inSandbox("mode", async () => {
+    await recordRun(["ls"], 0, 1);
     assert.equal(statSync(runLogPath()).mode & 0o777, 0o600);
   });
 });
 
 test("a line this version cannot read is dropped, not half-read", async () => {
-  await inSandbox("garbage", () => {
-    recordRun(["ls", "good"], 0, 1);
+  await inSandbox("garbage", async () => {
+    await recordRun(["ls", "good"], 0, 1);
     writeFileSync(runLogPath(), `${readFileSync(runLogPath(), "utf8")}not json at all\n{"t":1}\n`);
-    const runs = readRuns(10);
+    const runs = await readRuns(10);
     assert.equal(runs.length, 1);
     assert.deepEqual(runs[0]?.args, ["good"]);
   });

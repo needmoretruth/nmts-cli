@@ -30,10 +30,11 @@
 // ⚠ AND WHAT NO COMMAND-LINE TOOL CAN DO: tell whether a person or a program typed this. The
 //   protection here is that the choice is explicit, written down, dated, and announced on every
 //   run that uses it -- not that it cannot be automated.
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
-import { join } from "node:path";
+import { fromUtf8, utf8 } from "./bytes.ts";
+import { host } from "./host.ts";
 
-import { configDir, modesAreEnforced } from "./credentials.ts";
+/** The one key this mode lives under. On this machine that is `autonomy.json`. */
+const KEY = "autonomy";
 
 /** What an agent may decide without asking. */
 export type Autonomy = "default" | "auto-low" | "auto-high" | "skip-permissions";
@@ -120,10 +121,6 @@ interface Stored {
   byVersion: string;
 }
 
-function path(): string {
-  return join(configDir(), "autonomy.json");
-}
-
 /**
  * Read a stored name, including the two this tool wrote before 2026-09-06: `off` is `default`
  * and `auto` is `auto-low`. Anything else counts as `default`.
@@ -143,9 +140,14 @@ export function modeFromStored(value: unknown): Autonomy {
  *    somebody is still asked -- a file that switches autonomy on when it cannot be parsed is worse
  *    than no file at all.
  */
-export function currentMode(): Autonomy {
+async function stored(): Promise<unknown> {
+  const held = await host().state.read(KEY);
+  return held === undefined ? null : JSON.parse(fromUtf8(held));
+}
+
+export async function currentMode(): Promise<Autonomy> {
   try {
-    const parsed: unknown = JSON.parse(readFileSync(path(), "utf8"));
+    const parsed = await stored();
     if (typeof parsed !== "object" || parsed === null) return "default";
     return modeFromStored(Reflect.get(parsed, "mode"));
   } catch {
@@ -154,9 +156,9 @@ export function currentMode(): Autonomy {
 }
 
 /** When it was set, or null when it is default or unreadable. */
-export function setAt(): string | null {
+export async function setAt(): Promise<string | null> {
   try {
-    const parsed: unknown = JSON.parse(readFileSync(path(), "utf8"));
+    const parsed = await stored();
     if (typeof parsed !== "object" || parsed === null) return null;
     const at: unknown = Reflect.get(parsed, "setAt");
     return typeof at === "string" ? at : null;
@@ -166,15 +168,13 @@ export function setAt(): string | null {
 }
 
 /** Write the choice down, with the date and the version that was asked. */
-export function setMode(mode: Autonomy, version: string, now: Date): void {
+export async function setMode(mode: Autonomy, version: string, now: Date): Promise<void> {
   if (mode === "default") {
-    if (existsSync(path())) rmSync(path(), { force: true });
+    await host().state.remove(KEY);
     return;
   }
   const body: Stored = { mode, setAt: now.toISOString(), byVersion: version };
-  mkdirSync(configDir(), { recursive: true, mode: 0o700 });
-  writeFileSync(path(), `${JSON.stringify(body, null, 2)}\n`, { mode: 0o600 });
-  if (modesAreEnforced()) chmodSync(path(), 0o600);
+  await host().state.write(KEY, utf8(`${JSON.stringify(body, null, 2)}\n`));
 }
 
 /**

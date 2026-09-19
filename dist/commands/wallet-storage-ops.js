@@ -23,6 +23,7 @@ import { explorerTxUrl } from "../shared/lib/wallet/activity.js";
 import { isValidSuiAddress } from "../shared/lib/wallet/send-rules.js";
 import { storageOpsReads } from "../storage-control-chain.js";
 import { coinAmount, walletAddress } from "../wallet.js";
+import { payingWalletIndex } from "../wallet-pay-index.js";
 import { recordWalletSpend, requireWalletGrant } from "../wallet-grant.js";
 import { formatBytes } from "./wallet-storage.js";
 const FUSE_WHY = {
@@ -34,7 +35,10 @@ const FUSE_WHY = {
 export async function walletStorageOps(op, rest, options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const resolved = await requireAccountCode();
-    const address = await walletAddress(resolved.code);
+    // ⛔ WHICH WALLET, FIRST — the resources are read from this address, the review names it, and the
+    //    same wallet signs; a resource is reshaped by the wallet that holds it and by no other.
+    const wallet = await payingWalletIndex(options);
+    const address = await walletAddress(resolved.code, wallet);
     const stored = resolved.source === "file" || resolved.source === "file-locked" ? readCredentialsFile() : null;
     const server = resolveServer(options.server ?? stored?.server);
     const network = resolveNetwork(server, options.network ?? stored?.network);
@@ -76,6 +80,7 @@ export async function walletStorageOps(op, rest, options = {}) {
     // ④ The review.
     if (!options.json) {
         say(`Would ${lines.what}`);
+        say(`  from  ${address} (wallet ${wallet})`);
         for (const l of lines.detail)
             say(`  ${l}`);
         say(feeMist === null
@@ -106,7 +111,7 @@ export async function walletStorageOps(op, rest, options = {}) {
     const spend = { walFrost: 0n, suiMist: feeMist ?? 0n };
     requireWalletGrant(action, spend, new Date(options.now ?? Date.now()));
     const sign = options.signStorage ?? (await import("../wallet-sign.js")).signStorageOp;
-    const digest = await sign({ network, code: resolved.code, shape, walrusPackageId });
+    const digest = await sign({ network, code: resolved.code, wallet, shape, walrusPackageId });
     recordWalletSpend(spend);
     if (options.json) {
         say(JSON.stringify({ ...facts, signed: true, digest, explorerUrl: explorerTxUrl(digest, network) }));

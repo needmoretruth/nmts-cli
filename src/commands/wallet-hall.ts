@@ -6,9 +6,12 @@
 //    taken off is the NAME, which puts the entry back to a shortened address.
 //
 // ⛔ A NAME IS PUBLISHED, AND THAT IS WHY IT IS SIGNED. The proof that an address is yours is a
-//    signature by that address, so `--name` signs a short message with the wallet this NMTS
-//    key derives (`wallet-sign.ts`) and sends the signature. No session, no API key, no account
-//    id goes with it — the server is told an address, a name and a signature, and nothing else.
+//    signature by that address, so `--name` signs a short message with the wallet this account
+//    pays from (`wallet-pay-index.ts`, `wallet-sign.ts`) and sends the signature. That is the
+//    wallet a gift left from, so it is the address the hall holds an entry for. Reading WHICH
+//    wallet that is opens this account's own file list, so `--name` needs an API key where
+//    reading the hall needs none; what is SENT is unchanged — no session, no API key, no account
+//    id, just an address, a name and a signature.
 //
 // ⛔ THE MESSAGE IS BUILT IN ONE PLACE, `hallMessage` BELOW, because the server rebuilds the same
 //    bytes from the fields it was sent and compares. A space added on either side makes every
@@ -22,6 +25,7 @@ import { isRecord } from "../guards.ts";
 import { BINARY_NAME, HOME_URL } from "../product.ts";
 import { resolveServer } from "../server.ts";
 import { coinAmount, walletAddress } from "../wallet.ts";
+import { payingWalletIndex } from "../wallet-pay-index.ts";
 import type { SignMessage } from "../wallet-sign.ts";
 
 /** How many rows a terminal gets. The page at the site carries the rest. */
@@ -34,7 +38,10 @@ export interface WalletHallOptions {
   /** `--name`: be listed under this. `--remove`: go back to a shortened address. */
   name?: string | undefined;
   remove?: boolean;
-  /** ⚠ A SEAM, NOT AN OPTION — no flag reaches it. It exists so a test never signs for real. */
+  /** `--wallet N`: which wallet signs the name, this run only. Absent = the account's own number. */
+  wallet?: string | undefined;
+  /** ⚠ SEAMS, NOT OPTIONS — no flag reaches them. They exist so a test never signs for real. */
+  readActiveWallet?: () => Promise<number>;
   sign?: SignMessage;
 }
 
@@ -125,7 +132,7 @@ const REFUSALS: Readonly<Record<string, { line: string; exitCode: number; nextSt
   signature_invalid: {
     line: "The server did not accept the signature.",
     exitCode: 1,
-    nextStep: `Nothing was published. \`${BINARY_NAME} wallet address\` shows the wallet this run signs as.`,
+    nextStep: `Nothing was published. \`${BINARY_NAME} wallet list\` shows this key's wallets and which one this run signs as.`,
   },
 };
 
@@ -210,14 +217,17 @@ async function readHall(server: string): Promise<{ mounted: boolean; body: unkno
 /** `--name` and `--remove`: sign the message, send it, and say what the hall shows now. */
 async function setName(server: string, say: (line: string) => void, options: WalletHallOptions): Promise<number> {
   const resolved = await requireAccountCode();
-  // ⛔ The address is derived here rather than taken from a flag: a signature only proves ownership
-  //    of the address it was made by, so the two must come from the same NMTS key.
-  const address = await walletAddress(resolved.code);
+  // ⛔ WHICH WALLET, BEFORE THE ADDRESS — the entry belongs to the wallet the gift came from, which
+  //    is the account's own number, and the address is then derived here rather than taken from a
+  //    flag: a signature only proves ownership of the address it was made by, so the address, the
+  //    message and the key that signs it have to be the same wallet.
+  const wallet = await payingWalletIndex({ ...options, server });
+  const address = await walletAddress(resolved.code, wallet);
   const name = options.remove === true ? null : (options.name ?? null);
   const issuedAt = new Date(Date.now()).toISOString();
   const message = hallMessage(address, name, issuedAt);
   const sign = options.sign ?? (await import("../wallet-sign.ts")).signMessage;
-  const signature = await sign({ code: resolved.code, message });
+  const signature = await sign({ code: resolved.code, wallet, message });
 
   let answer: unknown;
   try {
@@ -237,6 +247,7 @@ async function setName(server: string, say: (line: string) => void, options: Wal
   }
   const label = isRecord(answer) ? text(answer["label"]) : "";
   say(`Listed as ${label}`);
+  say(`  from  ${address} (wallet ${wallet})`);
   say(``);
   say(`  The hall of fame is at ${HOME_URL}/hall. Run \`${BINARY_NAME} wallet hall --remove\` to go`);
   say(`  back to a shortened address; the gifts themselves stay on the chain either way.`);

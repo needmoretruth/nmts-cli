@@ -1,3 +1,5 @@
+/** The one key the record lives under. On this machine that is `runs.jsonl` in the config directory. */
+export declare const RUN_LOG_KEY = "runlog";
 /** One request this run made, and what came back. */
 export interface HttpEvent {
     readonly kind: "http";
@@ -37,8 +39,6 @@ export declare const NO_RUN_LOG_ENV_VAR = "NMTS_NO_RUN_LOG";
 export declare const MAX_LOG_BYTES: number;
 /** The most runs `--attach-log` will take. */
 export declare const MAX_ATTACHED_RUNS = 20;
-/** Where the log lives. Inside the tool's own directory, which is already 0700. */
-export declare function runLogPath(): string;
 /** Has the person turned it off? */
 export declare function runLogIsOff(): boolean;
 /**
@@ -73,6 +73,6 @@ export declare function safeArgs(argv: readonly string[]): string[];
  * Returns nothing and throws nothing: see the header. A run that could not be written is a run
  * that is missing from a report, which is a smaller problem than a command that failed for it.
  */
-export declare function recordRun(argv: readonly string[], exit: number, ms: number, now?: Date): void;
+export declare function recordRun(argv: readonly string[], exit: number, ms: number, now?: Date): Promise<void>;
 /** The newest `count` runs, oldest first. An unreadable or missing file is no runs. */
-export declare function readRuns(count: number): RunRecord[];
+export declare function readRuns(count: number): Promise<RunRecord[]>;

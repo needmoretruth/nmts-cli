@@ -15,8 +15,8 @@
 //    the reservation key, and the SHA-256 the account will check the contents against — because
 //    both are needed BEFORE the first part is sealed. The second pass is the sealing itself. The
 //    alternative is holding the file, which is the thing this module exists to avoid.
-import { createHash } from "node:crypto";
-import { open } from "node:fs/promises";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { fromBase64Url } from "./bytes.js";
 import { AAD } from "./crypto.js";
 import { NmtsError } from "./errors.js";
 import { fileSecrets, sealPart } from "./seal.js";
@@ -27,37 +27,7 @@ import { buyAndPushPart, entryOf } from "./upload.js";
 import { commitItem } from "./upload-steps.js";
 import { finishReservationKey, partKey, readItemRecord, readReservationBytes, readReservationRecord, startReservationKey, } from "./upload-store.js";
 /** How much plaintext is handed to the engine at a time. Matches the format's own chunk size. */
-const READ_CHUNK_BYTES = 4 * 2 ** 20;
-/** Read a file off the disk, a chunk at a time. */
-export function fileSource(path, size) {
-    return {
-        size,
-        async *read(offset, length) {
-            const handle = await open(path, "r");
-            try {
-                const buffer = Buffer.allocUnsafe(Math.min(READ_CHUNK_BYTES, length));
-                let at = 0;
-                while (at < length) {
-                    const want = Math.min(buffer.length, length - at);
-                    const { bytesRead } = await handle.read(buffer, 0, want, offset + at);
-                    if (bytesRead === 0) {
-                        // ⛔ SHORT IS NOT DONE. The plan was made from the size this file had when it was
-                        //    measured; a read that ends early means it shrank underneath us, and sealing what
-                        //    arrived would declare a length the bytes do not match.
-                        throw new NmtsError(`${path} ended after ${at} of ${length} bytes.`, {
-                            nextStep: "Nothing was sent. The file changed while it was being read.",
-                        });
-                    }
-                    at += bytesRead;
-                    yield new Uint8Array(buffer.subarray(0, bytesRead));
-                }
-            }
-            finally {
-                await handle.close();
-            }
-        },
-    };
-}
+export const READ_CHUNK_BYTES = 4 * 2 ** 20;
 /**
  * Upload one file and return what the caller must write into the account's file list.
  *
@@ -83,15 +53,15 @@ export async function uploadFile(input) {
     //    `POST /v1/items` exists and is paid for; all that can still be missing is the account's own
     //    list. Asking the server about every part again would be a round trip per part to learn
     //    something the record already says.
-    const committed = readItemRecord(fileKey);
+    const committed = await readItemRecord(fileKey);
     if (committed?.itemId !== undefined) {
-        const entry = recordedEntry(fileKey, plan.length, source.size);
+        const entry = await recordedEntry(fileKey, plan.length, source.size);
         if (entry !== null) {
             return { itemId: committed.itemId, resumed: true, ledgerIds: [], fileKey, parts: plan.length, entry };
         }
     }
     // ── the file's secrets: from the record if one exists, otherwise made now ──
-    const secrets = openSecrets(input, fileKey, plan.length, contentDigest);
+    const secrets = await openSecrets(input, fileKey, plan.length, contentDigest);
     try {
         const entry = {
             name: input.name,
@@ -103,7 +73,7 @@ export async function uploadFile(input) {
         const paid = [];
         for (const range of plan) {
             const key = partKey(fileKey, range.partIndex);
-            const stored = readReservationRecord(key);
+            const stored = await readReservationRecord(key);
             // ⛔ A PART THAT IS WRITTEN DOWN IS NEVER SEALED AGAIN. Its bytes are a particular sealing
             //    the treasury may already have paid to register; a fresh one is a different blob.
             // ⛔ THE LAST PART ONLY. Every reader recovers the parts' real lengths from the file's size
@@ -119,7 +89,7 @@ export async function uploadFile(input) {
                 : range.length;
             const sealed = stored === null
                 ? await sealPartOf(input, secrets.dek, range, plan.length, sealFrom)
-                : readReservationBytes(key);
+                : await readReservationBytes(key);
             paid.push(await (input.buy ?? buyAndPushPart)({
                 api: input.api,
                 protocol: input.protocol,
@@ -162,12 +132,12 @@ export function partKeysOf(fileKey, parts) {
 }
 /** Read the whole file once, feeding the key hash and returning the content digest. */
 async function hashWhole(source, keyHash) {
-    const content = createHash("sha256");
+    const content = sha256.create();
     for await (const chunk of source.read(0, source.size)) {
         keyHash.update(chunk);
         content.update(chunk);
     }
-    return new Uint8Array(content.digest());
+    return content.digest();
 }
 /**
  * The file's key and sealed content hash — from a written-down part if there is one.
@@ -176,12 +146,12 @@ async function hashWhole(source, keyHash) {
  *    the bytes already on the network cannot be re-sealed. Unwrapping the recorded one is what
  *    makes the parts still to come belong to the same file.
  */
-function openSecrets(input, fileKey, parts, contentDigest) {
+async function openSecrets(input, fileKey, parts, contentDigest) {
     for (const key of partKeysOf(fileKey, parts)) {
-        const record = readReservationRecord(key);
+        const record = await readReservationRecord(key);
         if (record === null)
             continue;
-        const wrapped = new Uint8Array(Buffer.from(record.dekWrapped, "base64url"));
+        const wrapped = fromBase64Url(record.dekWrapped);
         const dek = input.crypt.envelope_open(input.dataKey, new TextEncoder().encode(AAD.dekWrap), wrapped);
         return { dek, dekWrapped: record.dekWrapped, contentHashCt: record.contentHashCt };
     }
@@ -226,9 +196,9 @@ export { entryOf };
  *    sealed with. A run that wrote its own freshly generated one into the list would produce a
  *    file that is paid for, present, correctly named and impossible to open.
  */
-function recordedEntry(fileKey, parts, size) {
+async function recordedEntry(fileKey, parts, size) {
     for (const key of partKeysOf(fileKey, parts)) {
-        const record = readReservationRecord(key);
+        const record = await readReservationRecord(key);
         if (record === null)
             continue;
         return {

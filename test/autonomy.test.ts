@@ -39,9 +39,9 @@ async function inFreshDir<T>(run: () => Promise<T> | T): Promise<T> {
 const answering = (answer: string) => async (_q: string) => answer;
 
 test("nothing is on until somebody turns it on", async () => {
-  await inFreshDir(() => {
-    assert.equal(currentMode(), "default");
-    assert.equal(setAt(), null);
+  await inFreshDir(async () => {
+    assert.equal(await currentMode(), "default");
+    assert.equal(await setAt(), null);
     assert.equal(announcement("default"), null, "default must not print a banner every run");
   });
 });
@@ -59,29 +59,29 @@ test("⛔ turning a mode on needs a terminal; turning it off never does", async 
         return true;
       },
     );
-    assert.equal(currentMode(), "default", "it turned on without a terminal");
+    assert.equal(await currentMode(), "default", "it turned on without a terminal");
 
     // With a person answering, the explanation is printed first and y turns it on.
     assert.equal(await mode("auto-low", undefined, { write: (l) => said.push(l), readLine: answering("y") }), 0);
-    assert.equal(currentMode(), "auto-low");
+    assert.equal(await currentMode(), "auto-low");
     assert.ok(said.some((l) => l.startsWith("auto-low — ")), "the explanation was not printed before the question");
 
     // Anything but y leaves it as it was.
     assert.equal(await mode("auto-high", undefined, { write: () => {}, readLine: answering("") }), 1);
-    assert.equal(currentMode(), "auto-low");
+    assert.equal(await currentMode(), "auto-low");
 
     // Off is the safe direction: one line, no terminal.
     assert.equal(await mode("default", undefined, { write: (l) => said.push(l) }), 0);
-    assert.equal(currentMode(), "default");
+    assert.equal(await currentMode(), "default");
   });
 });
 
 test("⛔ skip-permissions takes the typed sentence, not a y", async () => {
   await inFreshDir(async () => {
     assert.equal(await mode("skip-permissions", undefined, { write: () => {}, readLine: answering("y") }), 1);
-    assert.equal(currentMode(), "default", "a bare y turned skip-permissions on");
+    assert.equal(await currentMode(), "default", "a bare y turned skip-permissions on");
     assert.equal(await mode("skip-permissions", undefined, { write: () => {}, readLine: answering(SKIP_SENTENCE) }), 0);
-    assert.equal(currentMode(), "skip-permissions");
+    assert.equal(await currentMode(), "skip-permissions");
   });
 });
 
@@ -92,9 +92,9 @@ test("the two older spellings are still read, and still accepted at the command"
     const dir = process.env["NMTS_CONFIG_DIR"];
     assert.ok(dir);
     writeFileSync(join(dir, "autonomy.json"), JSON.stringify({ mode: "auto", setAt: "2026-09-01T00:00:00Z" }));
-    assert.equal(currentMode(), "auto-low");
+    assert.equal(await currentMode(), "auto-low");
     assert.equal(await mode("off", undefined, { write: () => {} }), 0);
-    assert.equal(currentMode(), "default");
+    assert.equal(await currentMode(), "default");
   });
 });
 
@@ -105,7 +105,7 @@ test("`mode explain` prints the whole explanation and changes nothing", async ()
     assert.deepEqual(said, explain("skip-permissions"));
     assert.match(said.join("\n"), /--reason/);
     assert.match(said.join("\n"), /nmts mode default/);
-    assert.equal(currentMode(), "default");
+    assert.equal(await currentMode(), "default");
     for (const m of AUTONOMY_MODES) assert.ok(explain(m).length >= 5, `${m} is explained in fewer than five lines`);
   });
 });
@@ -121,10 +121,10 @@ test("⛔ every run says so while it is on, and names the way out", () => {
 });
 
 test("what is written down is dated, and readable only by its owner", async () => {
-  await inFreshDir(() => {
-    setMode("skip-permissions", "9.9.9", new Date("2026-08-28T05:00:00Z"));
-    assert.equal(currentMode(), "skip-permissions");
-    assert.equal(setAt(), "2026-08-28T05:00:00.000Z");
+  await inFreshDir(async () => {
+    await setMode("skip-permissions", "9.9.9", new Date("2026-08-28T05:00:00Z"));
+    assert.equal(await currentMode(), "skip-permissions");
+    assert.equal(await setAt(), "2026-08-28T05:00:00.000Z");
     const dir = process.env["NMTS_CONFIG_DIR"];
     assert.ok(dir);
     assertModeWhereEnforced(join(dir, "autonomy.json"), 0o600, "autonomy.json");
@@ -133,12 +133,12 @@ test("what is written down is dated, and readable only by its owner", async () =
 });
 
 test("⛔ a file it cannot understand counts as DEFAULT — it never fails open", async () => {
-  await inFreshDir(() => {
+  await inFreshDir(async () => {
     const dir = process.env["NMTS_CONFIG_DIR"];
     assert.ok(dir);
     for (const junk of ["", "not json", "[]", '{"mode":"whatever"}', '{"mode":123}', "null"]) {
       writeFileSync(join(dir, "autonomy.json"), junk);
-      assert.equal(currentMode(), "default", junk);
+      assert.equal(await currentMode(), "default", junk);
     }
   });
 });
@@ -146,6 +146,6 @@ test("⛔ a file it cannot understand counts as DEFAULT — it never fails open"
 test("a name that is not a mode is a command-line error, not a silent no-op", async () => {
   await inFreshDir(async () => {
     await assert.rejects(() => mode("yolo", undefined, { readLine: answering("y") }), /no mode called "yolo"/);
-    assert.equal(currentMode(), "default");
+    assert.equal(await currentMode(), "default");
   });
 });

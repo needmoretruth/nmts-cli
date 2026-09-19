@@ -18,7 +18,8 @@ import { configDir } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
 import { VERSION } from "../src/product.ts";
 import { support } from "../src/commands/support.ts";
-import { runLogPath } from "../src/run-log.ts";
+import { statePath } from "../src/host-node.ts";
+import { RUN_LOG_KEY } from "../src/run-log.ts";
 import { SUPPORT_SHORT } from "../src/support-copy.ts";
 import { collect, startFakeDrive, withSandbox } from "./fake-drive.ts";
 import { startFakeSupport } from "./fake-support.ts";
@@ -124,7 +125,7 @@ test("a yes at the question sends it", async () => {
 
 test("⛔ with the tier gate's --yes it proceeds after printing what it sends, without asking", async () => {
   await inSandbox("support-auto", async () => {
-    setMode("auto-low", VERSION, new Date());
+    await setMode("auto-low", VERSION, new Date());
     try {
       const out = collect();
       assert.equal(
@@ -141,7 +142,7 @@ test("⛔ with the tier gate's --yes it proceeds after printing what it sends, w
       assert.deepEqual(out.lines.slice(0, 2), [...SUPPORT_SHORT]);
       assert.equal(desk.posted.length, 1);
     } finally {
-      setMode("default", VERSION, new Date());
+      await setMode("default", VERSION, new Date());
     }
   });
 });
@@ -394,5 +395,5 @@ function run(cmd: string, args: string[], exit: number, events: PlantedEvent[]):
 /** Write the log by hand, in the clear. See the header for why it is not written through the tool. */
 function plant(runs: unknown[]): void {
   mkdirSync(configDir(), { recursive: true });
-  writeFileSync(runLogPath(), `${runs.map((r) => JSON.stringify(r)).join("\n")}\n`);
+  writeFileSync(statePath(RUN_LOG_KEY), `${runs.map((r) => JSON.stringify(r)).join("\n")}\n`);
 }

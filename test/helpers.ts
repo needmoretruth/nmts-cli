@@ -10,7 +10,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { modesAreEnforced } from "../src/credentials.ts";
-import { engineDir } from "../src/crypto.ts";
+import { engineDir } from "../src/engine-node.ts";
 import { registerNodeZstd } from "../src/zstd-node.ts";
 import {
   AAD_FILE_LIST_CHUNK,

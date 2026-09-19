@@ -29,11 +29,13 @@ import { depositDefaultOf, depositLines, parseDeposit, refuseDepositWithWallet }
 import { setTrashed } from "../item-trash.ts";
 import { paddingRuleOf, readFileList } from "../manifest.ts";
 import { BINARY_NAME } from "../product.ts";
-import { Progress, silentSink, stderrSink } from "../progress.ts";
+import { Progress, silentSink } from "../progress.ts";
+import { stderrSink } from "../progress-node.ts";
 import { openSession } from "../session.ts";
 import type { PaddingRule } from "../shared/lib/crypto/size-padding.ts";
 import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
-import { fileSource, partKeysOf, uploadFile } from "../upload-file.ts";
+import { partKeysOf, uploadFile } from "../upload-file.ts";
+import { fileSource } from "../upload-file-node.ts";
 import { createUploadApi } from "../upload-api.ts";
 import { clearItemRecord, clearReservation } from "../upload-store.ts";
 import { CREDIT_BYTES, partSizeFor, planAndPrice, UPLOAD_EPOCHS } from "../upload-price.ts";
@@ -316,8 +318,8 @@ async function sendOne(
       },
     });
     // ⛔ ONLY NOW. Until the entry is in the list the file is paid for and invisible.
-    clearItemRecord(result.fileKey);
-    for (const record of partKeysOf(result.fileKey, result.parts)) clearReservation(record);
+    await clearItemRecord(result.fileKey);
+    for (const record of partKeysOf(result.fileKey, result.parts)) await clearReservation(record);
     // The file this one displaced goes to the server's trash last — see the same note in `put.ts`.
     if (added.replaced) await setTrashed(session.server, session.apiKey, added.replaced.id, true);
     return added.name;

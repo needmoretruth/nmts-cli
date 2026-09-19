@@ -20,7 +20,7 @@ import { after, test } from "node:test";
 
 import { get } from "../src/commands/get.ts";
 import { API_KEY_ENV_VAR, CODE_ENV_VAR, testConfigDir } from "../src/credentials.ts";
-import { stdoutSink } from "../src/download-sink.ts";
+import { stdoutSink } from "../src/download-sink-node.ts";
 import { NmtsError } from "../src/errors.ts";
 import { type ByteDestination, STDOUT_TARGET } from "../src/stdout.ts";
 import { AGGREGATOR_ENV_VAR } from "../src/walrus.ts";

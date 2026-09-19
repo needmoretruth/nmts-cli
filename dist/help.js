@@ -10,10 +10,11 @@ import { AGENTS_DOC, BINARY_NAME, HOME_URL, PRODUCT_NAME, SOURCE_URL, VERSION } 
 //    reading it here costs `nmts --help` nothing (`check:cli-startup`).
 import { ATTACH_LOG_TEXT, SUPPORT_LONG, supportHelpText } from "./support-copy.js";
 import { API_KEY_ENV_VAR, API_KEY_FILE_ENV_VAR, CODE_ENV_VAR, CODE_FILE_ENV_VAR, PASSPHRASE_ENV_VAR, } from "./credentials.js";
-import { NETWORK_ENV_VAR } from "./network.js";
+// ⛔ THE NAMES COME FROM THE MODULE THAT HAS NO IMPORTS, not from the modules that USE them. Those
+//    three reach the host register, and loading them to print a variable's name would put that
+//    chain in front of every `nmts --help` (`check:cli-startup`).
+import { AGGREGATOR_ENV_VAR, NETWORK_ENV_VAR, SERVER_ENV_VAR } from "./env-vars.js";
 import { LATEST_RELEASE_URL, NO_CHECK_ENV_VAR } from "./update-source.js";
-import { SERVER_ENV_VAR } from "./server.js";
-import { AGGREGATOR_ENV_VAR } from "./walrus.js";
 import { CHECK_DOES_NOT_PROVE, CHECK_PROVES, RECOVERY_TOOL_URL, wrapText, } from "./recovery-release.js";
 export function helpText(version) {
     return [
@@ -123,6 +124,9 @@ export function helpText(version) {
         `  privacy               The Privacy Policy in force`,
         `  mcp                   Serve this account's commands as tools, for an agent that speaks MCP`,
         `  s3                    Serve the drive to any S3 program, on this machine only`,
+        `  platform keygen       Make the key pair a business signs its Platform requests with — writes`,
+        `                        both halves to a file only you can read, prints only the public half`,
+        `  platform register     Where that public key is registered: a browser session, not this tool`,
         ``,
         `OPTIONS`,
         `  --server <url>        NMTS server (default ${SERVER_ENV_VAR} or the live one)`,
@@ -171,7 +175,8 @@ export function helpText(version) {
         `  --desc                Reverse whichever order is in effect (ls)`,
         `  --hidden              Include entries whose name begins with a dot (push)`,
         `  --out <path>          Where to write files (get, pull, mcp, listfile, recovery,`,
-        `                        recovery-list, kit, create, notices, terms, privacy). Default: here`,
+        `                        recovery-list, kit, create, notices, terms, privacy, platform`,
+        `                        keygen). Default: here`,
         `  --out -               Send a fetched file to stdout instead of writing it (get, listfile)`,
         `  --lang <en|ko>        Which language of a document (terms, privacy). Default: English`,
         `  --board               The message board's terms rather than the service's (terms)`,

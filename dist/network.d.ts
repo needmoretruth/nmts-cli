@@ -1,6 +1,6 @@
 export declare const NETWORKS: readonly ["mainnet", "testnet"];
 export type Network = (typeof NETWORKS)[number];
-export declare const NETWORK_ENV_VAR = "NMTS_NETWORK";
+export { NETWORK_ENV_VAR } from "./env-vars.ts";
 /**
  * Decide the network for this run.
  *

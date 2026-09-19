@@ -149,7 +149,7 @@ export async function uploadOnePart(
 ): Promise<{ itemId: string; resumed: boolean; ledgerId: number }> {
   // ⛔ THE SAME SHORT CIRCUIT THE ORCHESTRATOR HAS. A committed file needs nothing from the server,
   //    and asking anyway would be a round trip per part to learn what the record already says.
-  const committed = readItemRecord(input.key);
+  const committed = await readItemRecord(input.key);
   if (committed?.itemId !== undefined) {
     return { itemId: committed.itemId, resumed: true, ledgerId: 0 };
   }

@@ -14,11 +14,11 @@ import { BINARY_NAME, VERSION } from "../product.js";
 function isChoice(value) {
     return COLLISION_CHOICES.includes(value);
 }
-export function onCollision(wanted, options = {}) {
+export async function onCollision(wanted, options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const now = options.now ?? (() => new Date());
     if (wanted === undefined || wanted === "") {
-        const at = currentChoice();
+        const at = await currentChoice();
         if (options.json === true) {
             say(JSON.stringify({ onCollision: at, means: COLLISION_MEANS[at] }));
             return 0;
@@ -39,7 +39,7 @@ export function onCollision(wanted, options = {}) {
             nextStep: `One of: ${COLLISION_CHOICES.join(" · ")}`,
         });
     }
-    setChoice(wanted, VERSION, now());
+    await setChoice(wanted, VERSION, now());
     say(`${wanted} — ${COLLISION_MEANS[wanted]}`);
     return 0;
 }

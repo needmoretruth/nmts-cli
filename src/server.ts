@@ -5,10 +5,14 @@
 //    environment rather than stored, so a credentials file cannot silently point a later run
 //    somewhere else than the run that wrote it.
 
+import { SERVER_ENV_VAR } from "./env-vars.ts";
 import { NmtsError } from "./errors.ts";
+import { host } from "./host.ts";
 
 export const DEFAULT_SERVER = "https://nmts.me";
-export const SERVER_ENV_VAR = "NMTS_SERVER";
+// Re-exported so every caller still finds it here; the name itself lives in a module with no
+// imports, because `nmts --help` prints it (`env-vars.ts`).
+export { SERVER_ENV_VAR } from "./env-vars.ts";
 
 /**
  * Resolve the server for this run: an explicit argument, then the environment, then the default.
@@ -17,7 +21,7 @@ export const SERVER_ENV_VAR = "NMTS_SERVER";
  *    typo that lands on another scheme must stop here rather than somewhere further in.
  */
 export function resolveServer(explicit?: string | undefined): string {
-  const raw = explicit ?? process.env[SERVER_ENV_VAR] ?? DEFAULT_SERVER;
+  const raw = explicit ?? host().env(SERVER_ENV_VAR) ?? DEFAULT_SERVER;
   let url: URL;
   try {
     url = new URL(raw);

@@ -23,7 +23,7 @@ import { mkdirSync, existsSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import { fetchFile } from "../download.ts";
-import { fileSink } from "../download-sink.ts";
+import { fileSink } from "../download-sink-node.ts";
 import {
   buildIndex,
   entryAt,

@@ -54,7 +54,7 @@ export async function listfile(options: ListFileOptions = {}): Promise<number> {
   const resolved = await requireAccountCode();
   const identity = await identityOf(resolved.code);
 
-  const kept = readKeptList(identity.accountId);
+  const kept = await readKeptList(identity.accountId);
   if (kept === null) {
     throw new NmtsError(`This machine has no copy of this account's file list.`, {
       exitCode: 4,

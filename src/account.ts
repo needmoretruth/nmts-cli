@@ -19,6 +19,7 @@
 //   there — the few commands that need it cut it from their own derivation and wipe it in the
 //   same function.
 
+import { toBase64Url } from "./bytes.ts";
 import { DERIVED, loadCrypto } from "./crypto.ts";
 import { NmtsError } from "./errors.ts";
 
@@ -73,7 +74,7 @@ export async function identityOf(code: string): Promise<AccountIdentity> {
     const [idFrom, idTo] = DERIVED.accountId;
     const [shareFrom, shareTo] = DERIVED.shareAddress;
     return {
-      accountId: Buffer.from(derived.slice(idFrom, idTo)).toString("base64url"),
+      accountId: toBase64Url(derived.slice(idFrom, idTo)),
       publicCode: glue.share_address_display(derived.slice(shareFrom, shareTo)),
       displayCode: glue.account_code_display(bytes),
     };

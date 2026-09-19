@@ -8,7 +8,8 @@ import { activeWalletOf } from "../shared/lib/drive/manifest-settings.js";
 import { loadCrypto } from "../crypto.js";
 import { NmtsError } from "../errors.js";
 import { resolveNetwork } from "../network.js";
-import { Progress, silentSink, stderrSink } from "../progress.js";
+import { Progress, silentSink } from "../progress.js";
+import { stderrSink } from "../progress-node.js";
 import { folderFor } from "./push.js";
 /** The wallet rail, one file at a time, stopping at the first failure as the credit rail does. */
 export async function pushWithWallet(session, options, run) {

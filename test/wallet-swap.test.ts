@@ -14,6 +14,7 @@ import { walletSwap } from "../src/commands/wallet-swap.ts";
 import { CODE_ENV_VAR, testConfigDir } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
 import { minOutFromQuote, SLIPPAGE_BPS_DEFAULT } from "../src/shared/lib/wallet/swap-rules.ts";
+import { walletAddress } from "../src/wallet.ts";
 import { parseWalletGrant, readWalletGrant, writeWalletGrant } from "../src/wallet-grant.ts";
 import { checkedBluefinBinding, type SwapReads, type SwapShape } from "../src/wallet-swap-chain.ts";
 import type { SignSwap } from "../src/wallet-sign.ts";
@@ -24,15 +25,16 @@ function collect(): { lines: string[]; write: (line: string) => void } {
   return { lines, write: (line) => lines.push(line) };
 }
 
-async function withAccount(name: string, body: () => Promise<void>): Promise<void> {
+async function withAccount(name: string, body: (code: string) => Promise<void>): Promise<void> {
   const dir = testConfigDir(name);
   const before = { dir: process.env["NMTS_CONFIG_DIR"], code: process.env[CODE_ENV_VAR] };
   rmSync(dir, { recursive: true, force: true });
   process.env["NMTS_CONFIG_DIR"] = dir;
   grantConsents(dir, "plain-env");
-  process.env[CODE_ENV_VAR] = await generateCode();
+  const code = await generateCode();
+  process.env[CODE_ENV_VAR] = code;
   try {
-    await body();
+    await body(code);
   } finally {
     rmSync(dir, { recursive: true, force: true });
     for (const [name_, value] of [
@@ -46,6 +48,12 @@ async function withAccount(name: string, body: () => Promise<void>): Promise<voi
 }
 
 const AT = Date.UTC(2026, 8, 5);
+/**
+ * ⚠ THESE TESTS CANNOT REACH THE SEALED FILE LIST (there is no server). The default reads the
+ *   swapping wallet's number out of that list (`wallet-pay-index.ts`), so here it is pinned to the
+ *   first wallet — except in the two tests below that are about the number itself.
+ */
+const FIRST_WALLET = { readActiveWallet: async (): Promise<number> => 0 };
 const BINDING = { packageId: "0x" + "d0".repeat(32), globalConfigId: "0x" + "03".repeat(32), poolId: "0x" + "e6".repeat(32) };
 /** 1 SUI buys 27.5 WAL on DeepBook and 27.53 on Bluefin — the shape of the 2026-08-03 measurements. */
 const OUT = { deepbook: 27_500_000_000n, bluefin: 27_530_000_000n };
@@ -90,13 +98,17 @@ function refuseToSign(): SignSwap & { calls: number } {
   return sign;
 }
 
-function recordingSigner(): SignSwap & { asked: SwapShape[] } {
+function recordingSigner(): SignSwap & { asked: SwapShape[]; wallets: number[] } {
   const asked: SwapShape[] = [];
-  const sign = async (input: { shape: SwapShape }): Promise<string> => {
+  // Which wallet was asked to sign, run by run — the half of this seam that no shape can show.
+  const wallets: number[] = [];
+  const sign = async (input: { wallet: number; shape: SwapShape }): Promise<string> => {
     asked.push(input.shape);
+    wallets.push(input.wallet);
     return "3nJqYd2fRZ8m1s5vQ7wLpXk4TgB6uCa9HyEr2NdM8fPz";
   };
   sign.asked = asked;
+  sign.wallets = wallets;
   return sign;
 }
 
@@ -114,7 +126,7 @@ test("⛔ without --venue both venues are quoted side by side and the run stops:
     const out = collect();
     const sign = refuseToSign();
     const chain = reads();
-    const failure = await refusal(walletSwap(["SUI", "1"], { network: "mainnet", write: out.write, readChain: () => chain, readPrices: PRICES, sign }));
+    const failure = await refusal(walletSwap(["SUI", "1"], { ...FIRST_WALLET, network: "mainnet", write: out.write, readChain: () => chain, readPrices: PRICES, sign }));
     assert.equal(failure.exitCode, 4);
     assert.match(failure.message, /recommends neither/);
     assert.match(String(failure.nextStep), /--venue deepbook or --venue bluefin/);
@@ -127,7 +139,7 @@ test("⛔ without --venue both venues are quoted side by side and the run stops:
 
     // One venue silent: its row says so, and the run still stops rather than picking the other.
     const quiet = collect();
-    const half = await refusal(walletSwap(["SUI", "1"], { network: "mainnet", write: quiet.write, readChain: () => reads({ bluefin: null }), readPrices: PRICES, sign }));
+    const half = await refusal(walletSwap(["SUI", "1"], { ...FIRST_WALLET, network: "mainnet", write: quiet.write, readChain: () => reads({ bluefin: null }), readPrices: PRICES, sign }));
     assert.equal(half.exitCode, 4);
     assert.match(quiet.lines.join("\n"), /bluefin {3}did not answer — bluefin is silent/);
   });
@@ -138,7 +150,7 @@ test("⛔ with --venue the review is printed — quote, minimum from the shared 
     const out = collect();
     const sign = refuseToSign();
     const chain = reads();
-    const failure = await refusal(walletSwap(["SUI", "1"], { network: "mainnet", venue: "bluefin", feeCap: "0.01", write: out.write, readChain: () => chain, readPrices: PRICES, sign }));
+    const failure = await refusal(walletSwap(["SUI", "1"], { ...FIRST_WALLET, network: "mainnet", venue: "bluefin", feeCap: "0.01", write: out.write, readChain: () => chain, readPrices: PRICES, sign }));
     assert.equal(failure.exitCode, 4);
     assert.match(failure.message, /needs --yes/);
     const text = out.lines.join("\n");
@@ -160,13 +172,13 @@ test("⛔ with --venue the review is printed — quote, minimum from the shared 
 
     // --slippage-bps reaches the same arithmetic; a non-number is refused before any read.
     const loose = collect();
-    await refusal(walletSwap(["SUI", "1"], { network: "mainnet", venue: "deepbook", slippageBps: "100", write: loose.write, readChain: () => reads(), readPrices: PRICES, sign }));
+    await refusal(walletSwap(["SUI", "1"], { ...FIRST_WALLET, network: "mainnet", venue: "deepbook", slippageBps: "100", write: loose.write, readChain: () => reads(), readPrices: PRICES, sign }));
     assert.match(loose.lines.join("\n"), /At least {2}27\.225 WAL, or the swap fails on chain — slippage 100 bps \(1%\)/);
-    assert.equal((await refusal(walletSwap(["SUI", "1"], { network: "mainnet", venue: "deepbook", slippageBps: "lots", write: () => undefined, readChain: () => reads(), sign }))).exitCode, 2);
+    assert.equal((await refusal(walletSwap(["SUI", "1"], { ...FIRST_WALLET, network: "mainnet", venue: "deepbook", slippageBps: "lots", write: () => undefined, readChain: () => reads(), sign }))).exitCode, 2);
 
     // No reference price: said as uncompared, never as fine.
     const blind = collect();
-    await refusal(walletSwap(["WAL", "10"], { network: "mainnet", venue: "deepbook", write: blind.write, readChain: () => reads(), readPrices: async () => null, sign }));
+    await refusal(walletSwap(["WAL", "10"], { ...FIRST_WALLET, network: "mainnet", venue: "deepbook", write: blind.write, readChain: () => reads(), readPrices: async () => null, sign }));
     assert.match(blind.lines.join("\n"), /Market {4}no reference price could be read just now, so the quote was not compared/);
   });
 });
@@ -175,7 +187,7 @@ test("⛔ an extreme is refused even with --yes; --accept-extremes is a person's
   await withAccount("wallet-swap-extremes", async () => {
     writeWalletGrant(parseWalletGrant({ days: "7", scope: "all" }, new Date(AT), "t"));
     const sign = refuseToSign();
-    const base = { network: "mainnet", venue: "deepbook", yes: true, readChain: () => reads(), sign, now: AT };
+    const base = { ...FIRST_WALLET, network: "mainnet", venue: "deepbook", yes: true, readChain: () => reads(), sign, now: AT };
     // The market says 27.5 WAL per SUI and the quote says 27.5 — but the reference price moved 10%.
     const far = collect();
     const deviation = await refusal(walletSwap(["SUI", "1"], { ...base, write: far.write, readPrices: async () => ({ suiUsd: 3.3, walUsd: 0.1 }) }));
@@ -188,13 +200,13 @@ test("⛔ an extreme is refused even with --yes; --accept-extremes is a person's
     assert.match(String(tight.nextStep), /--accept-extremes/);
     assert.equal(sign.calls, 0);
     // A mode is on: the person's say is not a program's to give.
-    setMode("auto-low", "t", new Date(AT));
+    await setMode("auto-low", "t", new Date(AT));
     try {
       const auto = await refusal(walletSwap(["SUI", "1"], { ...base, slippageBps: "5", acceptExtremes: true, write: () => undefined, readPrices: PRICES }));
       assert.equal(auto.exitCode, 5);
       assert.match(auto.message, /person's act/);
     } finally {
-      setMode("default", "t", new Date(AT));
+      await setMode("default", "t", new Date(AT));
     }
     assert.equal(sign.calls, 0);
   });
@@ -202,7 +214,7 @@ test("⛔ an extreme is refused even with --yes; --accept-extremes is a person's
 
 test("⛔ --yes still needs a wallet agreement with scope all", async () => {
   await withAccount("wallet-swap-grant", async () => {
-    const quiet = { write: () => undefined, network: "mainnet", venue: "deepbook", yes: true, readChain: () => reads(), readPrices: PRICES, now: AT };
+    const quiet = { ...FIRST_WALLET, write: () => undefined, network: "mainnet", venue: "deepbook", yes: true, readChain: () => reads(), readPrices: PRICES, now: AT };
     assert.equal((await refusal(walletSwap(["SUI", "1"], { ...quiet, sign: refuseToSign() }))).exitCode, 5);
     writeWalletGrant(parseWalletGrant({ days: "7" }, new Date(AT), "t"));
     const storageOnly = await refusal(walletSwap(["SUI", "1"], { ...quiet, sign: refuseToSign() }));
@@ -218,7 +230,7 @@ test("with --yes and an agreement, the signed shape is what was reviewed, max ke
     const out = collect();
     // A fee cap of 0.004 SUI against a measured 0.0021: inside the ordinary band, so no gate.
     assert.equal(
-      await walletSwap(["sui", "max"], { network: "mainnet", venue: "deepbook", yes: true, feeCap: "0.004", write: out.write, readChain: () => reads({ sui: 1_000_000_000n }), readPrices: PRICES, sign, now: AT }),
+      await walletSwap(["sui", "max"], { ...FIRST_WALLET, network: "mainnet", venue: "deepbook", yes: true, feeCap: "0.004", write: out.write, readChain: () => reads({ sui: 1_000_000_000n }), readPrices: PRICES, sign, now: AT }),
       0,
     );
     const asked = sign.asked[0];
@@ -234,7 +246,7 @@ test("with --yes and an agreement, the signed shape is what was reviewed, max ke
 
     const json = collect();
     assert.equal(
-      await walletSwap(["WAL", "10"], { network: "mainnet", venue: "bluefin", to: "sui", yes: true, json: true, write: json.write, readChain: () => reads(), readPrices: PRICES, sign, now: AT }),
+      await walletSwap(["WAL", "10"], { ...FIRST_WALLET, network: "mainnet", venue: "bluefin", to: "sui", yes: true, json: true, write: json.write, readChain: () => reads(), readPrices: PRICES, sign, now: AT }),
       0,
     );
     const parsed: unknown = JSON.parse(json.lines.join(""));
@@ -243,7 +255,41 @@ test("with --yes and an agreement, the signed shape is what was reviewed, max ke
     assert.equal(Reflect.get(parsed, "signed"), true);
     assert.equal(Reflect.get(parsed, "venueFeeBps"), 20);
     assert.equal(readWalletGrant()?.spentWalFrost, "10000000000");
-    assert.equal((await refusal(walletSwap(["WAL", "1"], { network: "mainnet", venue: "bluefin", to: "WAL", write: () => undefined, readChain: () => reads(), sign }))).exitCode, 2);
+    assert.equal((await refusal(walletSwap(["WAL", "1"], { ...FIRST_WALLET, network: "mainnet", venue: "bluefin", to: "WAL", write: () => undefined, readChain: () => reads(), sign }))).exitCode, 2);
+  });
+});
+
+// ── which wallet swaps ─────────────────────────────────────────────────────────────────────────
+//
+// ⛔ THE REVIEW AND THE SIGNATURE ARE HELD TOGETHER. A number that reached only one of them would
+//    print an address a person checked and swap the coins of another wallet, and nothing on the
+//    screen would say so.
+
+test("⛔ --wallet N swaps that wallet's coins: the review names the number and the same one signs", async () => {
+  await withAccount("wallet-swap-flag", async (code) => {
+    writeWalletGrant(parseWalletGrant({ days: "7", scope: "all" }, new Date(AT), "t"));
+    const sign = recordingSigner();
+    const out = collect();
+    assert.equal(
+      await walletSwap(["SUI", "1"], { ...FIRST_WALLET, wallet: "2", network: "mainnet", venue: "deepbook", yes: true, write: out.write, readChain: () => reads(), readPrices: PRICES, sign, now: AT }),
+      0,
+    );
+    assert.deepEqual(sign.wallets, [2], "the flag did not reach the signature");
+    assert.match(out.lines.join("\n"), new RegExp(`^ {2}from {6}${await walletAddress(code, 2)} \\(wallet 2\\)$`, "m"));
+  });
+});
+
+test("without --wallet, the account's own number is the wallet that swaps", async () => {
+  await withAccount("wallet-swap-active", async (code) => {
+    writeWalletGrant(parseWalletGrant({ days: "7", scope: "all" }, new Date(AT), "t"));
+    const sign = recordingSigner();
+    const out = collect();
+    assert.equal(
+      await walletSwap(["SUI", "1"], { readActiveWallet: async () => 3, network: "mainnet", venue: "deepbook", yes: true, write: out.write, readChain: () => reads(), readPrices: PRICES, sign, now: AT }),
+      0,
+    );
+    assert.deepEqual(sign.wallets, [3], "it did not swap from the account's own wallet");
+    assert.match(out.lines.join("\n"), new RegExp(`^ {2}from {6}${await walletAddress(code, 3)} \\(wallet 3\\)$`, "m"));
   });
 });
 
@@ -257,15 +303,15 @@ test("on testnet the rail is the official facility: SUI→WAL only, no venue, no
     };
     const sign = refuseToSign();
     const out = collect();
-    const failure = await refusal(walletSwap(["SUI", "0.5"], { network: "testnet", write: out.write, readChain: () => chain, readPrices: async () => null, sign }));
+    const failure = await refusal(walletSwap(["SUI", "0.5"], { ...FIRST_WALLET, network: "testnet", write: out.write, readChain: () => chain, readPrices: async () => null, sign }));
     assert.equal(failure.exitCode, 4);
     const text = out.lines.join("\n");
     assert.match(text, /on the official Walrus testnet exchange/);
     assert.match(text, /Quoted {4}0\.5 WAL/);
     assert.match(text, /Rate {6}1 WAL per 1 SUI, read off the facility/);
-    assert.equal((await refusal(walletSwap(["WAL", "1"], { network: "testnet", write: () => undefined, readChain: () => chain, sign }))).exitCode, 2);
-    assert.equal((await refusal(walletSwap(["SUI", "1"], { network: "testnet", venue: "deepbook", write: () => undefined, readChain: () => chain, sign }))).exitCode, 2);
-    const unread = await refusal(walletSwap(["SUI", "1"], { network: "testnet", write: () => undefined, readChain: () => reads(), sign }));
+    assert.equal((await refusal(walletSwap(["WAL", "1"], { ...FIRST_WALLET, network: "testnet", write: () => undefined, readChain: () => chain, sign }))).exitCode, 2);
+    assert.equal((await refusal(walletSwap(["SUI", "1"], { ...FIRST_WALLET, network: "testnet", venue: "deepbook", write: () => undefined, readChain: () => chain, sign }))).exitCode, 2);
+    const unread = await refusal(walletSwap(["SUI", "1"], { ...FIRST_WALLET, network: "testnet", write: () => undefined, readChain: () => reads(), sign }));
     assert.equal(unread.exitCode, 1);
     assert.match(unread.message, /could not be read, so what it would give is unknown/);
     assert.equal(sign.calls, 0);

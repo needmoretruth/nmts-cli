@@ -18,6 +18,7 @@
 //    are copied out and the rest is zeroed before this returns, the same discipline `identityOf`
 //    keeps and for the same reason: a live copy of that buffer is a live copy of the account.
 
+import { toBase64Url } from "./bytes.ts";
 import { DERIVED, loadCrypto } from "./crypto.ts";
 import { NmtsError } from "./errors.ts";
 
@@ -82,8 +83,10 @@ export async function registrationProofOf(code: string): Promise<RegistrationPro
     const [idFrom, idTo] = DERIVED.accountId;
     const [secretFrom, secretTo] = DERIVED.authSecret;
     return {
-      accountId: Buffer.from(derived.slice(idFrom, idTo)).toString("base64url"),
-      authSecret: Buffer.from(derived.slice(secretFrom, secretTo)).toString("base64url"),
+      // ⚠ `bytes.ts` rather than `Buffer`, which is Node's alone: this module is reachable from
+      //   the portable entry, where a business registers a user from wherever it runs.
+      accountId: toBase64Url(derived.slice(idFrom, idTo)),
+      authSecret: toBase64Url(derived.slice(secretFrom, secretTo)),
     };
   } finally {
     derived.fill(0);

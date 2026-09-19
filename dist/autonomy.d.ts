@@ -17,18 +17,11 @@ export declare function isAgentMode(mode: Autonomy): boolean;
  * and `auto` is `auto-low`. Anything else counts as `default`.
  */
 export declare function modeFromStored(value: unknown): Autonomy;
-/**
- * What this machine is set to.
- *
- * ⛔ Unreadable counts as `default`. The fail-safe direction for "I do not know" is the one where
- *    somebody is still asked -- a file that switches autonomy on when it cannot be parsed is worse
- *    than no file at all.
- */
-export declare function currentMode(): Autonomy;
+export declare function currentMode(): Promise<Autonomy>;
 /** When it was set, or null when it is default or unreadable. */
-export declare function setAt(): string | null;
+export declare function setAt(): Promise<string | null>;
 /** Write the choice down, with the date and the version that was asked. */
-export declare function setMode(mode: Autonomy, version: string, now: Date): void;
+export declare function setMode(mode: Autonomy, version: string, now: Date): Promise<void>;
 /**
  * The line every run prints when a mode is on.
  *

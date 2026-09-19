@@ -7,14 +7,10 @@
 //
 // ⛔ IT NEVER WRITES TO STDOUT WHEN THE OUTPUT IS MACHINE-READABLE. `--json` promises one JSON
 //    document and nothing else; a progress line would break every parser that trusted that.
-export function stderrSink() {
-    return {
-        // ⛔ STDERR, NOT STDOUT. Progress is not the answer, and a caller redirecting the answer to a
-        //    file must not find it interleaved with percentages.
-        write: (text) => void process.stderr.write(text),
-        interactive: process.stderr.isTTY === true,
-    };
-}
+//
+// ⛔ THE TERMINAL SINK IS NOT HERE. Writing to a real stderr is Node's, so it is in
+//    `progress-node.ts`; what is left runs in a page, where the same reporter drives a caller's
+//    own `onProgress`.
 /** A reporter that says nothing. What `--json` gets, and what a test gets by default. */
 export function silentSink() {
     return { write: () => { }, interactive: false };

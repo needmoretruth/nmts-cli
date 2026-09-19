@@ -9,27 +9,27 @@
 //
 //    So they are written down BEFORE the money moves. That ordering is the whole design.
 //
-// ⛔ WHAT IS ON DISK IS ALREADY PUBLIC. The `.bin` is the sealed NCF-3 stream — the exact bytes
-//    about to be handed to a public storage network. It is still written 0600, because "already
-//    public" is about the CONTENT and the file's presence would otherwise say which files this
-//    account uploaded and when.
+// ⛔ WHAT IS KEPT IS ALREADY PUBLIC. The `.bin` half is the sealed NCF-3 stream — the exact bytes
+//    about to be handed to a public storage network. The host still keeps it as privately as it
+//    can (0600 on this machine), because "already public" is about the CONTENT and the record's
+//    presence would otherwise say which files this account uploaded and when.
 //
-// ⛔ THE FILE NAME IS NOT A CONTENT FINGERPRINT. Keying by SHA-256 of the plaintext would leave a
-//    directory of hashes matchable against published hash sets — the very thing sealing the
-//    content hash avoids. The key mixes the account's data key in, so it identifies the file only
-//    to somebody who already holds the account.
+// ⛔ THE KEY IS NOT A CONTENT FINGERPRINT. Keying by SHA-256 of the plaintext would leave a store
+//    of hashes matchable against published hash sets — the very thing sealing the content hash
+//    avoids. The key mixes the account's data key in, so it identifies the file only to somebody
+//    who already holds the account.
 
-import { createHash, type Hash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { configDir, modesAreEnforced } from "./credentials.ts";
-import { chmodSync } from "node:fs";
+import { sha256 } from "@noble/hashes/sha2.js";
+
+import { fromUtf8, toBase64Url, utf8 } from "./bytes.ts";
 import { NmtsError } from "./errors.ts";
+import { host } from "./host.ts";
 
-/** Where unfinished uploads live. */
-export function uploadsDir(): string {
-  return join(configDir(), "uploads");
-}
+/** The area of the host's state these records live in. One key per file below it. */
+const AREA = "uploads";
+
+/** The running hash a reservation key is built in. */
+export type ReservationHash = ReturnType<typeof sha256.create>;
 
 /**
  * A stable, account-scoped name for one file's upload attempt.
@@ -84,14 +84,14 @@ export function reservationKeyStreamed(
  *    the SHA-256 the account checks its contents against; handing the caller the running hash is
  *    what lets both come out of a single pass instead of two reads of a very large file.
  */
-export function startReservationKey(dataKey: Uint8Array): Hash {
-  return createHash("sha256").update(dataKey);
+export function startReservationKey(dataKey: Uint8Array): ReservationHash {
+  return sha256.create().update(dataKey);
 }
 
 /** Finish it. The name and the destination go in last, exactly as the one-shot form does. */
-export function finishReservationKey(hash: Hash, name: string, destination: string): string {
-  const digest = hash.update(new TextEncoder().encode(`\u0000${name}\u0000${destination}`)).digest();
-  return Buffer.from(digest).toString("base64url").slice(0, 32);
+export function finishReservationKey(hash: ReservationHash, name: string, destination: string): string {
+  const digest = hash.update(utf8(`\u0000${name}\u0000${destination}`)).digest();
+  return toBase64Url(digest).slice(0, 32);
 }
 
 /**
@@ -183,9 +183,9 @@ export interface Reservation {
   endEpoch?: number;
 }
 
-function paths(key: string): { json: string; bin: string } {
-  const dir = uploadsDir();
-  return { json: join(dir, `${key}.json`), bin: join(dir, `${key}.bin`) };
+/** The two keys one part's reservation occupies: its record, and the sealed bytes it bought. */
+function keysFor(key: string): { json: string; bin: string } {
+  return { json: `${AREA}/${key}.json`, bin: `${AREA}/${key}.bin` };
 }
 
 function isReservation(value: unknown): value is Reservation {
@@ -207,22 +207,24 @@ function isReservation(value: unknown): value is Reservation {
  *    resume that only needs to commit still reads every byte of a very large upload off the disk.
  *    They are fetched separately, by the one step that actually pushes them.
  */
-export function readReservationRecord(key: string): Reservation | null {
-  const { json, bin } = paths(key);
-  if (!existsSync(json) || !existsSync(bin)) return null;
+export async function readReservationRecord(key: string): Promise<Reservation | null> {
+  const { json, bin } = keysFor(key);
+  const state = host().state;
+  const held = await state.read(json);
+  if (held === undefined || (await state.read(bin)) === undefined) return null;
   let parsed: unknown;
   try {
-    parsed = JSON.parse(readFileSync(json, "utf8"));
+    parsed = JSON.parse(fromUtf8(held));
   } catch {
     // ⛔ Unreadable is not the same as absent, and treating it as absent would buy storage twice.
-    throw new NmtsError(`An unfinished upload record at ${json} could not be read.`, {
+    throw new NmtsError(`The unfinished upload record ${json} could not be read.`, {
       nextStep:
         "It names storage this account may already have paid for. Move it aside rather than " +
         "deleting it if the upload matters, then try again.",
     });
   }
   if (!isReservation(parsed)) {
-    throw new NmtsError(`The unfinished upload record at ${json} is not in a shape this version knows.`, {
+    throw new NmtsError(`The unfinished upload record ${json} is not in a shape this version knows.`, {
       nextStep: "Move it aside and try again. Nothing was sent.",
     });
   }
@@ -236,38 +238,38 @@ export function readReservationRecord(key: string): Reservation | null {
  *    different blob from the one the treasury registered — the relay refuses them, forever, and
  *    the credits are gone.
  */
-export function readReservationBytes(key: string): Uint8Array {
-  const { bin } = paths(key);
-  return new Uint8Array(readFileSync(bin));
+export async function readReservationBytes(key: string): Promise<Uint8Array> {
+  const { bin } = keysFor(key);
+  const held = await host().state.read(bin);
+  if (held === undefined) {
+    throw new NmtsError(`The sealed bytes of ${bin} are gone.`, {
+      nextStep:
+        "Nothing was sent. The storage they bought cannot be filled by re-sealing — run the " +
+        "upload again to buy storage for a fresh sealing of the same file.",
+    });
+  }
+  return held;
 }
 
 /** The record and its bytes together, for the callers that need both. */
-export function readReservation(key: string): { record: Reservation; sealed: Uint8Array } | null {
-  const record = readReservationRecord(key);
+export async function readReservation(key: string): Promise<{ record: Reservation; sealed: Uint8Array } | null> {
+  const record = await readReservationRecord(key);
   if (record === null) return null;
-  return { record, sealed: readReservationBytes(key) };
+  return { record, sealed: await readReservationBytes(key) };
 }
 
 /** Write the record and its sealed bytes. Called BEFORE the reserve, and again after it answers. */
-export function writeReservation(key: string, record: Reservation, sealed: Uint8Array): void {
-  const dir = uploadsDir();
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
-  if (modesAreEnforced()) chmodSync(dir, 0o700);
-  const { json, bin } = paths(key);
-  // ⛔ WRITTEN ASIDE AND RENAMED OVER, never truncated in place. A rename within one directory is
-  //    atomic, so a reader sees the old record or the new one and never a half-written one. The
-  //    write that matters is the LAST one — the one that adds the item id — because a truncated
-  //    file there is the only local pointer to a file that is already paid for and committed, and
-  //    losing it makes that file invisible.
-  atomically(bin, sealed);
-  atomically(json, Buffer.from(`${JSON.stringify(record, null, 2)}\n`, "utf8"));
-}
-
-function atomically(target: string, bytes: Uint8Array): void {
-  const scratch = `${target}.${process.pid}.tmp`;
-  writeFileSync(scratch, bytes, { mode: 0o600 });
-  if (modesAreEnforced()) chmodSync(scratch, 0o600);
-  renameSync(scratch, target);
+export async function writeReservation(key: string, record: Reservation, sealed: Uint8Array): Promise<void> {
+  const { json, bin } = keysFor(key);
+  // ⛔ THE BYTES GO DOWN FIRST, AND THE RECORD IS WHAT MAKES THE PAIR COUNT. A reader treats a
+  //    record without its bytes as no reservation at all, so a run that stopped between these two
+  //    writes leaves nothing that can be resumed — rather than a record pointing at bytes that are
+  //    not there. Each write on its own is all-or-nothing; that is the host's promise, and the
+  //    write that matters most is the LAST one, because a half-written record is the only local
+  //    pointer to a file that is already paid for.
+  const state = host().state;
+  await state.write(bin, sealed);
+  await state.write(json, utf8(`${JSON.stringify(record, null, 2)}\n`));
 }
 
 /**
@@ -277,11 +279,11 @@ function atomically(target: string, bytes: Uint8Array): void {
  *   upload already succeeded" was not true of every caller. What IS true of all of them is that
  *   nothing further depends on the record, which is why it never throws.
  */
-export function clearReservation(key: string): void {
-  const { json, bin } = paths(key);
-  for (const path of [json, bin]) {
+export async function clearReservation(key: string): Promise<void> {
+  const { json, bin } = keysFor(key);
+  for (const name of [json, bin]) {
     try {
-      rmSync(path, { force: true });
+      await host().state.remove(name);
     } catch {
       // ⚠ A record that cannot be removed is left where it is. That is not free -- a record
       //   carrying an item id is READ before anything is written, so a stale one would be
@@ -311,8 +313,8 @@ export interface ItemRecord {
   attempt: number;
 }
 
-function itemPath(fileKey: string): string {
-  return join(uploadsDir(), `${fileKey}.item.json`);
+function itemKey(fileKey: string): string {
+  return `${AREA}/${fileKey}.item.json`;
 }
 
 function isItemRecord(value: unknown): value is ItemRecord {
@@ -323,23 +325,24 @@ function isItemRecord(value: unknown): value is ItemRecord {
 }
 
 /** What is known about this file's commit, or `null` when it has not been attempted. */
-export function readItemRecord(fileKey: string): ItemRecord | null {
-  const path = itemPath(fileKey);
-  if (!existsSync(path)) return null;
+export async function readItemRecord(fileKey: string): Promise<ItemRecord | null> {
+  const path = itemKey(fileKey);
+  const held = await host().state.read(path);
+  if (held === undefined) return null;
   let parsed: unknown;
   try {
-    parsed = JSON.parse(readFileSync(path, "utf8"));
+    parsed = JSON.parse(fromUtf8(held));
   } catch {
     // ⛔ Same reasoning as an unreadable reservation: unreadable is not absent. This file is the
     //    only local pointer to storage that is already bought and possibly already committed.
-    throw new NmtsError(`An unfinished upload record at ${path} could not be read.`, {
+    throw new NmtsError(`The unfinished upload record ${path} could not be read.`, {
       nextStep:
         "It names a file this account may already have paid for. Move it aside rather than " +
         "deleting it if the upload matters, then try again.",
     });
   }
   if (!isItemRecord(parsed)) {
-    throw new NmtsError(`The unfinished upload record at ${path} is not in a shape this version knows.`, {
+    throw new NmtsError(`The unfinished upload record ${path} is not in a shape this version knows.`, {
       nextStep: "Move it aside and try again. Nothing was sent.",
     });
   }
@@ -347,17 +350,14 @@ export function readItemRecord(fileKey: string): ItemRecord | null {
 }
 
 /** Write the file-level record. Called before the commit, and again once it has an id. */
-export function writeItemRecord(fileKey: string, record: ItemRecord): void {
-  const dir = uploadsDir();
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
-  if (modesAreEnforced()) chmodSync(dir, 0o700);
-  atomically(itemPath(fileKey), Buffer.from(`${JSON.stringify(record, null, 2)}\n`, "utf8"));
+export async function writeItemRecord(fileKey: string, record: ItemRecord): Promise<void> {
+  await host().state.write(itemKey(fileKey), utf8(`${JSON.stringify(record, null, 2)}\n`));
 }
 
 /** Forget the file-level record. Never throws, for the same reason `clearReservation` does not. */
-export function clearItemRecord(fileKey: string): void {
+export async function clearItemRecord(fileKey: string): Promise<void> {
   try {
-    rmSync(itemPath(fileKey), { force: true });
+    await host().state.remove(itemKey(fileKey));
   } catch {
     // ⚠ Left where it is. A stale one carrying an item id would be resumed rather than
     //   overwritten, which is still better than failing a finished upload over a stuck file.

@@ -84,14 +84,14 @@ test("under skip-permissions the gate's --yes stands for the sentence; elsewhere
     const input = answering("no");
     assert.equal(await erase(["a.txt"], { ...opts(collect(), input.readLine), yes: true }), 1, "--yes stood for the sentence in the default mode");
     assert.equal(input.asked.length, 1);
-    setMode("skip-permissions", "9.9.9", new Date("2026-09-06T00:00:00Z"));
+    await setMode("skip-permissions", "9.9.9", new Date("2026-09-06T00:00:00Z"));
     try {
       const quiet = answering("no");
       assert.equal(await erase(["a.txt"], { ...opts(collect(), quiet.readLine), yes: true }), 0);
       assert.equal(quiet.asked.length, 0, "the sentence was asked for under skip-permissions");
       assert.equal(eraseState.erasures.length, 1);
     } finally {
-      setMode("default", "9.9.9", new Date("2026-09-06T00:00:00Z"));
+      await setMode("default", "9.9.9", new Date("2026-09-06T00:00:00Z"));
     }
   });
 });

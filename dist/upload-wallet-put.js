@@ -197,9 +197,9 @@ export async function walletPut(ctx, file, seams = {}) {
     // ⛔ ONLY NOW, AND EVERY PART — the same order the credit rail keeps and for the same reason: a
     //    paid-for file the list does not name is invisible, and the records are what let a second
     //    call finish the job without signing again.
-    clearItemRecord(result.fileKey);
+    await clearItemRecord(result.fileKey);
     for (const record of partKeysOf(result.fileKey, result.parts))
-        clearReservation(record);
+        await clearReservation(record);
     if (added.replaced)
         await setTrashed(ctx.server, ctx.apiKey, added.replaced.id, true);
     return {

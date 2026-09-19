@@ -27,9 +27,11 @@ import { depositDefaultOf, depositLines, parseDeposit, refuseDepositWithWallet }
 import { setTrashed } from "../item-trash.js";
 import { paddingRuleOf, readFileList } from "../manifest.js";
 import { BINARY_NAME } from "../product.js";
-import { Progress, silentSink, stderrSink } from "../progress.js";
+import { Progress, silentSink } from "../progress.js";
+import { stderrSink } from "../progress-node.js";
 import { openSession } from "../session.js";
-import { fileSource, partKeysOf, uploadFile } from "../upload-file.js";
+import { partKeysOf, uploadFile } from "../upload-file.js";
+import { fileSource } from "../upload-file-node.js";
 import { createUploadApi } from "../upload-api.js";
 import { clearItemRecord, clearReservation } from "../upload-store.js";
 import { CREDIT_BYTES, partSizeFor, planAndPrice, UPLOAD_EPOCHS } from "../upload-price.js";
@@ -242,9 +244,9 @@ async function sendOne(session, crypt, one, ctx) {
             },
         });
         // ⛔ ONLY NOW. Until the entry is in the list the file is paid for and invisible.
-        clearItemRecord(result.fileKey);
+        await clearItemRecord(result.fileKey);
         for (const record of partKeysOf(result.fileKey, result.parts))
-            clearReservation(record);
+            await clearReservation(record);
         // The file this one displaced goes to the server's trash last — see the same note in `put.ts`.
         if (added.replaced)
             await setTrashed(session.server, session.apiKey, added.replaced.id, true);

@@ -22,13 +22,14 @@
 //    ⚠ There is no debug switch in this tool to say so through, so it is silent — which is why
 //      this paragraph is here rather than a line of output.
 
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { OPTIONS_TAKING_A_VALUE } from "./args.ts";
-import { configDir, modesAreEnforced } from "./credentials.ts";
+import { fromUtf8, utf8 } from "./bytes.ts";
+import { host } from "./host.ts";
 import { redact } from "./redact.ts";
 import { VERSION } from "./product.ts";
+
+/** The one key the record lives under. On this machine that is `runs.jsonl` in the config directory. */
+export const RUN_LOG_KEY = "runlog";
 
 /** One request this run made, and what came back. */
 export interface HttpEvent {
@@ -109,14 +110,9 @@ const HIDDEN_VALUES: Readonly<Record<string, string>> = {
  */
 let collected: RunEvent[] = [];
 
-/** Where the log lives. Inside the tool's own directory, which is already 0700. */
-export function runLogPath(): string {
-  return join(configDir(), "runs.jsonl");
-}
-
 /** Has the person turned it off? */
 export function runLogIsOff(): boolean {
-  return process.env[NO_RUN_LOG_ENV_VAR] === "1";
+  return host().env(NO_RUN_LOG_ENV_VAR) === "1";
 }
 
 function remember(event: RunEvent): void {
@@ -201,38 +197,32 @@ export function safeArgs(argv: readonly string[]): string[] {
   return out;
 }
 
-/** Write one line, creating the file 0600 if it is not there yet. */
-function append(line: string): void {
-  const dir = configDir();
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const path = runLogPath();
-  if (!existsSync(path)) {
-    writeFileSync(path, "", { mode: 0o600 });
-    if (modesAreEnforced()) chmodSync(path, 0o600);
-  }
-  appendFileSync(path, line);
-  if (statSync(path).size > MAX_LOG_BYTES) trim(path);
-}
-
 /**
- * Drop the oldest whole lines until what is left fits.
+ * Add one line, trimming the oldest away when the record has grown past its cap.
  *
- * ⛔ WHOLE LINES. Cutting the file at a byte offset leaves a half-written JSON object at the top,
- *    and a reader that meets one has to decide whether the file is corrupt or merely trimmed.
+ * ⛔ WHOLE LINES. Cutting at a byte offset leaves a half-written JSON object at the top, and a
+ *    reader that meets one has to decide whether the record is corrupt or merely trimmed.
+ *
+ * ⚠ READ, ADD, WRITE, rather than an append. A host's state is bytes under a key — the only shape
+ *   a browser's store and a file both have — and the record is a quarter of a megabyte at most,
+ *   which is what makes rewriting it affordable at the end of a run.
  */
-function trim(path: string): void {
-  const lines = readFileSync(path, "utf8").split("\n");
+async function append(line: string): Promise<void> {
+  const state = host().state;
+  const held = await state.read(RUN_LOG_KEY);
+  const lines = (held === undefined ? "" : fromUtf8(held)).split("\n");
+  lines.push(line.replace(/\n$/, ""));
   const kept: string[] = [];
   let bytes = 0;
   for (let i = lines.length - 1; i >= 0; i -= 1) {
-    const line = lines[i];
-    if (line === undefined || line === "") continue;
-    const size = Buffer.byteLength(line, "utf8") + 1;
+    const one = lines[i];
+    if (one === undefined || one === "") continue;
+    const size = utf8(one).length + 1;
     if (bytes + size > MAX_LOG_BYTES) break;
-    kept.unshift(line);
+    kept.unshift(one);
     bytes += size;
   }
-  writeFileSync(path, kept.length === 0 ? "" : `${kept.join("\n")}\n`, { mode: 0o600 });
+  await state.write(RUN_LOG_KEY, utf8(kept.length === 0 ? "" : `${kept.join("\n")}\n`));
 }
 
 /**
@@ -241,7 +231,7 @@ function trim(path: string): void {
  * Returns nothing and throws nothing: see the header. A run that could not be written is a run
  * that is missing from a report, which is a smaller problem than a command that failed for it.
  */
-export function recordRun(argv: readonly string[], exit: number, ms: number, now = new Date()): void {
+export async function recordRun(argv: readonly string[], exit: number, ms: number, now = new Date()): Promise<void> {
   if (runLogIsOff()) {
     forgetRun();
     return;
@@ -261,7 +251,7 @@ export function recordRun(argv: readonly string[], exit: number, ms: number, now
   };
   forgetRun();
   try {
-    append(`${JSON.stringify(record)}\n`);
+    await append(`${JSON.stringify(record)}\n`);
   } catch {
     // Swallowed on purpose. See the header: the log is a convenience and the command is the work.
   }
@@ -312,10 +302,12 @@ function asRecord(value: unknown): RunRecord | null {
 }
 
 /** The newest `count` runs, oldest first. An unreadable or missing file is no runs. */
-export function readRuns(count: number): RunRecord[] {
+export async function readRuns(count: number): Promise<RunRecord[]> {
   let text: string;
   try {
-    text = readFileSync(runLogPath(), "utf8");
+    const held = await host().state.read(RUN_LOG_KEY);
+    if (held === undefined) return [];
+    text = fromUtf8(held);
   } catch {
     return [];
   }

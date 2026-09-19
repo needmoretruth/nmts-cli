@@ -1,7 +1,7 @@
 /** The sealed bytes this machine holds under that name, or null when it holds none. */
-export declare function readCachedChunk(accountId: string, hash: string): string | null;
+export declare function readCachedChunk(accountId: string, hash: string): Promise<string | null>;
 /** Keep these sealed bytes under that name. Silent when the machine will not take them. */
-export declare function writeCachedChunk(accountId: string, hash: string, ct: string): void;
+export declare function writeCachedChunk(accountId: string, hash: string, ct: string): Promise<void>;
 /**
  * Drop every copy this account holds that the given list does not name.
  *
@@ -11,4 +11,4 @@ export declare function writeCachedChunk(accountId: string, hash: string, ct: st
  *    abandoned. Called after every complete read and every successful write, which is exactly when
  *    "what the list names" is known.
  */
-export declare function pruneChunkCache(accountId: string, keep: ReadonlySet<string>): void;
+export declare function pruneChunkCache(accountId: string, keep: ReadonlySet<string>): Promise<void>;

@@ -74,7 +74,9 @@ export interface ParsedArgs {
     /** `wallet address`: which of this key's wallets to print. Absent = the first one, offline. */
     index?: string;
     /**
-     * `put`/`push`/`extend`/`wallet send`/`wallet donate`: which wallet pays, THIS RUN ONLY.
+     * `put`/`push`/`extend`/`wallet send`/`wallet donate`: which wallet pays, THIS RUN ONLY — and
+     * `wallet swap`/`wallet storage split|merge|transfer`/`wallet hall --name`, which act on that
+     * same wallet without paying anybody.
      *
      * ⛔ IT DOES NOT SAVE. Which wallet pays is the account's own setting (`nmts wallet use N`), read
      *    from the sealed file list so every device agrees; a flag that quietly rewrote it would make

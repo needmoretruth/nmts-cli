@@ -1,4 +1,4 @@
-import { type CryptoGlue } from "./crypto-surface.ts";
+import type { CryptoGlue } from "./crypto-surface.ts";
 export type { CryptoGlue, StreamOpener, StreamSealer } from "./crypto-surface.ts";
 /**
  * The associated-data strings of NCF-3, for the envelopes this tool opens.
@@ -74,8 +74,11 @@ export declare const DERIVED: {
      */
     readonly aiAccountRoot: readonly [256, 288];
 };
-export declare function engineDir(): string;
-/** Load the engine once per process. */
+/**
+ * The engine, loaded once by whichever host this program registered.
+ *
+ * Every derivation in the package goes through this one call, so a program that has not registered
+ * a host is told so here rather than somewhere deeper, where the message would be about a missing
+ * function instead of a missing entry point.
+ */
 export declare function loadCrypto(): Promise<CryptoGlue>;
-/** For tests that need a fresh load. */
-export declare function forgetCrypto(): void;

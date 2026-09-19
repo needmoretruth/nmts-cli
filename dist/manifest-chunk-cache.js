@@ -6,46 +6,45 @@
 //    rewrote one chunk costs one download instead of the whole list.
 //
 // ⛔ AND IT IS STILL CHECKED ON THE WAY OUT. The reader re-hashes what it reads from here before
-//    opening it (`manifest-chunk-flow.ts`). A directory on this machine is not a trusted store:
-//    whoever holds the machine can edit it, and the index is the only thing that says which bytes
-//    belong to which version.
+//    opening it (`manifest-chunk-flow.ts`). A store on this machine is not a trusted one: whoever
+//    holds the machine can edit it, and the index is the only thing that says which bytes belong
+//    to which version.
 //
 // ⛔ WHAT IS STORED IS SEALED. These are the account's names, folders and file keys, sealed with
-//    the NMTS key — the same bytes the server holds and cannot read. They are written 0600 in
-//    a 0700 directory, beside the kept copy of the index and for the same reason.
+//    the NMTS key — the same bytes the server holds and cannot read. Where they land, and how
+//    private that place is, is the host's business: on this machine it is a 0600 file in a 0700
+//    directory, beside the kept copy of the index and for the same reason.
 //
 // ⚠ NOTHING HERE THROWS. A cache that cannot be read or written is a slower command, never a
 //   broken one: every function answers "no copy" and the network path behind it does the work.
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { configDir } from "./credentials.js";
-/** A chunk's name: base64url SHA-256, unpadded — 43 characters, and it becomes a file name. */
+import { fromUtf8, utf8 } from "./bytes.js";
+import { host } from "./host.js";
+/** A chunk's name: base64url SHA-256, unpadded — 43 characters, and it becomes part of a key. */
 const NAME = /^[A-Za-z0-9_-]{43}$/;
 /**
- * ⛔ AN ACCOUNT ID BECOMES PART OF A PATH HERE, so it is CHECKED rather than trusted — the same
+ * ⛔ AN ACCOUNT ID BECOMES PART OF A KEY HERE, so it is CHECKED rather than trusted — the same
  *    check `manifest.ts` makes on the kept list, and for the same reason: a value that reaches a
- *    path join unchecked is how `..` becomes a write somewhere else.
+ *    key unchecked is how `..` becomes a write somewhere else on a host that spells keys as paths.
  */
 const ACCOUNT = /^[A-Za-z0-9_-]{1,64}$/;
-/** Where one account's chunks live, or null when the id is not one this tool derived. */
-function dirFor(accountId) {
-    if (!ACCOUNT.test(accountId))
-        return null;
-    return join(configDir(), "file-list-chunks", accountId);
+/** The key prefix one account's chunks live under, or null when the id is not one this tool derived. */
+function areaFor(accountId) {
+    return ACCOUNT.test(accountId) ? `chunks/${accountId}/` : null;
 }
-function pathFor(accountId, hash) {
-    const dir = dirFor(accountId);
-    if (dir === null || !NAME.test(hash))
-        return null;
-    return join(dir, `${hash}.ct`);
+function keyFor(accountId, hash) {
+    const area = areaFor(accountId);
+    return area === null || !NAME.test(hash) ? null : `${area}${hash}`;
 }
 /** The sealed bytes this machine holds under that name, or null when it holds none. */
-export function readCachedChunk(accountId, hash) {
-    const path = pathFor(accountId, hash);
-    if (path === null)
+export async function readCachedChunk(accountId, hash) {
+    const key = keyFor(accountId, hash);
+    if (key === null)
         return null;
     try {
-        const text = readFileSync(path, "utf8").trim();
+        const held = await host().state.read(key);
+        if (held === undefined)
+            return null;
+        const text = fromUtf8(held).trim();
         return text === "" ? null : text;
     }
     catch {
@@ -53,18 +52,16 @@ export function readCachedChunk(accountId, hash) {
     }
 }
 /** Keep these sealed bytes under that name. Silent when the machine will not take them. */
-export function writeCachedChunk(accountId, hash, ct) {
-    const dir = dirFor(accountId);
-    const path = pathFor(accountId, hash);
-    if (dir === null || path === null)
+export async function writeCachedChunk(accountId, hash, ct) {
+    const key = keyFor(accountId, hash);
+    if (key === null)
         return;
     try {
-        mkdirSync(dir, { recursive: true, mode: 0o700 });
-        writeFileSync(path, `${ct}\n`, { mode: 0o600 });
+        await host().state.write(key, utf8(`${ct}\n`));
     }
     catch {
-        // Out of space, read-only home, a directory somebody removed underneath: the next read of the
-        // list fetches from the server instead, which is what this cache is an optimisation of.
+        // Out of space, a read-only home, a browser that would not open its database: the next read of
+        // the list fetches from the server instead, which is what this cache is an optimisation of.
     }
 }
 /**
@@ -76,27 +73,25 @@ export function writeCachedChunk(accountId, hash, ct) {
  *    abandoned. Called after every complete read and every successful write, which is exactly when
  *    "what the list names" is known.
  */
-export function pruneChunkCache(accountId, keep) {
-    const dir = dirFor(accountId);
-    if (dir === null)
+export async function pruneChunkCache(accountId, keep) {
+    const area = areaFor(accountId);
+    if (area === null)
         return;
-    let names;
+    let held;
     try {
-        names = readdirSync(dir);
+        held = await host().state.keys(area);
     }
     catch {
         return;
     }
-    for (const name of names) {
-        if (!name.endsWith(".ct"))
-            continue;
-        if (keep.has(name.slice(0, -3)))
+    for (const key of held) {
+        if (keep.has(key.slice(area.length)))
             continue;
         try {
-            rmSync(join(dir, name), { force: true });
+            await host().state.remove(key);
         }
         catch {
-            // A copy that will not delete costs disk and nothing else; it is named by a hash, so it can
+            // A copy that will not delete costs space and nothing else; it is named by a hash, so it can
             // never be handed back as some other version.
         }
     }

@@ -27,6 +27,7 @@
 //    drive the real decisions — including every failure branch — without a network and without
 //    spending anything. The seams themselves are in `upload-wire.ts`.
 
+import { fromBase64Url, toBase64Url } from "./bytes.ts";
 import { NmtsError } from "./errors.ts";
 import { ServerError } from "./api.ts";
 import {
@@ -72,7 +73,7 @@ function why(error: unknown): string {
  */
 export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
   const { api, protocol, key, sealed, onStep } = input;
-  const existing = readReservationRecord(key);
+  const existing = await readReservationRecord(key);
 
   // ⛔ THE STORED PLACEMENT WINS THE ARGUMENT, AND A DISAGREEMENT STOPS THE RUN. The bytes on disk
   //    were sealed as part i of n and paid for as that; pushing them while this run believes the
@@ -85,8 +86,8 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
       message: "This upload was started with the wallet paying, and this run would pay with credits.",
       paid: existing.registerTxDigest !== undefined,
       nextStep:
-        "Run it again with --pay wallet to finish it, or move the records in the uploads directory " +
-        "aside to start over with credits. Nothing was sent.",
+        "Run it again with --pay wallet to finish it, or clear the unfinished upload records to " +
+        "start over with credits. Nothing was sent.",
     });
   }
   if (existing !== null) {
@@ -99,8 +100,8 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
           `run is treating it as part ${input.part.index + 1} of ${input.part.total}.`,
         paid: record.ledgerId !== undefined,
         nextStep:
-          "Run it again with the part size the first attempt used, or move the records in the " +
-          "uploads directory aside to start over. Nothing was sent.",
+          "Run it again with the part size the first attempt used, or clear the unfinished upload " +
+          "records to start over. Nothing was sent.",
       });
     }
   }
@@ -135,10 +136,10 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
       //    whatever state it is in — `failed` included. A cleared record means the next run
       //    rebuilds the same key, is handed the same dead row, and is told to start over into it.
       //    Forever. Counting up is what starting over actually means.
-      writeReservation(
+      await writeReservation(
         key,
         { ...stripReservation(record), attempt: record.attempt + 1 },
-        readReservationBytes(key),
+        await readReservationBytes(key),
       );
       throw new UploadError({
         phase: "reserve",
@@ -160,12 +161,12 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
     await pushPart(input, {
       ledgerId,
       blobId: record.blobId,
-      nonce: Buffer.from(record.nonceB64, "base64url"),
+      nonce: fromBase64Url(record.nonceB64),
       registerTxDigest: status.register_tx_digest,
       blobObjectId: status.blob_object_id,
       // ⛔ THE STORED BYTES AND THE STORED RELAY. Not the caller's — see the module header.
       //    Read here, and only here: a part that came back certified never needs them at all.
-      sealed: readReservationBytes(key),
+      sealed: await readReservationBytes(key),
       relayUrl: record.relayUrl,
     });
     return paidPart(record, ledgerId, true);
@@ -179,7 +180,7 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
       bytes: sealed,
       // Re-feeding a stored nonce is what makes the retry reproduce the digest a paid tip was
       // computed for. A fresh random one would strand the reservation.
-      nonce: existing ? new Uint8Array(Buffer.from(existing.nonceB64, "base64url")) : undefined,
+      nonce: existing ? fromBase64Url(existing.nonceB64) : undefined,
     });
   } catch (error) {
     throw new UploadError({
@@ -190,14 +191,14 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
     });
   }
 
-  const nonceB64 = Buffer.from(meta.nonce).toString("base64url");
+  const nonceB64 = toBase64Url(meta.nonce);
   const record: Reservation = {
     // ⛔ The attempt number is CARRIED FORWARD, not reset. A record that survives a dead
     //    reservation is exactly the case that needs a different idempotency key.
     attempt: existing?.attempt ?? 0,
     blobId: meta.blobId,
     nonceB64,
-    rootHashB64: Buffer.from(meta.rootHash).toString("base64url"),
+    rootHashB64: toBase64Url(meta.rootHash),
     relayUrl: input.relayUrl,
     epochs: input.epochs,
     sealedLen: sealed.length,
@@ -211,7 +212,7 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
     parentId: input.entry.parentId,
   };
   // ⛔ BEFORE THE MONEY. See the module header.
-  writeReservation(key, record, sealed);
+  await writeReservation(key, record, sealed);
 
   onStep?.({ step: "reserving" });
   let reply: ReserveReply;
@@ -227,7 +228,7 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
       deposit_credits: input.depositCredits,
       relay: {
         host: input.relayUrl,
-        blob_digest_b64: Buffer.from(meta.blobDigest).toString("base64url"),
+        blob_digest_b64: toBase64Url(meta.blobDigest),
         nonce_b64: nonceB64,
       },
     });
@@ -248,7 +249,7 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
   if (!isLive(reply.state)) {
     // Same reason as the resumed branch above: keep the record, count up, so the next run does not
     // ask under a key the server has already settled.
-    writeReservation(key, { ...stripReservation(record), attempt: record.attempt + 1 }, sealed);
+    await writeReservation(key, { ...stripReservation(record), attempt: record.attempt + 1 }, sealed);
     throw new UploadError({
       phase: "reserve",
       message: `The reservation came back as "${reply.state}", which cannot become storage.`,
@@ -260,7 +261,7 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
   record.ledgerId = reply.ledger_id;
   if (reply.register_tx_digest) record.registerTxDigest = reply.register_tx_digest;
   if (reply.blob_object_id) record.blobObjectId = reply.blob_object_id;
-  writeReservation(key, record, sealed);
+  await writeReservation(key, record, sealed);
 
   if (reply.state === "certified") {
     return paidPart(record, reply.ledger_id, false);

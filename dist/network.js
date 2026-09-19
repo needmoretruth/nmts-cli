@@ -9,10 +9,14 @@
 // ⛔ SO THE RULE HERE IS: the live server implies mainnet, and ANY other server must say which
 //    network it is. There is no fallback. A tool that has to guess where somebody's files are
 //    should stop instead.
+import { NETWORK_ENV_VAR } from "./env-vars.js";
 import { NmtsError } from "./errors.js";
+import { host } from "./host.js";
 import { DEFAULT_SERVER } from "./server.js";
 export const NETWORKS = ["mainnet", "testnet"];
-export const NETWORK_ENV_VAR = "NMTS_NETWORK";
+// Re-exported: the name itself lives in a module with no imports, because `nmts --help`
+// prints it (`env-vars.ts`).
+export { NETWORK_ENV_VAR } from "./env-vars.js";
 function isNetwork(value) {
     return NETWORKS.includes(value);
 }
@@ -23,7 +27,7 @@ function isNetwork(value) {
  * make: the live server is mainnet. Anything else and it refuses.
  */
 export function resolveNetwork(server, explicit) {
-    const stated = explicit ?? process.env[NETWORK_ENV_VAR];
+    const stated = explicit ?? host().env(NETWORK_ENV_VAR);
     if (stated !== undefined && stated.length > 0) {
         if (!isNetwork(stated)) {
             throw new NmtsError(`Not a network: ${stated}`, {

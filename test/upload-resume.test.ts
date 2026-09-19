@@ -40,7 +40,7 @@ test("⛔ a resume pushes the bytes the reservation BOUGHT, not a fresh sealing 
         ),
       ),
     );
-    const bought = readReservation("resume-bytes")?.record.blobId;
+    const bought = (await readReservation("resume-bytes"))?.record.blobId;
     assert.equal(bought, BLOB_OF_SEALED);
 
     // Run two: a caller that re-sealed would arrive with DIFFERENT bytes. The stored ones must win.
@@ -93,7 +93,7 @@ test("⛔ a second run does not overwrite the recorded key with its own", async 
       entry: { ...input.entry, dekWrapped: "AAAA-a-different-wrapped-key", contentHashCt: "AAAA-different" },
     });
 
-    const record = readReservation("resume-entry")?.record;
+    const record = (await readReservation("resume-entry"))?.record;
     assert.equal(
       record?.dekWrapped,
       "ZGVr",
@@ -123,7 +123,7 @@ test("⛔ a resume goes back to the relay that was TIPPED, not to whatever is co
         ),
       ),
     );
-    assert.equal(readReservation("resume-relay")?.record.relayUrl, "https://relay.example");
+    assert.equal((await readReservation("resume-relay"))?.record.relayUrl, "https://relay.example");
 
     const steps: string[] = [];
     const second = apiThat();
@@ -154,7 +154,7 @@ test("⛔ the record survives a crash mid-write — it is renamed over, never tr
     const { readdirSync } = await import("node:fs");
     const leftovers = readdirSync(join(dir, "uploads")).filter((n) => n.endsWith(".tmp"));
     assert.deepEqual(leftovers, [], "a scratch file was left behind");
-    assert.notEqual(readReservation("atomic"), null);
+    assert.notEqual(await readReservation("atomic"), null);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

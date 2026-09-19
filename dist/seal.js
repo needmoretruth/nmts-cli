@@ -8,7 +8,8 @@
 // ⛔ THE PLAINTEXT NEVER LEAVES THIS PROCESS. What goes out is the NCF-3 stream; what the server
 //    is told is its LENGTH. The name, the folder and the real size are written into the account's
 //    sealed file list, which the server cannot open.
-import { createHash } from "node:crypto";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { toBase64Url } from "./bytes.js";
 import { AAD } from "./crypto.js";
 import { NmtsError } from "./errors.js";
 import { chunkCount, sealedLenFor as sealedLength, } from "./shared/lib/crypto/size-padding.js";
@@ -108,8 +109,8 @@ export function fileSecrets(crypt, dataKey, contentDigest) {
     const contentHashCt = crypt.envelope_seal(dataKey, encoder.encode(AAD.contentHash), contentDigest);
     return {
         dek,
-        dekWrapped: Buffer.from(dekWrapped).toString("base64url"),
-        contentHashCt: Buffer.from(contentHashCt).toString("base64url"),
+        dekWrapped: toBase64Url(dekWrapped),
+        contentHashCt: toBase64Url(contentHashCt),
     };
 }
 /**
@@ -180,7 +181,7 @@ export async function sealFile(crypt, dataKey, plaintext) {
             nextStep: "The storage network has nothing to store and would refuse the reservation.",
         });
     }
-    const digest = new Uint8Array(createHash("sha256").update(plaintext).digest());
+    const digest = sha256(plaintext);
     const secrets = fileSecrets(crypt, dataKey, digest);
     digest.fill(0);
     try {

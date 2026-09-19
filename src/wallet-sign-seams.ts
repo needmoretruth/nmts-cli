@@ -25,6 +25,14 @@ import type { Network } from "./network.ts";
 export type SignMessage = (input: {
   /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
   code: string;
+  /**
+   * Which of this key's wallets proves the name.
+   *
+   * ⛔ IT IS THE PAYING WALLET BECAUSE THAT IS THE WALLET THE GIFT CAME FROM. A hall entry is an
+   *    address, and `wallet donate` sends from the account's own number; signing with any other
+   *    wallet would offer the server a name for an address that has never given anything.
+   */
+  wallet: number;
   message: string;
 }) => Promise<string>;
 /** The seam `commands/wallet-send.ts` signs through. Returns the transaction digest. */
@@ -41,6 +49,8 @@ export type SignSwap = (input: {
   network: Network;
   /** ⛔ The NMTS key. It never leaves this machine: it derives the wallet and nothing else. */
   code: string;
+  /** Which of this key's wallets swaps — the account's own number (`wallet-pay-index.ts`). */
+  wallet: number;
   shape: SwapShape;
 }) => Promise<string>;
 /** The seam the wallet rail registers through. */
@@ -62,6 +72,8 @@ export type SignBlobCertify = (input: {
 export type SignStorageOp = (input: {
   network: Network;
   code: string;
+  /** Which of this key's wallets holds the resource — the account's own number. */
+  wallet: number;
   shape: StorageOpShape;
   walrusPackageId: string;
 }) => Promise<string>;

@@ -21,12 +21,12 @@ import { promptLine, stdinIsATerminal } from "./prompt.ts";
  *    never sees a line.
  */
 export async function askAboutCollisions(say: (line: string) => void): Promise<void> {
-  if (hasChosen() || !stdinIsATerminal()) return;
+  if ((await hasChosen()) || !stdinIsATerminal()) return;
   say(``);
   say(`When a file with that name is already in the drive:`);
   say(`  ${ANSWER_NUMBER.rename}  ${COLLISION_MEANS.rename}`);
   say(`  ${ANSWER_NUMBER.overwrite}  ${COLLISION_MEANS.overwrite}`);
   const choice = readAnswer(await promptLine(`[${ANSWER_NUMBER.rename}] `));
-  setChoice(choice, VERSION, new Date());
+  await setChoice(choice, VERSION, new Date());
   say(`${choice} — ${COLLISION_MEANS[choice]}  Change it: ${BINARY_NAME} on-collision <rename|overwrite>`);
 }

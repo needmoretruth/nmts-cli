@@ -46,5 +46,5 @@ export async function runSettings(command: string, args: ParsedArgs): Promise<nu
     return await mode(args.operands[0], args.operands[1], { json: args.json });
   }
   const { onCollision } = await import("./on-collision.ts");
-  return onCollision(args.operands[0], { json: args.json });
+  return await onCollision(args.operands[0], { json: args.json });
 }

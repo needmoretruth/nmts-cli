@@ -13,8 +13,11 @@ export interface StorageOpsOptions {
     size?: string | undefined;
     /** `split --epochs <n>`: how many epochs, from its start, the named resource keeps. */
     epochs?: string | undefined;
+    /** `--wallet N`: whose resources these are, this run only. Absent = the account's own number. */
+    wallet?: string | undefined;
     now?: number;
-    /** ⚠ A SEAM, NOT AN OPTION — no flag reaches it. */
+    /** ⚠ SEAMS, NOT OPTIONS — no flag reaches them. */
+    readActiveWallet?: () => Promise<number>;
     storageReads?: (network: Network) => StorageOpsReads;
     /** ⛔ SEPARATE FROM THE READS so a test can prove the review stops before this. */
     signStorage?: SignStorageOp;

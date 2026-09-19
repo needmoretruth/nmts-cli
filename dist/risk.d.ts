@@ -152,6 +152,9 @@ export declare const ACTS: {
     readonly mcp: {
         readonly tier: "none";
     };
+    readonly platform: {
+        readonly tier: "none";
+    };
     readonly "accept-terms": {
         readonly tier: "none";
     };
@@ -225,6 +228,10 @@ export declare const ACTS: {
     readonly "key.revoke": {
         readonly tier: "medium";
         readonly what: "Revoke an API key. Whatever used it stops working.";
+    };
+    readonly "platform.keygen": {
+        readonly tier: "medium";
+        readonly what: "Make a business key pair and write its private half to a file on this disk.";
     };
     readonly "public-code.publish": {
         readonly tier: "medium";

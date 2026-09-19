@@ -24,7 +24,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { API_KEY_ENV_VAR, CODE_ENV_VAR, testConfigDir } from "../src/credentials.ts";
-import { engineDir } from "../src/crypto.ts";
+import { engineDir } from "../src/engine-node.ts";
 import { encodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 import { sealedLenFor } from "../src/seal.ts";
 import { generateCode, grantConsents, sealFileList } from "./helpers.ts";

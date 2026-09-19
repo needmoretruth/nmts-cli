@@ -141,7 +141,7 @@ export function withTiers(tools, asker) {
             ...tool,
             description: `${tierLine(tier)}${tool.description}`,
             annotations: annotationsOf(tool.name),
-            run: async (args) => (await passTool(tool.name, args, currentMode(), asker())) ?? (await tool.run(args)),
+            run: async (args) => (await passTool(tool.name, args, await currentMode(), asker())) ?? (await tool.run(args)),
         };
     });
 }

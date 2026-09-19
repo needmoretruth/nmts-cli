@@ -15,34 +15,34 @@ import {
 } from "../src/collision.ts";
 import { onCollision } from "../src/commands/on-collision.ts";
 
-test("nothing chosen means rename — the direction that destroys nothing", () => {
+test("nothing chosen means rename — the direction that destroys nothing", async () => {
   assert.equal(DEFAULT_COLLISION, "rename");
-  assert.equal(decide(undefined, "rename", "default").choice, "rename");
+  assert.equal((await decide(undefined, "rename", "default")).choice, "rename");
 });
 
-test("a person's stored answer stands, whatever autonomy is set to", () => {
+test("a person's stored answer stands, whatever autonomy is set to", async () => {
   // Setup asks while somebody is there. Overriding that later would ignore the one answer from a
   // person this tool actually has.
-  assert.deepEqual(decide(undefined, "overwrite", "default"), { choice: "overwrite", by: "setting" });
-  assert.deepEqual(decide(undefined, "overwrite", "auto-low"), { choice: "overwrite", by: "setting" });
+  assert.deepEqual(await decide(undefined, "overwrite", "default"), { choice: "overwrite", by: "setting" });
+  assert.deepEqual(await decide(undefined, "overwrite", "auto-low"), { choice: "overwrite", by: "setting" });
 });
 
-test("⛔ an agent asking to overwrite with no mode on gets a rename, and it is said", () => {
-  const decision = decide("overwrite", "rename", "default");
+test("⛔ an agent asking to overwrite with no mode on gets a rename, and it is said", async () => {
+  const decision = await decide("overwrite", "rename", "default");
   assert.equal(decision.choice, "rename");
   assert.equal(decision.by, "agent-refused");
 });
 
-test("with a mode on, an agent may ask for an overwrite", () => {
-  assert.deepEqual(decide("overwrite", "rename", "auto-low"), { choice: "overwrite", by: "asked-for" });
-  assert.deepEqual(decide("overwrite", "rename", "skip-permissions"), {
+test("with a mode on, an agent may ask for an overwrite", async () => {
+  assert.deepEqual(await decide("overwrite", "rename", "auto-low"), { choice: "overwrite", by: "asked-for" });
+  assert.deepEqual(await decide("overwrite", "rename", "skip-permissions"), {
     choice: "overwrite",
     by: "asked-for",
   });
 });
 
-test("⛔ a mode never turns a rename into an overwrite — the override is one way", () => {
-  assert.equal(decide("rename", "overwrite", "skip-permissions").choice, "rename");
+test("⛔ a mode never turns a rename into an overwrite — the override is one way", async () => {
+  assert.equal((await decide("rename", "overwrite", "skip-permissions")).choice, "rename");
 });
 
 test("⛔ each choice says what it does in one line, and neither claims a permanence this tool has not got", () => {
@@ -86,15 +86,15 @@ test("the numbers the question prints are the numbers it reads", () => {
   assert.equal(readAnswer(ANSWER_NUMBER.rename), "rename");
 });
 
-test("`nmts on-collision` prints what is set and how to change it", () => {
+test("`nmts on-collision` prints what is set and how to change it", async () => {
   const lines: string[] = [];
-  assert.equal(onCollision(undefined, { write: (l) => lines.push(l) }), 0);
+  assert.equal(await onCollision(undefined, { write: (l) => lines.push(l) }), 0);
   const said = lines.join("\n");
   assert.match(said, /rename/);
   assert.match(said, /overwrite/);
   assert.match(said, /on-collision <rename\|overwrite>/, "it did not say how to change it");
 });
 
-test("an answer it does not know is refused by name, not stored", () => {
-  assert.throws(() => onCollision("maybe", { write: () => {} }), /no such answer/i);
+test("an answer it does not know is refused by name, not stored", async () => {
+  await assert.rejects(() => onCollision("maybe", { write: () => {} }), /no such answer/i);
 });

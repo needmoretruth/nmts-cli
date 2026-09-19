@@ -176,13 +176,13 @@ test("⛔ a newer version replaces the copy, and an older one never does", async
     const identity = await identityOf(code);
     await fake.serve(code, [entry({ id: "a", name: "budget.xlsx" })]);
     await ls(server(lines()));
-    const first = readKeptList(identity.accountId);
+    const first = await readKeptList(identity.accountId);
     assert.equal(first?.seq, 1);
 
     // Another device writes version 2; this machine reads it and its copy moves on.
     await fake.serve(code, [entry({ id: "a", name: "budget.xlsx" }), entry({ id: "b", name: "notes.md" })], 2);
     await ls(server(lines()));
-    const second = readKeptList(identity.accountId);
+    const second = await readKeptList(identity.accountId);
     assert.equal(second?.seq, 2);
     assert.equal(second?.ct, fake.servedCt());
     assert.equal((await openFileList(code, String(second?.ct))).length, 2);
@@ -191,7 +191,7 @@ test("⛔ a newer version replaces the copy, and an older one never does", async
     //    seen can be lost or cleared; the copy must not be talked backwards when it is.
     assert.ok(first !== null);
     await recordWrittenList(identity.accountId, 1, first.ct);
-    assert.equal(readKeptList(identity.accountId)?.seq, 2, "an older list overwrote a newer copy");
+    assert.equal((await readKeptList(identity.accountId))?.seq, 2, "an older list overwrote a newer copy");
   });
 });
 

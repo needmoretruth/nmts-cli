@@ -1,4 +1,4 @@
-# nmts rm, restore, sweep, erase — the trash, and the one way past it
+# nmts rm, restore, sweep, erase — the trash, and erasing for good
 
 Commands: rm, restore, sweep, erase
 Tiers: rm=low · restore=low · sweep=medium · erase=ultra-high · erase.release=ultra-high(release-storage)

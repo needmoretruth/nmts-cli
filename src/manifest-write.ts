@@ -333,7 +333,7 @@ export async function addEntry(input: AddEntryInput): Promise<AddEntryResult> {
 
   // ⛔ SETTLED ONCE, OUTSIDE THE RETRY LOOP. What the machine is set to and whether a mode is on
   //    are facts about this run, not about the list version a compare-and-swap happened to read.
-  const choice = decide(input.onCollision).choice;
+  const choice = (await decide(input.onCollision)).choice;
 
   const result = await applyManyToList(input, (entries) => {
     const plan = planAddition(entries, input.entry, choice);

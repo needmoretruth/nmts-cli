@@ -1,4 +1,4 @@
-// Loading the real NMTS crypto engine in Node.
+// The frozen tables of NCF-3, and the one door to the engine that reads them.
 //
 // ⛔ NOTHING IS RE-IMPLEMENTED HERE. The bytes that derive an account's keys are the same
 //    WebAssembly the browser runs, built from the same Rust crate. Two harnesses in this repo
@@ -7,24 +7,12 @@
 //    be a second implementation that can drift from the first, silently and in the direction that
 //    loses files.
 //
-// ⛔ NO TYPE ASSERTION. A dynamically imported module is `unknown` and staying honest about that
-//    matters here more than anywhere: if a rebuild renamed an export, an `as` would turn that into
-//    "undefined is not a function" deep inside a derivation. The guard below checks each function
-//    exists before anything is derived, so a missing export is named at load time.
-var __rewriteRelativeImportExtension = (this && this.__rewriteRelativeImportExtension) || function (path, preserveJsx) {
-    if (typeof path === "string" && /^\.\.?\//.test(path)) {
-        return path.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function (m, tsx, d, ext, cm) {
-            return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m : (d + ext + "." + cm.toLowerCase() + "js");
-        });
-    }
-    return path;
-};
-import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { NmtsError } from "./errors.js";
-import { isCryptoGlue, missingExports } from "./crypto-surface.js";
+// ⛔ WHERE THE ENGINE COMES FROM IS THE HOST'S BUSINESS, not this file's. Node finds it on disk
+//    and a browser fetches it, and both answers land in `host().engine` — so the tables below, and
+//    every module that derives anything from them, are the same code in both. The shape check
+//    stays on the host's side of the door for the same reason: `crypto-surface.ts` is one gate
+//    that both loads pass, rather than two guards that can come to disagree.
+import { host } from "./host.js";
 /**
  * The associated-data strings of NCF-3, for the envelopes this tool opens.
  *
@@ -104,47 +92,13 @@ export const DERIVED = {
      */
     aiAccountRoot: [256, 288],
 };
-export function engineDir() {
-    const here = dirname(fileURLToPath(import.meta.url));
-    const candidates = [
-        join(here, "..", "vendor", "nmts-crypto"),
-        join(here, "..", "..", "vendor", "nmts-crypto"),
-        join(here, "..", "..", "web", "vendor", "nmts-crypto"),
-    ];
-    for (const dir of candidates) {
-        if (existsSync(join(dir, "nmts_crypto_wasm_bg.wasm")))
-            return dir;
-    }
-    throw new NmtsError("The NMTS crypto engine is missing from this installation.", {
-        exitCode: 1,
-        nextStep: "Reinstall the package. Nothing can be encrypted or decrypted without it.",
-    });
-}
-let cached = null;
-/** Load the engine once per process. */
+/**
+ * The engine, loaded once by whichever host this program registered.
+ *
+ * Every derivation in the package goes through this one call, so a program that has not registered
+ * a host is told so here rather than somewhere deeper, where the message would be about a missing
+ * function instead of a missing entry point.
+ */
 export async function loadCrypto() {
-    if (cached !== null)
-        return cached;
-    const dir = engineDir();
-    const module = await import(__rewriteRelativeImportExtension(pathToFileURL(join(dir, "nmts_crypto_wasm.js")).href));
-    if (typeof module !== "object" || module === null || !("default" in module)) {
-        throw new NmtsError("The NMTS crypto engine did not load (no initialiser).", { exitCode: 1 });
-    }
-    const init = Reflect.get(module, "default");
-    if (typeof init !== "function") {
-        throw new NmtsError("The NMTS crypto engine did not load (initialiser is not callable).", {
-            exitCode: 1,
-        });
-    }
-    await init({ module_or_path: await readFile(join(dir, "nmts_crypto_wasm_bg.wasm")) });
-    if (!isCryptoGlue(module)) {
-        const missing = missingExports(module);
-        throw new NmtsError(`The NMTS crypto engine is missing: ${missing.join(", ")}. This build does not match this tool.`, { exitCode: 1, nextStep: "Reinstall the package." });
-    }
-    cached = module;
-    return module;
-}
-/** For tests that need a fresh load. */
-export function forgetCrypto() {
-    cached = null;
+    return host().engine.load();
 }

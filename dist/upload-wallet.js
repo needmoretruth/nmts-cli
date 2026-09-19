@@ -18,6 +18,7 @@
 // ⛔ THE SIGNATURES ARE A SEAM. `wallet-sign.ts` is loaded by the command, after the agreement,
 //    and handed in; the tests hand in recorders and prove that `--dry-run` and a shortfall never
 //    reach them.
+import { fromBase64Url, toBase64Url } from "./bytes.js";
 import { NmtsError } from "./errors.js";
 import { readReservationBytes, readReservationRecord, writeReservation } from "./upload-store.js";
 import { UploadError } from "./upload-wire.js";
@@ -30,14 +31,14 @@ export function walletRail(ctx) {
 }
 async function buyAndPushPartWithWallet(ctx, input) {
     const { protocol, key, sealed, onStep } = input;
-    const existing = readReservationRecord(key);
+    const existing = await readReservationRecord(key);
     if (existing !== null && existing.paidFrom !== "wallet") {
         throw new UploadError({
             phase: "reserve",
             message: "This upload was started with credits paying, and this run would pay from the wallet.",
             paid: existing.ledgerId !== undefined,
-            nextStep: "Run it again without --pay wallet to finish it, or move the records in the uploads " +
-                "directory aside to start over. Nothing was sent.",
+            nextStep: "Run it again without --pay wallet to finish it, or clear the unfinished upload records " +
+                "to start over. Nothing was sent.",
         });
     }
     if (existing !== null && (existing.partIndex !== input.part.index || existing.partTotal !== input.part.total)) {
@@ -46,8 +47,8 @@ async function buyAndPushPartWithWallet(ctx, input) {
             message: `This upload was started as part ${existing.partIndex + 1} of ${existing.partTotal} and this ` +
                 `run is treating it as part ${input.part.index + 1} of ${input.part.total}.`,
             paid: existing.registerTxDigest !== undefined,
-            nextStep: "Run it again with the part size the first attempt used, or move the records in the " +
-                "uploads directory aside to start over. Nothing was sent.",
+            nextStep: "Run it again with the part size the first attempt used, or clear the unfinished upload " +
+                "records to start over. Nothing was sent.",
         });
     }
     // ── already certified: nothing left to sign or send ──
@@ -58,9 +59,9 @@ async function buyAndPushPartWithWallet(ctx, input) {
     // ── registered by an earlier run: push and certify, sign nothing twice ──
     if (existing?.registerTxDigest !== undefined && existing.blobObjectId !== undefined) {
         onStep?.({ step: "resuming", ledgerId: 0, state: "registered" });
-        const certificate = await push(input, existing, existing.registerTxDigest, existing.blobObjectId, readReservationBytes(key));
+        const certificate = await push(input, existing, existing.registerTxDigest, existing.blobObjectId, await readReservationBytes(key));
         await certify(ctx, input, key, existing, certificate);
-        return paidPart(readReservationRecord(key) ?? existing, true);
+        return paidPart((await readReservationRecord(key)) ?? existing, true);
     }
     // ── fresh, or interrupted before the signature ──
     onStep?.({ step: "encoding", bytes: sealed.length });
@@ -68,7 +69,7 @@ async function buyAndPushPartWithWallet(ctx, input) {
     try {
         meta = await protocol.computeMetadata({
             bytes: sealed,
-            nonce: existing ? new Uint8Array(Buffer.from(existing.nonceB64, "base64url")) : undefined,
+            nonce: existing ? fromBase64Url(existing.nonceB64) : undefined,
         });
     }
     catch (error) {
@@ -83,8 +84,8 @@ async function buyAndPushPartWithWallet(ctx, input) {
         attempt: existing?.attempt ?? 0,
         paidFrom: "wallet",
         blobId: meta.blobId,
-        nonceB64: Buffer.from(meta.nonce).toString("base64url"),
-        rootHashB64: Buffer.from(meta.rootHash).toString("base64url"),
+        nonceB64: toBase64Url(meta.nonce),
+        rootHashB64: toBase64Url(meta.rootHash),
         relayUrl: input.relayUrl,
         epochs: input.epochs,
         sealedLen: sealed.length,
@@ -98,7 +99,7 @@ async function buyAndPushPartWithWallet(ctx, input) {
         parentId: input.entry.parentId,
     };
     // ⛔ BEFORE THE SIGNATURE. See the module header.
-    writeReservation(key, record, sealed);
+    await writeReservation(key, record, sealed);
     onStep?.({ step: "reserving" });
     const quote = ctx.quotes[input.part.index];
     if (quote === undefined)
@@ -133,14 +134,14 @@ async function buyAndPushPartWithWallet(ctx, input) {
     record.registerTxDigest = registered.digest;
     record.blobObjectId = registered.blobObjectId;
     record.endEpoch = registered.endEpoch;
-    writeReservation(key, record, sealed);
+    await writeReservation(key, record, sealed);
     ctx.onSpend({
         walFrost: quote.writeFrost + (ctx.storage.kind === "buy" ? quote.storageFrost : 0n),
         suiMist: quote.tipMist + (ctx.feeMist ?? 0n),
     });
     const certificate = await push(input, record, registered.digest, registered.blobObjectId, sealed);
     await certify(ctx, input, key, record, certificate);
-    return paidPart(readReservationRecord(key) ?? record, false);
+    return paidPart((await readReservationRecord(key)) ?? record, false);
 }
 /** The bytes to the relay named in the register transaction. The storage is already bought. */
 async function push(input, record, registerTxDigest, blobObjectId, sealed) {
@@ -149,7 +150,7 @@ async function push(input, record, registerTxDigest, blobObjectId, sealed) {
         return await input.protocol.uploadToRelay({
             blobId: record.blobId,
             bytes: sealed,
-            nonce: new Uint8Array(Buffer.from(record.nonceB64, "base64url")),
+            nonce: fromBase64Url(record.nonceB64),
             registerTxDigest,
             blobObjectId,
         });
@@ -192,7 +193,7 @@ async function certify(ctx, input, key, record, certificate) {
                     "certifies again, which costs gas and nothing else.",
         });
     }
-    writeReservation(key, { ...record, certifyTxDigest: digest }, readReservationBytes(key));
+    await writeReservation(key, { ...record, certifyTxDigest: digest }, await readReservationBytes(key));
     // The certify fee is not measured beforehand, so the ledger is told about the tip and the
     // register fee only — the review said so.
 }

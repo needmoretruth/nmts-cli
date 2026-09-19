@@ -27,7 +27,7 @@ is spent by moving credits, and running the same command the other way puts them
 The credits keep the expiry they already had. The move drains the soonest-expiring lots first, so
 sending 100 may arrive as several grants with different dates, and moving them never renews them.
 
-Four refusals, four different remedies, and none of them is a retry:
+Four refusals, none of them worth retrying:
 `CREDIT_TRANSFER_OUTSIDE_FAMILY` (name an account of your own) · `CREDIT_TRANSFER_SELF` (that is
 the account sending) · `CREDIT_TRANSFER_INSUFFICIENT` (send less — the refusal carries what was
 needed and what the account can spend) · `CREDIT_TRANSFER_ZERO` (send some). Nothing is moved and

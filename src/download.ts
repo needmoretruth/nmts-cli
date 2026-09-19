@@ -26,8 +26,9 @@
 //    the engine's own buffer for the chunk it is assembling, and the one chunk of plaintext it
 //    hands back — 4 MiB each in NCF-3. A hundred-gigabyte file costs the same as a hundred-megabyte
 //    one. The exception is `--out -`, which is bounded by `STDOUT_HOLD_LIMIT` and refuses above it.
-import { createHash } from "node:crypto";
+import { sha256 } from "@noble/hashes/sha2.js";
 
+import { fromBase64Url, utf8 } from "./bytes.ts";
 import { request } from "./api.ts";
 import { AAD, type CryptoGlue, DERIVED, loadCrypto } from "./crypto.ts";
 import { asParts, fetchPart, openPart, type PartView } from "./download-part.ts";
@@ -136,7 +137,7 @@ export async function fetchFile(input: FetchInput): Promise<FetchedFile> {
 
   let dek: Uint8Array;
   try {
-    dek = crypt.envelope_open(dataKey, new TextEncoder().encode(AAD.dekWrap), Buffer.from(input.dekWrapped, "base64url"));
+    dek = crypt.envelope_open(dataKey, utf8(AAD.dekWrap), fromBase64Url(input.dekWrapped));
   } catch {
     dataKey.fill(0);
     throw new NmtsError("This file's key did not open with this account's key.", {
@@ -147,7 +148,7 @@ export async function fetchFile(input: FetchInput): Promise<FetchedFile> {
   let expected: Uint8Array | null = null;
   if (input.contentHashCt !== undefined && input.contentHashCt !== "") {
     try {
-      expected = crypt.envelope_open(dataKey, new TextEncoder().encode(AAD.contentHash), Buffer.from(input.contentHashCt, "base64url"));
+      expected = crypt.envelope_open(dataKey, utf8(AAD.contentHash), fromBase64Url(input.contentHashCt));
     } catch {
       dataKey.fill(0);
       dek.fill(0);
@@ -192,7 +193,7 @@ async function collect(
   read: ReadOptions | undefined,
   sink: PlaintextSink,
 ): Promise<FetchedFile> {
-  const hasher = createHash("sha256");
+  const hasher = sha256.create();
   let remaining = size;
   try {
     // ⛔ Asked before a byte is fetched. A destination that cannot take a file this size says so

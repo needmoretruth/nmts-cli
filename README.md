@@ -2,16 +2,16 @@
 
 Command-line access to [NMTS](https://nmts.me) — **NeedMoreTruthStorage**, end-to-end encrypted
 cloud storage on the Walrus network, built by one developer ([needmoretruth](https://github.com/needmoretruth)).
-For people at a terminal, and for the AI agents they run. The site is **https://nmts.me**.
+For people at a terminal, and for the AI agents they run.
 
 > **[한국어 문서](README.ko.md)** · Talk about NMTS on [Discord](https://discord.gg/pcmRkVmVZk),
 > in English or Korean.
 >
-> **If you are an AI agent, read [AGENTS.md](AGENTS.md) instead.** It says the same things in the
-> order a program needs them.
+> **If you are an AI agent, read [AGENTS.md](AGENTS.md) instead.** It has the tier table,
+> the exit codes and the rules for a run nobody is watching.
 >
-> **Status: early.** The interface may still change before 1.0. `nmts --help` is the current truth
-> about what exists.
+> **Status: early.** The interface may still change before 1.0. A command added after this file was
+> written is in `nmts --help`.
 
 ## 🧭 What NMTS is
 
@@ -19,21 +19,19 @@ Storage where **the encryption happens on your machine and the keys never leave 
 receives sealed bytes it cannot open. File contents, names and folders all live inside a sealed
 list that only your NMTS key opens.
 
-The bytes live on **Walrus**, a public storage network, paid for on the **Sui** chain. Three
-things to know before you start:
+The bytes live on **Walrus**, a public storage network, paid for on the **Sui** chain.
 
 - **Storage is bought for a period, not forever.** A file has a lease. It can be extended, and
   NMTS warns before one runs out.
 - **There is no password reset.** Your NMTS key *is* the account. It cannot be recovered or
-  changed while keeping the files. That is the same property that stops anyone, including NMTS,
-  from opening them.
+  changed while keeping the files, because nobody, NMTS included, holds a key to them.
 - **NMTS charges nothing.** Storage is bought from the Walrus network, for a period, from your own
   wallet; nothing is paid to NMTS. Uploads here spend **credits**, which are storage a donation pool
   has already paid the network for (the weekly free trial) — they are not sold. One command,
   `nmts extend`, pays from your own Sui wallet instead, and asks for a separate agreement first,
   because a signed purchase on a public chain cannot be reversed by anyone.
 
-NMTS is built and run by one developer. This tool, the encryption engine and the recovery program
+This tool, the encryption engine and the recovery program
 are open source under Apache-2.0; the server and the web app are not published.
 
 ## 📦 Install
@@ -53,7 +51,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.35.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.36.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -89,8 +87,6 @@ Run `nmts env` first on any machine you do not know — a container, a CI runner
 laptop. It needs no credential and reports what a credential here would be exposed to.
 
 ## 🔑 The two credentials
-
-They do different jobs and they are not interchangeable.
 
 | | What it does | How to give it |
 |---|---|---|
@@ -144,7 +140,8 @@ variables in the server's own `env` block. `nmts env` names the agent it can see
 
 Your NMTS key is everything at once. A program that has it can read every file, upload,
 delete and sign with the wallet, and its requests cannot be told apart from yours. It cannot be
-rotated while keeping the account. **Use an account you would be willing to lose.**
+rotated while keeping the account. Give an agent its own account, made with `nmts create`, not
+your main one.
 
 ## 🧰 Commands
 
@@ -213,6 +210,7 @@ rotated while keeping the account. **Use an account you would be willing to lose
 | `nmts devices` | The devices signed in to this account. `--sign-out <id>` or `--sign-out all` ends one or all of them — needs your NMTS key, locked until `nmts unlock sign-out`, asked every run |
 | `nmts mcp` | Serve a subset of the above as tools over the Model Context Protocol |
 | `nmts s3` | Serve the drive to any S3 program, on this machine only |
+| `nmts platform keygen` | Make the Ed25519 key pair a business signs its NMTS Platform requests with: both halves go to a file only you can read (mode 0600), and only the public half is printed. The public half is registered at nmts.me under Settings › Developer › Platform |
 
 ### Listing and fetching
 
@@ -252,7 +250,7 @@ nmts put film.mov --pay wallet --epochs 6           # six of the storage network
 nmts put film.mov --pay wallet --storage fit        # use a storage resource the wallet already holds, cut to size
 ```
 
-The order is the safety: the file is planned into the same parts, the chain quotes each part in WAL
+The file is planned into the same parts, the chain quotes each part in WAL
 and the relay's tip in SUI, the register transaction is dry-run for its fee, both balances are read,
 and the review is printed — the term as epochs and as days — before the `wallet` agreement (scope
 `storage`) is held against the total and anything is signed. A wallet known to be short is refused
@@ -511,7 +509,7 @@ documents this service publishes (`nmts_notices`, `nmts_notice`, `nmts_terms`, `
 
 It deliberately does not offer credentials and agreements, the check a person has to pass,
 permanent destruction, rebuilding a lost file list or putting the previous one back, or writing the
-recovery files — those are yours. Nothing it offers can write outside the directory you name, and a wrong argument is refused
+recovery files — those need a person at a terminal. Nothing it offers can write outside the directory you name, and a wrong argument is refused
 rather than guessed at. It is implemented directly, with no MCP SDK dependency.
 
 ## Letting an agent decide for itself
@@ -550,8 +548,7 @@ the one developer who builds NMTS, in the same inbox as the app's contact form, 
 back to the same thread (`nmts support list`, then `nmts support show <code>`). The tool shows you
 exactly what will be sent before it goes; your NMTS key, API key, passphrase and file contents
 are stripped on this machine first, and `--omit <text>` strips anything else you name. English is
-preferred; Korean is read too. Ideas count as much as faults, and so does anything you are not sure
-about.
+preferred; Korean is read too.
 
 If the tool itself cannot run, write to **nmts@nmts.me** with what you ran and what it said.
 
@@ -566,12 +563,14 @@ endorsement, and we may decline or remove one without giving a reason.
 
 ## Licence
 
-Apache-2.0 — the full text is in [LICENSE](LICENSE). It moved here from AGPL-3.0-only on
-2026-08-30; copies already held under the AGPL stay under it.
+Apache-2.0 — the full text is in [LICENSE](LICENSE). It allows commercial use: a product built on
+this tool can be sold. It moved here from AGPL-3.0-only on 2026-08-30; copies already held under
+the AGPL stay under it.
 
-Build on it, ship it, sell what you build with it. If you need different terms, write to
+If you need different terms, write to
 **nmts@nmts.me** and say why — see [LICENSING.md](LICENSING.md). Code is welcome:
 [CONTRIBUTING.md](CONTRIBUTING.md) says how it reaches here, and the
-[Contributor License Agreement](CLA.md) is what keeps the offer above true for the whole program.
+[Contributor License Agreement](CLA.md) is the licence a contributor gives needmoretruth for what
+they send.
 
 Copyright © 2026 needmoretruth.

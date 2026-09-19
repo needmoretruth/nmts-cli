@@ -10,12 +10,16 @@
 //    network it is. There is no fallback. A tool that has to guess where somebody's files are
 //    should stop instead.
 
+import { NETWORK_ENV_VAR } from "./env-vars.ts";
 import { NmtsError } from "./errors.ts";
+import { host } from "./host.ts";
 import { DEFAULT_SERVER } from "./server.ts";
 
 export const NETWORKS = ["mainnet", "testnet"] as const;
 export type Network = (typeof NETWORKS)[number];
-export const NETWORK_ENV_VAR = "NMTS_NETWORK";
+// Re-exported: the name itself lives in a module with no imports, because `nmts --help`
+// prints it (`env-vars.ts`).
+export { NETWORK_ENV_VAR } from "./env-vars.ts";
 
 function isNetwork(value: string): value is Network {
   return (NETWORKS as readonly string[]).includes(value);
@@ -28,7 +32,7 @@ function isNetwork(value: string): value is Network {
  * make: the live server is mainnet. Anything else and it refuses.
  */
 export function resolveNetwork(server: string, explicit?: string | undefined): Network {
-  const stated = explicit ?? process.env[NETWORK_ENV_VAR];
+  const stated = explicit ?? host().env(NETWORK_ENV_VAR);
   if (stated !== undefined && stated.length > 0) {
     if (!isNetwork(stated)) {
       throw new NmtsError(`Not a network: ${stated}`, {

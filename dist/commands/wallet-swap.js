@@ -25,6 +25,7 @@ import { explorerTxUrl } from "../shared/lib/wallet/activity.js";
 import { clampGasBudgetMist, parseTokenAmountToBaseUnits, SUI_GAS_RESERVE_MIST } from "../shared/lib/wallet/send-rules.js";
 import { clampSlippageBps, impliedRate, marketRate, maxSwappableSuiMist, minOutFromQuote, priceDeviationBps, SLIPPAGE_BPS_DEFAULT, SLIPPAGE_BPS_MAX, SLIPPAGE_BPS_MIN, swapExtremes, } from "../shared/lib/wallet/swap-rules.js";
 import { coinAmount, walletAddress } from "../wallet.js";
+import { payingWalletIndex } from "../wallet-pay-index.js";
 import { recordWalletSpend, requireWalletGrant } from "../wallet-grant.js";
 import { railsFor } from "../wallet-swap-chain.js";
 const EXTREME_WORDS = {
@@ -73,7 +74,10 @@ export async function walletSwap(operands, options = {}) {
         throw new NmtsError("Say how much.", { exitCode: 2, nextStep: `\`${BINARY_NAME} wallet swap ${coinIn} <amount|max>\` — "max" swaps everything that can be swapped.` });
     }
     const resolved = await requireAccountCode();
-    const address = await walletAddress(resolved.code);
+    // ⛔ WHICH WALLET SWAPS, FIRST — the coins that are read, the quote that is priced, the address
+    //    the review names and the key that signs are all this one wallet's.
+    const wallet = await payingWalletIndex(options);
+    const address = await walletAddress(resolved.code, wallet);
     const stored = resolved.source === "file" || resolved.source === "file-locked" ? readCredentialsFile() : null;
     const server = resolveServer(options.server ?? stored?.server);
     const network = resolveNetwork(server, options.network ?? stored?.network);
@@ -211,7 +215,7 @@ export async function walletSwap(operands, options = {}) {
     // ⑥ The review, every time.
     if (!options.json) {
         say(`Swapping ${facts.amountIn} ${coinIn} for ${coinOut} on ${venueName(venue)}`);
-        say(`  from      ${address}`);
+        say(`  from      ${address} (wallet ${wallet})`);
         say(`  Quoted    ${facts.quotedOut} ${coinOut} — the chain's answer just now, not a promise${quote.leftoverInUnits > 0n ? `; ${coinAmount(quote.leftoverInUnits)} ${coinIn} would come back unused` : ""}`);
         if (venue === "exchange")
             say(`  Rate      ${exchange?.rateWal} WAL per ${exchange?.rateSui} SUI, read off the facility; it takes no minimum`);
@@ -244,7 +248,7 @@ export async function walletSwap(operands, options = {}) {
                 nextStep: `Choose again (--slippage-bps 50, a different --fee-cap, the other venue, or later), or — as a person — add --accept-extremes to go on anyway.`,
             });
         }
-        const mode = currentMode();
+        const mode = await currentMode();
         if (mode === "auto-low" || mode === "auto-high") {
             throw new NmtsError("Going past the extremes gate is a person's act.", { exitCode: 5, nextStep: `Nothing was signed. --accept-extremes is refused in mode auto and with --skip-permissions.` });
         }
@@ -273,7 +277,7 @@ export async function walletSwap(operands, options = {}) {
     requireWalletGrant("exchange", spend, new Date(options.now ?? Date.now()));
     // ⑩ The signature.
     const sign = options.sign ?? (await import("../wallet-sign.js")).signSwap;
-    const digest = await sign({ network, code: resolved.code, shape });
+    const digest = await sign({ network, code: resolved.code, wallet, shape });
     recordWalletSpend(spend);
     if (options.json) {
         say(JSON.stringify({ ...facts, signed: true, digest, explorerUrl: explorerTxUrl(digest, network) }));

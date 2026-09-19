@@ -15,6 +15,7 @@ import { createServer, type Server } from "node:http";
 import { test } from "node:test";
 
 import { parseArgs } from "../src/args.ts";
+import { walletAddress } from "../src/wallet.ts";
 import { walletHall } from "../src/commands/wallet-hall.ts";
 import { CODE_ENV_VAR, testConfigDir } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
@@ -101,15 +102,16 @@ const HALL = {
   })),
 };
 
-async function withAccount(name: string, body: () => Promise<void>): Promise<void> {
+async function withAccount(name: string, body: (code: string) => Promise<void>): Promise<void> {
   const dir = testConfigDir(name);
   const before = { dir: process.env["NMTS_CONFIG_DIR"], code: process.env[CODE_ENV_VAR] };
   rmSync(dir, { recursive: true, force: true });
   process.env["NMTS_CONFIG_DIR"] = dir;
   grantConsents(dir, "plain-env");
-  process.env[CODE_ENV_VAR] = await generateCode();
+  const code = await generateCode();
+  process.env[CODE_ENV_VAR] = code;
   try {
-    await body();
+    await body(code);
   } finally {
     rmSync(dir, { recursive: true, force: true });
     for (const [key, value] of [
@@ -123,16 +125,31 @@ async function withAccount(name: string, body: () => Promise<void>): Promise<voi
 }
 
 /** A signature that is never a real one, and a record of exactly what it was asked to sign. */
-function recordingSigner(): { asked: string[]; sign: (input: { code: string; message: string }) => Promise<string> } {
+function recordingSigner(): {
+  asked: string[];
+  /** Which wallet was asked for each signature — the entry's address is that wallet's. */
+  wallets: number[];
+  sign: (input: { code: string; wallet: number; message: string }) => Promise<string>;
+} {
   const asked: string[] = [];
+  const wallets: number[] = [];
   return {
     asked,
-    sign: async ({ message }) => {
+    wallets,
+    sign: async ({ wallet, message }) => {
       asked.push(message);
+      wallets.push(wallet);
       return "c2lnbmF0dXJl";
     },
   };
 }
+
+/**
+ * ⚠ THESE TESTS CANNOT REACH THE SEALED FILE LIST (the fake server holds none). `--name` reads the
+ *   account's wallet number out of that list (`wallet-pay-index.ts`), so it is pinned to the first
+ *   wallet — except in the two tests below that are about the number itself.
+ */
+const FIRST_WALLET = { readActiveWallet: async (): Promise<number> => 0 };
 
 test("the hall prints the developer, ten rows, and how many more the site holds", async () => {
   const server = await fake();
@@ -160,7 +177,7 @@ test("⛔ --name signs the four lines the server rebuilds, and sends exactly the
       const out = collect();
       const signer = recordingSigner();
       assert.equal(
-        await walletHall({ server: server.base, write: out.write, name: "alice", sign: signer.sign }),
+        await walletHall({ ...FIRST_WALLET, server: server.base, write: out.write, name: "alice", sign: signer.sign }),
         0,
       );
       const sent = server.state.posted[0];
@@ -188,7 +205,7 @@ test("--remove sends a null name, and signs `(none)` in its place", async () => 
     await withAccount("wallet-hall-remove", async () => {
       const signer = recordingSigner();
       const out = collect();
-      assert.equal(await walletHall({ server: server.base, write: out.write, remove: true, sign: signer.sign }), 0);
+      assert.equal(await walletHall({ ...FIRST_WALLET, server: server.base, write: out.write, remove: true, sign: signer.sign }), 0);
       const sent = server.state.posted[0];
       assert.ok(sent !== undefined, "nothing was posted");
       assert.equal(sent.name, null, "a removal must send null, not an empty string");
@@ -215,6 +232,7 @@ test("⛔ each refusal the server can send has one plain line of its own", async
         server.state.listing = { error: { code, message: "the server's own words, which may be rewritten" } };
         const signer = recordingSigner();
         const failure = await walletHall({
+          ...FIRST_WALLET,
           server: server.base,
           write: () => undefined,
           name: "alice",
@@ -226,6 +244,56 @@ test("⛔ each refusal the server can send has one plain line of its own", async
         assert.ok(failure instanceof NmtsError, `${code} did not refuse — ${String(failure)}`);
         assert.match(failure.message, line, code);
       }
+    });
+  } finally {
+    await server.stop();
+  }
+});
+
+// ── which wallet the entry belongs to ──────────────────────────────────────────────────────────
+//
+// ⛔ THE ENTRY IS AN ADDRESS, AND THE GIFT CAME FROM THE WALLET THAT PAYS. Naming from any other
+//    wallet would offer the server a name for an address that has given nothing, and the refusal
+//    a person would see is "the server did not accept the signature" — which says nothing about
+//    the wallet. So the address that is sent, the address in the message and the wallet that
+//    signs are held here as one number.
+
+test("⛔ --wallet N sends that wallet's address, and that wallet signs for it", async () => {
+  const server = await fake();
+  try {
+    await withAccount("wallet-hall-flag", async (code) => {
+      const signer = recordingSigner();
+      const out = collect();
+      assert.equal(
+        await walletHall({ ...FIRST_WALLET, wallet: "2", server: server.base, write: out.write, name: "alice", sign: signer.sign }),
+        0,
+      );
+      const sent = server.state.posted[0];
+      assert.ok(sent !== undefined, "nothing was posted");
+      assert.equal(sent.address, await walletAddress(code, 2));
+      assert.deepEqual(signer.wallets, [2], "the flag did not reach the signature");
+      assert.match(out.lines.join("\n"), new RegExp(`^ {2}from {2}${await walletAddress(code, 2)} \\(wallet 2\\)$`, "m"));
+    });
+  } finally {
+    await server.stop();
+  }
+});
+
+test("without --wallet, the account's own number is the wallet the name is signed with", async () => {
+  const server = await fake();
+  try {
+    await withAccount("wallet-hall-active", async (code) => {
+      const signer = recordingSigner();
+      const out = collect();
+      assert.equal(
+        await walletHall({ readActiveWallet: async (): Promise<number> => 3, server: server.base, write: out.write, name: "alice", sign: signer.sign }),
+        0,
+      );
+      const sent = server.state.posted[0];
+      assert.ok(sent !== undefined, "nothing was posted");
+      assert.equal(sent.address, await walletAddress(code, 3));
+      assert.deepEqual(signer.wallets, [3], "it signed as another wallet than the account's own");
+      assert.match(out.lines.join("\n"), new RegExp(`^ {2}from {2}${await walletAddress(code, 3)} \\(wallet 3\\)$`, "m"));
     });
   } finally {
     await server.stop();

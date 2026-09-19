@@ -6,7 +6,10 @@ export interface WalletHallOptions {
     /** `--name`: be listed under this. `--remove`: go back to a shortened address. */
     name?: string | undefined;
     remove?: boolean;
-    /** ⚠ A SEAM, NOT AN OPTION — no flag reaches it. It exists so a test never signs for real. */
+    /** `--wallet N`: which wallet signs the name, this run only. Absent = the account's own number. */
+    wallet?: string | undefined;
+    /** ⚠ SEAMS, NOT OPTIONS — no flag reaches them. They exist so a test never signs for real. */
+    readActiveWallet?: () => Promise<number>;
     sign?: SignMessage;
 }
 /** One row of the hall, as this tool needs it. Amounts are base units, exactly as they arrived. */

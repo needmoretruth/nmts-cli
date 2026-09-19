@@ -30,9 +30,10 @@
 // ⚠ AND WHAT NO COMMAND-LINE TOOL CAN DO: tell whether a person or a program typed this. The
 //   protection here is that the choice is explicit, written down, dated, and announced on every
 //   run that uses it -- not that it cannot be automated.
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
-import { join } from "node:path";
-import { configDir, modesAreEnforced } from "./credentials.js";
+import { fromUtf8, utf8 } from "./bytes.js";
+import { host } from "./host.js";
+/** The one key this mode lives under. On this machine that is `autonomy.json`. */
+const KEY = "autonomy";
 export const AUTONOMY_MODES = ["default", "auto-low", "auto-high", "skip-permissions"];
 /** What each mode means, in the words the tool prints. One line each, no more. */
 export const MODE_MEANS = {
@@ -101,9 +102,6 @@ export const SKIP_SENTENCE = "NOTHING WILL ASK ME AND I ACCEPT THAT";
 export function isAgentMode(mode) {
     return mode !== "default";
 }
-function path() {
-    return join(configDir(), "autonomy.json");
-}
 /**
  * Read a stored name, including the two this tool wrote before 2026-09-06: `off` is `default`
  * and `auto` is `auto-low`. Anything else counts as `default`.
@@ -124,9 +122,13 @@ export function modeFromStored(value) {
  *    somebody is still asked -- a file that switches autonomy on when it cannot be parsed is worse
  *    than no file at all.
  */
-export function currentMode() {
+async function stored() {
+    const held = await host().state.read(KEY);
+    return held === undefined ? null : JSON.parse(fromUtf8(held));
+}
+export async function currentMode() {
     try {
-        const parsed = JSON.parse(readFileSync(path(), "utf8"));
+        const parsed = await stored();
         if (typeof parsed !== "object" || parsed === null)
             return "default";
         return modeFromStored(Reflect.get(parsed, "mode"));
@@ -136,9 +138,9 @@ export function currentMode() {
     }
 }
 /** When it was set, or null when it is default or unreadable. */
-export function setAt() {
+export async function setAt() {
     try {
-        const parsed = JSON.parse(readFileSync(path(), "utf8"));
+        const parsed = await stored();
         if (typeof parsed !== "object" || parsed === null)
             return null;
         const at = Reflect.get(parsed, "setAt");
@@ -149,17 +151,13 @@ export function setAt() {
     }
 }
 /** Write the choice down, with the date and the version that was asked. */
-export function setMode(mode, version, now) {
+export async function setMode(mode, version, now) {
     if (mode === "default") {
-        if (existsSync(path()))
-            rmSync(path(), { force: true });
+        await host().state.remove(KEY);
         return;
     }
     const body = { mode, setAt: now.toISOString(), byVersion: version };
-    mkdirSync(configDir(), { recursive: true, mode: 0o700 });
-    writeFileSync(path(), `${JSON.stringify(body, null, 2)}\n`, { mode: 0o600 });
-    if (modesAreEnforced())
-        chmodSync(path(), 0o600);
+    await host().state.write(KEY, utf8(`${JSON.stringify(body, null, 2)}\n`));
 }
 /**
  * The line every run prints when a mode is on.

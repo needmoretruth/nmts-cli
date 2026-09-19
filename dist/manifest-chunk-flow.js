@@ -18,12 +18,13 @@
 // PURE OF COMMANDS: it takes a derived key and a server, and knows nothing about what an edit
 //   means. Deciding WHICH entries the list should hold is `manifest-write.ts`'s job; deciding which
 //   entry goes in which chunk is the shared packer's.
+import { fromBase64Url, toBase64Url } from "./bytes.js";
 import { request, ServerError } from "./api.js";
 import { AAD, DERIVED, loadCrypto } from "./crypto.js";
 import { NmtsError } from "./errors.js";
 import { pruneChunkCache, readCachedChunk, writeCachedChunk } from "./manifest-chunk-cache.js";
 import { keepTrying } from "./net-retry.js";
-import { registerNodeZstd } from "./zstd-node.js";
+import { host } from "./host.js";
 import { AAD_FILE_LIST_CHUNK, chunkFingerprint, decodeChunk, decodeFileList, encodeChunk, encodeIndex, FILE_LIST_VERSION_CHUNKED, } from "./shared/lib/drive/manifest-chunks.js";
 import { packAll, repack } from "./shared/lib/drive/manifest-pack.js";
 /** How many chunk requests are in flight at once. Enough to fill a link, few enough to stay fair. */
@@ -42,10 +43,10 @@ export class ManifestChunkError extends NmtsError {
     }
 }
 function sealUnder(io, aad, body) {
-    return Buffer.from(io.crypt.envelope_seal(io.key, utf8.encode(aad), body)).toString("base64url");
+    return toBase64Url(io.crypt.envelope_seal(io.key, utf8.encode(aad), body));
 }
 function openUnder(io, aad, ct) {
-    return io.crypt.envelope_open(io.key, utf8.encode(aad), Buffer.from(ct, "base64url"));
+    return io.crypt.envelope_open(io.key, utf8.encode(aad), fromBase64Url(ct));
 }
 /** What the two chunk routes answer. Narrowed here rather than trusted. */
 function ctOf(answer) {
@@ -63,7 +64,7 @@ function ctOf(answer) {
  * is a version nobody will ask for again.
  */
 export async function openChunks(io, index) {
-    registerNodeZstd();
+    await host().zstd.register();
     const refs = index.chunks;
     const out = new Array(refs.length);
     let next = 0;
@@ -78,12 +79,12 @@ export async function openChunks(io, index) {
         }
     };
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, refs.length) }, worker));
-    pruneChunkCache(io.accountId, new Set(refs.map((c) => c.h)));
+    await pruneChunkCache(io.accountId, new Set(refs.map((c) => c.h)));
     return out;
 }
 /** One chunk: from this machine if it has it, else from the server — verified either way. */
 async function openOne(io, ref, indexSeq) {
-    const cached = readCachedChunk(io.accountId, ref.h);
+    const cached = await readCachedChunk(io.accountId, ref.h);
     let ct = cached;
     if (ct === null) {
         try {
@@ -119,7 +120,7 @@ async function openOne(io, ref, indexSeq) {
         throw new ManifestChunkError(`Part of the file list holds ${doc.items.length} entries where the index says ${ref.n}.`);
     }
     if (cached === null)
-        writeCachedChunk(io.accountId, ref.h, ct);
+        await writeCachedChunk(io.accountId, ref.h, ct);
     return doc.items;
 }
 /**
@@ -133,7 +134,7 @@ async function openOne(io, ref, indexSeq) {
  *   the chunks written by the losing attempt are named by no index and the server sweeps them.
  */
 export async function writeChunkedList(io, plan) {
-    registerNodeZstd();
+    await host().zstd.register();
     const packed = plan.previous.length > 0 ? repack(plan.previous, plan.entries) : packAll(plan.entries);
     const rows = [];
     const held = [];
@@ -168,7 +169,7 @@ export async function writeChunkedList(io, plan) {
     body.fill(0);
     const refs = rows.map((r) => r.h);
     const seq = await putIndex(io, plan.baseSeq, ct, refs, fresh);
-    pruneChunkCache(io.accountId, new Set(refs));
+    await pruneChunkCache(io.accountId, new Set(refs));
     return { seq, ct, held };
 }
 /**
@@ -197,7 +198,7 @@ async function putIndex(io, baseSeq, ct, refs, fresh) {
             for (const name of refs) {
                 if (again.has(name))
                     continue;
-                const kept = readCachedChunk(io.accountId, name);
+                const kept = await readCachedChunk(io.accountId, name);
                 if (kept !== null)
                     again.set(name, kept);
             }
@@ -231,7 +232,7 @@ async function putChunks(io, chunks) {
                 token: io.apiKey,
                 body: { ct },
             }), { retryable: (error) => error instanceof ServerError && error.status === 429 });
-            writeCachedChunk(io.accountId, name, ct);
+            await writeCachedChunk(io.accountId, name, ct);
         }
     };
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, names.length) }, worker));
@@ -259,14 +260,14 @@ function seqOf(answer) {
  *   refusing here would refuse in a case the command used to handle.
  */
 export async function namedChunks(code, ct) {
-    registerNodeZstd();
+    await host().zstd.register();
     const crypt = await loadCrypto();
     const [from, to] = DERIVED.fileListKey;
     const derived = crypt.kdf_derive(crypt.account_code_parse(code));
     const key = derived.slice(from, to);
     derived.fill(0);
     try {
-        const body = crypt.envelope_open(key, utf8.encode(AAD.fileList), Buffer.from(ct, "base64url"));
+        const body = crypt.envelope_open(key, utf8.encode(AAD.fileList), fromBase64Url(ct));
         const doc = await decodeFileList(body);
         body.fill(0);
         return doc.v === FILE_LIST_VERSION_CHUNKED ? doc.index.chunks.map((c) => c.h) : [];
@@ -292,7 +293,7 @@ export async function keptChunks(code, accountId, indexCt) {
         return null;
     const out = [];
     for (const name of names) {
-        const ct = readCachedChunk(accountId, name);
+        const ct = await readCachedChunk(accountId, name);
         if (ct === null) {
             throw new NmtsError("This machine holds the file list's index but not all of its parts.", {
                 exitCode: 4,

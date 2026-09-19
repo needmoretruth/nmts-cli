@@ -64,7 +64,7 @@ test("list shows each key's permissions, dates and use count, and marks this mac
 
 test("revoke <id> asks once at the terminal, then sends the id with the proof", async () => {
   await withSandbox(drive, "key-revoke-one", async (code) => {
-    setMode("default");
+    await setMode("default");
     accountState.keys = [aKey({ key_id: "k1" }), aKey({ key_id: "k2" })];
     const out = collect();
     const asked: string[] = [];
@@ -84,7 +84,7 @@ test("revoke <id> asks once at the terminal, then sends the id with the proof", 
 
 test("a no at the gate sends nothing", async () => {
   await withSandbox(drive, "key-revoke-no", async () => {
-    setMode("default");
+    await setMode("default");
     accountState.keys = [aKey({ key_id: "k1" })];
     await assert.rejects(
       keyRevoke("k1", parseArgs(["key", "revoke", "k1"]), { server: drive.base, write: () => {}, readLine: async () => "n" }),
@@ -96,7 +96,7 @@ test("a no at the gate sends nothing", async () => {
 
 test("revoke all cuts every live key and says how many", async () => {
   await withSandbox(drive, "key-revoke-all", async () => {
-    setMode("default");
+    await setMode("default");
     accountState.keys = [aKey({ key_id: "k1" }), aKey({ key_id: "k2" }), aKey({ key_id: "k3", revoked_at: "2026-09-01T00:00:00Z" })];
     const out = collect();
     assert.equal(await keyRevoke("all", parseArgs(["key", "revoke", "all", "--yes"]), { server: drive.base, write: out.write }), 0);
@@ -108,7 +108,7 @@ test("revoke all cuts every live key and says how many", async () => {
 
 test("a key the server does not know is refused with the way to see the real ids", async () => {
   await withSandbox(drive, "key-revoke-404", async () => {
-    setMode("default");
+    await setMode("default");
     accountState.keys = [aKey({ key_id: "k1" })];
     await assert.rejects(
       keyRevoke("zz", parseArgs(["key", "revoke", "zz", "--yes"]), { server: drive.base, write: () => {} }),

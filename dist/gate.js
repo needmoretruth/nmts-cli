@@ -34,7 +34,7 @@ export async function unlocked(key, now) {
 }
 export async function gate(act, args, io = {}) {
     const a = ACTS[act];
-    const mode = currentMode();
+    const mode = await currentMode();
     const now = io.now ?? (() => new Date());
     if (a.tier === "none")
         return { ask: false, mode };

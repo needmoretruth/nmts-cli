@@ -51,7 +51,7 @@ export async function unlocked(key: keyof typeof CONSENTS, now: Date): Promise<b
 
 export async function gate(act: ActId, args: ParsedArgs, io: GateIo = {}): Promise<Passage> {
   const a = ACTS[act];
-  const mode = currentMode();
+  const mode = await currentMode();
   const now = io.now ?? (() => new Date());
   if (a.tier === "none") return { ask: false, mode };
 

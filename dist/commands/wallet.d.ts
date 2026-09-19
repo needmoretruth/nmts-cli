@@ -9,7 +9,7 @@ export interface WalletOptions {
     qr?: boolean;
     /** `wallet address --index N`: which of this key's wallets to print. Absent = the first one. */
     index?: string | undefined;
-    /** `wallet send`/`donate --wallet N`: which wallet pays, this run only (`wallet-pay-index.ts`). */
+    /** `--wallet N` on `send`/`donate`/`swap`/`storage`/`hall`: which wallet, this run only. */
     wallet?: string | undefined;
     /** `wallet send`: the operands after "send", and its flags (`wallet-send.ts`). */
     rest?: readonly string[];

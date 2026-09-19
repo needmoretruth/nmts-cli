@@ -19,6 +19,7 @@
 //   shape and is not in this process's environment, and nothing here will find it. That is why the
 //   text a person reads before sending asks them to keep personal details out: the machine covers
 //   what a machine can recognise, and the sentence covers the rest.
+import { host } from "./host.js";
 /** An NMTS key is 32 data symbols and one check symbol. `crypto/src/codes.rs` is the origin. */
 const ACCOUNT_CODE_SYMBOLS = 33;
 /** Crockford base32, the data half: `0-9 A-H J-K M-N P-T V-Z`, either case. No `I L O U`. */
@@ -157,10 +158,10 @@ function escapeForRegExp(value) {
  */
 export function environmentRules() {
     const found = [];
-    for (const [name, value] of Object.entries(process.env)) {
+    for (const { name, value } of host().envEntries()) {
         if (!name.startsWith("NMTS_"))
             continue;
-        if (value === undefined || value.length < SHORTEST_ENV_VALUE)
+        if (value.length < SHORTEST_ENV_VALUE)
             continue;
         found.push({ name, value });
     }

@@ -29,12 +29,12 @@ function isChoice(value: string): value is OnCollision {
   return (COLLISION_CHOICES as readonly string[]).includes(value);
 }
 
-export function onCollision(wanted: string | undefined, options: OnCollisionOptions = {}): number {
+export async function onCollision(wanted: string | undefined, options: OnCollisionOptions = {}): Promise<number> {
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));
   const now = options.now ?? (() => new Date());
 
   if (wanted === undefined || wanted === "") {
-    const at = currentChoice();
+    const at = await currentChoice();
     if (options.json === true) {
       say(JSON.stringify({ onCollision: at, means: COLLISION_MEANS[at] }));
       return 0;
@@ -56,7 +56,7 @@ export function onCollision(wanted: string | undefined, options: OnCollisionOpti
     });
   }
 
-  setChoice(wanted, VERSION, now());
+  await setChoice(wanted, VERSION, now());
   say(`${wanted} — ${COLLISION_MEANS[wanted]}`);
   return 0;
 }

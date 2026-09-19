@@ -54,7 +54,7 @@ async function outcome(
 ): Promise<"ran" | "asks-itself" | `refused:${number}` | "asked-y" | "asked-n"> {
   const dir = isolate();
   try {
-    setMode(mode, "t", new Date("2026-09-06T00:00:00Z"));
+    await setMode(mode, "t", new Date("2026-09-06T00:00:00Z"));
     const a = ACTS[act];
     if (extra.unlocked === true && "lock" in a && a.lock !== "wallet") grant(a.lock, "t", new Date());
     const argv = [act.split(".")[0] ?? act];

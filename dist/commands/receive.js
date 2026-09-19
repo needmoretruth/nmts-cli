@@ -14,7 +14,7 @@ import { resolve } from "node:path";
 import { request } from "../api.js";
 import { loadCrypto } from "../crypto.js";
 import { fetchWithKey } from "../download.js";
-import { fileSink, stdoutSink } from "../download-sink.js";
+import { fileSink, stdoutSink } from "../download-sink-node.js";
 import { NmtsError } from "../errors.js";
 import { destinationFor } from "../safe-path.js";
 import { resolveNetwork } from "../network.js";

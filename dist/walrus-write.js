@@ -10,6 +10,7 @@
 //    transaction paid — see the note on `sendTip` below, which is not what its name suggests.
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { walrus } from "@mysten/walrus";
+import { toBase64Url } from "./bytes.js";
 import { epochClock } from "./expiry.js";
 // ⛔ The re-export below is what callers use; this local name is the same function,
 //    imported so the reader above can call it without importing from itself.
@@ -112,8 +113,8 @@ export function createBlobProtocol(network, bodyBytes, onSent) {
                 .catch((error) => fail("The upload relay refused the bytes", error));
             return {
                 signers: certificate.signers,
-                serialized_message_b64: Buffer.from(certificate.serializedMessage).toString("base64url"),
-                signature_b64: Buffer.from(certificate.signature).toString("base64url"),
+                serialized_message_b64: toBase64Url(certificate.serializedMessage),
+                signature_b64: toBase64Url(certificate.signature),
             };
         },
     };

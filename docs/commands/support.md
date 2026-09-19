@@ -13,4 +13,4 @@ English. One report per problem.
 
 In the default mode it prints what it would send and asks (or takes `--yes`); in an auto mode it
 sends after printing. Replies arrive in the thread: `support list`, `support show <code>`,
-`support reply <code> --message`. If the CLI itself cannot run, the second door is nmts@nmts.me.
+`support reply <code> --message`. If the CLI itself cannot run, write to nmts@nmts.me.

@@ -7,6 +7,7 @@ import { rmSync } from "node:fs";
 import { test } from "node:test";
 
 import { walletStorageOps, parseBytes } from "../src/commands/wallet-storage-ops.ts";
+import { walletAddress } from "../src/wallet.ts";
 import { CODE_ENV_VAR, testConfigDir } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
 import type { StorageOpShape, StorageOpsReads } from "../src/storage-control-chain.ts";
@@ -19,15 +20,16 @@ function collect(): { lines: string[]; write: (line: string) => void } {
   return { lines, write: (line) => lines.push(line) };
 }
 
-async function withAccount(name: string, body: () => Promise<void>): Promise<void> {
+async function withAccount(name: string, body: (code: string) => Promise<void>): Promise<void> {
   const dir = testConfigDir(name);
   const before = { dir: process.env["NMTS_CONFIG_DIR"], code: process.env[CODE_ENV_VAR] };
   rmSync(dir, { recursive: true, force: true });
   process.env["NMTS_CONFIG_DIR"] = dir;
   grantConsents(dir, "plain-env");
-  process.env[CODE_ENV_VAR] = await generateCode();
+  const code = await generateCode();
+  process.env[CODE_ENV_VAR] = code;
   try {
-    await body();
+    await body(code);
   } finally {
     rmSync(dir, { recursive: true, force: true });
     for (const [k, v] of [["NMTS_CONFIG_DIR", before.dir], [CODE_ENV_VAR, before.code]] as const) {
@@ -61,12 +63,15 @@ function reads(over: { refusal?: string; fee?: bigint | null } = {}): (network: 
   });
 }
 
-function signer(): SignStorageOp & { shapes: StorageOpShape[] } {
-  const sign = async (input: { shape: StorageOpShape }): Promise<string> => {
+function signer(): SignStorageOp & { shapes: StorageOpShape[]; wallets: number[] } {
+  const sign = async (input: { wallet: number; shape: StorageOpShape }): Promise<string> => {
     sign.shapes.push(input.shape);
+    // Which wallet was asked to sign — the half of this seam no shape can show.
+    sign.wallets.push(input.wallet);
     return "DIGEST1";
   };
   sign.shapes = [] as StorageOpShape[];
+  sign.wallets = [] as number[];
   return sign;
 }
 
@@ -80,6 +85,9 @@ const base = (out: { write: (line: string) => void }, r = reads(), sign = signer
   now: AT,
   storageReads: r,
   signStorage: sign,
+  // ⚠ There is no server here to hold the sealed file list the wallet number is read from
+  //   (`wallet-pay-index.ts`), so it is pinned — except where the number itself is the subject.
+  readActiveWallet: async (): Promise<number> => 0,
 });
 
 async function refusal(run: Promise<unknown>): Promise<NmtsError> {
@@ -166,5 +174,36 @@ test("⛔ transfer needs scope all; a resource the wallet does not hold, or a ba
     const addr = await refusal(walletStorageOps("transfer", ["0xa", "nope"], { ...base(collect(), r, sign), yes: true }));
     assert.equal(addr.exitCode, 2);
     assert.equal(r().dryRuns.filter((s) => s.kind === "transfer").length, 2, "a refused request reached the chain");
+  });
+});
+
+// ── whose resources these are ──────────────────────────────────────────────────────────────────
+//
+// ⛔ A RESOURCE IS RESHAPED BY THE WALLET THAT HOLDS IT. The number reaches the read, the review
+//    and the signature, and a run where it reached only some of them would price one wallet's
+//    resource and hand the chain another wallet's signature.
+
+test("⛔ --wallet N works on that wallet: the review names the number and the same one signs", async () => {
+  await withAccount("storage-wallet-flag", async (code) => {
+    unlockWallet("storage");
+    const sign = signer();
+    const out = collect();
+    assert.equal(await walletStorageOps("split", ["0xa"], { ...base(out, reads(), sign), wallet: "2", size: "1GiB", yes: true }), 0);
+    assert.deepEqual(sign.wallets, [2], "the flag did not reach the signature");
+    assert.match(out.lines.join("\n"), new RegExp(`^ {2}from {2}${await walletAddress(code, 2)} \\(wallet 2\\)$`, "m"));
+  });
+});
+
+test("without --wallet, the account's own number is the wallet whose resources these are", async () => {
+  await withAccount("storage-wallet-active", async (code) => {
+    unlockWallet("storage");
+    const sign = signer();
+    const out = collect();
+    assert.equal(
+      await walletStorageOps("split", ["0xa"], { ...base(out, reads(), sign), readActiveWallet: async (): Promise<number> => 3, size: "1GiB", yes: true }),
+      0,
+    );
+    assert.deepEqual(sign.wallets, [3], "it did not use the account's own wallet");
+    assert.match(out.lines.join("\n"), new RegExp(`^ {2}from {2}${await walletAddress(code, 3)} \\(wallet 3\\)$`, "m"));
   });
 });

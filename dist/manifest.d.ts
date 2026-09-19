@@ -30,7 +30,7 @@ export interface KeptList {
  *   write out a good copy because an old one is unreadable would be refusing the very thing it is
  *   for.
  */
-export declare function readKeptList(accountId: string): KeptList | null;
+export declare function readKeptList(accountId: string): Promise<KeptList | null>;
 /**
  * Record a version this machine WROTE, so the server cannot serve an older one back afterwards.
  *
@@ -40,7 +40,7 @@ export declare function readKeptList(accountId: string): KeptList | null;
  */
 export declare function recordWrittenList(accountId: string, seq: number, ct: string): Promise<void>;
 /** True when this machine has a record for the account — i.e. a rollback would be visible. */
-export declare function hasSeenBefore(accountId: string): boolean;
+export declare function hasSeenBefore(accountId: string): Promise<boolean>;
 export interface FileList {
     /** null when the account has no list yet — a new account, not an error. */
     manifest: Manifest | null;

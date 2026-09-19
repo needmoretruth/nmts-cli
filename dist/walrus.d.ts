@@ -28,22 +28,7 @@ export declare const RELAY_HOSTS: Readonly<Record<string, readonly string[]>>;
 export declare const SUI_RPC_HOSTS: Readonly<Record<string, readonly string[]>>;
 /** How long one host gets before the next is tried. A read that stalls is a read that failed. */
 export declare const READ_TIMEOUT_MS = 60000;
-/**
- * Point reads at somebody else's aggregator, or at a development stack.
- *
- * ⚠ It replaces the list rather than adding to it, and that is deliberate: a run should read from
- *   where it was told to read, not from there AND the public hosts. Comma-separated for more
- *   than one, tried in the order given.
- */
-export declare const AGGREGATOR_ENV_VAR = "NMTS_AGGREGATOR";
-/**
- * Push writes through somebody else's relay, or through a development stack.
- *
- * ⚠ ONE host, not a list. Unlike reads there is nothing to fail over to — see `RELAY_HOSTS`.
- */
-export declare const RELAY_ENV_VAR = "NMTS_RELAY";
-/** Ask a different Sui JSON-RPC node the shard-count question. */
-export declare const SUI_RPC_ENV_VAR = "NMTS_SUI_RPC";
+export { AGGREGATOR_ENV_VAR, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./env-vars.ts";
 /** The relay this run writes through: the environment's if it named one, else the network's. */
 export declare function relayHost(network: string): string;
 /**

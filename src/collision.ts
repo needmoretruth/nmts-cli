@@ -23,13 +23,14 @@
 // ⚠ WHAT THIS CANNOT DO is tell an agent from a person. Nothing on a command line can. What it can
 //   do is make the destructive answer require a setting that was turned on deliberately, and say
 //   which setting decided.
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
-import { join } from "node:path";
-
 import { currentMode, type Autonomy } from "./autonomy.ts";
+import { fromUtf8, utf8 } from "./bytes.ts";
 import { NmtsError } from "./errors.ts";
+import { host } from "./host.ts";
 import { BINARY_NAME } from "./product.ts";
-import { configDir, modesAreEnforced } from "./credentials.ts";
+
+/** The one key this answer lives under. On this machine that is `collision.json`. */
+const KEY = "collision";
 
 /** What to do with a name that is already in use. Mirrors the browser's two buttons. */
 export type OnCollision = "rename" | "overwrite";
@@ -66,10 +67,6 @@ interface Stored {
   byVersion: string;
 }
 
-function path(): string {
-  return join(configDir(), "collision.json");
-}
-
 function isChoice(value: unknown): value is OnCollision {
   return typeof value === "string" && (COLLISION_CHOICES as readonly string[]).includes(value);
 }
@@ -80,9 +77,11 @@ function isChoice(value: unknown): value is OnCollision {
  * ⛔ Unreadable counts as `rename`, for the same reason autonomy unreadable counts as off: the
  *    fail-safe direction for "I do not know" is the one that destroys nothing.
  */
-export function currentChoice(): OnCollision {
+export async function currentChoice(): Promise<OnCollision> {
   try {
-    const parsed: unknown = JSON.parse(readFileSync(path(), "utf8"));
+    const held = await host().state.read(KEY);
+    if (held === undefined) return DEFAULT_COLLISION;
+    const parsed: unknown = JSON.parse(fromUtf8(held));
     if (typeof parsed !== "object" || parsed === null) return DEFAULT_COLLISION;
     const choice: unknown = Reflect.get(parsed, "onCollision");
     return isChoice(choice) ? choice : DEFAULT_COLLISION;
@@ -92,21 +91,19 @@ export function currentChoice(): OnCollision {
 }
 
 /** Has anybody answered on this machine? Used to know whether setup still has to ask. */
-export function hasChosen(): boolean {
-  return existsSync(path());
+export async function hasChosen(): Promise<boolean> {
+  return (await host().state.read(KEY)) !== undefined;
 }
 
 /** Write the choice down, with the date and the version that asked. */
-export function setChoice(choice: OnCollision, version: string, now: Date): void {
-  mkdirSync(configDir(), { recursive: true, mode: 0o700 });
+export async function setChoice(choice: OnCollision, version: string, now: Date): Promise<void> {
   const body: Stored = { onCollision: choice, setAt: now.toISOString(), byVersion: version };
-  writeFileSync(path(), `${JSON.stringify(body, null, 2)}\n`, { mode: 0o600 });
-  if (modesAreEnforced()) chmodSync(path(), 0o600);
+  await host().state.write(KEY, utf8(`${JSON.stringify(body, null, 2)}\n`));
 }
 
 /** Forget the answer, so setup asks again. */
-export function forgetChoice(): void {
-  if (existsSync(path())) rmSync(path(), { force: true });
+export async function forgetChoice(): Promise<void> {
+  await host().state.remove(KEY);
 }
 
 /** What decided, so the tool can say so rather than acting silently. */
@@ -136,15 +133,15 @@ export interface Decision {
  * ⛔ THE OVERRIDE IS ONE-WAY. A mode can let `overwrite` through; nothing here turns a `rename`
  *    into an `overwrite`.
  */
-export function decide(
+export async function decide(
   /** What this run asked for, if anything. `undefined` means "use what this machine is set to". */
   askedFor?: OnCollision,
-  setting: OnCollision = currentChoice(),
-  mode: Autonomy = currentMode(),
-): Decision {
-  if (askedFor === undefined) return { choice: setting, by: "setting" };
+  setting?: OnCollision,
+  mode?: Autonomy,
+): Promise<Decision> {
+  if (askedFor === undefined) return { choice: setting ?? (await currentChoice()), by: "setting" };
   if (askedFor === "rename") return { choice: "rename", by: "asked-for" };
-  if (mode === "default") return { choice: "rename", by: "agent-refused" };
+  if ((mode ?? (await currentMode())) === "default") return { choice: "rename", by: "agent-refused" };
   return { choice: "overwrite", by: "asked-for" };
 }
 

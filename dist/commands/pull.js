@@ -21,7 +21,7 @@
 import { mkdirSync, existsSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fetchFile } from "../download.js";
-import { fileSink } from "../download-sink.js";
+import { fileSink } from "../download-sink-node.js";
 import { buildIndex, entryAt, fullPathOf, isLive, KIND_FILE, KIND_FOLDER, normalisePath, underPrefix, } from "../drive-paths.js";
 import { NmtsError } from "../errors.js";
 import { readFileList } from "../manifest.js";

@@ -23,12 +23,13 @@
 // ⚠ WHAT THIS CANNOT DO is tell an agent from a person. Nothing on a command line can. What it can
 //   do is make the destructive answer require a setting that was turned on deliberately, and say
 //   which setting decided.
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
-import { join } from "node:path";
 import { currentMode } from "./autonomy.js";
+import { fromUtf8, utf8 } from "./bytes.js";
 import { NmtsError } from "./errors.js";
+import { host } from "./host.js";
 import { BINARY_NAME } from "./product.js";
-import { configDir, modesAreEnforced } from "./credentials.js";
+/** The one key this answer lives under. On this machine that is `collision.json`. */
+const KEY = "collision";
 export const COLLISION_CHOICES = ["rename", "overwrite"];
 /** What each choice does, in the words the tool prints. One line each. */
 export const COLLISION_MEANS = {
@@ -53,9 +54,6 @@ export function parseAsked(typed) {
 }
 /** What is written down when nobody has chosen. */
 export const DEFAULT_COLLISION = "rename";
-function path() {
-    return join(configDir(), "collision.json");
-}
 function isChoice(value) {
     return typeof value === "string" && COLLISION_CHOICES.includes(value);
 }
@@ -65,9 +63,12 @@ function isChoice(value) {
  * ⛔ Unreadable counts as `rename`, for the same reason autonomy unreadable counts as off: the
  *    fail-safe direction for "I do not know" is the one that destroys nothing.
  */
-export function currentChoice() {
+export async function currentChoice() {
     try {
-        const parsed = JSON.parse(readFileSync(path(), "utf8"));
+        const held = await host().state.read(KEY);
+        if (held === undefined)
+            return DEFAULT_COLLISION;
+        const parsed = JSON.parse(fromUtf8(held));
         if (typeof parsed !== "object" || parsed === null)
             return DEFAULT_COLLISION;
         const choice = Reflect.get(parsed, "onCollision");
@@ -78,21 +79,17 @@ export function currentChoice() {
     }
 }
 /** Has anybody answered on this machine? Used to know whether setup still has to ask. */
-export function hasChosen() {
-    return existsSync(path());
+export async function hasChosen() {
+    return (await host().state.read(KEY)) !== undefined;
 }
 /** Write the choice down, with the date and the version that asked. */
-export function setChoice(choice, version, now) {
-    mkdirSync(configDir(), { recursive: true, mode: 0o700 });
+export async function setChoice(choice, version, now) {
     const body = { onCollision: choice, setAt: now.toISOString(), byVersion: version };
-    writeFileSync(path(), `${JSON.stringify(body, null, 2)}\n`, { mode: 0o600 });
-    if (modesAreEnforced())
-        chmodSync(path(), 0o600);
+    await host().state.write(KEY, utf8(`${JSON.stringify(body, null, 2)}\n`));
 }
 /** Forget the answer, so setup asks again. */
-export function forgetChoice() {
-    if (existsSync(path()))
-        rmSync(path(), { force: true });
+export async function forgetChoice() {
+    await host().state.remove(KEY);
 }
 /**
  * What to do with this collision, and what settled it.
@@ -108,14 +105,14 @@ export function forgetChoice() {
  * ⛔ THE OVERRIDE IS ONE-WAY. A mode can let `overwrite` through; nothing here turns a `rename`
  *    into an `overwrite`.
  */
-export function decide(
+export async function decide(
 /** What this run asked for, if anything. `undefined` means "use what this machine is set to". */
-askedFor, setting = currentChoice(), mode = currentMode()) {
+askedFor, setting, mode) {
     if (askedFor === undefined)
-        return { choice: setting, by: "setting" };
+        return { choice: setting ?? (await currentChoice()), by: "setting" };
     if (askedFor === "rename")
         return { choice: "rename", by: "asked-for" };
-    if (mode === "default")
+    if ((mode ?? (await currentMode())) === "default")
         return { choice: "rename", by: "agent-refused" };
     return { choice: "overwrite", by: "asked-for" };
 }

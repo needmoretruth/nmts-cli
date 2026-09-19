@@ -208,7 +208,7 @@ test("⛔ a resume writes the RECORDED key into the list, not a fresh one", asyn
     await assert.rejects(uploadFile(input));
 
     const second = await uploadFile({ ...input, api: apiThat().api, protocol: protocolThat() });
-    const stored = readReservationRecord(partKey(second.fileKey, 0));
+    const stored = await readReservationRecord(partKey(second.fileKey, 0));
     assert.equal(
       second.entry.dekWrapped,
       stored?.dekWrapped,
@@ -253,7 +253,7 @@ test("a file that is already committed asks the server for nothing at all", asyn
     const bytes = bodyOf(6_000);
     const { input, dataKey } = await inputFor(apiThat().api, protocolThat(), bytes, 4000);
     const first = await uploadFile(input);
-    assert.equal(readItemRecord(first.fileKey)?.itemId, first.itemId);
+    assert.equal((await readItemRecord(first.fileKey))?.itemId, first.itemId);
 
     const again = apiThat();
     const second = await uploadFile({ ...input, api: again.api, protocol: protocolThat() });

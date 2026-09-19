@@ -40,6 +40,7 @@ import { BINARY_NAME, VERSION } from "./product.js";
  */
 export const NOT_BUILT_YET = [];
 export async function run(argv) {
+    (await import("./host-node.js")).registerNodeHost();
     const args = parseArgs(argv);
     if (args.version) {
         process.stdout.write(`${VERSION}\n`);
@@ -54,7 +55,7 @@ export async function run(argv) {
     //    ⚠ `mode` itself is exempt: the command that prints the setting does not need it twice.
     if (args.command !== "mode") {
         const { announcement, currentMode } = await import("./autonomy.js");
-        const line = announcement(currentMode());
+        const line = announcement(await currentMode());
         if (line !== null)
             process.stderr.write(`${line}\n`);
     }
@@ -76,10 +77,8 @@ export async function run(argv) {
                 env: args.env,
             });
         }
-        case "logout": {
-            const { logout } = await import("./commands/logout.js");
-            return logout();
-        }
+        case "logout":
+            return (await import("./commands/logout.js")).logout();
         case "whoami": {
             const { whoami } = await import("./commands/whoami.js");
             return await whoami({
@@ -352,6 +351,8 @@ export async function run(argv) {
             const { mcp } = await import("./commands/mcp.js");
             return await mcp({ server: args.server, network: args.network, out: args.out });
         }
+        case "platform":
+            return (await import("./commands/platform.js")).platform(args.operands[0], { out: args.out });
         case "s3": {
             const { s3 } = await import("./commands/s3.js");
             return await s3({ server: args.server, network: args.network, port: args.port, json: args.json });
@@ -385,7 +386,7 @@ async function main() {
     const { noteFailure, recordRun } = await import("./run-log.js");
     if (failed !== null)
         noteFailure(failed);
-    recordRun(argv, typeof process.exitCode === "number" ? process.exitCode : 0, Date.now() - started);
+    await recordRun(argv, typeof process.exitCode === "number" ? process.exitCode : 0, Date.now() - started);
     await noteUpdateAfter(argv, VERSION);
 }
 if (invokedDirectly(import.meta.filename)) {

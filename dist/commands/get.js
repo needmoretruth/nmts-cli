@@ -28,7 +28,7 @@
 import { basename, resolve } from "node:path";
 import { CODE_ENV_VAR } from "../credentials.js";
 import { fetchFile } from "../download.js";
-import { fileSink, stdoutSink } from "../download-sink.js";
+import { fileSink, stdoutSink } from "../download-sink-node.js";
 import { buildIndex, entryAt, fullPathOf, KIND_FILE, normalisePath } from "../drive-paths.js";
 import { NmtsError } from "../errors.js";
 import { readFileList } from "../manifest.js";

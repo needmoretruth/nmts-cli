@@ -19,14 +19,6 @@ export declare const CREDIT_BYTES: number;
  */
 export declare function creditsFor(sealedBytes: number, epochs?: number): number;
 /**
- * How big the local file is, with the two refusals that are worth their own words.
- *
- * ⛔ IT IS NOT READ HERE. A file large enough to need several parts is a file too large to hold,
- *    and the size is all that is needed to plan the upload and quote its price. The bytes are read
- *    later, a slice at a time, by the part that is being sealed.
- */
-export declare function measureLocal(path: string): number;
-/**
  * How much of the file goes into one part.
  *
  * ⛔ THE SAME NUMBER ON A RESUME OR NOTHING MATCHES. The parts already written down were sealed

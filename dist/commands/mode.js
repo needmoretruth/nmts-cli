@@ -22,9 +22,9 @@ export async function mode(wanted, target, options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const now = options.now ?? (() => new Date());
     if (wanted === undefined || wanted === "") {
-        const at = currentMode();
+        const at = await currentMode();
         if (options.json === true) {
-            say(JSON.stringify({ mode: at, setAt: setAt(), means: MODE_MEANS[at] }));
+            say(JSON.stringify({ mode: at, setAt: await setAt(), means: MODE_MEANS[at] }));
             return 0;
         }
         say(`${at} — ${MODE_MEANS[at]}`);

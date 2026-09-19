@@ -69,6 +69,9 @@ export const ACTS = {
     verify: { tier: "none" },
     support: { tier: "none" },
     mcp: { tier: "none" },
+    // The bare word and `platform register` only say where a business registers; what MAKES
+    // something is `platform.keygen` below.
+    platform: { tier: "none" },
     "accept-terms": { tier: "none" },
     // ── low ──
     rm: { tier: "low", what: "Move these to the trash, restorable for 30 days." },
@@ -90,6 +93,11 @@ export const ACTS = {
     "key.list": { tier: "none" },
     "key.new": { tier: "medium", what: "Make a new API key for this machine." },
     "key.revoke": { tier: "medium", what: "Revoke an API key. Whatever used it stops working." },
+    // ⛔ MEDIUM, BESIDE `key.new`, AND NOT `high`. It writes a long-lived secret to this disk, which
+    //    is more than a read; but the pair opens nothing until a person registers the public half in
+    //    a browser, nothing is spent, and the file is never replaced — so it is not the tier that
+    //    waits for an unlock.
+    "platform.keygen": { tier: "medium", what: "Make a business key pair and write its private half to a file on this disk." },
     "public-code.publish": { tier: "medium", what: "Publish this account's public code. Publishing cannot be undone." },
     "losses.dismiss": { tier: "medium", what: "Put this loss notice down. It will not be shown again." },
     // ⛔ MEDIUM AND NOT HIGH. It moves value, so it is not `low`; but it moves it INSIDE one person's
@@ -179,6 +187,8 @@ export function actOf(args) {
             return args.publish ? "public-code.publish" : "public-code";
         case "support":
             return sub === "send" || sub === "reply" ? "support.send" : "support";
+        case "platform":
+            return sub === "keygen" ? "platform.keygen" : "platform";
         case "on-collision":
             return sub === "" ? "on-collision" : "on-collision.set";
         case "padding":

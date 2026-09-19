@@ -43,6 +43,7 @@ import { BINARY_NAME, VERSION } from "./product.ts";
 export const NOT_BUILT_YET: readonly string[] = [];
 
 export async function run(argv: readonly string[]): Promise<number> {
+  (await import("./host-node.ts")).registerNodeHost();
   const args = parseArgs(argv);
 
   if (args.version) {
@@ -59,7 +60,7 @@ export async function run(argv: readonly string[]): Promise<number> {
   //    ⚠ `mode` itself is exempt: the command that prints the setting does not need it twice.
   if (args.command !== "mode") {
     const { announcement, currentMode } = await import("./autonomy.ts");
-    const line = announcement(currentMode());
+    const line = announcement(await currentMode());
     if (line !== null) process.stderr.write(`${line}\n`);
   }
 
@@ -82,10 +83,8 @@ export async function run(argv: readonly string[]): Promise<number> {
         env: args.env,
       });
     }
-    case "logout": {
-      const { logout } = await import("./commands/logout.ts");
-      return logout();
-    }
+    case "logout":
+      return (await import("./commands/logout.ts")).logout();
     case "whoami": {
       const { whoami } = await import("./commands/whoami.ts");
       return await whoami({
@@ -358,6 +357,8 @@ export async function run(argv: readonly string[]): Promise<number> {
       const { mcp } = await import("./commands/mcp.ts");
       return await mcp({ server: args.server, network: args.network, out: args.out });
     }
+    case "platform":
+      return (await import("./commands/platform.ts")).platform(args.operands[0], { out: args.out });
     case "s3": {
       const { s3 } = await import("./commands/s3.ts");
       return await s3({ server: args.server, network: args.network, port: args.port, json: args.json });
@@ -390,7 +391,7 @@ async function main(): Promise<void> {
   //    outside `run` because the tests drive that directly, and it cannot throw.
   const { noteFailure, recordRun } = await import("./run-log.ts");
   if (failed !== null) noteFailure(failed);
-  recordRun(argv, typeof process.exitCode === "number" ? process.exitCode : 0, Date.now() - started);
+  await recordRun(argv, typeof process.exitCode === "number" ? process.exitCode : 0, Date.now() - started);
   await noteUpdateAfter(argv, VERSION);
 }
 

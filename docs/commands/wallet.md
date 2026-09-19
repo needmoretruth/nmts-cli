@@ -17,9 +17,11 @@ kept inside your sealed file list, so the browser, this tool and every other dev
 Numbers come from the key, so a wallet cannot be deleted, and a wallet you leave keeps whatever is
 in it.
 
-`put`, `push`, `extend`, `wallet send` and `wallet donate` all pay from that wallet, and each takes
-`--wallet <number>` to pay from a different one for that run only, without changing the setting.
-⛔ If the file list cannot be read, they refuse rather than falling back to wallet 0 — paying from
+`put`, `push`, `extend`, `wallet send` and `wallet donate` all pay from that wallet. The same
+number decides the rest: `wallet swap` swaps its coins, `wallet storage split|merge|transfer`
+reshapes the resources it holds, and `wallet hall --name` signs as its address. Each takes
+`--wallet <number>` to use a different one for that run only, without changing the setting.
+⛔ If the file list cannot be read, they refuse rather than falling back to wallet 0 — signing with
 a wallet nobody chose is not a thing to guess at.
 
 ## Where SUI comes from, and why it is SUI
@@ -28,8 +30,8 @@ You can store without any coin here: credits pay the network for you (the weekly
 nmts.me, or credits somebody gave you), and `nmts balance` shows them. The wallet matters only when
 you pay the network yourself.
 
-The files live on Walrus, and Walrus is paid on the Sui chain in WAL, with gas in SUI. That is why
-this wallet holds SUI and WAL and nothing else — not a preference, the chain the storage runs on.
+The files live on Walrus, and Walrus is paid on the Sui chain in WAL, with gas in SUI, so
+this wallet holds SUI and WAL and nothing else.
 Fiat is not taken because taking it would make NMTS hold your money, which it never does.
 
 Getting SUI (as of 2026-09-06): buy it on an exchange that lists it (Binance and Upbit did on that
@@ -77,5 +79,7 @@ One more reads the gifts back, and one flag on it publishes a name:
 - `wallet hall` prints the gift hall of fame — the developer, then the ten largest senders as read
   from the public chain, with the rest of the list at nmts.me/hall; reading it signs nothing and
   needs no NMTS key. `--name <name>` (1 to 24 characters, no links, not an address) signs a
-  short message with this account's wallet so the server shows that name beside the address, and
-  `--remove` puts the entry back to a shortened address.
+  short message with the wallet this account pays from — the wallet a gift left from — so the
+  server shows that name beside its address, and `--remove` puts the entry back to a shortened
+  address. Reading which wallet that is opens the file list, so naming yourself needs an API key
+  where reading the hall needs none.

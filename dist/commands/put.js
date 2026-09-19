@@ -19,7 +19,8 @@ import { depositDefaultOf, depositLines, parseDeposit, refuseDepositWithWallet }
 import { DERIVED, loadCrypto } from "../crypto.js";
 import { buildIndex, fullPathOf, isLive, KIND_FOLDER, normalisePath } from "../drive-paths.js";
 import { NmtsError } from "../errors.js";
-import { Progress, silentSink, stderrSink } from "../progress.js";
+import { Progress, silentSink } from "../progress.js";
+import { stderrSink } from "../progress-node.js";
 import { setTrashed } from "../item-trash.js";
 import { addEntry } from "../manifest-write.js";
 import { paddingRuleOf, readFileList } from "../manifest.js";
@@ -28,8 +29,10 @@ import { BINARY_NAME } from "../product.js";
 import { resolveServer } from "../server.js";
 import { clearItemRecord, clearReservation } from "../upload-store.js";
 import { createUploadApi } from "../upload-api.js";
-import { fileSource, partKeysOf, uploadFile } from "../upload-file.js";
-import { CREDIT_BYTES, creditsFor, measureLocal, partSizeFor, planAndPrice, UPLOAD_EPOCHS, } from "../upload-price.js";
+import { partKeysOf, uploadFile } from "../upload-file.js";
+import { fileSource } from "../upload-file-node.js";
+import { CREDIT_BYTES, creditsFor, partSizeFor, planAndPrice, UPLOAD_EPOCHS } from "../upload-price.js";
+import { measureLocal } from "../upload-price-node.js";
 import { createBlobProtocol, readCurrentEpoch } from "../walrus-write.js";
 /** Who pays, and the options that lose their meaning under that answer — the rule is in `put-payer.ts`; this is its one road. */
 import { payerOf, refuseWalletOnlyOptions } from "./put-payer.js";
@@ -260,9 +263,9 @@ export async function put(target, options = {}) {
     // ⛔ ONLY NOW, AND EVERY PART. Until the entry is in the list the file is paid for and invisible,
     //    and the records are the only thing that lets a second run finish the job without spending
     //    again. Clearing the file-level one first would leave a run able to commit a second time.
-    clearItemRecord(result.fileKey);
+    await clearItemRecord(result.fileKey);
     for (const record of partKeysOf(result.fileKey, result.parts))
-        clearReservation(record);
+        await clearReservation(record);
     // ⛔ THE DISPLACED FILE IS TOLD TO THE SERVER ONLY NOW, and only after the new one is in the
     //    list. Until this line the person still had the file they started with.
     // ⚠ A failure here leaves it hidden in this account's trash while the server still counts it as

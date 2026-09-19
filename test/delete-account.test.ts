@@ -66,14 +66,14 @@ test("⛔ --yes alone does not stand for the sentence: outside skip-permissions 
 
 test("under skip-permissions the gate's --yes stands for the sentence and nothing is asked", async () => {
   await withSandbox(drive, "delete-account-skip", async () => {
-    setMode("skip-permissions", "9.9.9", new Date("2026-09-06T00:00:00Z"));
+    await setMode("skip-permissions", "9.9.9", new Date("2026-09-06T00:00:00Z"));
     try {
       const input = answering("no");
       assert.equal(await deleteAccount({ server: drive.base, yes: true, write: collect().write, readLine: input.readLine }), 0);
       assert.equal(input.asked.length, 0, "the sentence was asked for under skip-permissions");
       assert.equal(accountState.erasures.length, 1);
     } finally {
-      setMode("default", "9.9.9", new Date("2026-09-06T00:00:00Z"));
+      await setMode("default", "9.9.9", new Date("2026-09-06T00:00:00Z"));
     }
   });
 });

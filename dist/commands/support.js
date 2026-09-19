@@ -57,7 +57,7 @@ async function sendReport(options) {
     const clean = (text) => omitLiterals(redact(text), omit);
     const message = clean(await readMessage(options)).trim();
     requireLength(message, MAX_MESSAGE_CHARS, "message");
-    const attachment = packLog(options.attachLog, clean);
+    const attachment = await packLog(options.attachLog, clean);
     const total = Buffer.byteLength(message, "utf8") + (attachment?.bytes ?? 0);
     // ⛔ THE MACHINE-READABLE PREVIEW IS THE ONLY THING PRINTED ON THAT PATH, and it is printed
     //    INSTEAD of sending rather than before it. Two JSON objects on one stream would let a caller
@@ -169,7 +169,7 @@ function standardInput() {
     });
 }
 /** Read the newest runs and pack them, or `null` when the option was not given. */
-function packLog(asked, clean) {
+async function packLog(asked, clean) {
     if (asked === undefined)
         return null;
     const count = asked === "" ? DEFAULT_ATTACHED_RUNS : Number(asked);
@@ -180,7 +180,7 @@ function packLog(asked, clean) {
     }
     if (count === 0)
         return null;
-    const runs = readRuns(count);
+    const runs = await readRuns(count);
     if (runs.length === 0)
         return null;
     return buildLogAttachment(runs, clean, MAX_ATTACHMENT_BYTES);

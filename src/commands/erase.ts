@@ -77,7 +77,7 @@ export async function erase(paths: readonly string[], options: EraseOptions = {}
       nextStep: `\`${BINARY_NAME} ls --all\` prints the paths as this expects them.`,
     });
   }
-  const typedFor = options.yes === true && currentMode() === "skip-permissions";
+  const typedFor = options.yes === true && (await currentMode()) === "skip-permissions";
   const ask = options.readLine ?? promptLine;
   if (!typedFor && options.readLine === undefined && !stdinIsATerminal()) {
     throw new NmtsError("There is no terminal to type into (stdin is not a TTY).", {

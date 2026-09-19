@@ -70,14 +70,14 @@ export async function commitItem(input, fileKey, parts) {
     // Advisory only — the chain is the authority on a blob's life. 0 when this machine could not
     // read the epoch clock: a number we do not have is not a number to invent.
     const expiryEpoch = input.currentEpoch === null ? 0 : input.currentEpoch + input.epochs;
-    const previous = readItemRecord(fileKey);
+    const previous = await readItemRecord(fileKey);
     // ⛔ ALREADY COMMITTED IS NOT COMMITTED AGAIN. The record outlives the commit precisely so a run
     //    that died before writing the file list does not make a second file out of storage that is
     //    already named.
     if (previous?.itemId !== undefined)
         return previous.itemId;
     const attempt = previous?.attempt ?? 0;
-    writeItemRecord(fileKey, { attempt });
+    await writeItemRecord(fileKey, { attempt });
     let view;
     try {
         view = await input.api.createItem({
@@ -100,7 +100,7 @@ export async function commitItem(input, fileKey, parts) {
     // ⛔ Written down before returning: from here on the file EXISTS and is paid for, and the only
     //    thing still missing is the account's own list. Losing the record now would make it
     //    unreachable.
-    writeItemRecord(fileKey, { attempt, itemId: view.id });
+    await writeItemRecord(fileKey, { attempt, itemId: view.id });
     return view.id;
 }
 /**

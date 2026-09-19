@@ -21,6 +21,7 @@ import { bcs } from "@mysten/sui/bcs";
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { Transaction } from "@mysten/sui/transactions";
 import { blobIdFromInt, blobIdToInt, MAINNET_WALRUS_PACKAGE_CONFIG, TESTNET_WALRUS_PACKAGE_CONFIG, walrus, } from "@mysten/walrus";
+import { fromBase64Url } from "./bytes.js";
 import { NmtsError } from "./errors.js";
 import { extendReads, netGasFee, readBlobLease } from "./extend-chain.js";
 import { readOwnedStorage, readStorageType } from "./shared/lib/storage-control/chain.js";
@@ -104,8 +105,8 @@ export function certifyTransaction(client, input) {
         deletable: true,
         certificate: {
             signers: input.certificate.signers,
-            serializedMessage: new Uint8Array(Buffer.from(input.certificate.serialized_message_b64, "base64url")),
-            signature: new Uint8Array(Buffer.from(input.certificate.signature_b64, "base64url")),
+            serializedMessage: fromBase64Url(input.certificate.serialized_message_b64),
+            signature: fromBase64Url(input.certificate.signature_b64),
         },
     });
 }
