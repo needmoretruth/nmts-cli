@@ -3,6 +3,12 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.36.1 — 2026-09-19
+
+- On Windows, `platform keygen` says that the key file inherits its folder's permissions, because
+  Windows applies no POSIX file mode. 0.36.0 was tagged but not published to npm: its test suite
+  asserted the mode on Windows.
+
 ## 0.36.0 — 2026-09-19
 
 - `wallet swap`, `wallet storage split|merge|transfer` and `wallet hall` sign from the wallet that

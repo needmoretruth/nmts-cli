@@ -16,6 +16,7 @@
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 
+import { modesAreEnforced } from "../credentials.ts";
 import { NmtsError } from "../errors.ts";
 import { generateBusinessKeys } from "../platform-sign.ts";
 import { BINARY_NAME, HOME_URL } from "../product.ts";
@@ -56,6 +57,13 @@ function keygen(out: string | undefined, say: (line: string) => void): number {
   writeKeyFile(path, keys);
   say(`Public key: ${keys.publicKey}`);
   say(`Written to: ${path}`);
+  // The same sentence `nmts doctor` uses for a stored key: where no mode applies, say so.
+  if (!modesAreEnforced()) {
+    say(
+      `Windows applies no POSIX file mode, so this file inherits its folder's permissions ` +
+        `rather than being restricted to one user.`,
+    );
+  }
   say(`Register the public key at ${HOME_URL} — ${REGISTER_PATH}. The private half stays in that file.`);
   return 0;
 }

@@ -14,6 +14,7 @@
 //    that business out of its own door with nothing able to bring the key back.
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
+import { modesAreEnforced } from "../credentials.js";
 import { NmtsError } from "../errors.js";
 import { generateBusinessKeys } from "../platform-sign.js";
 import { BINARY_NAME, HOME_URL } from "../product.js";
@@ -44,6 +45,11 @@ function keygen(out, say) {
     writeKeyFile(path, keys);
     say(`Public key: ${keys.publicKey}`);
     say(`Written to: ${path}`);
+    // The same sentence `nmts doctor` uses for a stored key: where no mode applies, say so.
+    if (!modesAreEnforced()) {
+        say(`Windows applies no POSIX file mode, so this file inherits its folder's permissions ` +
+            `rather than being restricted to one user.`);
+    }
     say(`Register the public key at ${HOME_URL} — ${REGISTER_PATH}. The private half stays in that file.`);
     return 0;
 }

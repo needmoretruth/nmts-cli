@@ -4,14 +4,16 @@
 //    is a shape; this is the promise.
 
 import { strict as assert } from "node:assert";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
+import { modesAreEnforced } from "../src/credentials.ts";
 import { businessPublicKey } from "../src/platform-sign.ts";
 import { platform } from "../src/commands/platform.ts";
 import { NmtsError } from "../src/errors.ts";
+import { assertModeWhereEnforced } from "./helpers.ts";
 
 function sandbox(): string {
   return mkdtempSync(join(tmpdir(), "nmts-platform-"));
@@ -32,8 +34,8 @@ test("⛔ keygen writes both halves to a file only its owner can read, and print
     assert.ok(printed.includes(String(publicKey)), "the public key was not printed");
     assert.ok(!printed.includes(String(privateKey)), "the private key reached the screen");
     assert.ok(printed.includes(out), "the file it wrote was not named");
-    // ⚠ Windows ignores the mode; this suite runs where it does not.
-    assert.equal(statSync(out).mode & 0o777, 0o600);
+    assertModeWhereEnforced(out, 0o600, "the key file is readable by someone other than its owner");
+    assert.equal(printed.includes("Windows applies no POSIX file mode"), !modesAreEnforced());
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
