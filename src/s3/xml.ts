@@ -29,12 +29,24 @@ export function errorXml(code: string, message: string, resource: string): strin
   );
 }
 
-export function listBucketsXml(bucket: string, createdAt: string): string {
+/**
+ * The answer to `ListBuckets`.
+ *
+ * ⚠ AN EMPTY LIST IS A LEGAL ANSWER AND EVERY CLIENT HANDLES IT. A gateway in front of a
+ *   business's own lookup cannot enumerate that business's customers, and naming none is the true
+ *   answer there — the caller reaches its own bucket by asking for it by name.
+ */
+export function listBucketsXml(buckets: readonly string[], createdAt: string): string {
+  const rows = buckets
+    .map(
+      (bucket) =>
+        `<Bucket><Name>${escapeXml(bucket)}</Name>` +
+        `<CreationDate>${escapeXml(createdAt)}</CreationDate></Bucket>`,
+    )
+    .join("");
   return (
     `${HEAD}<ListAllMyBucketsResult xmlns="${NS}"><Owner><ID>nmts</ID>` +
-    `<DisplayName>nmts</DisplayName></Owner><Buckets><Bucket>` +
-    `<Name>${escapeXml(bucket)}</Name><CreationDate>${escapeXml(createdAt)}</CreationDate>` +
-    `</Bucket></Buckets></ListAllMyBucketsResult>`
+    `<DisplayName>nmts</DisplayName></Owner><Buckets>${rows}</Buckets></ListAllMyBucketsResult>`
   );
 }
 

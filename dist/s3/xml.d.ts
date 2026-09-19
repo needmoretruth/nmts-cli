@@ -1,7 +1,14 @@
 /** The five characters XML cannot carry raw. */
 export declare function escapeXml(value: string): string;
 export declare function errorXml(code: string, message: string, resource: string): string;
-export declare function listBucketsXml(bucket: string, createdAt: string): string;
+/**
+ * The answer to `ListBuckets`.
+ *
+ * ⚠ AN EMPTY LIST IS A LEGAL ANSWER AND EVERY CLIENT HANDLES IT. A gateway in front of a
+ *   business's own lookup cannot enumerate that business's customers, and naming none is the true
+ *   answer there — the caller reaches its own bucket by asking for it by name.
+ */
+export declare function listBucketsXml(buckets: readonly string[], createdAt: string): string;
 export declare function initiateUploadXml(bucket: string, key: string, uploadId: string): string;
 export declare function completeUploadXml(bucket: string, key: string, etag: string): string;
 export interface ObjectRow {

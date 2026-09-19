@@ -23,11 +23,20 @@ export function errorXml(code, message, resource) {
     return (`${HEAD}<Error><Code>${escapeXml(code)}</Code><Message>${escapeXml(message)}</Message>` +
         `<Resource>${escapeXml(resource)}</Resource></Error>`);
 }
-export function listBucketsXml(bucket, createdAt) {
+/**
+ * The answer to `ListBuckets`.
+ *
+ * ⚠ AN EMPTY LIST IS A LEGAL ANSWER AND EVERY CLIENT HANDLES IT. A gateway in front of a
+ *   business's own lookup cannot enumerate that business's customers, and naming none is the true
+ *   answer there — the caller reaches its own bucket by asking for it by name.
+ */
+export function listBucketsXml(buckets, createdAt) {
+    const rows = buckets
+        .map((bucket) => `<Bucket><Name>${escapeXml(bucket)}</Name>` +
+        `<CreationDate>${escapeXml(createdAt)}</CreationDate></Bucket>`)
+        .join("");
     return (`${HEAD}<ListAllMyBucketsResult xmlns="${NS}"><Owner><ID>nmts</ID>` +
-        `<DisplayName>nmts</DisplayName></Owner><Buckets><Bucket>` +
-        `<Name>${escapeXml(bucket)}</Name><CreationDate>${escapeXml(createdAt)}</CreationDate>` +
-        `</Bucket></Buckets></ListAllMyBucketsResult>`);
+        `<DisplayName>nmts</DisplayName></Owner><Buckets>${rows}</Buckets></ListAllMyBucketsResult>`);
 }
 export function initiateUploadXml(bucket, key, uploadId) {
     return (`${HEAD}<InitiateMultipartUploadResult xmlns="${NS}">` +

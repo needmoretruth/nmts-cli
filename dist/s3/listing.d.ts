@@ -1,6 +1,13 @@
 import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
 import type { ObjectRow } from "./xml.ts";
-/** The one bucket. Named for what it is, and not configurable: two names for one drive is worse. */
+/**
+ * The bucket `nmts s3` serves. Named for what it is, and not configurable: two names for one drive
+ * is worse.
+ *
+ * ⚠ IT IS THIS COMMAND'S ANSWER, NOT THE SERVER'S RULE. The gateway takes a resolver, because a
+ *   business running it in front of many of its users' accounts has one bucket per account; what
+ *   `nmts s3` hands it is a resolver that knows this name and no other.
+ */
 export declare const BUCKET = "drive";
 /** S3's own ceiling, and the default when a client does not ask for one. */
 export declare const MAX_KEYS_LIMIT = 1000;

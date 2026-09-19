@@ -21,6 +21,7 @@ export const MAX_CLOCK_SKEW_MS = 15 * 60 * 1000;
 export const UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
 export const STREAMING_PAYLOAD = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD";
 export const STREAMING_PAYLOAD_TRAILER = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER";
+/** One refusal, shaped so it satisfies both verdict types — neither of which has an `ok: true`. */
 function refuse(code, message) {
     return { ok: false, code, message };
 }
@@ -165,4 +166,40 @@ export function verifySignature(request, credential, now) {
         return refuse("SignatureDoesNotMatch", "the signature does not match what was signed");
     }
     return { ok: true, payloadHash };
+}
+/**
+ * Which of a gateway's pairs the request named, without telling the clock how many there are.
+ *
+ * ⛔ EVERY PAIR IS COMPARED AND THE LOOP DOES NOT STOP EARLY. An access key id is not a secret --
+ *    it travels in the header in the clear -- but a scan that returned at the first match would
+ *    take a length of time that says WHERE in the list a key sits, and that is a fact about the
+ *    gateway's customers rather than about the request.
+ */
+function named(credentials, accessKeyId) {
+    const wanted = Buffer.from(accessKeyId, "utf8");
+    let found = null;
+    for (const candidate of credentials) {
+        const id = Buffer.from(candidate.accessKeyId, "utf8");
+        if (id.length === wanted.length && timingSafeEqual(id, wanted))
+            found = candidate;
+    }
+    return found;
+}
+/**
+ * The whole check, against every pair a gateway answers to: which one signed, and whether it did.
+ *
+ * ⚠ THE THREE REFUSALS ARE DIFFERENT ON PURPOSE. "No authorization header at all", "a key this
+ *   gateway does not have" and "a signature that does not hold" are three different things for
+ *   whoever is reading a client's logs, and none of them says anything about what is in the drive.
+ */
+export function verifyAgainst(request, credentials, now) {
+    const auth = parseAuthorization(headerValue(request.headers, "authorization"));
+    if (auth === null)
+        return refuse("AccessDenied", "no AWS Signature Version 4 authorization header");
+    const credential = named(credentials, auth.accessKeyId);
+    if (credential === null) {
+        return refuse("InvalidAccessKeyId", "that access key is not one this gateway answers to");
+    }
+    const verdict = verifySignature(request, credential, now);
+    return verdict.ok ? { ok: true, payloadHash: verdict.payloadHash, credential } : verdict;
 }

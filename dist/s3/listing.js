@@ -13,7 +13,14 @@
 //   prefix. Real S3 has no folders, so an empty one cannot exist there; this drive does have them,
 //   and hiding them would make `rclone lsd` describe a drive that is not the one in the browser.
 import { buildIndex, fullPathOf, isLive, KIND_FOLDER } from "../drive-paths.js";
-/** The one bucket. Named for what it is, and not configurable: two names for one drive is worse. */
+/**
+ * The bucket `nmts s3` serves. Named for what it is, and not configurable: two names for one drive
+ * is worse.
+ *
+ * ⚠ IT IS THIS COMMAND'S ANSWER, NOT THE SERVER'S RULE. The gateway takes a resolver, because a
+ *   business running it in front of many of its users' accounts has one bucket per account; what
+ *   `nmts s3` hands it is a resolver that knows this name and no other.
+ */
 export const BUCKET = "drive";
 /** S3's own ceiling, and the default when a client does not ask for one. */
 export const MAX_KEYS_LIMIT = 1000;

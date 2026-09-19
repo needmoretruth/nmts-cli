@@ -18,14 +18,14 @@ import type { Readable } from "node:stream";
 
 import type { PlaintextSink } from "../download-sink.ts";
 import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
-import { BUCKET, listObjects, objectsOf, folderPrefixesOf, MAX_KEYS_LIMIT, type DriveObject } from "./listing.ts";
+import { listObjects, objectsOf, folderPrefixesOf, MAX_KEYS_LIMIT, type DriveObject } from "./listing.ts";
 import { handleMultipart, isMultipartRequest } from "./multipart.ts";
 import { responseSink } from "./response-sink.ts";
 import { isKeyConflict } from "./same-file.ts";
 import {
   STREAMING_PAYLOAD,
   STREAMING_PAYLOAD_TRAILER,
-  verifySignature,
+  verifyAgainst,
   type GatewayCredential,
 } from "./sigv4.ts";
 import { errorXml, listBucketsXml, listObjectsXml } from "./xml.ts";
@@ -81,13 +81,51 @@ export interface DriveWriter {
 }
 
 export interface GatewayOptions {
-  readonly credential: GatewayCredential;
-  readonly source: DriveSource;
+  /**
+   * Every pair that may sign a request here, each optionally held to named buckets.
+   *
+   * ⛔ A LIST RATHER THAN ONE PAIR BECAUSE A BUCKET IS AN ACCOUNT. `nmts s3` makes one pair for one
+   *    drive; a business serving many of its users' accounts hands each of them a pair of their
+   *    own, and the restriction on the pair is what stops one customer reading another's bucket.
+   */
+  readonly credentials: readonly GatewayCredential[];
+  /**
+   * Which drive answers to this bucket name, or null when none does.
+   *
+   * ⛔ THE GATEWAY DOES NOT KNOW WHAT A BUCKET IS. It was one name and one drive for as long as the
+   *    only caller was the command-line tool; asked by a business's server it is a lookup that
+   *    server does, and one it may do differently per name. What must not change is that a name
+   *    this resolver refuses looks exactly like a name the caller may not touch (see below).
+   */
+  readonly bucketOf: (name: string) => DriveSource | null | Promise<DriveSource | null>;
+  /**
+   * The names `ListBuckets` answers with, before the signing pair's own restriction is applied.
+   *
+   * ⚠ ABSENT IS A REAL ANSWER RATHER THAN A GAP. A gateway in front of a business's own lookup
+   *   cannot enumerate its customers, so what it can honestly name is what the presented pair is
+   *   held to — and an unrestricted pair on such a gateway is told nothing, which is true.
+   */
+  readonly bucketNames?: () => readonly string[] | Promise<readonly string[]>;
   /** Called with one line whenever a request is answered, so a person can watch what a tool does. */
   readonly log?: (line: string) => void;
   /** Passed in so a test can hold the clock still. */
   readonly now?: () => number;
+  /**
+   * The sentence a write gets from a read-only drive. `nmts s3` says what a person runs on this
+   * machine to allow spending; a gateway somebody else runs has a different way in, and says its own.
+   */
+  readonly readOnlyBecause?: string | undefined;
 }
+
+/**
+ * What a caller signed with a pair it may not use here.
+ *
+ * ⛔ THE SAME ANSWER WHETHER OR NOT THE BUCKET EXISTS, which is why the restriction is checked
+ *    before the resolver is asked. Answering `NoSuchBucket` for a name the caller may not touch
+ *    would turn this gateway into a way of asking "does this business have a customer called…",
+ *    one guess at a time.
+ */
+const NOT_YOURS = "That access key may not use that bucket.";
 
 /** A random pair, made fresh every time the gateway starts and stored nowhere. */
 export function newCredential(): GatewayCredential {
@@ -117,13 +155,30 @@ function headerOf(req: IncomingMessage, name: string): string | undefined {
   return Array.isArray(raw) ? raw.join(",") : raw;
 }
 
-/** The one sentence a write gets when this machine has not agreed to spending. */
-function readOnlyBecause(): string {
+/** The one sentence a write gets from `nmts s3` when this machine has not agreed to spending. */
+function readOnlyOnThisMachine(): string {
   return (
     "This gateway is read only. Uploading spends credits, and this machine has not agreed to " +
     "spending — `nmts consent grant spend`, run by the person whose account this is, is what " +
     "changes that. Nothing was written."
   );
+}
+
+/** Whether the pair that signed is allowed anywhere near this bucket name. */
+function mayTouch(credential: GatewayCredential, bucket: string): boolean {
+  const only = credential.buckets;
+  return only === undefined || only.includes(bucket);
+}
+
+/** What `ListBuckets` says: what the gateway can name, narrowed to what this pair may touch. */
+async function bucketsFor(
+  options: GatewayOptions,
+  credential: GatewayCredential,
+): Promise<readonly string[]> {
+  const only = credential.buckets;
+  if (options.bucketNames === undefined) return only ?? [];
+  const named = await options.bucketNames();
+  return only === undefined ? named : named.filter((name) => only.includes(name));
 }
 
 function objectHeaders(object: DriveObject): Record<string, string> {
@@ -142,27 +197,34 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
   const query = new URLSearchParams(at < 0 ? "" : url.slice(at + 1));
   const method = (req.method ?? "GET").toUpperCase();
 
-  const verdict = verifySignature(
+  const verdict = verifyAgainst(
     { method, url, headers: req.headers },
-    options.credential,
+    options.credentials,
     options.now?.() ?? Date.now(),
   );
   if (!verdict.ok) {
-    fail(res, verdict.code === "InvalidAccessKeyId" ? 403 : 403, verdict.code, verdict.message, pathname);
+    fail(res, 403, verdict.code, verdict.message, pathname);
     return;
   }
+  const credential = verdict.credential;
 
   const { bucket, key } = splitPath(pathname);
 
   if (pathname === "/" && (method === "GET" || method === "HEAD")) {
-    const body = listBucketsXml(BUCKET, new Date(0).toISOString());
+    const body = listBucketsXml(await bucketsFor(options, credential), new Date(0).toISOString());
     res.writeHead(200, { "content-type": "application/xml", "content-length": String(Buffer.byteLength(body)) });
     res.end(method === "HEAD" ? undefined : body);
     return;
   }
 
-  if (bucket !== BUCKET) {
-    fail(res, 404, "NoSuchBucket", `This gateway serves one bucket, named ${BUCKET}.`, pathname);
+  if (!mayTouch(credential, bucket)) {
+    fail(res, 403, "AccessDenied", NOT_YOURS, pathname);
+    return;
+  }
+
+  const source = await options.bucketOf(bucket);
+  if (source === null) {
+    fail(res, 404, "NoSuchBucket", `No bucket named ${bucket} is served here.`, pathname);
     return;
   }
 
@@ -175,7 +237,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
     return;
   }
 
-  const entries = await options.source.entries();
+  const entries = await source.entries();
 
   if (key === "" && (method === "GET" || method === "HEAD")) {
     const objects = objectsOf(entries);
@@ -186,7 +248,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
       after: query.get("continuation-token") ?? query.get("start-after") ?? query.get("marker"),
     });
     const body = listObjectsXml({
-      bucket: BUCKET,
+      bucket,
       prefix: query.get("prefix") ?? "",
       delimiter: query.get("delimiter") ?? "",
       maxKeys: Number(query.get("max-keys") ?? MAX_KEYS_LIMIT) || MAX_KEYS_LIMIT,
@@ -221,7 +283,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
     }
     const sink = responseSink(res, { headers: objectHeaders(object) });
     try {
-      await options.source.fetch(object, sink);
+      await source.fetch(object, sink);
       options.log?.(`GET ${key} → ${object.size} bytes`);
     } catch (error) {
       await sink.abandon();
@@ -233,7 +295,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
     return;
   }
 
-  const writer = options.source.write;
+  const writer = source.write;
 
   // ⛔ WHETHER A TAKEN KEY IS A CONFLICT IS NOT DECIDED HERE.
   //    It used to be, on the strength of the NAME alone, and both upload paths carried their own
@@ -249,13 +311,13 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
 
   if (isMultipartRequest(method, query) && key !== "") {
     if (writer === undefined) {
-      fail(res, 501, "NotImplemented", readOnlyBecause(), pathname);
+      fail(res, 501, "NotImplemented", options.readOnlyBecause ?? readOnlyOnThisMachine(), pathname);
       return;
     }
     const handled = await handleMultipart({
       req,
       res,
-      bucket: BUCKET,
+      bucket,
       key,
       method,
       query,
@@ -269,7 +331,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
 
   if (method === "PUT" && key !== "") {
     if (writer === undefined) {
-      fail(res, 501, "NotImplemented", readOnlyBecause(), pathname);
+      fail(res, 501, "NotImplemented", options.readOnlyBecause ?? readOnlyOnThisMachine(), pathname);
       return;
     }
     const declared = headerOf(req, "x-amz-content-sha256");
@@ -308,7 +370,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
 
   if (method === "DELETE" && key !== "") {
     if (writer === undefined) {
-      fail(res, 501, "NotImplemented", readOnlyBecause(), pathname);
+      fail(res, 501, "NotImplemented", options.readOnlyBecause ?? readOnlyOnThisMachine(), pathname);
       return;
     }
     const object = objectsOf(entries).find((o) => o.key === key);
@@ -334,8 +396,19 @@ async function handle(req: IncomingMessage, res: ServerResponse, options: Gatewa
   fail(res, 501, "NotImplemented", `This gateway does not answer ${method} on that address.`, pathname);
 }
 
-export function createGateway(options: GatewayOptions): Server {
-  return createServer((req, res) => {
+/** A plain Node request handler, so this can be mounted in somebody else's server. */
+export type GatewayHandler = (req: IncomingMessage, res: ServerResponse) => void;
+
+/**
+ * The gateway as a handler, which is the form that listens to nothing.
+ *
+ * ⛔ SEPARATE FROM `createGateway` BECAUSE WHO LISTENS IS NOT THIS FILE'S DECISION. The
+ *    command-line tool binds loopback and says why at the top of this file; a business mounting
+ *    this behind its own TLS has already made that decision, and a library that opened a socket of
+ *    its own would be making it again, differently.
+ */
+export function gatewayHandler(options: GatewayOptions): GatewayHandler {
+  return (req, res) => {
     handle(req, res, options).catch((error: unknown) => {
       if (!res.headersSent) {
         fail(res, 500, "InternalError", error instanceof Error ? error.message : String(error), req.url ?? "/");
@@ -343,5 +416,9 @@ export function createGateway(options: GatewayOptions): Server {
         res.destroy();
       }
     });
-  });
+  };
+}
+
+export function createGateway(options: GatewayOptions): Server {
+  return createServer(gatewayHandler(options));
 }

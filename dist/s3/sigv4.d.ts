@@ -13,10 +13,28 @@ export interface IncomingRequest {
 export interface GatewayCredential {
     readonly accessKeyId: string;
     readonly secretAccessKey: string;
+    /**
+     * The only buckets this pair may touch. Absent means every bucket the gateway serves.
+     *
+     * ⛔ IT IS WHAT KEEPS ONE CUSTOMER'S KEY OFF ANOTHER CUSTOMER'S BUCKET. A gateway in front of
+     *    many accounts hands each caller its own pair, and without this every pair would open every
+     *    account the resolver knows.
+     */
+    readonly buckets?: readonly string[] | undefined;
 }
 export type Verified = {
     readonly ok: true;
     readonly payloadHash: string;
+} | {
+    readonly ok: false;
+    readonly code: string;
+    readonly message: string;
+};
+/** What `verifyAgainst` answers: the same verdict, plus which of the pairs signed. */
+export type VerifiedAgainst = {
+    readonly ok: true;
+    readonly payloadHash: string;
+    readonly credential: GatewayCredential;
 } | {
     readonly ok: false;
     readonly code: string;
@@ -43,4 +61,12 @@ export declare function amzDateToMs(stamp: string | undefined): number | null;
  * skew rule at all, and that rule is the one that stops a captured request being replayed tomorrow.
  */
 export declare function verifySignature(request: IncomingRequest, credential: GatewayCredential, now: number): Verified;
+/**
+ * The whole check, against every pair a gateway answers to: which one signed, and whether it did.
+ *
+ * ⚠ THE THREE REFUSALS ARE DIFFERENT ON PURPOSE. "No authorization header at all", "a key this
+ *   gateway does not have" and "a signature that does not hold" are three different things for
+ *   whoever is reading a client's logs, and none of them says anything about what is in the drive.
+ */
+export declare function verifyAgainst(request: IncomingRequest, credentials: readonly GatewayCredential[], now: number): VerifiedAgainst;
 export {};

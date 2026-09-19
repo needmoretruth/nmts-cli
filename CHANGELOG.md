@@ -3,6 +3,14 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.38.0 — 2026-09-19
+
+- The library surface has a new entry, `@needmoretruth/nmts-cli/s3-gateway`: the S3 server `nmts s3`
+  runs, taking a function that says which drive a bucket name means and a list of key pairs that
+  may each be held to named buckets, so a program can put it in front of more than one account and
+  mount it in a server of its own. `nmts s3` is unchanged: the same output, the same bucket, the same
+  refusals. `nmts-sdk` 0.4.0 is built on it.
+
 ## 0.37.0 — 2026-09-19
 
 - The library surface has a new entry, `@needmoretruth/nmts-cli/drive-edit`: the list edits behind

@@ -35,13 +35,27 @@ export interface IncomingRequest {
 export interface GatewayCredential {
   readonly accessKeyId: string;
   readonly secretAccessKey: string;
+  /**
+   * The only buckets this pair may touch. Absent means every bucket the gateway serves.
+   *
+   * ⛔ IT IS WHAT KEEPS ONE CUSTOMER'S KEY OFF ANOTHER CUSTOMER'S BUCKET. A gateway in front of
+   *    many accounts hands each caller its own pair, and without this every pair would open every
+   *    account the resolver knows.
+   */
+  readonly buckets?: readonly string[] | undefined;
 }
 
 export type Verified =
   | { readonly ok: true; readonly payloadHash: string }
   | { readonly ok: false; readonly code: string; readonly message: string };
 
-function refuse(code: string, message: string): Verified {
+/** What `verifyAgainst` answers: the same verdict, plus which of the pairs signed. */
+export type VerifiedAgainst =
+  | { readonly ok: true; readonly payloadHash: string; readonly credential: GatewayCredential }
+  | { readonly ok: false; readonly code: string; readonly message: string };
+
+/** One refusal, shaped so it satisfies both verdict types — neither of which has an `ok: true`. */
+function refuse(code: string, message: string): { readonly ok: false; readonly code: string; readonly message: string } {
   return { ok: false, code, message };
 }
 
@@ -217,4 +231,47 @@ export function verifySignature(
     return refuse("SignatureDoesNotMatch", "the signature does not match what was signed");
   }
   return { ok: true, payloadHash };
+}
+
+/**
+ * Which of a gateway's pairs the request named, without telling the clock how many there are.
+ *
+ * ⛔ EVERY PAIR IS COMPARED AND THE LOOP DOES NOT STOP EARLY. An access key id is not a secret --
+ *    it travels in the header in the clear -- but a scan that returned at the first match would
+ *    take a length of time that says WHERE in the list a key sits, and that is a fact about the
+ *    gateway's customers rather than about the request.
+ */
+function named(
+  credentials: readonly GatewayCredential[],
+  accessKeyId: string,
+): GatewayCredential | null {
+  const wanted = Buffer.from(accessKeyId, "utf8");
+  let found: GatewayCredential | null = null;
+  for (const candidate of credentials) {
+    const id = Buffer.from(candidate.accessKeyId, "utf8");
+    if (id.length === wanted.length && timingSafeEqual(id, wanted)) found = candidate;
+  }
+  return found;
+}
+
+/**
+ * The whole check, against every pair a gateway answers to: which one signed, and whether it did.
+ *
+ * ⚠ THE THREE REFUSALS ARE DIFFERENT ON PURPOSE. "No authorization header at all", "a key this
+ *   gateway does not have" and "a signature that does not hold" are three different things for
+ *   whoever is reading a client's logs, and none of them says anything about what is in the drive.
+ */
+export function verifyAgainst(
+  request: IncomingRequest,
+  credentials: readonly GatewayCredential[],
+  now: number,
+): VerifiedAgainst {
+  const auth = parseAuthorization(headerValue(request.headers, "authorization"));
+  if (auth === null) return refuse("AccessDenied", "no AWS Signature Version 4 authorization header");
+  const credential = named(credentials, auth.accessKeyId);
+  if (credential === null) {
+    return refuse("InvalidAccessKeyId", "that access key is not one this gateway answers to");
+  }
+  const verdict = verifySignature(request, credential, now);
+  return verdict.ok ? { ok: true, payloadHash: verdict.payloadHash, credential } : verdict;
 }

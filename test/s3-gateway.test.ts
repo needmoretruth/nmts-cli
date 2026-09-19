@@ -16,7 +16,9 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createGateway, newCredential } from "../src/s3/server.ts";
+import type { PlaintextSink } from "../src/download-sink.ts";
+import type { DriveObject } from "../src/s3/listing.ts";
+import { createGateway, newCredential, type DriveSource } from "../src/s3/server.ts";
 import { refusalFor } from "../src/s3/same-file.ts";
 import { createStaging } from "../src/s3/staging.ts";
 import type { ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
@@ -54,16 +56,20 @@ const ENTRIES: readonly ManifestEntry[] = [
   { ...folder("f4", "thrown-away", null), deletedAt: 1_700_000_400_000 },
 ];
 
-const gateway = createGateway({
-  credential: CREDENTIAL,
-  source: {
-    entries: async () => ENTRIES,
-    fetch: async (object, sink) => {
-      sink.expect(object.size);
-      await sink.write(CONTENT.subarray(0, object.size));
-      await sink.commit();
-    },
+/** What `nmts s3` hands the gateway: one pair, one name, one drive. */
+const readOnly = {
+  entries: async () => ENTRIES,
+  fetch: async (object: DriveObject, sink: PlaintextSink) => {
+    sink.expect(object.size);
+    await sink.write(CONTENT.subarray(0, object.size));
+    await sink.commit();
   },
+};
+
+const gateway = createGateway({
+  credentials: [CREDENTIAL],
+  bucketOf: (name) => (name === "drive" ? readOnly : null),
+  bucketNames: () => ["drive"],
 });
 
 await new Promise<void>((resolve) => gateway.listen(0, "127.0.0.1", resolve));
@@ -225,30 +231,27 @@ const accept = (key: string, bytes: string): void => {
   STORED.set(key, bytes);
   written.push({ key, bytes });
 };
-const writable = createGateway({
-  credential: CREDENTIAL,
-  source: {
-    entries: async () => ENTRIES,
-    fetch: async (object, sink) => {
-      sink.expect(object.size);
-      await sink.write(CONTENT.subarray(0, object.size));
-      await sink.commit();
+const writableSource: DriveSource = {
+  ...readOnly,
+  write: {
+    put: async (key, body, size) => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of body) chunks.push(Buffer.from(chunk));
+      assert.equal(Buffer.concat(chunks).length, size, "the declared size was not the body's size");
+      accept(key, Buffer.concat(chunks).toString());
     },
-    write: {
-      put: async (key, body, size) => {
-        const chunks: Buffer[] = [];
-        for await (const chunk of body) chunks.push(Buffer.from(chunk));
-        assert.equal(Buffer.concat(chunks).length, size, "the declared size was not the body's size");
-        accept(key, Buffer.concat(chunks).toString());
-      },
-      trash: async (object) => {
-        trashed.push(object.key);
-      },
-      multipart: createStaging(mkdtempSync(join(tmpdir(), "nmts-gateway-test-")), async (key, path) => {
-        accept(key, readFileSync(path, "utf8"));
-      }),
+    trash: async (object) => {
+      trashed.push(object.key);
     },
+    multipart: createStaging(mkdtempSync(join(tmpdir(), "nmts-gateway-test-")), async (key, path) => {
+      accept(key, readFileSync(path, "utf8"));
+    }),
   },
+};
+const writable = createGateway({
+  credentials: [CREDENTIAL],
+  bucketOf: (name) => (name === "drive" ? writableSource : null),
+  bucketNames: () => ["drive"],
 });
 await new Promise<void>((resolve) => writable.listen(0, "127.0.0.1", resolve));
 const WRITE_HOST = `127.0.0.1:${(writable.address() as AddressInfo).port}`;
@@ -392,4 +395,81 @@ test("⛔ a chunk-signed body is refused rather than stored wrong", async () => 
   // The declared hash is part of the signature, so changing it fails the signature first — which is
   // also a refusal, and the one that matters: nothing is stored either way.
   assert.equal(res.status, 403);
+});
+
+// ── Many buckets, and a pair held to one of them ───────────────────────────────────────────────
+//
+// ⛔ A BUCKET IS AN ACCOUNT, so the question this section answers is the one a business asks first:
+//    can a pair I gave one customer reach another customer's account? What makes it answerable at
+//    all is that the gateway no longer knows what a bucket is — it asks a resolver — and the
+//    resolver here knows two.
+
+const OTHER: readonly ManifestEntry[] = [file("j1", "theirs.txt", null, 3)];
+const HELD_TO_ONE = { ...newCredential(), buckets: ["mine"] };
+
+const many = createGateway({
+  credentials: [CREDENTIAL, HELD_TO_ONE],
+  bucketOf: (name) => {
+    if (name === "mine") return readOnly;
+    if (name === "theirs") return { ...readOnly, entries: async () => OTHER };
+    return null;
+  },
+  bucketNames: () => ["mine", "theirs"],
+});
+await new Promise<void>((resolve) => many.listen(0, "127.0.0.1", resolve));
+const MANY_HOST = `127.0.0.1:${(many.address() as AddressInfo).port}`;
+after(() => many.close());
+
+async function asPair(
+  credential: { accessKeyId: string; secretAccessKey: string },
+  target: string,
+): Promise<Response> {
+  const signed = sign("GET", target, MANY_HOST, credential, new Date());
+  return await fetch(signed.url, { method: "GET", headers: signed.headers });
+}
+
+test("two buckets are two drives, each listing its own files", async () => {
+  const mine = await (await asPair(CREDENTIAL, "/mine?list-type=2&max-keys=1000")).text();
+  assert.match(mine, /<Name>mine<\/Name>/);
+  assert.match(mine, /<Key>readme\.txt<\/Key>/);
+  const theirs = await (await asPair(CREDENTIAL, "/theirs?list-type=2&max-keys=1000")).text();
+  assert.match(theirs, /<Name>theirs<\/Name>/);
+  assert.match(theirs, /<Key>theirs\.txt<\/Key>/);
+  assert.doesNotMatch(theirs, /readme\.txt/, "one bucket answered with another bucket's files");
+});
+
+// ⛔ THE ONE THAT KEEPS ONE CUSTOMER OUT OF ANOTHER'S ACCOUNT, and the two answers are the same
+//    answer on purpose: a pair that could tell "no such bucket" from "not yours" would be a way to
+//    ask whether a business has a customer by that name, one guess at a time.
+test("⛔ a pair held to one bucket is refused at another — and at one that does not exist", async () => {
+  const theirs = await asPair(HELD_TO_ONE, "/theirs?list-type=2");
+  assert.equal(theirs.status, 403);
+  const refused = await theirs.text();
+  assert.match(refused, /<Code>AccessDenied<\/Code>/);
+  assert.doesNotMatch(refused, /theirs\.txt/, "a refusal leaked what is in the bucket");
+
+  const nowhere = await asPair(HELD_TO_ONE, "/no-such-bucket?list-type=2");
+  assert.equal(nowhere.status, 403, "a missing bucket answered differently from a forbidden one");
+  const bothSay = (body: string): string => body.replace(/<Resource>[^<]*<\/Resource>/, "");
+  assert.equal(bothSay(await nowhere.text()), bothSay(refused), "the two refusals are tellable apart");
+
+  // Its own bucket still works, so what was refused was the name and not the pair.
+  assert.equal((await asPair(HELD_TO_ONE, "/mine?list-type=2")).status, 200);
+});
+
+// ⚠ A bucket name nobody is held to is still `NoSuchBucket` for a pair that may ask about it: the
+//   sentence only has to be the same for the caller who may not look.
+test("a bucket that is not there is NoSuchBucket for a pair that may ask", async () => {
+  const res = await asPair(CREDENTIAL, "/no-such-bucket?list-type=2");
+  assert.equal(res.status, 404);
+  assert.match(await res.text(), /<Code>NoSuchBucket<\/Code>/);
+});
+
+test("ListBuckets names what the presented pair may touch, and nothing else", async () => {
+  const all = await (await asPair(CREDENTIAL, "/")).text();
+  assert.match(all, /<Name>mine<\/Name>/);
+  assert.match(all, /<Name>theirs<\/Name>/);
+  const held = await (await asPair(HELD_TO_ONE, "/")).text();
+  assert.match(held, /<Name>mine<\/Name>/);
+  assert.doesNotMatch(held, /theirs/, "a restricted pair was told a bucket it may not use");
 });

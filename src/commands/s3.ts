@@ -14,16 +14,12 @@
 //    terminal. So the agreement has to exist before it starts: without it the drive is served read
 //    only and every write is refused with the sentence naming the command that grants it.
 
-import { createWriteStream } from "node:fs";
-import { mkdir as makeDir, rm as removeFile, stat } from "node:fs/promises";
+import { rm as removeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pipeline } from "node:stream/promises";
 import { randomUUID } from "node:crypto";
 
-import { createStaging } from "../s3/staging.ts";
-import { refusalFor, verdictForKey } from "../s3/same-file.ts";
-import { fetchFile } from "../download.ts";
+import { createDriveSource, fetchObject, LIST_CACHE_MS } from "../s3/drive.ts";
 import { NmtsError } from "../errors.ts";
 import { ensureFolderPath } from "../drive-edit.ts";
 import { put } from "./put.ts";
@@ -34,21 +30,9 @@ import { BINARY_NAME } from "../product.ts";
 import { openSession } from "../session.ts";
 import { BUCKET } from "../s3/listing.ts";
 import { BIND_ADDRESS, createGateway, newCredential } from "../s3/server.ts";
-import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
 
 /** MinIO's port, which is what most S3 tools already have in their examples. */
 export const DEFAULT_PORT = 9000;
-
-/**
- * How long a file list may be reused before it is fetched again.
- *
- * ⛔ THERE IS A CACHE BECAUSE A SYNC IS THOUSANDS OF REQUESTS. Reading the list per request would
- *    mean a server round trip and a decryption for each one, so a listing of a large drive would
- *    take minutes and cost the account's rate budget. ⚠ It also means a file uploaded from another
- *    device can be up to this long in appearing here, which is the trade and is written in the
- *    tool's own words when it starts.
- */
-export const LIST_CACHE_MS = 5_000;
 
 export interface S3Options {
   server?: string | undefined;
@@ -77,16 +61,6 @@ export async function s3(options: S3Options = {}): Promise<number> {
   const chain = resolveNetwork(session.server, session.network);
   const credential = newCredential();
 
-  let cached: readonly ManifestEntry[] = [];
-  let cachedAt = 0;
-  const entries = async (): Promise<readonly ManifestEntry[]> => {
-    if (Date.now() - cachedAt < LIST_CACHE_MS) return cached;
-    const list = await readFileList(session.server, session.apiKey, session.code, session.accountId);
-    cached = list.manifest === null ? [] : list.manifest.entries;
-    cachedAt = Date.now();
-    return cached;
-  };
-
   /**
    * Where the pieces of a multipart upload wait until they are one file.
    *
@@ -96,45 +70,6 @@ export async function s3(options: S3Options = {}): Promise<number> {
    *    takes and afterwards.
    */
   const stagingRoot = join(tmpdir(), `nmts-s3-${randomUUID()}`);
-  /**
-   * Store one local file at a drive key, making the folders above it if they are missing.
-   *
-   * ⛔ THE SAME-FILE QUESTION IS ANSWERED HERE AND NOWHERE ELSE.
-   *    Both ways of uploading — one PUT, or pieces staged and joined — end in this
-   *    function, so a rule written here cannot disagree with itself; written in the protocol layer
-   *    it would have to be written twice, once for each, and the two would differ the first time
-   *    one of them changed. What is compared is the plaintext's SHA-256 against the one this
-   *    account sealed when the file was first stored.
-   *
-   * ⛔ IDENTICAL CONTENT IS NOT AN ERROR. Nothing is sent and nothing is charged, and the caller
-   *    is told the upload finished — because the statement it was making, "that file is at that
-   *    key", is true. Answering 409 there is what made every backup run fail on every file it had
-   *    already stored, and a sync tool writes 409 down as a failure.
-   */
-  const storeFile = async (key: string, path: string): Promise<void> => {
-    const at = key.lastIndexOf("/");
-    const folder = at < 0 ? undefined : key.slice(0, at);
-    const name = at < 0 ? key : key.slice(at + 1);
-
-    const verdict = await verdictForKey(await entries(), key, session.code, path);
-    // ⭐ Already there, byte for byte. This is the whole point: an unchanged file costs nothing to
-    //    re-offer, so a backup that runs nightly stops paying for the nights nothing changed.
-    if (verdict === "same") {
-      say(`same ${key} — already stored, nothing sent`);
-      return;
-    }
-    if (verdict !== "free") throw refusalFor(verdict, key);
-
-    if (folder !== undefined && folder !== "") await ensureFolderPath(session, folder);
-    await put(path, {
-      server: options.server,
-      network: options.network,
-      ...(folder === undefined || folder === "" ? {} : { to: folder }),
-      name,
-      write: () => undefined,
-    });
-    cachedAt = 0;
-  };
 
   // ⛔ THE QUESTION WAS ANSWERED BEFORE THIS STARTED. A gateway cannot ask: its caller is a program
   //    and its stdin is not a terminal. `s3` is a medium act (`risk.ts`) — uploads through it spend
@@ -142,64 +77,58 @@ export async function s3(options: S3Options = {}): Promise<number> {
   //    from here on is what was agreed to.
   const writable = true;
 
-  const server = createGateway({
-    credential,
-    source: {
-      entries,
-      ...(writable
-        ? {
-            write: {
-              // ⛔ THE BODY IS SPOOLED TO A FILE FIRST, 0600, and deleted whatever happens. The
-              //    upload path reserves storage, cuts parts and seals them from a file, and giving
-              //    it a socket instead would mean either holding whole uploads in memory or
-              //    writing a second upload path — and a second upload path is a second place for
-              //    "what if the reservation succeeds and the part fails" to be got right.
-              put: async (key, body, size) => {
-                await makeDir(stagingRoot, { recursive: true, mode: 0o700 });
-                const spool = join(stagingRoot, randomUUID());
-                try {
-                  await pipeline(body, createWriteStream(spool, { mode: 0o600 }));
-                  const written = (await stat(spool)).size;
-                  if (written !== size) {
-                    throw new NmtsError(
-                      `The upload said ${size} bytes and ${written} arrived. Nothing was stored.`,
-                    );
-                  }
-                  await storeFile(key, spool);
-                } finally {
-                  await removeFile(spool, { force: true });
-                }
-              },
-              multipart: createStaging(stagingRoot, storeFile),
-              trash: async (object) => {
-                await rm([`/${object.key}`], {
-                  server: options.server,
-                  network: options.network,
-                  write: () => undefined,
-                });
-                cachedAt = 0;
-              },
-            },
-          }
-        : {}),
-      // The real reader. The gateway takes it as a function so its own tests can be driven by a
-      // real S3 client without an account, a network or anybody's credits.
-      fetch: async (object, sink) => {
-        const wrapped = object.entry.dekWrapped;
-        if (wrapped === undefined) throw new NmtsError("That entry has no key in the file list.");
-        await fetchFile({
-          base: session.server,
-          apiKey: session.apiKey,
-          accountCode: session.code,
-          itemId: object.entry.id,
-          size: object.size,
-          dekWrapped: wrapped,
-          contentHashCt: object.entry.contentHashCt,
-          chain,
-          sink,
+  /**
+   * This account, as the shared drive module takes it.
+   *
+   * ⛔ THE SIX FUNCTIONS ARE THE ONLY THING THIS COMMAND CONTRIBUTES. What an upload DOES — the
+   *    same-file verdict, the folders above the key, forgetting the cached list — lives in
+   *    `s3/drive.ts`, so that the gateway a business runs from the SDK and the one a person runs
+   *    here cannot come to disagree about it.
+   */
+  const source = createDriveSource({
+    stagingRoot,
+    writable,
+    onAlreadyStored: (key) => say(`same ${key} — already stored, nothing sent`),
+    account: {
+      readList: async () => {
+        const list = await readFileList(session.server, session.apiKey, session.code, session.accountId);
+        return list.manifest === null ? [] : list.manifest.entries;
+      },
+      // The command holds the code for its whole run: a person started it and is standing there.
+      withCode: (use) => use(session.code),
+      makeFolder: async (folder) => {
+        await ensureFolderPath(session, folder);
+      },
+      store: async (path, name, folder) => {
+        await put(path, {
+          server: options.server,
+          network: options.network,
+          ...(folder === undefined ? {} : { to: folder }),
+          name,
+          write: () => undefined,
         });
       },
+      trash: async (path) => {
+        await rm([path], {
+          server: options.server,
+          network: options.network,
+          write: () => undefined,
+        });
+      },
+      fetch: (object, sink) =>
+        fetchObject(
+          { server: session.server, bearer: session.apiKey, code: session.code, chain },
+          object,
+          sink,
+        ),
     },
+  });
+
+  const server = createGateway({
+    credentials: [credential],
+    // One name, one drive — which is what a bucket is for a person serving their own account.
+    bucketOf: (name) => (name === BUCKET ? source : null),
+    bucketNames: () => [BUCKET],
   });
 
   await new Promise<void>((resolve, reject) => {
