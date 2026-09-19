@@ -3,6 +3,15 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.37.0 — 2026-09-19
+
+- The library surface has a new entry, `@needmoretruth/nmts-cli/drive-edit`: the list edits behind
+  `mkdir`, `mv`, `rename`, `rm` and `restore` as functions that print nothing and refuse with a
+  `code` (`NOT_FOUND`, `NAME_TAKEN`, `BAD_NAME`, `NOT_IN_TRASH`, `INTO_ITSELF`). The commands call the
+  same functions and print what they printed before. `nmts-sdk` 0.3.0 is built on it.
+- Six command documents called the NMTS key "code", the name it had before; `nmts help extend`
+  carried an empty code block.
+
 ## 0.36.3 — 2026-09-19
 
 - `--help` had the `--on-collision` lines in the middle of the `--part-size` description, so the

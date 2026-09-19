@@ -23,7 +23,7 @@ import { createStaging } from "../s3/staging.js";
 import { refusalFor, verdictForKey } from "../s3/same-file.js";
 import { fetchFile } from "../download.js";
 import { NmtsError } from "../errors.js";
-import { ensureFolderPath } from "./organise.js";
+import { ensureFolderPath } from "../drive-edit.js";
 import { put } from "./put.js";
 import { rm } from "./trash.js";
 import { readFileList } from "../manifest.js";

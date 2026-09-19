@@ -40,7 +40,7 @@ import { createUploadApi } from "../upload-api.ts";
 import { clearItemRecord, clearReservation } from "../upload-store.ts";
 import { CREDIT_BYTES, partSizeFor, planAndPrice, UPLOAD_EPOCHS } from "../upload-price.ts";
 import { createBlobProtocol, readCurrentEpoch } from "../walrus-write.ts";
-import { ensureFolderPath } from "./organise.ts";
+import { ensureFolderPath } from "../drive-edit.ts";
 import { payerOf, refuseWalletOnlyOptions } from "./put.ts";
 
 export interface PushOptions {

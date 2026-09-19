@@ -28,7 +28,7 @@ import { BINARY_NAME } from "../product.ts";
 import { promptLine, stdinIsATerminal } from "../prompt.ts";
 import { openSession } from "../session.ts";
 import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
-import { filesUnder } from "./trash.ts";
+import { filesUnder } from "../drive-edit.ts";
 
 /** The server takes at most this many ids in one erase (`ERASE_BATCH_MAX`). */
 const BATCH = 200;

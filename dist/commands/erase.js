@@ -26,7 +26,7 @@ import { applyToList, batchTargets } from "../manifest-write.js";
 import { BINARY_NAME } from "../product.js";
 import { promptLine, stdinIsATerminal } from "../prompt.js";
 import { openSession } from "../session.js";
-import { filesUnder } from "./trash.js";
+import { filesUnder } from "../drive-edit.js";
 /** The server takes at most this many ids in one erase (`ERASE_BATCH_MAX`). */
 const BATCH = 200;
 /** The refusal a no-deposit release gets when the balance cannot cover the doubled fee. */

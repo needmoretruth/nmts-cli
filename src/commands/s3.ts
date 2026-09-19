@@ -25,7 +25,7 @@ import { createStaging } from "../s3/staging.ts";
 import { refusalFor, verdictForKey } from "../s3/same-file.ts";
 import { fetchFile } from "../download.ts";
 import { NmtsError } from "../errors.ts";
-import { ensureFolderPath } from "./organise.ts";
+import { ensureFolderPath } from "../drive-edit.ts";
 import { put } from "./put.ts";
 import { rm } from "./trash.ts";
 import { readFileList } from "../manifest.ts";

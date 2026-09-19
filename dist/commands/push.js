@@ -36,7 +36,7 @@ import { createUploadApi } from "../upload-api.js";
 import { clearItemRecord, clearReservation } from "../upload-store.js";
 import { CREDIT_BYTES, partSizeFor, planAndPrice, UPLOAD_EPOCHS } from "../upload-price.js";
 import { createBlobProtocol, readCurrentEpoch } from "../walrus-write.js";
-import { ensureFolderPath } from "./organise.js";
+import { ensureFolderPath } from "../drive-edit.js";
 import { payerOf, refuseWalletOnlyOptions } from "./put.js";
 export async function push(target, options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
