@@ -133,8 +133,14 @@ export interface RequestOptions {
    *    reading. Two of those going out of step is not hypothetical here: `check:cli-routes` exists
    *    because a command once called an address the server did not have, and it can only see
    *    calls that come through this function.
+   *
+   * ⛔ `bytes` IS THAT SAME OPTION FOR THE ONE ROUTE THAT ANSWERS OPAQUE BYTES — the sealed opener
+   *    slot (`GET /v1/opener/{locator}`), which is ciphertext on its way into a crypto boundary.
+   *    Read as text it would go through a UTF-8 decoder, which silently replaces whatever is not
+   *    valid: the slot would arrive altered and present as "this signature does not open this
+   *    slot", which is the one refusal that must mean what it says.
    */
-  as?: "text";
+  as?: "text" | "bytes";
 }
 
 
@@ -150,6 +156,11 @@ export async function request(
   path: string,
   options: RequestOptions & { as: "text" },
 ): Promise<TextAnswer>;
+export async function request(
+  base: string,
+  path: string,
+  options: RequestOptions & { as: "bytes" },
+): Promise<Uint8Array>;
 export async function request(base: string, path: string, options?: RequestOptions): Promise<unknown>;
 export async function request(base: string, path: string, options: RequestOptions = {}): Promise<unknown> {
   if (!path.startsWith("/")) throw new NmtsError(`A request path must start with "/": ${path}`);
@@ -179,7 +190,13 @@ async function once(base: string, path: string, options: RequestOptions): Promis
   if (options.signal) options.signal.addEventListener("abort", () => controller.abort(), { once: true });
 
   const headers: Record<string, string> = {
-    accept: options.as === "text" ? "text/plain, text/markdown, */*" : "application/json",
+    // ⚠ A refusal is JSON whatever was asked for, which is why it is named on every branch.
+    accept:
+      options.as === "text"
+        ? "text/plain, text/markdown, */*"
+        : options.as === "bytes"
+          ? "application/octet-stream, application/json"
+          : "application/json",
   };
   if (body !== undefined) headers["content-type"] = "application/json";
   if (token !== undefined && token.length > 0) headers["authorization"] = `Bearer ${token}`;
@@ -213,7 +230,10 @@ async function once(base: string, path: string, options: RequestOptions): Promis
     clearTimeout(deadline);
   }
 
-  const text = await response.text();
+  // ⛔ THE ANSWER IS TAKEN AS BYTES ONLY WHERE BYTES WERE ASKED FOR, and even there a REFUSAL is
+  //    decoded and read as JSON below: the server answers one of those however the request asked.
+  const raw = options.as === "bytes" ? new Uint8Array(await response.arrayBuffer()) : null;
+  const text = raw === null ? await response.text() : response.ok ? "" : new TextDecoder().decode(raw);
   // ⛔ A TEXT ANSWER IS ONLY TEXT WHEN THE SERVER AGREED. A refusal is JSON however the request
   //    asked, so a failing document fetch still goes through the reading below and still reaches
   //    the caller as a named refusal rather than as a page of HTML pretending to be a notice.
@@ -241,6 +261,7 @@ async function once(base: string, path: string, options: RequestOptions): Promis
     }
     throw new HttpError(response.status, `${base} answered ${response.status}.`);
   }
+  if (raw !== null) return raw;
   if (asText) return { text, filename: filenameFrom(response.headers.get("content-disposition")) };
   return parsed;
 }

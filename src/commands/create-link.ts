@@ -27,6 +27,7 @@ import { request } from "../api.ts";
 import { NmtsError } from "../errors.ts";
 import { isRecord } from "../guards.ts";
 import { BINARY_NAME, HOME_URL } from "../product.ts";
+import type { WalletOpener } from "../openers.ts";
 import { newAccountCode, registrationProofOf } from "../registration.ts";
 import { codeFileTarget, jsonNeedsAFile, writeCodeFile } from "./create-code-file.ts";
 
@@ -38,6 +39,14 @@ export interface CreateLinkOptions {
   /** Print the address and stop, instead of waiting for somebody to use it. */
   noWait?: boolean | undefined;
   write?: ((line: string) => void) | undefined;
+  /**
+   * `--wallet`: attach this wallet once a PERSON has finished the account in a browser.
+   *
+   * ⛔ THERE IS NOTHING TO ATTACH TO BEFORE THEN. The account does not exist while the address is
+   *    unused, so this happens at the end of the wait — and a `--no-wait` run, which returns
+   *    before a person has been, says so rather than attaching to nothing.
+   */
+  wallet?: WalletOpener | undefined;
 }
 
 /** How often the status of a link is asked about, in milliseconds. */
@@ -60,6 +69,14 @@ export async function createThroughLink(options: CreateLinkOptions): Promise<num
   const codeFile = codeFileTarget(options.out);
   if (options.json === true && codeFile === null) throw jsonNeedsAFile();
 
+  // ⛔ THE WALLET IS ASKED BEFORE ANY OF THIS IS SET IN MOTION — the same order `create.ts` keeps,
+  //    and for the same reason: a wallet that already opens an account cannot be attached to the
+  //    one this link would make, and nobody should be sent to a browser to find that out.
+  if (options.wallet !== undefined) {
+    const { refuseIfWalletIsTaken } = await import("./openers-attach.ts");
+    await refuseIfWalletIsTaken(server, options.wallet);
+  }
+
   const puzzle = await askForWork(server);
   const code = await newAccountCode();
   const proof = await registrationProofOf(code);
@@ -81,7 +98,18 @@ export async function createThroughLink(options: CreateLinkOptions): Promise<num
     //    machine-readable output is one object, and the address is worth nothing to the program
     //    reading it until it has handed it to a person. `status_url` is how it finds out what
     //    happened next.
-    say(JSON.stringify({ url, expires_at: expiresAt, code_file: codeFile, status_url: statusUrl }));
+    // ⚠ `opener_attached` IS FALSE AND SAYS SO RATHER THAN BEING ABSENT. This path does not wait,
+    //   so there is no account to attach a wallet to by the time it answers, and a program that
+    //   asked for one has to be able to see that it did not happen.
+    say(
+      JSON.stringify({
+        url,
+        expires_at: expiresAt,
+        code_file: codeFile,
+        status_url: statusUrl,
+        ...(options.wallet === undefined ? {} : { opener_attached: false }),
+      }),
+    );
     return 0;
   }
 
@@ -94,6 +122,13 @@ export async function createThroughLink(options: CreateLinkOptions): Promise<num
     say(`  ${statusUrl}`);
     say(``);
     say(`It answers {"status":"pending"}, {"status":"done"} or {"status":"expired"}.`);
+    // Copy facts — Fact: a wallet cannot be attached to an account that does not exist yet, so this
+    // run did not attach one; `nmts openers add` does it once the account is there.
+    if (options.wallet !== undefined) {
+      say(``);
+      say(`The wallet was NOT attached: there is no account to attach it to until somebody uses that`);
+      say(`address. Run \`${BINARY_NAME} openers add --sui-key-file <file>\` once this account is signed in.`);
+    }
     sayWhereTheCodeIs(say, codeFile, code);
     return 0;
   }
@@ -105,6 +140,13 @@ export async function createThroughLink(options: CreateLinkOptions): Promise<num
   say(``);
   say(`Registered. The account exists now.`);
   sayWhereTheCodeIs(say, codeFile, code);
+  // ⛔ AFTER THE CODE IS OUT — `create.ts` says why that order is the whole of it: the account
+  //    exists by now, and a failure attaching a wallet must not take the only copy of its NMTS key
+  //    down with it.
+  if (options.wallet !== undefined) {
+    const { attachWalletToNewAccount, sayWalletAttached } = await import("./openers-attach.ts");
+    sayWalletAttached(say, await attachWalletToNewAccount({ server, code, wallet: options.wallet }));
+  }
   sayWhatIsNext(say);
   return 0;
 }

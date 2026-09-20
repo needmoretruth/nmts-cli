@@ -47,6 +47,13 @@ export function helpText(version: string): string {
     `  key list              Every API key of this account: what it may do, when it stops, when it`,
     `                        was last used. Needs the NMTS key; an API key cannot list keys`,
     `  key revoke <id|all>   Cut one key, or all of them — whatever uses it stops at once`,
+    // Copy facts — these three lines. Facts: the list says which wallets open this account and when
+    // each was added; adding one lets whoever holds that wallet open every file in the account
+    // from any machine; removing one stops it from then on and cannot unknow what it opened. All
+    // three need the NMTS key itself, not only an API key.
+    `  openers               The wallets that open this account, and when each was added`,
+    `  openers add           Attach a wallet — it opens every file here until it is removed`,
+    `  openers remove <loc>  Stop one wallet opening this account from now on`,
     `  devices               What is signed in to this account. \`--sign-out <id|all>\` ends one`,
     `                        or all — a person's act: needs the NMTS key, refused in mode auto`,
     `  ls                    List files in the account`,
@@ -249,6 +256,14 @@ export function helpText(version: string): string {
     `  --status              Say whether the check is live, and stop (verify)`,
     `  --plain               Store the NMTS key unsealed instead (login). Asks for an agreement`,
     `  --env                 Store nothing; print the variable to set (login). Same agreement`,
+    // Copy facts — these four lines. Facts: `--wallet` with no number means the NMTS key comes from
+    // a wallet's signature (login, create); the wallet's secret is never an option value, only a
+    // file path; the account number is inside what is signed, so another number is another
+    // signature; without `--app` one wallet opens the same account in every product that asks.
+    `  --wallet              The NMTS key comes from a wallet's signature (login, create)`,
+    `  --sui-key-file <p>    File holding the wallet's \`suiprivkey1…\` line. Never the key itself`,
+    `  --account <n>         Which of that wallet's accounts. Default 1; it is inside what is signed`,
+    `  --app <name>          Scope the signature to one product. Without it, one account everywhere`,
   `  --version             Print the version and exit`,
     `  --help                Print this and exit`,
     ``,

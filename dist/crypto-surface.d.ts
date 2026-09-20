@@ -176,6 +176,34 @@ export interface CryptoGlue {
      */
     StreamDecryptor: new (dek: Uint8Array, header: Uint8Array) => StreamOpener;
     /**
+     * The EXACT bytes a Sui wallet signs to open an account (NCF-3 §1.7).
+     *
+     * ⛔ BUILT IN THE ENGINE, NEVER IN TYPESCRIPT. The browser, this tool and the recovery tool must
+     *    ask one wallet for one message: a character of drift between them is a different wrapping
+     *    key, a different locator, and a slot that no longer opens. It throws for an address that is
+     *    not `0x` and 64 LOWERCASE hex, for an account number below 1, and for an app label outside
+     *    `a-z0-9.-` — and repairs none of them, because all three are inside what a person signs.
+     */
+    opener_message(address: string, account: number, app?: string): Uint8Array;
+    /**
+     * A serialized wallet signature to the 16-byte LOCATOR the server files that opener's slot under.
+     *
+     * ⛔ THESE THREE TAKE THE SIGNATURE AND NONE OF THEM RETURNS IT, or the wrapping key it expands
+     *    to. Whoever holds either holds the account, so the boundary is shaped so that they cannot
+     *    come back across it — a locator, a sealed slot and an opened NMTS key are what may travel.
+     */
+    opener_locator(serializedSignature: Uint8Array): Uint8Array;
+    /** A signature and the account's 20 key bytes to the 62-byte slot the server stores. Fresh nonce. */
+    opener_seal(serializedSignature: Uint8Array, nmtsKey: Uint8Array): Uint8Array;
+    /**
+     * A signature and a 62-byte slot to the 20 NMTS-key bytes inside it.
+     *
+     * ⚠ It throws by name for a wrong length or an unknown version, and with ONE indistinguishable
+     *   message for a different wallet, a different message or altered bytes — telling those three
+     *   apart would tell somebody holding a fetched slot whether their guess was getting warmer.
+     */
+    opener_open(serializedSignature: Uint8Array, slot: Uint8Array): Uint8Array;
+    /**
      * The Ed25519 seed of wallet `index`, from the 32-byte wallet root (NCF-3 §1).
      *
      * ⛔ EVERY WALLET COMES FROM HERE, INCLUDING WALLET 0. There is no separate rule for the first

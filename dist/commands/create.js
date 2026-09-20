@@ -49,6 +49,7 @@ import { BINARY_NAME, HOME_URL } from "../product.js";
 import { newAccountCode, registrationProofOf } from "../registration.js";
 import { resolveServer } from "../server.js";
 import { codeFileTarget, jsonNeedsAFile, writeCodeFile } from "./create-code-file.js";
+import { attachWalletToNewAccount, refuseIfWalletIsTaken, sayWalletAttached } from "./openers-attach.js";
 export async function create(options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const held = resolveApiKey();
@@ -71,6 +72,7 @@ export async function create(options = {}) {
             json: options.json === true,
             noWait: options.noWait,
             write: options.write,
+            wallet: options.wallet,
         });
     }
     const apiKey = held.key;
@@ -81,6 +83,11 @@ export async function create(options = {}) {
         throw jsonNeedsAFile();
     const inForce = await termsInForce(server, apiKey);
     const accepted = inForce === null ? null : acceptanceOffered(inForce, options);
+    // ⛔ THE WALLET IS ASKED BEFORE ANYTHING EXISTS. A wallet that already opens an account at this
+    //    number cannot be attached to a second one, and learning that after the account was made
+    //    would leave behind an account nobody asked for, with a key somebody now has to keep.
+    if (options.wallet !== undefined)
+        await refuseIfWalletIsTaken(server, options.wallet);
     const code = await newAccountCode();
     const proof = await registrationProofOf(code);
     // The file, then the account — see the header. Nothing below this line may fail without either
@@ -115,6 +122,9 @@ export async function create(options = {}) {
     }
     const createdAt = accountField(answer, "created_at");
     if (options.json === true && codeFile !== null) {
+        // ⚠ BEFORE THE ANSWER AND AFTER THE FILE, which is the safe order on this path: the code is
+        //   already on disk, so an attach that fails loses nothing but the attach.
+        const attached = options.wallet === undefined ? null : await attachWalletToNewAccount({ server, code, wallet: options.wallet });
         // ⛔ NO `account_code` FIELD, AND THERE NEVER WILL BE. See the header.
         say(JSON.stringify({
             account_id: proof.accountId,
@@ -122,6 +132,7 @@ export async function create(options = {}) {
             code_file: codeFile,
             server,
             network,
+            ...(attached === null ? {} : { opener_locator: attached.locator, api_key_left: attached.keyLeft }),
         }));
         return 0;
     }
@@ -130,6 +141,12 @@ export async function create(options = {}) {
         sayTheCode(say, code);
     else
         sayWhereTheCodeWent(say, codeFile);
+    // ⛔ AFTER THE CODE IS OUT, AND THAT ORDER IS THE WHOLE OF IT. The account exists by now; a
+    //    failure attaching the wallet must not be able to take the only copy of its NMTS key down
+    //    with it, which is exactly what throwing before this printed would do.
+    if (options.wallet !== undefined) {
+        sayWalletAttached(say, await attachWalletToNewAccount({ server, code, wallet: options.wallet }));
+    }
     return 0;
 }
 /** What documents this server is enforcing, read from the one route a key may ask. */

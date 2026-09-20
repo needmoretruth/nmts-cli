@@ -29,6 +29,13 @@ const REQUIRED = [
     "stream_encrypt_all",
     "StreamEncryptor",
     "StreamDecryptor",
+    // The opener surface (NCF-3 §1.7). Required rather than optional: a build of the engine without
+    // it cannot sign anybody in with a wallet, and "this function is missing" said at load time is a
+    // different day's problem from `undefined is not a function` inside somebody's sign-in.
+    "opener_message",
+    "opener_locator",
+    "opener_seal",
+    "opener_open",
     "wallet_seed_for",
 ];
 export function isCryptoGlue(value) {

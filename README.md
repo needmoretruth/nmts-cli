@@ -51,7 +51,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.40.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.41.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -393,6 +393,34 @@ nmts verify            # prints a short code for the account holder to type at n
 
 Neither the tool nor an agent can pass the check. It prints the moment the check ends rather than
 a number of days, because the window ends on a boundary of the server's own weeks.
+
+## Wallet login
+
+An account can also be opened by a Sui wallet. The account keeps its NMTS key; wallet login puts a
+copy of that key on the NMTS server, locked so that only the wallet's signature of one fixed message
+opens it. NMTS cannot open the copy and does not learn which wallet it belongs to.
+
+```sh
+nmts create --wallet --sui-key-file ~/.sui/agent.key   # a new account, and this wallet opens it
+nmts login  --wallet --sui-key-file ~/.sui/agent.key   # sign in: nothing is typed
+nmts openers                                           # the wallets that open this account
+nmts openers add --sui-key-file ~/.sui/other.key       # attach another
+nmts openers remove <locator>                          # take one off
+```
+
+- The key file holds one `suiprivkey1…` line. The wallet's key is never an option value and is never
+  printed.
+- `--account <n>` (default 1) picks which of that wallet's accounts, and `--app <name>` makes a key
+  for one product only. Both are inside the signed message, so another value is another signature
+  and another account.
+- Attaching asks the wallet to sign twice and refuses unless the two signatures are the same bytes.
+  A wallet that signs the same message differently each time — a zkLogin account, a multi-signature
+  account, a passkey account — is refused with a code of its own.
+- Whoever holds an attached wallet can open every file in the account until it is removed. Removing
+  stops it from then on; a wallet that opened the account before has held the NMTS key.
+- Keep the NMTS key. It opens the account if the wallet is lost or starts signing differently.
+
+`nmts help openers` has the long form.
 
 ## What it stops to ask about
 

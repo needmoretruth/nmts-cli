@@ -50,7 +50,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.40.0    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.41.0    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -373,6 +373,32 @@ nmts verify            # 계정 주인이 nmts.me에 칠 짧은 코드를 찍고
 
 도구도 에이전트도 이 확인을 대신 지날 수 없습니다. 며칠이 아니라 확인이 **끝나는 시각**을 찍는
 이유는, 그 창이 서버 자신의 주 단위 경계에서 닫히기 때문입니다.
+
+## 지갑 로그인
+
+계정을 Sui 지갑으로도 엽니다. 계정에는 NMTS 키가 그대로 있고, 지갑 로그인은 그 키의 사본을 NMTS
+서버에 둡니다. 사본은 정해진 문장에 대한 그 지갑의 서명으로만 열리도록 잠겨 있습니다. NMTS는 사본을
+열지 못하고 어느 지갑의 것인지도 알지 못합니다.
+
+```sh
+nmts create --wallet --sui-key-file ~/.sui/agent.key   # 새 계정을 만들고 이 지갑을 붙입니다
+nmts login  --wallet --sui-key-file ~/.sui/agent.key   # 로그인합니다. 아무것도 입력하지 않습니다
+nmts openers                                           # 이 계정을 여는 지갑 목록
+nmts openers add --sui-key-file ~/.sui/other.key       # 지갑을 하나 더 붙입니다
+nmts openers remove <locator>                          # 지갑 하나를 뗍니다
+```
+
+- 키 파일에는 `suiprivkey1…` 한 줄이 들어 있습니다. 지갑의 키는 옵션 값으로 받지 않고 화면에 찍지
+  않습니다.
+- `--account <n>`(기본 1)은 그 지갑의 몇 번째 계정인지를, `--app <이름>`은 한 제품에서만 쓰는 키를
+  고릅니다. 둘 다 서명하는 문장 안에 있어서, 값이 다르면 서명도 계정도 다릅니다.
+- 지갑을 붙일 때 서명을 두 번 받아 두 서명의 바이트가 같아야 붙입니다. 같은 문장에 매번 다르게
+  서명하는 지갑(zkLogin 계정 · 다중 서명 계정 · 패스키 계정)은 각각의 코드로 거절합니다.
+- 붙인 지갑을 가진 사람은 떼기 전까지 이 계정의 모든 파일을 엽니다. 떼면 그때부터 열지 못합니다.
+  다만 전에 계정을 연 적이 있는 지갑은 NMTS 키를 알고 있을 수 있습니다.
+- NMTS 키는 보관하십시오. 지갑을 잃거나 지갑의 서명 방식이 바뀌어도 그 키로 계정이 열립니다.
+
+긴 설명은 `nmts help openers`에 있습니다.
 
 ## 멈춰 서서 묻는 것
 

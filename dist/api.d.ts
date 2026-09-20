@@ -98,8 +98,14 @@ export interface RequestOptions {
      *    reading. Two of those going out of step is not hypothetical here: `check:cli-routes` exists
      *    because a command once called an address the server did not have, and it can only see
      *    calls that come through this function.
+     *
+     * ⛔ `bytes` IS THAT SAME OPTION FOR THE ONE ROUTE THAT ANSWERS OPAQUE BYTES — the sealed opener
+     *    slot (`GET /v1/opener/{locator}`), which is ciphertext on its way into a crypto boundary.
+     *    Read as text it would go through a UTF-8 decoder, which silently replaces whatever is not
+     *    valid: the slot would arrive altered and present as "this signature does not open this
+     *    slot", which is the one refusal that must mean what it says.
      */
-    as?: "text";
+    as?: "text" | "bytes";
 }
 /**
  * One request to the NMTS server, returning parsed JSON or throwing a named refusal.
@@ -111,4 +117,7 @@ export interface RequestOptions {
 export declare function request(base: string, path: string, options: RequestOptions & {
     as: "text";
 }): Promise<TextAnswer>;
+export declare function request(base: string, path: string, options: RequestOptions & {
+    as: "bytes";
+}): Promise<Uint8Array>;
 export declare function request(base: string, path: string, options?: RequestOptions): Promise<unknown>;

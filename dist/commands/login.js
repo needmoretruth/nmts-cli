@@ -27,22 +27,18 @@
 //   to stop. What it can do is make the shape it writes ITSELF a decision.
 import { assertUsableCode } from "../account.js";
 import { keySourceName, keyToStore, settleApiKey } from "../api-key.js";
-import { lockCode, samePassphrase } from "../code-vault.js";
+import { signInWithWallet } from "../openers.js";
+import { lockCode } from "../code-vault.js";
 import { API_KEY_ENV_VAR, API_KEY_FILE_ENV_VAR, CODE_ENV_VAR, CODE_FILE_ENV_VAR, PASSPHRASE_ENV_VAR, codeStorageIsPrivate, credentialsPath, modesAreEnforced, readCredentialsFile, readSecretFile, writeCredentials, } from "../credentials.js";
 import { requireConsent } from "../consent.js";
 import { NmtsError } from "../errors.js";
 import { firstRunNotice } from "../notice.js";
+import { newPassphrase } from "./login-passphrase.js";
 import { holdTerminal, promptSecret, stdinIsATerminal } from "../prompt.js";
 import { askAboutCollisions } from "../setup-questions.js";
 import { BINARY_NAME, HOME_URL } from "../product.js";
 import { resolveNetwork } from "../network.js";
 import { resolveServer } from "../server.js";
-/**
- * ⚠ EIGHT, AND NO COMPOSITION RULES. scrypt makes a short passphrase expensive to attack, not
- *   safe: four characters is guessed whatever the cost factor. Requiring a digit and a capital
- *   would not change that and would push people to reuse the one they always type.
- */
-const MIN_PASSPHRASE = 8;
 export async function login(options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const server = resolveServer(options.server);
@@ -62,7 +58,7 @@ export async function login(options = {}) {
     //    line mode, where it echoes what is typed and swallows lines the next prompt never sees —
     //    and this command asks up to three things with a check in the middle.
     const exit = await holdTerminal(async () => {
-        const code = await readTheCode(options);
+        const code = await readTheCode(options, server);
         // ⛔ CHECKED BEFORE IT IS WRITTEN. The engine verifies the code's own check symbol offline, so
         //    a mistyped code fails here as "that is not a code" instead of being stored and coming
         //    back later as a sign-in failure indistinguishable from a wrong password or a suspended
@@ -108,7 +104,14 @@ export async function login(options = {}) {
  * ⚠ ORDER: a file first, because that is the shape this tool recommends and it asks for nothing;
  *   then the environment, which asks once; then the terminal.
  */
-async function readTheCode(options) {
+async function readTheCode(options, server) {
+    // ⛔ A WALLET ANSWERS THE CODE INSTEAD OF A PERSON TYPING IT, and nothing else about this command
+    //    changes: what comes back is the account's own NMTS key, stored in whichever of the three
+    //    shapes this run asked for. The sentences a wallet's refusal carries are `openers.ts`'s.
+    if (options.wallet !== undefined) {
+        const { OPENER_HINTS } = await import("./openers.js");
+        return (await signInWithWallet(server, options.wallet, OPENER_HINTS)).accountCode;
+    }
     const fromFile = readSecretFile(CODE_FILE_ENV_VAR);
     const fromEnv = process.env[CODE_ENV_VAR];
     if (options.readCode === undefined && fromFile === null && fromEnv !== undefined && fromEnv.length > 0) {
@@ -217,6 +220,9 @@ function printEnvForm(code, say) {
  *    be checked by anybody, because the code never goes to the server. Saying the old sentence
  *    after a key had just been accepted would have been the tool describing the world before it.
  */
+// Copy facts — the wallet case has a sharper sentence available and does not have one yet. What is
+// true after `--wallet`: a slot for this NMTS key was found on this server and opened, so something
+// registered it — which is more than the check symbol says and less than "the account is live".
 function sayCheckSymbol(say, keyWasAccepted) {
     say(``);
     say(`  The NMTS key is well-formed — its own check symbol matches. That was verified here, offline.`);
@@ -286,50 +292,4 @@ function sayAboutTheKey(outcome, server, say) {
             say(`  then \`${BINARY_NAME} login\`.`);
             return;
     }
-}
-/**
- * A passphrase for a NEW seal: from the environment, or typed twice.
- *
- * ⚠ The environment form is not confirmed, because there is nothing to confirm it against and
- *   asking would hang. A typo there produces a file whose passphrase nobody knows — which is why
- *   the message below says to keep it, not merely to choose it.
- */
-async function newPassphrase(options) {
-    const ask = options.readPassphrase;
-    const fromEnv = process.env[PASSPHRASE_ENV_VAR];
-    if (ask === undefined && fromEnv !== undefined && fromEnv.length > 0) {
-        if (fromEnv.length < MIN_PASSPHRASE)
-            throw tooShort();
-        return fromEnv;
-    }
-    if (ask === undefined && !stdinIsATerminal()) {
-        throw new NmtsError("Sealing the NMTS key needs a passphrase, and there is no terminal.", {
-            exitCode: 2,
-            nextStep: [
-                `One of these:`,
-                `  · set ${PASSPHRASE_ENV_VAR} and run this again`,
-                `  · ${BINARY_NAME} login --plain   store it unsealed (asks for an agreement first)`,
-                `  · ${BINARY_NAME} login --env     store nothing; print the variable to set`,
-            ].join("\n"),
-        });
-    }
-    const prompt = ask ?? ((q) => promptSecret(q, PASSPHRASE_ENV_VAR));
-    const first = await prompt(`New passphrase for the stored NMTS key (not shown as you type): `);
-    if (first.length < MIN_PASSPHRASE)
-        throw tooShort();
-    const again = await prompt(`Type it again: `);
-    if (!samePassphrase(first, again)) {
-        throw new NmtsError("Those two passphrases are not the same.", {
-            exitCode: 2,
-            nextStep: `Nothing was written. Run \`${BINARY_NAME} login\` again.`,
-        });
-    }
-    return first;
-}
-function tooShort() {
-    return new NmtsError(`That passphrase is shorter than ${MIN_PASSPHRASE} characters.`, {
-        exitCode: 2,
-        nextStep: `Nothing was written. A short passphrase is guessed whatever the tool does to slow guessing ` +
-            `down. ⛔ If it is lost, the sealed copy cannot be opened by anybody — keep it somewhere.`,
-    });
 }

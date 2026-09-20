@@ -84,6 +84,23 @@ export interface ParsedArgs {
   /** `wallet address`: which of this key's wallets to print. Absent = the first one, offline. */
   index?: string;
   /**
+   * `login`/`create`/`openers add`: the file holding the wallet's `suiprivkey1…` line.
+   *
+   * ⛔ A PATH AND NEVER THE KEY. A secret on a command line is readable by any process on the
+   *    machine and is recorded by the shell — the rule this file opens with. The file is read,
+   *    used to sign one message, and never copied or printed.
+   */
+  suiKeyFile?: string;
+  /** `login`/`create`/`openers add`: which of that wallet's NMTS accounts. Whole, from 1. */
+  account?: string;
+  /**
+   * `login`/`create`/`openers add`: a product scope for the wallet's signature.
+   *
+   * ⚠ WITHOUT IT ONE WALLET OPENS THE SAME ACCOUNT EVERYWHERE, which is usually what somebody
+   *   wants and is also the price: every product that gets this signature opens the same files.
+   */
+  app?: string;
+  /**
    * `put`/`push`/`extend`/`wallet send`/`wallet donate`: which wallet pays, THIS RUN ONLY — and
    * `wallet swap`/`wallet storage split|merge|transfer`/`wallet hall --name`, which act on that
    * same wallet without paying anybody.
@@ -91,6 +108,10 @@ export interface ParsedArgs {
    * ⛔ IT DOES NOT SAVE. Which wallet pays is the account's own setting (`nmts wallet use N`), read
    *    from the sealed file list so every device agrees; a flag that quietly rewrote it would make
    *    one hurried command change where the money comes from for every later one, everywhere.
+   *
+   * ⚠ AND ON `login`/`create` IT CARRIES NO NUMBER: the bare `--wallet` says the NMTS key comes
+   *   from a wallet's signature rather than from a person typing it. Absent is "no wallet was
+   *   named"; `""` is the bare form.
    */
   wallet?: string;
   /** `s3`: which loopback port the gateway listens on. */

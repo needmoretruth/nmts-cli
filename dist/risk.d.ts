@@ -110,6 +110,9 @@ export declare const ACTS: {
     readonly key: {
         readonly tier: "none";
     };
+    readonly openers: {
+        readonly tier: "none";
+    };
     readonly env: {
         readonly tier: "none";
     };
@@ -232,6 +235,14 @@ export declare const ACTS: {
     readonly "platform.keygen": {
         readonly tier: "medium";
         readonly what: "Make a business key pair and write its private half to a file on this disk.";
+    };
+    readonly "openers.add": {
+        readonly tier: "medium";
+        readonly what: "Let this wallet open this account and every file in it.";
+    };
+    readonly "openers.remove": {
+        readonly tier: "medium";
+        readonly what: "Stop this wallet opening this account from now on.";
     };
     readonly "public-code.publish": {
         readonly tier: "medium";

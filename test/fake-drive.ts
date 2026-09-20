@@ -33,6 +33,10 @@ import { serveDocuments } from "./fake-docs.ts";
 import { resetAccount, serveAccount } from "./fake-account.ts";
 // ⛔ And the two PERMANENT doors, from a file of their own for the same reason.
 import { resetErase, serveErase } from "./fake-erase.ts";
+// ⛔ And the four OPENER doors, from a file of their own for the same reason. Three of them refuse
+//    a credential that comes without the account code's proof; the fourth takes none and answers
+//    raw bytes, exactly as the server does.
+import { resetOpeners, serveOpeners } from "./fake-openers.ts";
 // ⛔ And the Platform's BUSINESS doors, which are the one surface here that is not under `/v1`.
 import { resetPlatform, servePlatform } from "./fake-platform.ts";
 
@@ -146,6 +150,7 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     if (serveAccount(method, url, req, res)) return;
 
     if (serveErase(method, url, req, res)) return;
+    if (serveOpeners(method, url, req, res)) return;
     if (servePlatform(method, url, req, res)) return;
 
     // ⛔ BEFORE THE ONES BELOW, because those match on a prefix and these addresses begin with it.
@@ -342,6 +347,7 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     reset(): void {
       chunks.reset();
       resetErase();
+      resetOpeners();
       resetPlatform();
       resetAccount();
       served = null;

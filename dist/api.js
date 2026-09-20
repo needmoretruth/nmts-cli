@@ -84,7 +84,12 @@ async function once(base, path, options) {
     if (options.signal)
         options.signal.addEventListener("abort", () => controller.abort(), { once: true });
     const headers = {
-        accept: options.as === "text" ? "text/plain, text/markdown, */*" : "application/json",
+        // ⚠ A refusal is JSON whatever was asked for, which is why it is named on every branch.
+        accept: options.as === "text"
+            ? "text/plain, text/markdown, */*"
+            : options.as === "bytes"
+                ? "application/octet-stream, application/json"
+                : "application/json",
     };
     if (body !== undefined)
         headers["content-type"] = "application/json";
@@ -120,7 +125,10 @@ async function once(base, path, options) {
     finally {
         clearTimeout(deadline);
     }
-    const text = await response.text();
+    // ⛔ THE ANSWER IS TAKEN AS BYTES ONLY WHERE BYTES WERE ASKED FOR, and even there a REFUSAL is
+    //    decoded and read as JSON below: the server answers one of those however the request asked.
+    const raw = options.as === "bytes" ? new Uint8Array(await response.arrayBuffer()) : null;
+    const text = raw === null ? await response.text() : response.ok ? "" : new TextDecoder().decode(raw);
     // ⛔ A TEXT ANSWER IS ONLY TEXT WHEN THE SERVER AGREED. A refusal is JSON however the request
     //    asked, so a failing document fetch still goes through the reading below and still reaches
     //    the caller as a named refusal rather than as a page of HTML pretending to be a notice.
@@ -148,6 +156,8 @@ async function once(base, path, options) {
         }
         throw new HttpError(response.status, `${base} answered ${response.status}.`);
     }
+    if (raw !== null)
+        return raw;
     if (asText)
         return { text, filename: filenameFrom(response.headers.get("content-disposition")) };
     return parsed;

@@ -3,12 +3,27 @@ import { test } from "node:test";
 import { FLAGS, OPTIONS_TAKING_A_VALUE, parseArgs } from "../src/args.ts";
 import { NmtsError } from "../src/errors.ts";
 
+/**
+ * Option names that LOOK like a credential and carry a PATH to one instead — each written down.
+ *
+ * ⛔ A LIST OF NAMES RATHER THAN A HOLE IN THE RULE. Letting every `…-file` through would let
+ *    `--api-key-file` past unremarked, and the next hand to type `--api-key` would find the guard
+ *    already half open. A name here is a decision that shows up in a diff and has to be argued.
+ *
+ * ⚠ `--sui-key-file` (2026-09-20, wallet sign-in): it names the file holding a wallet's
+ *   `suiprivkey1…` line. The VALUE is never an option — the file is read, used to sign one
+ *   message, and never printed — which is the shape this tool already recommends for its own
+ *   secrets through `NMTS_ACCOUNT_CODE_FILE` and `NMTS_API_KEY_FILE`.
+ */
+const NAMES_A_FILE: readonly string[] = ["--sui-key-file"];
+
 test("⛔ no option is a place to put a secret", () => {
   // The rule this guards: a secret passed on the command line is readable by any process on the
   // machine and is recorded by the shell. If a future option name looks like a credential, this
   // fails and the reviewer has to justify it rather than notice it.
   const suspicious = /code|key|secret|token|password|pass|credential/i;
   for (const name of [...OPTIONS_TAKING_A_VALUE, ...FLAGS]) {
+    if (NAMES_A_FILE.includes(name)) continue;
     assert.ok(!suspicious.test(name), `option ${name} looks like it carries a secret`);
   }
 });

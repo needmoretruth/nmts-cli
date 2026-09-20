@@ -55,6 +55,9 @@ export const ACTS = {
     unlabel: { tier: "none" },
     devices: { tier: "none" },
     key: { tier: "none" },
+    // Reading the inventory of roads into the account. It presents the NMTS key's own proof, like
+    // the two acts below, and changes nothing.
+    openers: { tier: "none" },
     env: { tier: "none" },
     mode: { tier: "none" },
     unlock: { tier: "none" },
@@ -98,6 +101,16 @@ export const ACTS = {
     //    a browser, nothing is spent, and the file is never replaced — so it is not the tier that
     //    waits for an unlock.
     "platform.keygen": { tier: "medium", what: "Make a business key pair and write its private half to a file on this disk." },
+    // ⛔ MEDIUM, BESIDE `key.new` AND `key.revoke`, AND FOR THE SAME REASONS. Adding an opener makes
+    //    a standing way into the account that outlives the run — wider than a key, because what it
+    //    opens is the files; removing one stops something that may be in use. Neither spends, and
+    //    neither reaches a third party, which is where `high` begins.
+    // Copy facts — both `what` sentences — the gate asks them in the second person. Facts for the
+    // first: this wallet will open every file in the account from any machine until it is removed.
+    // For the second: that wallet stops opening the account from now on, and a wallet that opened it
+    // once has held the NMTS key — removal cannot unknow that.
+    "openers.add": { tier: "medium", what: "Let this wallet open this account and every file in it." },
+    "openers.remove": { tier: "medium", what: "Stop this wallet opening this account from now on." },
     "public-code.publish": { tier: "medium", what: "Publish this account's public code. Publishing cannot be undone." },
     "losses.dismiss": { tier: "medium", what: "Put this loss notice down. It will not be shown again." },
     // ⛔ MEDIUM AND NOT HIGH. It moves value, so it is not `low`; but it moves it INSIDE one person's
@@ -177,6 +190,8 @@ export function actOf(args) {
             return args.pay === "wallet" ? "push.wallet" : "push";
         case "key":
             return sub === "new" ? "key.new" : sub === "revoke" ? "key.revoke" : "key";
+        case "openers":
+            return sub === "add" ? "openers.add" : sub === "remove" ? "openers.remove" : "openers";
         case "trial":
             return sub === "apply" ? "trial.apply" : "trial";
         case "credits":

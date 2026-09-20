@@ -1,3 +1,4 @@
+import { type WalletOpener } from "../openers.ts";
 export interface LoginOptions {
     server?: string | undefined;
     network?: string | undefined;
@@ -5,6 +6,8 @@ export interface LoginOptions {
     plain?: boolean | undefined;
     /** Store nothing; print the environment variable to set. Behind `plain-env`. */
     env?: boolean | undefined;
+    /** `--wallet`: the NMTS key is opened by a wallet's signature instead of being typed. */
+    wallet?: WalletOpener | undefined;
     /** Injected in tests so the terminal is not involved. */
     readCode?: (() => Promise<string>) | undefined;
     /** Injected in tests. Called twice for a new passphrase — the second is the confirmation. */

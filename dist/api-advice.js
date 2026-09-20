@@ -87,6 +87,12 @@ export function adviseFor(code) {
         case "API_KEY_CAP":
             return ("The account holds as many live keys as it is allowed. Nothing here can raise the limit: " +
                 "the person has to revoke a key they no longer use, on the account screen at nmts.me.");
+        // Copy facts — the sentence. Facts it has to carry: an account holds a fixed number of openers
+        // at most; the refusal itself names the cap and how many are live; nothing on this side raises
+        // it; `nmts openers` lists them and `nmts openers remove <locator>` frees a place.
+        case "OPENER_CAP":
+            return ("This account already has as many wallets attached as it may. Nothing here can raise that: list " +
+                "them with `nmts openers` and remove one that is no longer used, then add this one.");
         case "API_KEY_CHANNEL":
             return ("This account is enrolled on a preview build, and keys are not issued while it is. Ask " +
                 "the person to leave the preview on the account screen, then make the key.");

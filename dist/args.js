@@ -33,7 +33,6 @@ const VALUE_OPTIONS = {
     "--venue": "venue",
     "--slippage-bps": "slippageBps",
     "--index": "index",
-    "--wallet": "wallet",
     "--port": "port",
     "--accept-terms": "acceptTerms",
     "--accept-privacy": "acceptPrivacy",
@@ -49,6 +48,12 @@ const VALUE_OPTIONS = {
     "--message": "message",
     "--message-file": "messageFile",
     "--lang": "lang",
+    // ⛔ A PATH, NEVER THE KEY ITSELF. `cli/test/args.test.ts` refuses option names that look like a
+    //    credential and lists this one as the exception it is: what it names is a FILE, the shape
+    //    this tool already recommends for every other secret (`NMTS_ACCOUNT_CODE_FILE`).
+    "--sui-key-file": "suiKeyFile",
+    "--account": "account",
+    "--app": "app",
 };
 /**
  * Which field an option that may be given more than once appends to.
@@ -69,6 +74,12 @@ const LIST_OPTIONS = {
  */
 const OPTIONAL_VALUE_OPTIONS = {
     "--attach-log": "attachLog",
+    // ⛔ IT MOVED HERE ON 2026-09-20, AND THE RULE ABOVE IS WHY IT COULD. Every value `--wallet` has
+    //    ever taken is a wallet NUMBER, so "is it digits" answers the whole question — and
+    //    `nmts login --wallet --sui-key-file …` needs the bare form, which a value option refuses as
+    //    a missing value. The two readers of the field already treat `""` as "not given"
+    //    (`wallet-pay-index.ts`, `commands/extend.ts`), which is what the bare form means to them.
+    "--wallet": "wallet",
 };
 /** Which field a flag sets to true. */
 const FLAG_OPTIONS = {

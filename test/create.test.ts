@@ -24,6 +24,7 @@ import {
   writeCredentials,
 } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
+import { testWallet } from "./fake-openers.ts";
 import { generateCode } from "./helpers.ts";
 
 /** ⛔ Assembled rather than written out, so nothing here reads as a credential to a scanner. */
@@ -36,6 +37,8 @@ let inForce: { terms: string; privacy: string } | null = null;
 let refuseCreateWith: string | null = null;
 /** When set, the connection is dropped after the body arrives — an answer that never comes. */
 let dropOnCreate = false;
+/** When set, the sessionless opener door answers with a slot: the wallet already opens an account. */
+let walletIsTaken = false;
 let received: Record<string, unknown> | null = null;
 /** The account id the LINK path claimed an address for, if a run took that path. */
 let linkedId: string | null = null;
@@ -91,6 +94,15 @@ const server: Server = createServer((req, res) => {
     });
     return;
   }
+  // ⛔ THE SESSIONLESS OPENER DOOR, because `--wallet` asks it BEFORE anything is created — what it
+  //    answers decides whether an account is made at all. A slot under the name a signature makes
+  //    means that wallet already opens an account somewhere.
+  if (method === "GET" && path.startsWith("/v1/opener/")) {
+    if (!walletIsTaken) return send(404, { error: { code: "NOT_FOUND", message: "no such opener" } });
+    res.writeHead(200, { "content-type": "application/octet-stream" });
+    res.end(Buffer.alloc(62, 7));
+    return;
+  }
   // The link path's first two doors, so a run that falls onto it gets as far as printing an
   // address. What that path DOES with them is `create-link.test.ts`'s subject, not this file's.
   if (method === "GET" && path === "/v1/accounts/registration-challenge") {
@@ -131,6 +143,7 @@ async function withSandbox(name: string, body: (dir: string) => Promise<void>): 
   inForce = null;
   refuseCreateWith = null;
   dropOnCreate = false;
+  walletIsTaken = false;
   received = null;
   linkedId = null;
   calls = [];
@@ -337,5 +350,26 @@ test("⛔ --out never replaces a file, and never sends the code to stdout", asyn
     );
     assert.ok(dash instanceof NmtsError, "the only copy of an NMTS key went to stdout");
     assert.equal(received, null);
+  });
+});
+
+test("⛔ `--wallet` with a wallet that already opens an account makes no account at all", async () => {
+  await withSandbox("create-wallet-taken", async () => {
+    walletIsTaken = true;
+    const refused = await create({
+      server: base,
+      network: "testnet",
+      wallet: testWallet(),
+      write: () => {},
+    }).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    assert.ok(refused instanceof NmtsError);
+    assert.match(refused.message, /^WALLET_OPENS_ANOTHER_ACCOUNT: /u);
+    // ⛔ THE WHOLE POINT: nothing was created, so there is no account holding a key somebody now
+    //    has to keep, and no code was printed for one.
+    assert.equal(received, null, "an account was created for a wallet that could not be attached");
+    assert.equal(linkedId, null, "the link path made one instead");
   });
 });

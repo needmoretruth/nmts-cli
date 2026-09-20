@@ -76,12 +76,10 @@ export async function run(argv: readonly string[]): Promise<number> {
   switch (args.command) {
     case "login": {
       const { login } = await import("./commands/login.ts");
-      return await login({
-        server: args.server,
-        network: args.network,
-        plain: args.plain,
-        env: args.env,
-      });
+      // ⚠ Loaded only when a wallet was named: it reaches the chain library's keypairs, and
+      //   `check:cli-startup` measures what every other run pays for.
+      const wallet = args.wallet === undefined ? {} : { wallet: (await import("./commands/openers.ts")).walletOpenerFrom(args) };
+      return await login({ server: args.server, network: args.network, plain: args.plain, env: args.env, ...wallet });
     }
     case "logout":
       return (await import("./commands/logout.ts")).logout();
@@ -159,14 +157,15 @@ export async function run(argv: readonly string[]): Promise<number> {
     }
     case "create": {
       const { create } = await import("./commands/create.ts");
+      const wallet = args.wallet === undefined ? {} : { wallet: (await import("./commands/openers.ts")).walletOpenerFrom(args) };
       return await create({
-        server: args.server,
-        network: args.network,
-        out: args.out,
-        acceptTerms: args.acceptTerms,
-        acceptPrivacy: args.acceptPrivacy,
-        json: args.json, noWait: args.noWait,
+        server: args.server, network: args.network, out: args.out, acceptTerms: args.acceptTerms,
+        acceptPrivacy: args.acceptPrivacy, json: args.json, noWait: args.noWait, ...wallet,
       });
+    }
+    case "openers": {
+      const { openers } = await import("./commands/openers.ts");
+      return await openers(args.operands[0], args);
     }
     case "trial": {
       const { trial } = await import("./commands/trial.ts");

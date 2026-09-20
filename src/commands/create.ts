@@ -49,8 +49,10 @@ import { humanCheck } from "../human-check.ts";
 import { resolveNetwork } from "../network.ts";
 import { BINARY_NAME, HOME_URL } from "../product.ts";
 import { newAccountCode, registrationProofOf } from "../registration.ts";
+import type { WalletOpener } from "../openers.ts";
 import { resolveServer } from "../server.ts";
 import { codeFileTarget, jsonNeedsAFile, writeCodeFile } from "./create-code-file.ts";
+import { attachWalletToNewAccount, refuseIfWalletIsTaken, sayWalletAttached } from "./openers-attach.ts";
 
 export interface CreateOptions {
   server?: string | undefined;
@@ -69,6 +71,14 @@ export interface CreateOptions {
    *   exists by the time that path prints anything.
    */
   noWait?: boolean | undefined;
+  /**
+   * `--wallet`: attach this wallet to the account once it exists, so it opens it from then on.
+   *
+   * ⛔ THE ROOT IS STILL A RANDOM NMTS KEY — the account is made exactly as it is without this,
+   *    and the wallet becomes a second way in rather than the account's origin. That is what lets
+   *    the wallet be swapped, added to or removed later.
+   */
+  wallet?: WalletOpener | undefined;
   write?: (line: string) => void;
 }
 
@@ -101,6 +111,7 @@ export async function create(options: CreateOptions = {}): Promise<number> {
       json: options.json === true,
       noWait: options.noWait,
       write: options.write,
+      wallet: options.wallet,
     });
   }
   const apiKey = held.key;
@@ -112,6 +123,11 @@ export async function create(options: CreateOptions = {}): Promise<number> {
 
   const inForce = await termsInForce(server, apiKey);
   const accepted = inForce === null ? null : acceptanceOffered(inForce, options);
+
+  // ⛔ THE WALLET IS ASKED BEFORE ANYTHING EXISTS. A wallet that already opens an account at this
+  //    number cannot be attached to a second one, and learning that after the account was made
+  //    would leave behind an account nobody asked for, with a key somebody now has to keep.
+  if (options.wallet !== undefined) await refuseIfWalletIsTaken(server, options.wallet);
 
   const code = await newAccountCode();
   const proof = await registrationProofOf(code);
@@ -147,6 +163,9 @@ export async function create(options: CreateOptions = {}): Promise<number> {
 
   const createdAt = accountField(answer, "created_at");
   if (options.json === true && codeFile !== null) {
+    // ⚠ BEFORE THE ANSWER AND AFTER THE FILE, which is the safe order on this path: the code is
+    //   already on disk, so an attach that fails loses nothing but the attach.
+    const attached = options.wallet === undefined ? null : await attachWalletToNewAccount({ server, code, wallet: options.wallet });
     // ⛔ NO `account_code` FIELD, AND THERE NEVER WILL BE. See the header.
     say(
       JSON.stringify({
@@ -155,6 +174,7 @@ export async function create(options: CreateOptions = {}): Promise<number> {
         code_file: codeFile,
         server,
         network,
+        ...(attached === null ? {} : { opener_locator: attached.locator, api_key_left: attached.keyLeft }),
       }),
     );
     return 0;
@@ -163,6 +183,12 @@ export async function create(options: CreateOptions = {}): Promise<number> {
   sayCreated(say, proof.accountId, server, network);
   if (codeFile === null) sayTheCode(say, code);
   else sayWhereTheCodeWent(say, codeFile);
+  // ⛔ AFTER THE CODE IS OUT, AND THAT ORDER IS THE WHOLE OF IT. The account exists by now; a
+  //    failure attaching the wallet must not be able to take the only copy of its NMTS key down
+  //    with it, which is exactly what throwing before this printed would do.
+  if (options.wallet !== undefined) {
+    sayWalletAttached(say, await attachWalletToNewAccount({ server, code, wallet: options.wallet }));
+  }
   return 0;
 }
 

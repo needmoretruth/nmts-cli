@@ -3,6 +3,22 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.41.0 — 2026-09-20
+
+- **Wallet login.** `nmts login --wallet --sui-key-file <file>` signs in with a Sui wallet, and
+  `nmts create --wallet …` makes an account and attaches the wallet to it. The account keeps its NMTS
+  key; a copy of it sits on the NMTS server, locked so that only the wallet's signature of one fixed
+  message opens it. `nmts openers`, `nmts openers add` and `nmts openers remove <locator>` list,
+  attach and take off the wallets that open an account. `--account <n>` and `--app <name>` are inside
+  the signed message. The wallet's key is never an option value.
+- Attaching asks the wallet to sign twice and refuses unless the signatures match; a zkLogin, a
+  multi-signature and a passkey account are refused by name. An attached wallet opens every file in
+  the account until it is removed, and removal counts from then on.
+- One wallet and one account number open one account. A wallet that already opens an account under
+  that number is refused before anything is made or stored (`WALLET_OPENS_ANOTHER_ACCOUNT`), and
+  `--account <n>` picks another number.
+- The library surface has a new entry, `@needmoretruth/nmts-cli/openers`.
+
 ## 0.40.0 — 2026-09-20
 
 - The library surface has a new entry, `@needmoretruth/nmts-cli/storage-control`: what `nmts extend`

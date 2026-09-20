@@ -1,3 +1,4 @@
+import type { WalletOpener } from "../openers.ts";
 export interface CreateOptions {
     server?: string | undefined;
     network?: string | undefined;
@@ -15,6 +16,14 @@ export interface CreateOptions {
      *   exists by the time that path prints anything.
      */
     noWait?: boolean | undefined;
+    /**
+     * `--wallet`: attach this wallet to the account once it exists, so it opens it from then on.
+     *
+     * ⛔ THE ROOT IS STILL A RANDOM NMTS KEY — the account is made exactly as it is without this,
+     *    and the wallet becomes a second way in rather than the account's origin. That is what lets
+     *    the wallet be swapped, added to or removed later.
+     */
+    wallet?: WalletOpener | undefined;
     write?: (line: string) => void;
 }
 export declare function create(options?: CreateOptions): Promise<number>;
