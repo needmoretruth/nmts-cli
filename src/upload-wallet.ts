@@ -35,6 +35,15 @@ export interface WalletRailContext {
   /** Which of this key's wallets pays — the account's own number, resolved before anything was
    *  priced (`wallet-pay-index.ts`), so the address in the review is the address that signs. */
   wallet: number;
+  /**
+   * Set when a wallet OUTSIDE this tool is paying, and then it is that wallet's address.
+   *
+   * ⛔ IT GOES INTO THE RECORD SO A RESUME CANNOT CHANGE PAYER. The blob object a registration
+   *    creates belongs to the address that signed for it, and only that address can certify it or
+   *    reclaim its storage. A second run that finished this part from another wallet would spend a
+   *    fee to be refused by the chain, so the mismatch is said here instead.
+   */
+  payer?: { address: string } | undefined;
   relayUrl: string;
   epochs: number;
   /** Where the storage comes from. A held resource serves one blob, so it applies to a one-part file. */
@@ -70,6 +79,20 @@ async function buyAndPushPartWithWallet(ctx: WalletRailContext, input: UploadInp
       nextStep:
         "Run it again without --pay wallet to finish it, or clear the unfinished upload records " +
         "to start over. Nothing was sent.",
+    });
+  }
+  // ⛔ THE SAME WALLET FINISHES WHAT IT STARTED. The record names the payer when one was outside
+  //    this tool; whoever is paying now has to be the same address, because the blob object and its
+  //    storage belong to the wallet that registered them.
+  if (existing !== null && (existing.payerAddress ?? null) !== (ctx.payer?.address ?? null)) {
+    const started = existing.payerAddress ?? "the wallet this NMTS key derives";
+    throw new UploadError({
+      phase: "reserve",
+      message: `This upload was started with ${started} paying, and this run would pay from ${ctx.payer?.address ?? "the wallet this NMTS key derives"}.`,
+      paid: existing.registerTxDigest !== undefined,
+      nextStep:
+        "Nothing was sent. Run it again with the wallet that started it, or clear the unfinished " +
+        "upload records to start over — the storage the first wallet bought stays that wallet's.",
     });
   }
   if (existing !== null && (existing.partIndex !== input.part.index || existing.partTotal !== input.part.total)) {
@@ -132,6 +155,7 @@ async function buyAndPushPartWithWallet(ctx: WalletRailContext, input: UploadInp
     contentHashCt: input.entry.contentHashCt,
     name: input.entry.name,
     parentId: input.entry.parentId,
+    ...(ctx.payer === undefined ? {} : { payerAddress: ctx.payer.address }),
   };
   // ⛔ BEFORE THE SIGNATURE. See the module header.
   await writeReservation(key, record, sealed);

@@ -3,6 +3,24 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.43.0 — 2026-09-20
+
+- Nothing changes for the `nmts` command: it signs with the wallet this NMTS key derives, as it
+  always has, and a terminal has no browser extension to offer instead.
+- The library surface has a new entry, `@needmoretruth/nmts-cli/wallet-sign-external`: a program can
+  pay for an upload, an extension or a change to a storage resource with a wallet it holds no key to
+  — a browser extension, a hardware wallet, a remote signer — by handing over the payer's address and
+  a function that signs transaction bytes. The transactions are the same builders the key's own
+  signers use, this package submits them and reads the effects rather than trusting a digest, and a
+  wallet that declines is `WALLET_REFUSED`.
+- A wallet-paid upload and an extension take that payer before they read a balance
+  (`WalletPutContext.payer`, `ExtendPlanSeams.payer`), so the quote, both balances, the measured
+  chain fee, the review and the sentence saying where to send coins all name the wallet that will
+  sign. Without a payer every one of them is the wallet this key derives, unchanged.
+- An unfinished wallet-paid upload records which wallet paid, and a later run that would pay from a
+  different one is refused before it signs: what a registration creates belongs to the address that
+  signed for it.
+
 ## 0.42.0 — 2026-09-20
 
 - Nothing changes for the `nmts` command. The library surface gains one seam for programs built on

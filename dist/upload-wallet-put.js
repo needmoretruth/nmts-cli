@@ -73,8 +73,9 @@ export async function walletPut(ctx, file, seams = {}) {
     const epochs = chooseUploadEpochs(seams.epochs, window);
     const endEpoch = window.clock.current + epochs;
     const quotes = await reads.quoteParts(sealedLens, epochs);
-    // ⛔ THE ADDRESS THAT IS PRICED IS THE ADDRESS THAT SIGNS — the same number the rail carries.
-    const address = await walletAddress(ctx.code, ctx.wallet);
+    // ⛔ THE ADDRESS THAT IS PRICED IS THE ADDRESS THAT SIGNS — the same wallet the rail carries,
+    //    whether that is a number this key derives or a wallet the caller holds the key to.
+    const address = ctx.payer?.address ?? (await walletAddress(ctx.code, ctx.wallet));
     let storage = { kind: "buy" };
     let heldResources = null;
     if (storageAsk !== null) {
@@ -159,6 +160,7 @@ export async function walletPut(ctx, file, seams = {}) {
                 network: ctx.network,
                 code: ctx.code,
                 wallet: ctx.wallet,
+                ...(ctx.payer === undefined ? {} : { payer: ctx.payer }),
                 relayUrl: protocol.relayUrl,
                 epochs,
                 storage,

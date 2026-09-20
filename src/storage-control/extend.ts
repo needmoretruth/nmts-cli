@@ -119,6 +119,14 @@ export interface ExtendPlanSeams {
   epochs?: string | number | undefined;
   /** Which of this key's wallets pays. Absent = the account's own number, out of the list read here. */
   wallet?: number | undefined;
+  /**
+   * A wallet OUTSIDE this tool that pays instead — its address, because this is where the price is
+   * measured against a balance.
+   *
+   * ⛔ THE SIGNATURE HAS TO COME FROM THE SAME ADDRESS (`wallet-sign-external.ts`), and the blobs
+   *    have to be ones that wallet paid for: extending storage is a payment by whoever holds it.
+   */
+  payer?: { address: string } | undefined;
   /** The instant to measure against. Passed in so one run reports one moment. */
   now: number;
   /** What this caller wants said in a refusal instead of the neutral sentence. */
@@ -216,7 +224,7 @@ export async function planExtension(
   // ⛔ WHICH WALLET PAYS comes out of the list this run already read, before the price is measured
   //    against a balance: the address below is the one that will sign.
   const wallet = seams.wallet ?? activeWalletOf(settings);
-  const address = await walletAddress(input.code, wallet);
+  const address = seams.payer?.address ?? (await walletAddress(input.code, wallet));
   const budget = await readBudget(reads, { address, objectIds, epochs, priceFrost: frost });
 
   return {

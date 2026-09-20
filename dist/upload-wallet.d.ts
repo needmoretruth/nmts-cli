@@ -10,6 +10,17 @@ export interface WalletRailContext {
     /** Which of this key's wallets pays — the account's own number, resolved before anything was
      *  priced (`wallet-pay-index.ts`), so the address in the review is the address that signs. */
     wallet: number;
+    /**
+     * Set when a wallet OUTSIDE this tool is paying, and then it is that wallet's address.
+     *
+     * ⛔ IT GOES INTO THE RECORD SO A RESUME CANNOT CHANGE PAYER. The blob object a registration
+     *    creates belongs to the address that signed for it, and only that address can certify it or
+     *    reclaim its storage. A second run that finished this part from another wallet would spend a
+     *    fee to be refused by the chain, so the mismatch is said here instead.
+     */
+    payer?: {
+        address: string;
+    } | undefined;
     relayUrl: string;
     epochs: number;
     /** Where the storage comes from. A held resource serves one blob, so it applies to a one-part file. */

@@ -119,6 +119,16 @@ export interface Reservation {
      *    a part under the wrong payer.
      */
     paidFrom?: "wallet";
+    /**
+     * Wallet rail: the address that signed, when the wallet paying was one OUTSIDE this tool. Absent
+     * when the wallet this NMTS key derives paid, which is what it has always been.
+     *
+     * ⛔ WRITTEN SO A RESUME CANNOT CHANGE PAYER. What a registration creates belongs to the address
+     *    that signed for it: only that wallet can certify the part or ever reclaim its storage. A
+     *    later run paying from somewhere else would spend a fee to be refused on-chain, so
+     *    `upload-wallet.ts` compares this and says so instead.
+     */
+    payerAddress?: string;
     /** Wallet rail: present once the certify transaction executed — the part is finished on-chain. */
     certifyTxDigest?: string;
     /** Wallet rail: the epoch the bought storage ends at, read from the blob object after registering. */

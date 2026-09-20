@@ -1,4 +1,6 @@
-// ⛔ THE ONE FILE IN THIS TOOL THAT SIGNS. Everything it can do moves real assets and cannot be
+// ⛔ THE ONE FILE IN THIS TOOL THAT HOLDS A KEY AND SIGNS WITH IT. (A wallet outside this tool signs
+//    through `wallet-sign-external.ts`, which builds the same transactions and holds no key at all.)
+//    Everything it can do moves real assets and cannot be
 //    reversed by anybody, including NMTS. It signs FIVE SHAPES and no others: extending a file's
 //    storage (`signExtension`), sending SUI or WAL to an address (`signTransfer`), swapping one for
 //    the other on a venue (`signSwap`), and the two halves of a wallet-paid upload — registering one

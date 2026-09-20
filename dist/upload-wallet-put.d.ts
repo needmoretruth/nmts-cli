@@ -28,8 +28,24 @@ export interface WalletPutContext {
      * ⛔ THE CALLER RESOLVES IT, BEFORE ANYTHING IS PRICED. It is the account's own number, kept in
      *    the sealed file list (`wallet-pay-index.ts`), and a library that guessed at it here would
      *    price one address and sign with another.
+     *
+     * ⚠ Ignored when `payer` names a wallet this key does not derive — see below.
      */
     wallet: number;
+    /**
+     * A wallet OUTSIDE this tool that pays instead: somebody's browser extension, a hardware wallet,
+     * a remote signer.
+     *
+     * ⛔ IT IS THE ADDRESS, HERE, BECAUSE THIS IS WHERE THE PRICE IS MEASURED. Everything below reads
+     *    one address — the quote's sender, both balances, the measured register fee, the review, and
+     *    the sentence that says where to send coins — and that address has to be the one that will
+     *    sign. Absent, it is the wallet `wallet` names, exactly as before; present, the `sign` seam
+     *    must be the signer of that same address (`wallet-sign-external.ts`), and nothing here derives
+     *    a key at all.
+     */
+    payer?: {
+        address: string;
+    } | undefined;
 }
 /** One file and where it goes — already resolved, because a library resolves nothing by asking. */
 export interface WalletPutFile {

@@ -107,7 +107,7 @@ export async function planExtension(input, target, seams) {
     // ⛔ WHICH WALLET PAYS comes out of the list this run already read, before the price is measured
     //    against a balance: the address below is the one that will sign.
     const wallet = seams.wallet ?? activeWalletOf(settings);
-    const address = await walletAddress(input.code, wallet);
+    const address = seams.payer?.address ?? (await walletAddress(input.code, wallet));
     const budget = await readBudget(reads, { address, objectIds, epochs, priceFrost: frost });
     return {
         facts: {

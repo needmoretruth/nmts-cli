@@ -41,6 +41,19 @@ async function buyAndPushPartWithWallet(ctx, input) {
                 "to start over. Nothing was sent.",
         });
     }
+    // ⛔ THE SAME WALLET FINISHES WHAT IT STARTED. The record names the payer when one was outside
+    //    this tool; whoever is paying now has to be the same address, because the blob object and its
+    //    storage belong to the wallet that registered them.
+    if (existing !== null && (existing.payerAddress ?? null) !== (ctx.payer?.address ?? null)) {
+        const started = existing.payerAddress ?? "the wallet this NMTS key derives";
+        throw new UploadError({
+            phase: "reserve",
+            message: `This upload was started with ${started} paying, and this run would pay from ${ctx.payer?.address ?? "the wallet this NMTS key derives"}.`,
+            paid: existing.registerTxDigest !== undefined,
+            nextStep: "Nothing was sent. Run it again with the wallet that started it, or clear the unfinished " +
+                "upload records to start over — the storage the first wallet bought stays that wallet's.",
+        });
+    }
     if (existing !== null && (existing.partIndex !== input.part.index || existing.partTotal !== input.part.total)) {
         throw new UploadError({
             phase: "reserve",
@@ -97,6 +110,7 @@ async function buyAndPushPartWithWallet(ctx, input) {
         contentHashCt: input.entry.contentHashCt,
         name: input.entry.name,
         parentId: input.entry.parentId,
+        ...(ctx.payer === undefined ? {} : { payerAddress: ctx.payer.address }),
     };
     // ⛔ BEFORE THE SIGNATURE. See the module header.
     await writeReservation(key, record, sealed);
