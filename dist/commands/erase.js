@@ -9,28 +9,21 @@
 //    with credits, `--release-storage` asks the server to destroy the treasury's storage under
 //    each file first, which it does on the chain one blob at a time and reports per file.
 //
-// ⛔ THE SERVER GOES FIRST, THE LIST LAST. A row erased before the list entry leaves a file the
-//    person can see and never open; that is the same order the trash keeps, for the same reason.
-//    A release that fails leaves the file whole — nothing is erased behind a failed release.
+// ⛔ THE ORDER, AND WHAT IT PROTECTS, ARE IN `drive-erase.ts` — the server first, the list last, a
+//    failed release erasing nothing behind it. This file is the terminal over that: the sentence
+//    that has to be typed, the lines a person reads, and the exit code. Nothing about what is
+//    destroyed is decided twice.
 //
 // ⛔ THE SENTENCE IS TYPED IN EVERY MODE BUT SKIP-PERMISSIONS, where the tier gate's `--reason`
 //    and `--yes` stand for it — the same rule as `delete-account`, because it is the same tier.
 import { accountProofFor } from "../account-proof.js";
-import { request, ServerError } from "../api.js";
 import { currentMode } from "../autonomy.js";
 import { CONFIRM_SENTENCE } from "./delete-account.js";
-import { buildIndex, fullPathOf, KIND_FILE } from "../drive-paths.js";
+import { eraseFiles, planErase } from "../drive-erase.js";
 import { NmtsError } from "../errors.js";
-import { readFileList } from "../manifest.js";
-import { applyToList, batchTargets } from "../manifest-write.js";
 import { BINARY_NAME } from "../product.js";
 import { promptLine, stdinIsATerminal } from "../prompt.js";
 import { openSession } from "../session.js";
-import { filesUnder } from "../drive-edit.js";
-/** The server takes at most this many ids in one erase (`ERASE_BATCH_MAX`). */
-const BATCH = 200;
-/** The refusal a no-deposit release gets when the balance cannot cover the doubled fee. */
-const FEE_INSUFFICIENT = "DEPOSIT_FEE_INSUFFICIENT";
 export async function erase(paths, options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     if (paths.length === 0) {
@@ -48,20 +41,11 @@ export async function erase(paths, options = {}) {
         });
     }
     const session = await openSession(options);
-    const list = await readFileList(session.server, session.apiKey, session.code, session.accountId);
-    const entries = list.manifest?.entries ?? [];
-    const index = buildIndex(entries);
-    const targets = batchTargets(entries, paths, { includeTrashed: true, nothingHappened: "Nothing was erased." });
-    const files = uniqueById(targets.flatMap((t) => (t.kind === KIND_FILE ? [t] : filesUnder(entries, t.id))));
-    const going = uniqueById([...targets, ...files]);
-    if (files.length === 0) {
-        throw new NmtsError(`Nothing named holds a file; empty folders are removed with \`${BINARY_NAME} rm\`.`, {
-            exitCode: 4,
-        });
-    }
+    const plan = await planErase(session, paths);
+    const files = plan.files;
     say(`This erases ${files.length} file${files.length === 1 ? "" : "s"} for good. It cannot be undone, and not by the trash.`);
     for (const f of files)
-        say(`  ${fullPathOf(index, f)}`);
+        say(`  ${f.path}`);
     say(``);
     say(`  Erased:       the server's record of each file and this account's key to it, and its shares.`);
     if (options.releaseStorage === true) {
@@ -81,65 +65,12 @@ export async function erase(paths, options = {}) {
     }
     // ⛔ THE PROOF IS BUILT FOR THIS ONE RUN AND NOTHING KEEPS IT.
     const accountProof = await accountProofFor({ code: session.code, source: session.source });
-    const releases = [];
-    if (options.releaseStorage === true) {
-        for (const f of files) {
-            const path = fullPathOf(index, f);
-            try {
-                const reply = await request(session.server, `/v1/items/${encodeURIComponent(f.id)}/release-storage`, {
-                    method: "POST",
-                    body: {},
-                    token: session.apiKey,
-                    accountProof,
-                });
-                releases.push({ path, refused: null, ...counts(reply), ...fee(reply) });
-            }
-            catch (error) {
-                // ⛔ THE ONE REFUSAL THAT STOPS THE RUN. A file with no deposit pays twice the chain fee
-                //    out of the balance, and a balance that cannot cover it means the release did not
-                //    happen — erasing behind it would destroy the account's key to bytes that are still
-                //    being served and still being paid for. Nothing is erased, and the two numbers say
-                //    exactly how far short the balance is.
-                if (error instanceof ServerError && error.code === FEE_INSUFFICIENT) {
-                    throw new NmtsError(`${path}: releasing its storage costs ${amount(error, "needed_credits")} credits and this ` +
-                        `account has ${amount(error, "balance_credits")}. It has no deposit, so the fee comes out of the balance.`, {
-                        exitCode: 4,
-                        nextStep: `Nothing was erased. Buy credits and run this again, or leave --release-storage off ` +
-                            `to erase the file and let its storage run out on its own.`,
-                    });
-                }
-                // ⚠ "Not ours to destroy" is an answer, not a failure: the storage was bought by the
-                //   wallet, and the erase goes on. A refusal of the KEY or the proof, and anything the
-                //   server could not do, stops the run before a row is touched.
-                if (error instanceof ServerError && error.status !== 401 && error.status !== 403 && error.status < 500) {
-                    releases.push({ path, released: 0, alreadyReleased: 0, failed: 0, feeCredits: 0, fromDeposit: false, refused: error.message });
-                    continue;
-                }
-                throw error;
-            }
-        }
-    }
-    let erased = 0;
-    for (let i = 0; i < files.length; i += BATCH) {
-        const reply = await request(session.server, "/v1/items/erase", {
-            method: "POST",
-            body: { item_ids: files.slice(i, i + BATCH).map((f) => f.id) },
-            token: session.apiKey,
-            accountProof,
-        });
-        erased += typeof reply === "object" && reply !== null && typeof Reflect.get(reply, "erased") === "number"
-            ? Number(Reflect.get(reply, "erased"))
-            : 0;
-    }
-    // ⛔ THE LIST GOES LAST, and re-decided against the list as it is on this attempt: only the
-    //    ids this run erased leave it, whatever another device wrote in between.
-    const ids = new Set(going.map((e) => e.id));
-    const result = await applyToList(session, (current) => {
-        const still = current.filter((e) => ids.has(e.id)).map((e) => e.id);
-        return still.length === 0 ? null : { op: "purge", ids: still };
+    const outcome = await eraseFiles({ ...session, accountProof }, plan, {
+        releaseStorage: options.releaseStorage === true,
     });
+    const { erased, releases } = outcome;
     if (options.json) {
-        say(JSON.stringify({ erased, files: files.map((f) => ({ id: f.id, path: fullPathOf(index, f) })), releases, seq: result.seq }));
+        say(JSON.stringify({ erased, files: outcome.files, releases, seq: outcome.seq }));
         return 0;
     }
     say(`Erased ${erased} file${erased === 1 ? "" : "s"}. Their entries are out of the file list.`);
@@ -164,30 +95,4 @@ function feeLine(r) {
     return r.fromDeposit
         ? `${credits} taken from that file's deposit — nothing came out of the balance`
         : `${credits} taken from the balance — that file had no deposit, so the fee is doubled`;
-}
-/** The three counts a release answers with, read defensively. */
-function counts(reply) {
-    const n = (name) => {
-        const v = typeof reply === "object" && reply !== null ? Reflect.get(reply, name) : undefined;
-        return typeof v === "number" ? v : 0;
-    };
-    return { released: n("released"), alreadyReleased: n("already_released"), failed: n("failed") };
-}
-/** What it cost, read the same defensive way. An older server says neither, which reads as 0. */
-function fee(reply) {
-    const at = (name) => typeof reply === "object" && reply !== null ? Reflect.get(reply, name) : undefined;
-    const charged = at("fee_credits");
-    return {
-        feeCredits: typeof charged === "number" ? charged : 0,
-        fromDeposit: at("from_deposit") === true,
-    };
-}
-/** One credit amount out of a refusal's details, or `?` when the server did not name it. */
-function amount(error, field) {
-    const value = error.details[field];
-    return typeof value === "number" ? String(value) : "?";
-}
-function uniqueById(list) {
-    const seen = new Set();
-    return list.filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
 }

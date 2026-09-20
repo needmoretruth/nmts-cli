@@ -64,19 +64,28 @@ export const DELEGATION_MAX_TTL_SECS = 2_592_000;
  * ⛔ THE FIRST THREE ARE AN API KEY'S OWN SCOPES, value for value. One vocabulary, so that a
  *    business asking for "read and write" asks for the number a person's key already means by it.
  *    `register` is the fourth and opens exactly one door: making the account the token names.
+ *
+ * ⛔ `files_erase` IS THE FIFTH, AND AN API KEY HAS NO BIT OF THAT NAME. It opens the two acts
+ *    nothing undoes: erasing a file's record and this account's key to it, and destroying the
+ *    treasury's storage under a file. Its own name rather than `files_write`, so a token minted so
+ *    an app can upload cannot destroy — and it does not stand alone: both doors also ask for the
+ *    account code's own proof on the same request, which is an act only whoever holds the code can
+ *    perform. The token is the business's permission; the proof is the key holder's.
  */
 export const SCOPE_BITS = {
   files_read: 1,
   files_write: 2,
   storage_spend: 4,
   register: 8,
+  files_erase: 16,
 } as const satisfies Record<string, number>;
 
-/** One of the four names above. */
+/** One of the five names above. */
 export type ScopeName = keyof typeof SCOPE_BITS;
 
 /** Every bit a token may carry. */
-export const SCOPE_ALL = SCOPE_BITS.files_read | SCOPE_BITS.files_write | SCOPE_BITS.storage_spend | SCOPE_BITS.register;
+export const SCOPE_ALL =
+  SCOPE_BITS.files_read | SCOPE_BITS.files_write | SCOPE_BITS.storage_spend | SCOPE_BITS.register | SCOPE_BITS.files_erase;
 
 /** A business's key pair, both halves base64url. The private half never travels. */
 export interface BusinessKeyPair {

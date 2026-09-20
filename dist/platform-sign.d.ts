@@ -25,14 +25,22 @@ export declare const DELEGATION_MAX_TTL_SECS = 2592000;
  * ⛔ THE FIRST THREE ARE AN API KEY'S OWN SCOPES, value for value. One vocabulary, so that a
  *    business asking for "read and write" asks for the number a person's key already means by it.
  *    `register` is the fourth and opens exactly one door: making the account the token names.
+ *
+ * ⛔ `files_erase` IS THE FIFTH, AND AN API KEY HAS NO BIT OF THAT NAME. It opens the two acts
+ *    nothing undoes: erasing a file's record and this account's key to it, and destroying the
+ *    treasury's storage under a file. Its own name rather than `files_write`, so a token minted so
+ *    an app can upload cannot destroy — and it does not stand alone: both doors also ask for the
+ *    account code's own proof on the same request, which is an act only whoever holds the code can
+ *    perform. The token is the business's permission; the proof is the key holder's.
  */
 export declare const SCOPE_BITS: {
     readonly files_read: 1;
     readonly files_write: 2;
     readonly storage_spend: 4;
     readonly register: 8;
+    readonly files_erase: 16;
 };
-/** One of the four names above. */
+/** One of the five names above. */
 export type ScopeName = keyof typeof SCOPE_BITS;
 /** Every bit a token may carry. */
 export declare const SCOPE_ALL: number;

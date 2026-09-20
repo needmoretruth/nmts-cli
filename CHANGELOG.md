@@ -3,6 +3,15 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.39.0 — 2026-09-20
+
+- The library surface has a new entry, `@needmoretruth/nmts-cli/drive-erase`: what `nmts erase` does,
+  without the prompt or the printing, so a program can erase files for good with the same order of
+  operations. `nmts erase` is unchanged: the same sentence to type, the same output, the same exit
+  codes. `nmts-sdk` 0.5.0 is built on it.
+- A delegation token can carry a fifth scope, `files_erase`. The server still asks for the NMTS
+  key's own proof on the two erase requests.
+
 ## 0.38.1 — 2026-09-20
 
 - The folder and trash functions behind `@needmoretruth/nmts-cli/drive-edit` no longer import

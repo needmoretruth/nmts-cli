@@ -9,20 +9,33 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 export interface EraseState {
-  /** Every erase the tool asked for: the ids and whether a proof header travelled with it. */
-  erasures: { ids: string[]; proof: string | null }[];
+  /**
+   * Every erase the tool asked for: the ids, whether a proof header travelled with it, and which
+   * credential it travelled under — an API key or a delegation token, which are different roots
+   * and must both arrive with the proof.
+   */
+  erasures: { ids: string[]; proof: string | null; bearer: string | null }[];
   /** Every storage release the tool asked for, in order. */
   releases: { id: string; proof: string | null }[];
   /** Item ids whose release the server refuses as "not the treasury's to destroy". */
   walletPaid: string[];
+  /**
+   * Item ids whose release is refused because the balance cannot cover the doubled fee.
+   *
+   * ⛔ THE ONE REFUSAL THAT IS A FAILURE RATHER THAN AN ANSWER, and so the only way to reach the
+   *    path where NOTHING is erased behind a release that did not happen. 402 with the two credit
+   *    amounts the real one carries (`domain::deposit::Refusal::FeeInsufficient`).
+   */
+  feeShort: string[];
 }
 
-export const eraseState: EraseState = { erasures: [], releases: [], walletPaid: [] };
+export const eraseState: EraseState = { erasures: [], releases: [], walletPaid: [], feeShort: [] };
 
 export function resetErase(): void {
   eraseState.erasures = [];
   eraseState.releases = [];
   eraseState.walletPaid = [];
+  eraseState.feeShort = [];
 }
 
 /** Answer the request if it is one of the two doors; say whether it was. */
@@ -35,6 +48,11 @@ export function serveErase(method: string, url: string, req: IncomingMessage, re
     const h = req.headers["x-nmts-account-proof"];
     return typeof h === "string" ? h : null;
   };
+  /** The credential itself — `nmts_ak1_…` or `nmts_dt1_…`, so a test can say which root asked. */
+  const bearerOf = (): string | null => {
+    const h = req.headers["authorization"];
+    return typeof h === "string" ? h.replace(/^Bearer /, "") : null;
+  };
   const refuse = (): void =>
     json(403, { error: { code: "ACCOUNT_PROOF_REQUIRED", message: "the NMTS key's proof is needed" } });
 
@@ -46,7 +64,7 @@ export function serveErase(method: string, url: string, req: IncomingMessage, re
       const idsRaw: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "item_ids") : [];
       const ids = Array.isArray(idsRaw) ? idsRaw.filter((x): x is string => typeof x === "string") : [];
       const proof = proofOf();
-      eraseState.erasures.push({ ids, proof });
+      eraseState.erasures.push({ ids, proof, bearer: bearerOf() });
       if (proof === null) return refuse();
       json(200, { erased: ids.length });
     });
@@ -59,6 +77,14 @@ export function serveErase(method: string, url: string, req: IncomingMessage, re
     if (proof === null) refuse();
     else if (eraseState.walletPaid.includes(id)) {
       json(409, { error: { code: "STORAGE_NOT_SPONSORED", message: "this storage was bought by the wallet, not by credits" } });
+    } else if (eraseState.feeShort.includes(id)) {
+      json(402, {
+        error: {
+          code: "DEPOSIT_FEE_INSUFFICIENT",
+          message: "this release costs 4 credits and this account can spend 1",
+          details: { needed_credits: 4, balance_credits: 1 },
+        },
+      });
     } else json(200, { released: 1, already_released: 0, failed: 0, fee_credits: 0, tx_digests: ["D1"] });
     return true;
   }

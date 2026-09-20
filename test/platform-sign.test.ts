@@ -165,12 +165,15 @@ test("⛔ a delegation token signs the payload bytes that travel, and says what 
   assert.ok(!signatureHolds(businessPublicKey(PRIVATE_KEY), payload, signature), "the context was not covered");
 });
 
-test("the four scope names are the four bits, and no scope at all is refused", () => {
+test("the five scope names are the five bits, and no scope at all is refused", () => {
   assert.equal(scopeMask(["files_read"]), 1);
   assert.equal(scopeMask(["files_write"]), 2);
   assert.equal(scopeMask(["storage_spend"]), 4);
   assert.equal(scopeMask(["register"]), 8);
-  assert.equal(scopeMask(["files_read", "files_write", "storage_spend", "register"]), 15);
+  // ⛔ ERASING FOR GOOD IS ITS OWN BIT AND NOT PART OF `files_write`: a token minted so an app can
+  //    upload must not be able to destroy.
+  assert.equal(scopeMask(["files_erase"]), 16);
+  assert.equal(scopeMask(["files_read", "files_write", "storage_spend", "register", "files_erase"]), 31);
   assert.throws(() => scopeMask([]), NmtsError);
 });
 
