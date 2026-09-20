@@ -42,25 +42,12 @@ once, for an unlock (`nmts help login`).
 
 ## What is built on it today
 
-Each of these works with what is published now. None of it is a plan.
+- **Storage for an agent**, outliving a session or a machine: this command, or [its MCP server](#if-your-client-speaks-mcp).
+- **Encrypted storage inside a product.** The [SDK](https://github.com/needmoretruth/nmts-sdk) (`npm install @needmoretruth/nmts-sdk`; it has an `AGENTS.md` of its own) opens an account per user. The user holds the NMTS key, or the product does (`Nmts.managed`); every method works either way, and [terms](https://nmts.me/terms) 3.7 provides for it, commercially too.
+- **An S3 endpoint**, `@needmoretruth/nmts-sdk/gateway`: a bucket and a key pair per customer, so django-storages, Rails Active Storage, rclone and backup tools store into NMTS unchanged.
+- **Files that come back without NMTS.** [nmts-recovery](https://github.com/needmoretruth/nmts-recovery) rebuilds them from Walrus with the NMTS key and the recovery list the person saved. No NMTS server takes part.
 
-- **Storage for an agent.** Notes, datasets and build outputs that outlive a session or a machine,
-  encrypted before they leave it. This command does it, and so does [its MCP server](#if-your-client-speaks-mcp).
-- **Encrypted storage inside someone's product.** The [SDK](https://github.com/needmoretruth/nmts-sdk)
-  opens an NMTS account for each person who uses a product and keeps that person's files in it. The
-  NMTS key is held by the person (the product cannot read the files) or by the product
-  (`Nmts.managed`), and every SDK method works the same either way. The
-  [terms](https://nmts.me/terms) provide for it in 3.7, for commercial products too.
-- **An S3 endpoint.** `@needmoretruth/nmts-sdk/gateway` speaks S3 with a bucket and a key pair per
-  customer, so django-storages, Rails Active Storage, rclone and backup tools store into NMTS
-  unchanged.
-- **Files that come back without NMTS.** [nmts-recovery](https://github.com/needmoretruth/nmts-recovery)
-  rebuilds an account's files from Walrus with the NMTS key and the recovery list the person saved.
-  No NMTS server takes part.
-
-An account pays with credits or straight from its own wallet. From the wallet, WAL goes to Walrus
-and SUI to the chain, and NMTS takes no fee. NMTS does not inspect or certify products built with the SDK: who holds the
-keys in such a product is that product's own statement.
+All of it works with what is published now. An account pays with credits or from its own wallet — WAL to Walrus, SUI to the chain, no fee to NMTS. NMTS does not inspect or certify products built with the SDK: who holds the keys in one is that product's own statement.
 
 ## What only a person can do, once
 
@@ -189,12 +176,10 @@ work around it. Setup and the sealed-code rule: `nmts help mcp`.
 
 ## Remembering this across sessions
 
-You will lose this context. The person has to put it somewhere your next session reads: the file
-your client loads from a repository root, holding the first section above and the two
-environment variable names; a saved instruction saying *the `nmts` command manages files in an
-NMTS account; run `nmts env` first, then `nmts --help`, and `nmts help <command>` before a command
-you have not used*; or, for an MCP client, the server entry. The smallest thing that works is one
-line pointing at this file.
+You will lose this context. The person has to put it somewhere your next session reads: the file your client
+loads from a repository root, holding the first section above and the two environment variable names; a saved
+instruction saying *the `nmts` command manages files in an NMTS account; run `nmts env` first, then `nmts --help`,
+and `nmts help <command>` before a command you have not used*; or, for an MCP client, the server entry. One line pointing at this file is the smallest thing that works.
 
 ## Reporting a problem or an idea
 
@@ -204,17 +189,11 @@ run at all, write to `nmts@nmts.me` with what you ran and what it said.
 
 ## Exit codes
 
-`0` done · `1` something went wrong · `2` the command line was wrong · `3` not signed in ·
-`4` the command exists but could not do it · `5` waiting on the person's agreement ·
-`130` cancelled.
+`0` done · `1` something went wrong · `2` the command line was wrong · `3` not signed in · `4` the command exists
+but could not do it · `5` waiting on the person's agreement · `130` cancelled.
 
-## Licence
+## Licence and source
 
 Apache-2.0 (it was AGPL-3.0-only until 2026-08-30). **Calling this program from your own code puts
 no obligation on your code at all.** See [LICENSING.md](https://github.com/needmoretruth/nmts-cli/blob/main/LICENSING.md) if you are asked.
-
-## Source
-
-<https://github.com/needmoretruth/nmts-cli> · The same operations as a library, for a program that calls
-NMTS from its own code: `npm install @needmoretruth/nmts-sdk` · <https://github.com/needmoretruth/nmts-sdk>
-(its own document for agents is `AGENTS.md` there).
+Source: <https://github.com/needmoretruth/nmts-cli>.
