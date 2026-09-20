@@ -6,16 +6,16 @@
 //    fusing and spending a resource need a signature and are not here.
 //
 // ⛔ "NONE" AND "COULD NOT READ" ARE DIFFERENT SENTENCES — holding no resource is normal; failing to
-//    read is a reason to look again. The reader (`shared/lib/storage-control/chain.ts`, the
-//    browser's own, copied byte-for-byte) throws rather than answering an empty list.
+//    read is a reason to look again. The reading, the ordering and that refusal are
+//    `storage-control.ts`, which the SDK calls as well; this file is the terminal over it.
 import { requireAccountCode } from "../code-access.js";
 import { readCredentialsFile } from "../credentials.js";
-import { NmtsError } from "../errors.js";
 import { resolveNetwork } from "../network.js";
 import { BINARY_NAME } from "../product.js";
+import { formatBytes, listStorage, } from "../storage-control.js";
 import { resolveServer } from "../server.js";
-import { statusOf, totalUsableBytes, usableFirst } from "../shared/lib/storage-control/plan.js";
 import { walletAddress } from "../wallet.js";
+export { formatBytes } from "../storage-control.js";
 export async function walletStorage(options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const resolved = await requireAccountCode();
@@ -23,33 +23,25 @@ export async function walletStorage(options = {}) {
     const stored = resolved.source === "file" || resolved.source === "file-locked" ? readCredentialsFile() : null;
     const server = resolveServer(options.server ?? stored?.server);
     const network = resolveNetwork(server, options.network ?? stored?.network);
-    const read = options.readStorage ??
-        (async (net, addr) => (await import("../wallet-storage-chain.js")).readWalletStorage(net, addr));
-    let got;
-    try {
-        got = await read(network, address);
-    }
-    catch (error) {
-        throw new NmtsError("The storage resources could not be read from the chain.", {
-            exitCode: 1,
-            nextStep: `That is not the same as holding none. \`${BINARY_NAME} env\` says which network was asked. ` +
-                `Cause: ${error instanceof Error ? error.message : String(error)}`,
-        });
-    }
-    const epoch = got.currentEpoch;
-    const items = epoch === null ? [...got.items] : usableFirst(got.items, epoch);
+    // ⚠ THE SENTENCE A PERSON READS IS THIS FILE'S, not the library's: `nmts env` is a command at a
+    //   prompt and means nothing inside somebody else's program.
+    const listed = await listStorage({ network, address }, options.readStorage, {
+        cannotRead: `That is not the same as holding none. \`${BINARY_NAME} env\` says which network was asked.`,
+    });
+    const epoch = listed.currentEpoch;
+    const items = listed.items;
     if (options.json) {
         say(JSON.stringify({
             address,
             network,
             currentEpoch: epoch,
-            usableBytes: epoch === null ? null : totalUsableBytes(items, epoch),
+            usableBytes: listed.usableBytes,
             resources: items.map((r) => ({
                 objectId: r.objectId,
                 sizeBytes: r.sizeBytes,
                 startEpoch: r.startEpoch,
                 endEpoch: r.endEpoch,
-                status: epoch === null ? null : statusOf(r, epoch),
+                status: r.status,
             })),
         }));
         return 0;
@@ -61,10 +53,10 @@ export async function walletStorage(options = {}) {
         say(`  This wallet holds no free storage resource. Anything bound inside a file is not listed here.`);
     }
     else {
-        if (epoch !== null)
-            say(`  ${formatBytes(totalUsableBytes(items, epoch))} usable now, in ${items.length} resource${items.length === 1 ? "" : "s"}.`);
+        if (listed.usableBytes !== null)
+            say(`  ${formatBytes(listed.usableBytes)} usable now, in ${items.length} resource${items.length === 1 ? "" : "s"}.`);
         for (const r of items) {
-            const status = epoch === null ? "" : `  ${statusWord(statusOf(r, epoch))}`;
+            const status = r.status === null ? "" : `  ${statusWord(r.status)}`;
             say(`  ${formatBytes(r.sizeBytes).padStart(11)} · epoch ${r.startEpoch} to ${r.endEpoch}${status}`);
             say(`    ${r.objectId}`);
         }
@@ -79,17 +71,4 @@ export async function walletStorage(options = {}) {
 }
 function statusWord(status) {
     return status === "usable" ? "usable now" : status === "notYet" ? "not started" : "ended";
-}
-/** Bytes for a person: binary units, two decimals, whole bytes below a KiB. */
-export function formatBytes(bytes) {
-    const units = ["KiB", "MiB", "GiB", "TiB"];
-    let value = bytes;
-    let unit = "B";
-    for (const next of units) {
-        if (value < 1024)
-            break;
-        value /= 1024;
-        unit = next;
-    }
-    return unit === "B" ? `${bytes} B` : `${value.toFixed(2)} ${unit}`;
 }

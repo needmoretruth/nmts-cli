@@ -7,7 +7,7 @@
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { MAINNET_WALRUS_PACKAGE_CONFIG, TESTNET_WALRUS_PACKAGE_CONFIG } from "@mysten/walrus";
 
-import type { StorageRead } from "./commands/wallet-storage.ts";
+import type { StorageRead } from "./storage-control/list.ts";
 import { extendReads } from "./extend-chain.ts";
 import type { Network } from "./network.ts";
 import { readOwnedStorage, readStorageType } from "./shared/lib/storage-control/chain.ts";

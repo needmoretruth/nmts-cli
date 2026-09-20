@@ -3,6 +3,13 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.40.0 — 2026-09-20
+
+- The library surface has a new entry, `@needmoretruth/nmts-cli/storage-control`: what `nmts extend`
+  and `nmts wallet storage` (the listing, `split`, `merge`, `transfer`) do, without the prompts or the
+  printing. The commands are unchanged: the same reviews, the same `--yes`, the same unlock, the same
+  exit codes. `nmts-sdk` 0.6.0 is built on it.
+
 ## 0.39.0 — 2026-09-20
 
 - The library surface has a new entry, `@needmoretruth/nmts-cli/drive-erase`: what `nmts erase` does,

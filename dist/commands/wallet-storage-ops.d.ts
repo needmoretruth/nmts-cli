@@ -1,7 +1,7 @@
 import { type Network } from "../network.ts";
-import { type StorageOpsReads } from "../storage-control-chain.ts";
+import { type StorageOp, type StorageOpsReads } from "../storage-control.ts";
 import type { SignStorageOp } from "../wallet-sign.ts";
-export type StorageOp = "split" | "merge" | "transfer";
+export type { StorageOp } from "../storage-control.ts";
 export interface StorageOpsOptions {
     server?: string | undefined;
     network?: string | undefined;

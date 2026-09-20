@@ -1,4 +1,4 @@
-import { type ExtendReads, type SignExtension } from "../extend-plan.ts";
+import type { ExtendReads, SignExtension } from "../extend-plan.ts";
 import type { StandingTipInput } from "../standing-tip.ts";
 export interface ExtendOptions {
     server?: string | undefined;
@@ -14,8 +14,8 @@ export interface ExtendOptions {
     /**
      * The chain reads.
      *
-     * ⚠ A SEAM, NOT AN OPTION — no flag reaches it. See `ExtendReads`: a test that talked to a live
-     *   storage network could not run offline and could never be asked to be at its own ceiling.
+     * ⚠ A SEAM, NOT AN OPTION — no flag reaches it. A test that talked to a live storage network
+     *   could not run offline and could never be asked to be at its own ceiling.
      */
     readChain?: (network: string) => Promise<ExtendReads> | ExtendReads;
     /**

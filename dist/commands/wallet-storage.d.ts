@@ -1,10 +1,7 @@
 import { type Network } from "../network.ts";
-import type { StorageResource } from "../shared/lib/storage-control/chain.ts";
-/** What the chain said: the resources, and which epoch it is (null when the clock could not be read). */
-export interface StorageRead {
-    items: readonly StorageResource[];
-    currentEpoch: number | null;
-}
+import { type StorageRead } from "../storage-control.ts";
+export type { StorageRead } from "../storage-control.ts";
+export { formatBytes } from "../storage-control.ts";
 export interface WalletStorageOptions {
     server?: string | undefined;
     network?: string | undefined;
@@ -14,5 +11,3 @@ export interface WalletStorageOptions {
     readStorage?: (network: Network, address: string) => Promise<StorageRead>;
 }
 export declare function walletStorage(options?: WalletStorageOptions): Promise<number>;
-/** Bytes for a person: binary units, two decimals, whole bytes below a KiB. */
-export declare function formatBytes(bytes: number): string;

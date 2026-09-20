@@ -1,6 +1,6 @@
 import { Transaction } from "@mysten/sui/transactions";
 import type { Network } from "./network.ts";
-import type { StorageRead } from "./commands/wallet-storage.ts";
+import type { StorageRead } from "./storage-control/list.ts";
 export type StorageOpShape = {
     kind: "splitSize";
     objectId: string;

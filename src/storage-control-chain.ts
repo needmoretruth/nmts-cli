@@ -18,7 +18,7 @@ import { Transaction } from "@mysten/sui/transactions";
 
 import { walrusClient, netGasFee } from "./extend-chain.ts";
 import type { Network } from "./network.ts";
-import type { StorageRead } from "./commands/wallet-storage.ts";
+import type { StorageRead } from "./storage-control/list.ts";
 import { splitStorageToFit } from "./shared/lib/storage-control/reuse.ts";
 
 export type StorageOpShape =
