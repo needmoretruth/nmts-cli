@@ -40,6 +40,28 @@ for the NMTS key: it asks nothing and works in a container. The NMTS key from `N
 readable through `docker inspect`, `/proc/<pid>/environ` and most CI logs, so that shape stops
 once, for an unlock (`nmts help login`).
 
+## What is built on it today
+
+Each of these works with what is published now. None of it is a plan.
+
+- **Storage for an agent.** Notes, datasets and build outputs that outlive a session or a machine,
+  encrypted before they leave it. This command does it, and so does [its MCP server](#if-your-client-speaks-mcp).
+- **Encrypted storage inside someone's product.** The [SDK](https://github.com/needmoretruth/nmts-sdk)
+  opens an NMTS account for each person who uses a product and keeps that person's files in it. The
+  NMTS key is held by the person (the product cannot read the files) or by the product
+  (`Nmts.managed`), and every SDK method works the same either way. The
+  [terms](https://nmts.me/terms) provide for it in 3.7, for commercial products too.
+- **An S3 endpoint.** `@needmoretruth/nmts-sdk/gateway` speaks S3 with a bucket and a key pair per
+  customer, so django-storages, Rails Active Storage, rclone and backup tools store into NMTS
+  unchanged.
+- **Files that come back without NMTS.** [nmts-recovery](https://github.com/needmoretruth/nmts-recovery)
+  rebuilds an account's files from Walrus with the NMTS key and the recovery list the person saved.
+  No NMTS server takes part.
+
+An account pays with credits or straight from its own wallet. From the wallet, WAL goes to Walrus
+and SUI to the chain, and NMTS takes no fee. NMTS does not inspect or certify products built with the SDK: who holds the
+keys in such a product is that product's own statement.
+
 ## What only a person can do, once
 
 Four things need a person, all at the beginning. If you are being set up, hand this list back in full at once.

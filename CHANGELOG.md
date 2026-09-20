@@ -3,6 +3,14 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.38.1 — 2026-09-20
+
+- The folder and trash functions behind `@needmoretruth/nmts-cli/drive-edit` no longer import
+  `node:crypto`, so a browser bundle that reaches them builds again; the browser entry of `nmts-sdk`
+  does. Nothing a command prints has changed.
+- `AGENTS.md` has a new section, "What is built on it today": storage for an agent, encrypted
+  storage inside a product through the SDK, the S3 endpoint, and recovery without NMTS.
+
 ## 0.38.0 — 2026-09-19
 
 - The library surface has a new entry, `@needmoretruth/nmts-cli/s3-gateway`: the S3 server `nmts s3`

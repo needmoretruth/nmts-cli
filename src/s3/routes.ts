@@ -1,0 +1,291 @@
+// Which answer an S3 request gets: the signature first, then the bucket, then the verb.
+//
+// ⛔ WHAT IS NOT ANSWERED IS REFUSED, LOUDLY. An S3 client that asks for something this gateway does
+//    not do gets 501 and a sentence naming what it does do. The alternative -- answering an empty
+//    listing, or a 200 with nothing behind it -- is how a backup tool reports success over a backup
+//    that never happened.
+
+import type { IncomingMessage, ServerResponse } from "node:http";
+
+import type { GatewayOptions } from "./contract.ts";
+import { listObjects, objectsOf, folderPrefixesOf, MAX_KEYS_LIMIT, type DriveObject } from "./listing.ts";
+import { handleMultipart, isMultipartRequest } from "./multipart.ts";
+import { responseSink } from "./response-sink.ts";
+import { isKeyConflict } from "./same-file.ts";
+import {
+  STREAMING_PAYLOAD,
+  STREAMING_PAYLOAD_TRAILER,
+  verifyAgainst,
+  type GatewayCredential,
+} from "./sigv4.ts";
+import { errorXml, listBucketsXml, listObjectsXml } from "./xml.ts";
+
+/**
+ * What a caller signed with a pair it may not use here.
+ *
+ * ⛔ THE SAME ANSWER WHETHER OR NOT THE BUCKET EXISTS, which is why the restriction is checked
+ *    before the resolver is asked. Answering `NoSuchBucket` for a name the caller may not touch
+ *    would turn this gateway into a way of asking "does this business have a customer called…",
+ *    one guess at a time.
+ */
+const NOT_YOURS = "That access key may not use that bucket.";
+
+export function fail(res: ServerResponse, status: number, code: string, message: string, resource: string): void {
+  const body = errorXml(code, message, resource);
+  res.writeHead(status, { "content-type": "application/xml", "content-length": String(Buffer.byteLength(body)) });
+  res.end(body);
+}
+
+/** `/drive/photos/a.jpg` → bucket `drive`, key `photos/a.jpg`. */
+function splitPath(pathname: string): { bucket: string; key: string } {
+  const trimmed = pathname.replace(/^\//, "");
+  const at = trimmed.indexOf("/");
+  if (at < 0) return { bucket: decodeURIComponent(trimmed), key: "" };
+  return { bucket: decodeURIComponent(trimmed.slice(0, at)), key: decodeURIComponent(trimmed.slice(at + 1)) };
+}
+
+function headerOf(req: IncomingMessage, name: string): string | undefined {
+  const raw = req.headers[name];
+  return Array.isArray(raw) ? raw.join(",") : raw;
+}
+
+/** The one sentence a write gets from `nmts s3` when this machine has not agreed to spending. */
+function readOnlyOnThisMachine(): string {
+  return (
+    "This gateway is read only. Uploading spends credits, and this machine has not agreed to " +
+    "spending — `nmts consent grant spend`, run by the person whose account this is, is what " +
+    "changes that. Nothing was written."
+  );
+}
+
+/** Whether the pair that signed is allowed anywhere near this bucket name. */
+function mayTouch(credential: GatewayCredential, bucket: string): boolean {
+  const only = credential.buckets;
+  return only === undefined || only.includes(bucket);
+}
+
+/** What `ListBuckets` says: what the gateway can name, narrowed to what this pair may touch. */
+async function bucketsFor(
+  options: GatewayOptions,
+  credential: GatewayCredential,
+): Promise<readonly string[]> {
+  const only = credential.buckets;
+  if (options.bucketNames === undefined) return only ?? [];
+  const named = await options.bucketNames();
+  return only === undefined ? named : named.filter((name) => only.includes(name));
+}
+
+function objectHeaders(object: DriveObject): Record<string, string> {
+  return {
+    "content-type": "application/octet-stream",
+    "last-modified": new Date(object.entry.updatedAt).toUTCString(),
+    etag: object.etag,
+    "accept-ranges": "none",
+  };
+}
+
+export async function handle(req: IncomingMessage, res: ServerResponse, options: GatewayOptions): Promise<void> {
+  const url = req.url ?? "/";
+  const at = url.indexOf("?");
+  const pathname = at < 0 ? url : url.slice(0, at);
+  const query = new URLSearchParams(at < 0 ? "" : url.slice(at + 1));
+  const method = (req.method ?? "GET").toUpperCase();
+
+  const verdict = verifyAgainst(
+    { method, url, headers: req.headers },
+    options.credentials,
+    options.now?.() ?? Date.now(),
+  );
+  if (!verdict.ok) {
+    fail(res, 403, verdict.code, verdict.message, pathname);
+    return;
+  }
+  const credential = verdict.credential;
+
+  const { bucket, key } = splitPath(pathname);
+
+  if (pathname === "/" && (method === "GET" || method === "HEAD")) {
+    const body = listBucketsXml(await bucketsFor(options, credential), new Date(0).toISOString());
+    res.writeHead(200, { "content-type": "application/xml", "content-length": String(Buffer.byteLength(body)) });
+    res.end(method === "HEAD" ? undefined : body);
+    return;
+  }
+
+  if (!mayTouch(credential, bucket)) {
+    fail(res, 403, "AccessDenied", NOT_YOURS, pathname);
+    return;
+  }
+
+  const source = await options.bucketOf(bucket);
+  if (source === null) {
+    fail(res, 404, "NoSuchBucket", `No bucket named ${bucket} is served here.`, pathname);
+    return;
+  }
+
+  // ⛔ MEASURED, NOT GUESSED: rclone's first act when copying a file is to create the bucket, and a
+  //    refusal here ends the copy before the upload is ever attempted. The bucket exists, so the
+  //    honest answer to "make it" is that it is made.
+  if (key === "" && method === "PUT") {
+    res.writeHead(200, { "content-length": "0" });
+    res.end();
+    return;
+  }
+
+  const entries = await source.entries();
+
+  if (key === "" && (method === "GET" || method === "HEAD")) {
+    const objects = objectsOf(entries);
+    const listing = listObjects(objects, folderPrefixesOf(entries), {
+      prefix: query.get("prefix") ?? "",
+      delimiter: query.get("delimiter") ?? "",
+      maxKeys: Number(query.get("max-keys") ?? MAX_KEYS_LIMIT) || MAX_KEYS_LIMIT,
+      after: query.get("continuation-token") ?? query.get("start-after") ?? query.get("marker"),
+    });
+    const body = listObjectsXml({
+      bucket,
+      prefix: query.get("prefix") ?? "",
+      delimiter: query.get("delimiter") ?? "",
+      maxKeys: Number(query.get("max-keys") ?? MAX_KEYS_LIMIT) || MAX_KEYS_LIMIT,
+      v2: query.get("list-type") === "2",
+      contents: listing.contents,
+      commonPrefixes: listing.commonPrefixes,
+      truncated: listing.truncated,
+      next: listing.next,
+      encodingType: query.get("encoding-type"),
+    });
+    res.writeHead(200, { "content-type": "application/xml", "content-length": String(Buffer.byteLength(body)) });
+    res.end(method === "HEAD" ? undefined : body);
+    options.log?.(`${method} list prefix=${query.get("prefix") ?? ""} → ${listing.contents.length} keys`);
+    return;
+  }
+
+  if (method === "HEAD" || method === "GET") {
+    const object = objectsOf(entries).find((o) => o.key === key);
+    if (object === undefined) {
+      fail(res, 404, "NoSuchKey", "This account's file list has no such file.", pathname);
+      return;
+    }
+    if (method === "HEAD") {
+      res.writeHead(200, { ...objectHeaders(object), "content-length": String(object.size) });
+      res.end();
+      options.log?.(`HEAD ${key}`);
+      return;
+    }
+    if (object.entry.dekWrapped === undefined) {
+      fail(res, 500, "InternalError", "That entry has no key in the file list.", pathname);
+      return;
+    }
+    const sink = responseSink(res, { headers: objectHeaders(object) });
+    try {
+      await source.fetch(object, sink);
+      options.log?.(`GET ${key} → ${object.size} bytes`);
+    } catch (error) {
+      await sink.abandon();
+      if (!res.headersSent) {
+        fail(res, 502, "InternalError", error instanceof Error ? error.message : String(error), pathname);
+      }
+      options.log?.(`GET ${key} → failed`);
+    }
+    return;
+  }
+
+  const writer = source.write;
+
+  // ⛔ WHETHER A TAKEN KEY IS A CONFLICT IS NOT DECIDED HERE.
+  //    It used to be, on the strength of the NAME alone, and both upload paths carried their own
+  //    copy of that check. The question is now about CONTENT — is the file arriving the file
+  //    already there — and it cannot be answered until the bytes have arrived, so it is answered
+  //    once, by the writer, at the point both paths meet. What reaches this layer is the verdict:
+  //    a writer that returns normally means the key now holds these bytes (whether it had to send
+  //    them or they were already there), and one that throws a conflict means something else is at
+  //    that key. ⭐ The status matters: 409 is a request the drive declined, 500 is a fault of ours.
+  const refuseConflict = (error: unknown): void => {
+    fail(res, 409, "InvalidRequest", error instanceof Error ? error.message : String(error), pathname);
+  };
+
+  if (isMultipartRequest(method, query) && key !== "") {
+    if (writer === undefined) {
+      fail(res, 501, "NotImplemented", options.readOnlyBecause ?? readOnlyOnThisMachine(), pathname);
+      return;
+    }
+    const handled = await handleMultipart({
+      req,
+      res,
+      bucket,
+      key,
+      method,
+      query,
+      writer,
+      payloadHash: /^[0-9a-f]{64}$/.test(verdict.payloadHash) ? verdict.payloadHash : null,
+      fail: (status, code, message) => fail(res, status, code, message, pathname),
+      ...(options.log === undefined ? {} : { log: options.log }),
+    });
+    if (handled) return;
+  }
+
+  if (method === "PUT" && key !== "") {
+    if (writer === undefined) {
+      fail(res, 501, "NotImplemented", options.readOnlyBecause ?? readOnlyOnThisMachine(), pathname);
+      return;
+    }
+    const declared = headerOf(req, "x-amz-content-sha256");
+    if (declared === STREAMING_PAYLOAD || declared === STREAMING_PAYLOAD_TRAILER) {
+      fail(
+        res,
+        501,
+        "NotImplemented",
+        "This gateway does not read chunk-signed uploads yet. Tell the client to send the body " +
+          "unsigned (the AWS CLI calls this --no-sign-payload on http endpoints; rclone already " +
+          "does it).",
+        pathname,
+      );
+      return;
+    }
+    const length = Number(headerOf(req, "content-length") ?? "");
+    if (!Number.isInteger(length) || length < 0) {
+      fail(res, 411, "MissingContentLength", "This gateway needs to know the size before it starts.", pathname);
+      return;
+    }
+    try {
+      await writer.put(key, req, length);
+    } catch (error) {
+      if (isKeyConflict(error)) {
+        refuseConflict(error);
+        return;
+      }
+      fail(res, 500, "InternalError", error instanceof Error ? error.message : String(error), pathname);
+      return;
+    }
+    res.writeHead(200, { "content-length": "0" });
+    res.end();
+    options.log?.(`PUT ${key} → ${length} bytes`);
+    return;
+  }
+
+  if (method === "DELETE" && key !== "") {
+    if (writer === undefined) {
+      fail(res, 501, "NotImplemented", options.readOnlyBecause ?? readOnlyOnThisMachine(), pathname);
+      return;
+    }
+    const object = objectsOf(entries).find((o) => o.key === key);
+    if (object === undefined) {
+      // S3 answers 204 for a key that is not there, and clients rely on it: a sync that deletes
+      // the same key twice must not fail the second time.
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+    try {
+      await writer.trash(object);
+    } catch (error) {
+      fail(res, 500, "InternalError", error instanceof Error ? error.message : String(error), pathname);
+      return;
+    }
+    res.writeHead(204);
+    res.end();
+    options.log?.(`DELETE ${key} → trash`);
+    return;
+  }
+
+  fail(res, 501, "NotImplemented", `This gateway does not answer ${method} on that address.`, pathname);
+}
