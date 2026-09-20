@@ -13,6 +13,7 @@
 import { adviseFor } from "./api-advice.js";
 import { NmtsError } from "./errors.js";
 import { isTransient, keepTrying } from "./net-retry.js";
+import { reachFetch } from "./reach.js";
 import { noteRequest } from "./run-log.js";
 /** Default deadline for a request that is not moving file bytes. */
 export const DEFAULT_TIMEOUT_MS = 30_000;
@@ -109,7 +110,7 @@ async function once(base, path, options) {
         const init = { method, headers, signal: controller.signal };
         if (body !== undefined)
             init.body = JSON.stringify(body);
-        response = await fetch(`${base}${path}`, init);
+        response = await reachFetch(`${base}${path}`, init);
     }
     catch (error) {
         // ⛔ The cause is named, not swallowed: "fetch failed" alone sends an agent looking at its own

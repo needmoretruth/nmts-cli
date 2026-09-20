@@ -1,6 +1,8 @@
 export { forgetHost, host, hostIsRegistered, registerHost } from "./host.ts";
 export type { EngineHost, Host, HostName, StateHost, ZstdHost } from "./host.ts";
 export { hostContract } from "./host-contract.ts";
+export { forgetReach, reach, reachFetch, useReach } from "./reach.ts";
+export type { Reach } from "./reach.ts";
 export { concat, fromBase64Url, fromUtf8, toBase64Url, utf8 } from "./bytes.ts";
 export { setZstdCodec, zstdCodec, zstdContentSize } from "./shared/lib/drive/zstd.ts";
 export type { ZstdCodec } from "./shared/lib/drive/zstd.ts";
@@ -46,6 +48,7 @@ export { fetchFile, fetchWithKey } from "./download.ts";
 export type { FetchedFile, FetchInput } from "./download.ts";
 export type { PlaintextSink } from "./download-sink.ts";
 export { AGGREGATOR_ENV_VAR, readBlob, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./walrus.ts";
+export { relayHost, storageNodesThrough, suiRpcHosts } from "./walrus.ts";
 export type { ReadOptions } from "./walrus.ts";
 export { coinAmount, readBalances, walCoinType, walletAddress } from "./wallet.ts";
 export type { ChainReader, CoinBalance, WalletBalances } from "./wallet.ts";

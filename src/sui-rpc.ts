@@ -10,6 +10,7 @@
 //    429 — is an answer, and asking a different node the same question gets the same one.
 import { JsonRpcHTTPTransport } from "@mysten/sui/jsonRpc";
 
+import { reachFetch } from "./reach.ts";
 import { suiRpcHosts } from "./walrus.ts";
 
 /** HTTP statuses that mean "no answer came", the only ones worth asking a second node about. */
@@ -43,7 +44,7 @@ export function suiRpcTransport(network: string): JsonRpcHTTPTransport {
       const host = hosts[index];
       if (host === undefined) continue;
       try {
-        const res = await fetch(new URL(asked.pathname + asked.search, host), init);
+        const res = await reachFetch(new URL(asked.pathname + asked.search, host), init);
         if (worthAnotherHost(res.status) && step < hosts.length - 1) {
           lastError = new Error(`${host} answered ${res.status}`);
           continue;

@@ -24,6 +24,7 @@ import { epochClock } from "./expiry.ts";
 import type { BlobLease, ExtendReads, ExtendWindow } from "./extend-plan.ts";
 import { isRecord } from "./guards.ts";
 import { epochStartedMs } from "./walrus-write.ts";
+import { storageNodesThrough } from "./walrus.ts";
 import { suiRpcTransport } from "./sui-rpc.ts";
 import { readBalances, walCoinType, type WalletBalances } from "./wallet.ts";
 import { chainReader } from "./wallet-chain.ts";
@@ -47,7 +48,7 @@ function build(network: string) {
   return new SuiJsonRpcClient({
     network: network === "mainnet" ? "mainnet" : "testnet",
     transport: suiRpcTransport(network),
-  }).$extend(walrus({}));
+  }).$extend(walrus(storageNodesThrough()));
 }
 
 /** A number off the wire, whether it arrived as a number or as one of Sui's 64-bit strings. */

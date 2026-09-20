@@ -21,6 +21,7 @@ import { NmtsError } from "./errors.js";
 import { epochClock } from "./expiry.js";
 import { isRecord } from "./guards.js";
 import { epochStartedMs } from "./walrus-write.js";
+import { storageNodesThrough } from "./walrus.js";
 import { suiRpcTransport } from "./sui-rpc.js";
 import { readBalances, walCoinType } from "./wallet.js";
 import { chainReader } from "./wallet-chain.js";
@@ -41,7 +42,7 @@ function build(network) {
     return new SuiJsonRpcClient({
         network: network === "mainnet" ? "mainnet" : "testnet",
         transport: suiRpcTransport(network),
-    }).$extend(walrus({}));
+    }).$extend(walrus(storageNodesThrough()));
 }
 /** A number off the wire, whether it arrived as a number or as one of Sui's 64-bit strings. */
 function numberOf(value) {

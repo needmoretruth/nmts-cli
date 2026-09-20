@@ -14,6 +14,7 @@
 import { adviseFor } from "./api-advice.ts";
 import { NmtsError } from "./errors.ts";
 import { isTransient, keepTrying, type WaitReporter } from "./net-retry.ts";
+import { reachFetch } from "./reach.ts";
 import { noteRequest } from "./run-log.ts";
 
 /** Default deadline for a request that is not moving file bytes. */
@@ -212,7 +213,7 @@ async function once(base: string, path: string, options: RequestOptions): Promis
     //    request as a GET with no body at all.
     const init: RequestInit = { method, headers, signal: controller.signal };
     if (body !== undefined) init.body = JSON.stringify(body);
-    response = await fetch(`${base}${path}`, init);
+    response = await reachFetch(`${base}${path}`, init);
   } catch (error) {
     // ⛔ The cause is named, not swallowed: "fetch failed" alone sends an agent looking at its own
     //    code. A timeout and a refused connection are different problems with different fixes.

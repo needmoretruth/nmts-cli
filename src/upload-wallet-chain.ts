@@ -33,8 +33,10 @@ import { fromBase64Url } from "./bytes.ts";
 import { NmtsError } from "./errors.ts";
 import { extendReads, netGasFee, readBlobLease } from "./extend-chain.ts";
 import type { Network } from "./network.ts";
+import { reachFetch } from "./reach.ts";
 import { readOwnedStorage, readStorageType, type StorageResource } from "./shared/lib/storage-control/chain.ts";
 import { registerIntoStorage, splitStorageToFit } from "./shared/lib/storage-control/reuse.ts";
+import { storageNodesThrough } from "./walrus.ts";
 import { suiRpcTransport } from "./sui-rpc.ts";
 import type { PartQuote, RegisterShape, WalletUploadReads } from "./upload-wallet-plan.ts";
 import type { Certificate } from "./upload-wire.ts";
@@ -61,7 +63,10 @@ export function packageConfig(network: Network): { systemObjectId: string } {
 
 function build(network: Network, relayUrl: string) {
   return new SuiJsonRpcClient({ network, transport: suiRpcTransport(network) }).$extend(
-    walrus({ uploadRelay: { host: relayUrl, sendTip: { max: RELAY_TIP_CEILING_MIST[network] } } }),
+    walrus({
+      ...storageNodesThrough(),
+      uploadRelay: { host: relayUrl, sendTip: { max: RELAY_TIP_CEILING_MIST[network] }, fetch: reachFetch },
+    }),
   );
 }
 

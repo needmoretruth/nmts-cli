@@ -22,6 +22,12 @@ export { forgetHost, host, hostIsRegistered, registerHost } from "./host.ts";
 export type { EngineHost, Host, HostName, StateHost, ZstdHost } from "./host.ts";
 export { hostContract } from "./host-contract.ts";
 
+// Where a caller says this client talks, and what it talks through — the addresses the
+// command-line tool takes from its environment, and the one `fetch` every request here goes
+// through. A library's caller has no environment to write, so this is how it says the same things.
+export { forgetReach, reach, reachFetch, useReach } from "./reach.ts";
+export type { Reach } from "./reach.ts";
+
 // Bytes to text and back, in the two spellings the format uses.
 export { concat, fromBase64Url, fromUtf8, toBase64Url, utf8 } from "./bytes.ts";
 
@@ -137,6 +143,10 @@ export { fetchFile, fetchWithKey } from "./download.ts";
 export type { FetchedFile, FetchInput } from "./download.ts";
 export type { PlaintextSink } from "./download-sink.ts";
 export { AGGREGATOR_ENV_VAR, readBlob, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./walrus.ts";
+// ⛔ THE THREE ADDRESS ANSWERS, so that a caller — and a test — can ask what this client WILL talk
+//    to rather than finding out from a request that went somewhere else. Each reads what the
+//    caller said first, then the environment, then the network's own.
+export { relayHost, storageNodesThrough, suiRpcHosts } from "./walrus.ts";
 export type { ReadOptions } from "./walrus.ts";
 
 // The wallet the NMTS key derives: reading it, and signing with it.

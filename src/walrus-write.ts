@@ -19,7 +19,8 @@ import { epochStartedMs as readEpochStart } from "./shared/lib/extend/epochs.ts"
 import { NmtsError } from "./errors.ts";
 import type { BlobMeta, BlobProtocol, Certificate } from "./upload-wire.ts";
 import { countingFetch } from "./progress.ts";
-import { relayHost } from "./walrus.ts";
+import { reachFetch } from "./reach.ts";
+import { relayHost, storageNodesThrough } from "./walrus.ts";
 import { suiRpcTransport } from "./sui-rpc.ts";
 
 /**
@@ -63,6 +64,7 @@ function extend(
   });
   return base.$extend(
     walrus({
+      ...storageNodesThrough(),
       uploadRelay: {
         host: relayUrl,
         sendTip: { max: TIP_CEILING_UNUSED_MIST },
@@ -71,7 +73,10 @@ function extend(
         //    PUT is the one step of an upload that takes real time — a person watching a large
         //    file with no feedback cannot tell a slow upload from a hung one, and neither can an
         //    agent deciding whether to give up.
-        ...(onSent ? { fetch: countingFetch(onSent) } : {}),
+        //
+        // ⛔ AND EITHER WAY IT IS THE CALLER'S `fetch`: the counting wrapper goes through it too,
+        //    so the request that carries the file cannot be the one that misses a proxy.
+        fetch: onSent ? countingFetch(onSent) : reachFetch,
       },
     }),
   );
@@ -152,7 +157,7 @@ export async function readCurrentEpoch(network: string): Promise<number | null> 
     const base = new SuiJsonRpcClient({
       network: network === "mainnet" ? "mainnet" : "testnet",
       transport: suiRpcTransport(network),
-    }).$extend(walrus({}));
+    }).$extend(walrus(storageNodesThrough()));
     // The epoch lives on the COMMITTEE, not beside it: the system state describes capacity and
     // the deny lists as well, and only the committee is stamped with which epoch it serves.
     const state = await base.walrus.systemState();
@@ -183,7 +188,7 @@ export async function readEpochWindow(network: string): Promise<EpochClock | nul
     const base = new SuiJsonRpcClient({
       network: network === "mainnet" ? "mainnet" : "testnet",
       transport: suiRpcTransport(network),
-    }).$extend(walrus({}));
+    }).$extend(walrus(storageNodesThrough()));
     const [system, staking] = await Promise.all([base.walrus.systemState(), base.walrus.stakingState()]);
     // Both numbers can arrive as strings — Sui reports 64-bit values that way — so they are
     // converted here and the constructor below refuses whatever did not survive it.

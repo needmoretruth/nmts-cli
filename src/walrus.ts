@@ -13,6 +13,7 @@
 import { AGGREGATOR_ENV_VAR, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./env-vars.ts";
 import { NmtsError } from "./errors.ts";
 import { host as runtime } from "./host.ts";
+import { reach, reachFetch } from "./reach.ts";
 
 /** Curated Walrus aggregator (read) endpoints per network, preference order. */
 export const AGGREGATOR_HOSTS: Readonly<Record<string, readonly string[]>> = {
@@ -61,9 +62,16 @@ export const READ_TIMEOUT_MS = 60_000;
 // imports, because `nmts --help` prints them (`env-vars.ts`).
 export { AGGREGATOR_ENV_VAR, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./env-vars.ts";
 
-/** The relay this run writes through: the environment's if it named one, else the network's. */
+/**
+ * The relay this run writes through: the caller's if it named one, then the environment's, then
+ * the network's.
+ *
+ * ⛔ THE CALLER COMES FIRST AND IS READ ON EVERY HOST. A library's caller has no environment to
+ *    write, and until this order existed the `relay` option was answered by the browser host alone
+ *    — so a program on a server named a relay and its bytes went to the public one, silently.
+ */
 export function relayHost(network: string): string {
-  const named = runtime().env(RELAY_ENV_VAR)?.trim();
+  const named = reach().relay?.trim() || runtime().env(RELAY_ENV_VAR)?.trim();
   if (named) return named;
   const known = RELAY_HOSTS[network]?.[0];
   if (known === undefined) {
@@ -75,14 +83,20 @@ export function relayHost(network: string): string {
 }
 
 /**
- * Every Sui JSON-RPC node this run may ask, in order.
+ * Every Sui JSON-RPC node this run may ask, in order: the caller's list if it named one, then the
+ * environment's, then the network's.
  *
- * ⛔ Naming one in the environment REPLACES the list rather than adding to it — the same rule the
- *    aggregator override follows, and for the same reason: somebody who names a node is saying
- *    *that one*, and quietly reaching a public mirror instead would send their traffic somewhere
- *    they did not choose.
+ * ⛔ Naming nodes REPLACES the list rather than adding to it — the same rule the aggregator
+ *    override follows, and for the same reason: somebody who names a node is saying *those*, and
+ *    quietly reaching a public mirror instead would send their traffic somewhere they did not
+ *    choose.
+ *
+ * ⚠ THE CALLER MAY NAME SEVERAL AND A VARIABLE MAY NAME ONE. The failover below is the same
+ *   either way; a single name is a list of one.
  */
 export function suiRpcHosts(network: string): readonly string[] {
+  const asked = reach().suiRpc?.map((h) => h.trim()).filter((h) => h !== "");
+  if (asked !== undefined && asked.length > 0) return asked;
   const named = runtime().env(SUI_RPC_ENV_VAR)?.trim();
   if (named) return [named];
   const hosts = SUI_RPC_HOSTS[network];
@@ -97,6 +111,21 @@ export function suiRpcHosts(network: string): readonly string[] {
 /** The node whose address gets RECORDED — the first one, since that is the one normally asked. */
 export function suiRpcHost(network: string): string {
   return suiRpcHosts(network)[0] ?? "";
+}
+
+/**
+ * What a storage-network client talks to the storage nodes through, spread into its options.
+ *
+ * ⚠ THIS TOOL DOES NOT NORMALLY REACH A STORAGE NODE — it writes through an upload relay and reads
+ *   through an aggregator. The option is filled anyway, because the one path that fell back to a
+ *   node directly would be a request going round whatever the caller asked every request to go
+ *   through, and the whole worth of that option is that there is no exception to it.
+ *
+ * ⛔ HERE RATHER THAN IN EACH CLIENT. Five of them are built in this package; five copies of the
+ *    same line is five places for the sixth to be forgotten.
+ */
+export function storageNodesThrough(): { storageNodeClientOptions: { fetch: typeof fetch } } {
+  return { storageNodeClientOptions: { fetch: reachFetch } };
 }
 
 
@@ -123,8 +152,18 @@ export interface ReadOptions {
   range?: { start: number; end: number };
 }
 
+/**
+ * Which aggregators this read may ask, in order: the ones this call named, then the ones the
+ * caller named for the client, then the environment's, then the network's.
+ *
+ * ⚠ THE CLIENT'S CHOICE IS NEW HERE. A caller that named aggregators used to be honoured only on
+ *   the reads that carry a host list down as an argument; the rest of the package quietly went to
+ *   the public ones, which is the same defect `relay` had.
+ */
 function hostsFor(network: string, options: ReadOptions): readonly string[] {
   if (options.hosts !== undefined && options.hosts.length > 0) return options.hosts;
+  const asked = reach().aggregators;
+  if (asked !== undefined && asked.length > 0) return asked;
   const chosen = fromEnvironment();
   if (chosen !== null) return chosen;
   const known = AGGREGATOR_HOSTS[network];
@@ -158,7 +197,7 @@ async function readFrom(
     const signal =
       options.signal === undefined ? timer : AbortSignal.any([timer, options.signal]);
     try {
-      const response = await fetch(url, { signal, redirect: "follow", ...headersFor(options) });
+      const response = await reachFetch(url, { signal, redirect: "follow", ...headersFor(options) });
       if (!response.ok) {
         tried.push(`${host} → ${response.status}`);
         continue;

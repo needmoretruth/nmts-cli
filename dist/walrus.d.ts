@@ -29,19 +29,46 @@ export declare const SUI_RPC_HOSTS: Readonly<Record<string, readonly string[]>>;
 /** How long one host gets before the next is tried. A read that stalls is a read that failed. */
 export declare const READ_TIMEOUT_MS = 60000;
 export { AGGREGATOR_ENV_VAR, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./env-vars.ts";
-/** The relay this run writes through: the environment's if it named one, else the network's. */
+/**
+ * The relay this run writes through: the caller's if it named one, then the environment's, then
+ * the network's.
+ *
+ * ⛔ THE CALLER COMES FIRST AND IS READ ON EVERY HOST. A library's caller has no environment to
+ *    write, and until this order existed the `relay` option was answered by the browser host alone
+ *    — so a program on a server named a relay and its bytes went to the public one, silently.
+ */
 export declare function relayHost(network: string): string;
 /**
- * Every Sui JSON-RPC node this run may ask, in order.
+ * Every Sui JSON-RPC node this run may ask, in order: the caller's list if it named one, then the
+ * environment's, then the network's.
  *
- * ⛔ Naming one in the environment REPLACES the list rather than adding to it — the same rule the
- *    aggregator override follows, and for the same reason: somebody who names a node is saying
- *    *that one*, and quietly reaching a public mirror instead would send their traffic somewhere
- *    they did not choose.
+ * ⛔ Naming nodes REPLACES the list rather than adding to it — the same rule the aggregator
+ *    override follows, and for the same reason: somebody who names a node is saying *those*, and
+ *    quietly reaching a public mirror instead would send their traffic somewhere they did not
+ *    choose.
+ *
+ * ⚠ THE CALLER MAY NAME SEVERAL AND A VARIABLE MAY NAME ONE. The failover below is the same
+ *   either way; a single name is a list of one.
  */
 export declare function suiRpcHosts(network: string): readonly string[];
 /** The node whose address gets RECORDED — the first one, since that is the one normally asked. */
 export declare function suiRpcHost(network: string): string;
+/**
+ * What a storage-network client talks to the storage nodes through, spread into its options.
+ *
+ * ⚠ THIS TOOL DOES NOT NORMALLY REACH A STORAGE NODE — it writes through an upload relay and reads
+ *   through an aggregator. The option is filled anyway, because the one path that fell back to a
+ *   node directly would be a request going round whatever the caller asked every request to go
+ *   through, and the whole worth of that option is that there is no exception to it.
+ *
+ * ⛔ HERE RATHER THAN IN EACH CLIENT. Five of them are built in this package; five copies of the
+ *    same line is five places for the sixth to be forgotten.
+ */
+export declare function storageNodesThrough(): {
+    storageNodeClientOptions: {
+        fetch: typeof fetch;
+    };
+};
 export interface ReadOptions {
     /** Override the host list — for a development stack, or an aggregator somebody runs themselves. */
     hosts?: readonly string[];

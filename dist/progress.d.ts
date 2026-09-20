@@ -32,5 +32,9 @@ export declare class Progress {
  *
  * ⚠ `duplex: "half"` is required by the fetch specification for a streaming body and Node enforces
  *   it. Without it the request throws before a single byte is sent.
+ *
+ * ⛔ IT WRAPS `reachFetch`, NOT THE GLOBAL. Counting the bytes must not be a way around the
+ *    function a caller asked every request to go through — this is the one request in an upload
+ *    that carries the file.
  */
 export declare function countingFetch(onSent: (sent: number, total: number) => void, chunkBytes?: number): (url: RequestInfo, init?: RequestInit) => Promise<Response>;

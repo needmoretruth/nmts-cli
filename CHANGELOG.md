@@ -3,6 +3,13 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.42.0 — 2026-09-20
+
+- Nothing changes for the `nmts` command. The library surface gains one seam for programs built on
+  it: a caller can name the upload relay, the Sui nodes and the aggregators, and hand over the
+  `fetch` function every request goes through (`@needmoretruth/nmts-cli/portable`: `useReach`). The
+  command reads its addresses from the environment as before and sets none of it.
+
 ## 0.41.0 — 2026-09-20
 
 - **Wallet login.** `nmts login --wallet --sui-key-file <file>` signs in with a Sui wallet, and

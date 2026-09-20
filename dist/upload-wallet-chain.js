@@ -24,8 +24,10 @@ import { blobIdFromInt, blobIdToInt, MAINNET_WALRUS_PACKAGE_CONFIG, TESTNET_WALR
 import { fromBase64Url } from "./bytes.js";
 import { NmtsError } from "./errors.js";
 import { extendReads, netGasFee, readBlobLease } from "./extend-chain.js";
+import { reachFetch } from "./reach.js";
 import { readOwnedStorage, readStorageType } from "./shared/lib/storage-control/chain.js";
 import { registerIntoStorage, splitStorageToFit } from "./shared/lib/storage-control/reuse.js";
+import { storageNodesThrough } from "./walrus.js";
 import { suiRpcTransport } from "./sui-rpc.js";
 import { readBalances, walCoinType } from "./wallet.js";
 import { chainReader } from "./wallet-chain.js";
@@ -46,7 +48,10 @@ export function packageConfig(network) {
     return network === "mainnet" ? MAINNET_WALRUS_PACKAGE_CONFIG : TESTNET_WALRUS_PACKAGE_CONFIG;
 }
 function build(network, relayUrl) {
-    return new SuiJsonRpcClient({ network, transport: suiRpcTransport(network) }).$extend(walrus({ uploadRelay: { host: relayUrl, sendTip: { max: RELAY_TIP_CEILING_MIST[network] } } }));
+    return new SuiJsonRpcClient({ network, transport: suiRpcTransport(network) }).$extend(walrus({
+        ...storageNodesThrough(),
+        uploadRelay: { host: relayUrl, sendTip: { max: RELAY_TIP_CEILING_MIST[network] }, fetch: reachFetch },
+    }));
 }
 /** A Walrus client bound to ONE relay, able to pay that relay's tip. */
 export function payingClient(network, relayUrl) {

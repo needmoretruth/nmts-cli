@@ -11,6 +11,7 @@
 // ⛔ THE TERMINAL SINK IS NOT HERE. Writing to a real stderr is Node's, so it is in
 //    `progress-node.ts`; what is left runs in a page, where the same reporter drives a caller's
 //    own `onProgress`.
+import { reachFetch } from "./reach.js";
 /** A reporter that says nothing. What `--json` gets, and what a test gets by default. */
 export function silentSink() {
     return { write: () => { }, interactive: false };
@@ -71,12 +72,16 @@ export class Progress {
  *
  * ⚠ `duplex: "half"` is required by the fetch specification for a streaming body and Node enforces
  *   it. Without it the request throws before a single byte is sent.
+ *
+ * ⛔ IT WRAPS `reachFetch`, NOT THE GLOBAL. Counting the bytes must not be a way around the
+ *    function a caller asked every request to go through — this is the one request in an upload
+ *    that carries the file.
  */
 export function countingFetch(onSent, chunkBytes = 256 * 1024) {
     return async (url, init) => {
         const body = init?.body;
         if (!(body instanceof Uint8Array))
-            return fetch(url, init);
+            return reachFetch(url, init);
         const total = body.length;
         let sent = 0;
         const stream = new ReadableStream({
@@ -101,6 +106,6 @@ export function countingFetch(onSent, chunkBytes = 256 * 1024) {
         if (!headers.has("content-length"))
             headers.set("content-length", String(total));
         next.headers = headers;
-        return fetch(url, next);
+        return reachFetch(url, next);
     };
 }

@@ -19,6 +19,10 @@
 // The host every module below reaches for. A program that imported this entry point registers one.
 export { forgetHost, host, hostIsRegistered, registerHost } from "./host.js";
 export { hostContract } from "./host-contract.js";
+// Where a caller says this client talks, and what it talks through — the addresses the
+// command-line tool takes from its environment, and the one `fetch` every request here goes
+// through. A library's caller has no environment to write, so this is how it says the same things.
+export { forgetReach, reach, reachFetch, useReach } from "./reach.js";
 // Bytes to text and back, in the two spellings the format uses.
 export { concat, fromBase64Url, fromUtf8, toBase64Url, utf8 } from "./bytes.js";
 // The file-list codec's zstd register (NCF-3 §6.3.4). A host fills it with the encoder its runtime
@@ -66,6 +70,10 @@ export { DEFAULT_UPLOAD_EPOCHS } from "./upload-wallet-plan.js";
 // Downloading: fetching sealed parts from the storage network and opening them here.
 export { fetchFile, fetchWithKey } from "./download.js";
 export { AGGREGATOR_ENV_VAR, readBlob, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./walrus.js";
+// ⛔ THE THREE ADDRESS ANSWERS, so that a caller — and a test — can ask what this client WILL talk
+//    to rather than finding out from a request that went somewhere else. Each reads what the
+//    caller said first, then the environment, then the network's own.
+export { relayHost, storageNodesThrough, suiRpcHosts } from "./walrus.js";
 // The wallet the NMTS key derives: reading it, and signing with it.
 export { coinAmount, readBalances, walCoinType, walletAddress } from "./wallet.js";
 export { chainReader } from "./wallet-chain.js";

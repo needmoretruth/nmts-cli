@@ -12,6 +12,8 @@
 //    `progress-node.ts`; what is left runs in a page, where the same reporter drives a caller's
 //    own `onProgress`.
 
+import { reachFetch } from "./reach.ts";
+
 /** Where a report goes. Split out so a test can drive it without a terminal. */
 export interface ProgressSink {
   write(text: string): void;
@@ -82,6 +84,10 @@ export class Progress {
  *
  * ⚠ `duplex: "half"` is required by the fetch specification for a streaming body and Node enforces
  *   it. Without it the request throws before a single byte is sent.
+ *
+ * ⛔ IT WRAPS `reachFetch`, NOT THE GLOBAL. Counting the bytes must not be a way around the
+ *    function a caller asked every request to go through — this is the one request in an upload
+ *    that carries the file.
  */
 export function countingFetch(
   onSent: (sent: number, total: number) => void,
@@ -89,7 +95,7 @@ export function countingFetch(
 ): (url: RequestInfo, init?: RequestInit) => Promise<Response> {
   return async (url, init) => {
     const body = init?.body;
-    if (!(body instanceof Uint8Array)) return fetch(url as string, init);
+    if (!(body instanceof Uint8Array)) return reachFetch(url, init);
     const total = body.length;
     let sent = 0;
     const stream = new ReadableStream<Uint8Array>({
@@ -113,6 +119,6 @@ export function countingFetch(
     const headers = new Headers(init?.headers);
     if (!headers.has("content-length")) headers.set("content-length", String(total));
     next.headers = headers;
-    return fetch(url as string, next);
+    return reachFetch(url, next);
   };
 }
