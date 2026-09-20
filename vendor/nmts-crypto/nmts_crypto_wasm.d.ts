@@ -254,6 +254,56 @@ export function header_plaintext_len(header: Uint8Array): number;
 export function kdf_derive(code_bytes: Uint8Array): Uint8Array;
 
 /**
+ * The 16-byte LOCATOR a wallet signature yields — the name the server files this opener's slot
+ * under, and the name a sign-in asks for it back by (NCF-3 §1.7).
+ *
+ * Accepts flag `0x00` Ed25519 (97 bytes), `0x01` secp256k1 and `0x02` secp256r1 (98). Refuses
+ * `0x03` multisig, `0x05` zkLogin, `0x06` passkey, any other flag, and an accepted flag at the
+ * wrong length — each with its own message, because the caller has to tell a person which one it
+ * was and what to do instead.
+ *
+ * ⚠ It does NOT verify the signature. Checking it against the address in the message is the
+ * caller's step, with the Sui library.
+ */
+export function opener_locator(serialized_signature: Uint8Array): Uint8Array;
+
+/**
+ * The EXACT bytes a Sui wallet is asked to sign to open an NMTS account (NCF-3 §1.7). LF endings,
+ * no trailing newline, ASCII.
+ *
+ * ⛔ Built HERE rather than in JavaScript, and that is why this export exists at all: the browser,
+ * the command line and the recovery tool must ask for the same bytes, and one character of drift
+ * between them is a slot that no longer opens. One implementation, one message.
+ *
+ * Throws when `address` is not `0x` + 64 LOWERCASE hex, when `account` is 0, or when `app` is not
+ * 1–64 characters of `a-z0-9.-` starting and ending alphanumeric — and never repairs any of them,
+ * because all three are inside the bytes a person reads in the wallet popup.
+ */
+export function opener_message(address: string, account: number, app?: string | null): Uint8Array;
+
+/**
+ * The 20 NMTS-KEY bytes inside `slot`, opened with this wallet's signature (NCF-3 §1.7).
+ *
+ * Throws with a named reason for a slot of the wrong length or an unknown version, and with one
+ * indistinguishable "this signature does not open this slot" for a different wallet, a different
+ * message or altered bytes — telling those three apart would tell somebody holding a fetched slot
+ * whether their guess was getting warmer.
+ *
+ * ⛔ What comes back IS the account. The caller hands it straight to the sign-in path and drops
+ * it; it is never sent anywhere and never logged.
+ */
+export function opener_open(serialized_signature: Uint8Array, slot: Uint8Array): Uint8Array;
+
+/**
+ * The 62-byte SLOT holding `nmts_key` (the account's 20 key bytes) under this wallet's signature
+ * (NCF-3 §1.7): `version(1) || kind(1) || nonce(24) || XChaCha20-Poly1305(20 + 16)`.
+ *
+ * The nonce is drawn here from the browser's WebCrypto; there is no caller-nonce path in this
+ * build. The result is what goes to the server, and the server can do nothing with it.
+ */
+export function opener_seal(serialized_signature: Uint8Array, nmts_key: Uint8Array): Uint8Array;
+
+/**
  * The name this account's recovery manifest is stored under inside a quilt (NCF-3 §2.5).
  *
  * Public, and deliberately not secret-looking: it is a v4-shaped UUID exactly like the random
@@ -457,6 +507,10 @@ export interface InitOutput {
     readonly verify_part_set: (a: number, b: number) => [number, number];
     readonly voucher_hash_from_input: (a: number, b: number) => [number, number];
     readonly wallet_seed_for: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly opener_locator: (a: number, b: number) => [number, number, number, number];
+    readonly opener_message: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+    readonly opener_open: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly opener_seal: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;

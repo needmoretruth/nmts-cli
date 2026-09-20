@@ -600,6 +600,114 @@ export function kdf_derive(code_bytes) {
 }
 
 /**
+ * The 16-byte LOCATOR a wallet signature yields — the name the server files this opener's slot
+ * under, and the name a sign-in asks for it back by (NCF-3 §1.7).
+ *
+ * Accepts flag `0x00` Ed25519 (97 bytes), `0x01` secp256k1 and `0x02` secp256r1 (98). Refuses
+ * `0x03` multisig, `0x05` zkLogin, `0x06` passkey, any other flag, and an accepted flag at the
+ * wrong length — each with its own message, because the caller has to tell a person which one it
+ * was and what to do instead.
+ *
+ * ⚠ It does NOT verify the signature. Checking it against the address in the message is the
+ * caller's step, with the Sui library.
+ * @param {Uint8Array} serialized_signature
+ * @returns {Uint8Array}
+ */
+export function opener_locator(serialized_signature) {
+    const ptr0 = passArray8ToWasm0(serialized_signature, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.opener_locator(ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
+ * The EXACT bytes a Sui wallet is asked to sign to open an NMTS account (NCF-3 §1.7). LF endings,
+ * no trailing newline, ASCII.
+ *
+ * ⛔ Built HERE rather than in JavaScript, and that is why this export exists at all: the browser,
+ * the command line and the recovery tool must ask for the same bytes, and one character of drift
+ * between them is a slot that no longer opens. One implementation, one message.
+ *
+ * Throws when `address` is not `0x` + 64 LOWERCASE hex, when `account` is 0, or when `app` is not
+ * 1–64 characters of `a-z0-9.-` starting and ending alphanumeric — and never repairs any of them,
+ * because all three are inside the bytes a person reads in the wallet popup.
+ * @param {string} address
+ * @param {number} account
+ * @param {string | null} [app]
+ * @returns {Uint8Array}
+ */
+export function opener_message(address, account, app) {
+    const ptr0 = passStringToWasm0(address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(app) ? 0 : passStringToWasm0(app, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    const ret = wasm.opener_message(ptr0, len0, account, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v3 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v3;
+}
+
+/**
+ * The 20 NMTS-KEY bytes inside `slot`, opened with this wallet's signature (NCF-3 §1.7).
+ *
+ * Throws with a named reason for a slot of the wrong length or an unknown version, and with one
+ * indistinguishable "this signature does not open this slot" for a different wallet, a different
+ * message or altered bytes — telling those three apart would tell somebody holding a fetched slot
+ * whether their guess was getting warmer.
+ *
+ * ⛔ What comes back IS the account. The caller hands it straight to the sign-in path and drops
+ * it; it is never sent anywhere and never logged.
+ * @param {Uint8Array} serialized_signature
+ * @param {Uint8Array} slot
+ * @returns {Uint8Array}
+ */
+export function opener_open(serialized_signature, slot) {
+    const ptr0 = passArray8ToWasm0(serialized_signature, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(slot, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.opener_open(ptr0, len0, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v3 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v3;
+}
+
+/**
+ * The 62-byte SLOT holding `nmts_key` (the account's 20 key bytes) under this wallet's signature
+ * (NCF-3 §1.7): `version(1) || kind(1) || nonce(24) || XChaCha20-Poly1305(20 + 16)`.
+ *
+ * The nonce is drawn here from the browser's WebCrypto; there is no caller-nonce path in this
+ * build. The result is what goes to the server, and the server can do nothing with it.
+ * @param {Uint8Array} serialized_signature
+ * @param {Uint8Array} nmts_key
+ * @returns {Uint8Array}
+ */
+export function opener_seal(serialized_signature, nmts_key) {
+    const ptr0 = passArray8ToWasm0(serialized_signature, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(nmts_key, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.opener_seal(ptr0, len0, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v3 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v3;
+}
+
+/**
  * The name this account's recovery manifest is stored under inside a quilt (NCF-3 §2.5).
  *
  * Public, and deliberately not secret-looking: it is a v4-shaped UUID exactly like the random

@@ -46,6 +46,10 @@ export const streamencryptor_resumeFromHeader: (a: number, b: number, c: number,
 export const verify_part_set: (a: number, b: number) => [number, number];
 export const voucher_hash_from_input: (a: number, b: number) => [number, number];
 export const wallet_seed_for: (a: number, b: number, c: number) => [number, number, number, number];
+export const opener_locator: (a: number, b: number) => [number, number, number, number];
+export const opener_message: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+export const opener_open: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const opener_seal: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const __wbindgen_exn_store: (a: number) => void;
 export const __externref_table_alloc: () => number;
 export const __wbindgen_externrefs: WebAssembly.Table;
