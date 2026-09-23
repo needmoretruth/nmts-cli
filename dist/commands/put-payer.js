@@ -18,7 +18,7 @@ export function payerOf(pay) {
         nextStep: `Nothing was sent. --pay wallet buys the storage from the wallet this NMTS key derives; without it credits pay.`,
     });
 }
-/** The two options that only mean something when the wallet pays, refused when it does not. */
+/** The options that only mean something when the wallet pays, refused when it does not. */
 export function refuseWalletOnlyOptions(options) {
     if (options.wallet !== undefined) {
         throw new NmtsError("--wallet only applies with --pay wallet: credits are not held in a wallet.", {
@@ -36,6 +36,18 @@ export function refuseWalletOnlyOptions(options) {
         throw new NmtsError("--storage only applies with --pay wallet: credits buy storage from the treasury.", {
             exitCode: 2,
             nextStep: `Nothing was sent. Add --pay wallet to use a storage resource this wallet holds.`,
+        });
+    }
+    if (options.from !== undefined) {
+        throw new NmtsError("--from only applies with --pay wallet: it is how a credit-paid file moves onto the wallet.", {
+            exitCode: 2,
+            nextStep: `Nothing was sent. Add --pay wallet, which is what the re-upload is for.`,
+        });
+    }
+    if (options.trustServerTipAddress === true) {
+        throw new NmtsError("--trust-server-tip-address only applies with --pay wallet: a standing gift follows a wallet payment.", {
+            exitCode: 2,
+            nextStep: `Nothing was sent. A credit-paid upload sends no gift, so there is no address to trust.`,
         });
     }
 }

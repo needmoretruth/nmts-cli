@@ -3,9 +3,10 @@
 Commands: login
 Tiers: login=none · login.plain=high(unsafe-code-storage) · login.env=high(plain-env)
 
-`nmts login` stores the NMTS key sealed under a passphrase, checks whichever API key it finds
-(`NMTS_API_KEY_FILE`, `NMTS_API_KEY`) with the server, and stores that too. It prints the key's
-public handle and never the key. It does not replace a stored key unless the run says so.
+`nmts login` takes the NMTS key or its 15-word recovery phrase, stores the key sealed under a
+passphrase, checks whichever API key it finds (`NMTS_API_KEY_FILE`, `NMTS_API_KEY`) with the
+server, and stores that too. It prints the key's public handle and never the key. It does not
+replace a stored key unless the run says so.
 
 Every later command needs the passphrase, from `NMTS_PASSPHRASE` or a terminal. A sealed key with
 no passphrase in reach is not a usable credential; `nmts env` says which case this machine is in.

@@ -20,6 +20,28 @@ import { percentText, tipFromTenths } from "./shared/lib/wallet/tip.ts";
 import { coinAmount, walCoinType } from "./wallet.ts";
 import type { SignTransfer } from "./wallet-sign.ts";
 
+/**
+ * Where a standing gift goes, per network — written into the build, not asked for.
+ *
+ * ⛔ THE RECEIVING ADDRESS IS NOT THE SERVER'S TO CHOOSE. Until now it was whatever `--server`
+ *    answered and only its SHAPE was checked, so one wrong or hostile server collected every
+ *    standing gift from every machine pointed at it — silently, because a well-formed address is
+ *    indistinguishable from the right one. The browser never had that hole: its address comes from
+ *    the build the owner ships. This is that same value, and the server's answer is held against
+ *    it below.
+ *
+ * ⚠ ONE STRING UNDER TWO NETWORKS, and that is a fact rather than a placeholder: a Sui address
+ *   belongs to a keypair, not to a network, so the owner's wallet is the same address on both. The
+ *   table is per network so that the day one of them moves there is a line to change.
+ *
+ * ⛔ IT IS A PUBLIC VALUE, NOT A SECRET. An address is what you hand out to be paid — the site
+ *    prints this one on the donation card — and the key behind it is nowhere near this package.
+ */
+export const TIP_ADDRESS: Readonly<Record<Network, string>> = {
+  mainnet: "0x5414efbeeab97a210e3ad48e458056fd62bcfc0d99ea78b632b813a6540c09c1",
+  testnet: "0x5414efbeeab97a210e3ad48e458056fd62bcfc0d99ea78b632b813a6540c09c1",
+};
+
 /** The owner's thank-you, in both languages, printed after every gift whatever its size. */
 export const THANKS_EN = "Thank you for your gift. Honestly, I did not know anyone would. Thank you.";
 export const THANKS_KO = "후원해 주셔서 정말 감사합니다. 사실 저는 후원해 줄 사람이 있을 거라고도 몰랐습니다. 정말 감사합니다."; // shown in Korean
@@ -36,6 +58,14 @@ export interface StandingTipInput {
    *  a balance nobody was looking at, and the payment above named this one. */
   wallet: number;
   say: (line: string) => void;
+  /**
+   * Send to the address THIS SERVER names, even when it is not the one pinned above.
+   *
+   * ⛔ OFF BY DEFAULT AND IT HAS TO STAY THAT WAY. It exists for somebody running their own NMTS
+   *    server, whose developer address is their own and is not ours; switching it on for a server
+   *    you do not run hands that server every standing gift this machine sends.
+   */
+  trustServerAddress?: boolean;
   /** Seams for tests. */
   readDonation?: (server: string) => Promise<DonationConfig>;
   sign?: SignTransfer;
@@ -51,6 +81,20 @@ export async function standingTipAfter(input: StandingTipInput): Promise<"none" 
     const config = await (input.readDonation ?? (async (base: string) => asDonationConfig(await request(base, "/api/donation"))))(input.server);
     if (!config.sendEnabled || !config.walEnabled || !isValidSuiAddress(config.devAddress)) {
       input.say(`  Your standing ${percentText(tenths)} % gift was not sent: gifts in WAL are not open right now.`);
+      return "failed";
+    }
+    // ⛔ THE ONE CHECK THAT COSTS NOTHING AND CLOSES THE HOLE. Everything above asks whether a gift
+    //    may be sent; this asks whether it is going where the person meant. A mismatch is refused
+    //    rather than reported afterwards — money does not come back from a wrong address.
+    if (config.devAddress !== TIP_ADDRESS[input.network] && input.trustServerAddress !== true) {
+      input.say(
+        `  Your standing ${percentText(tenths)} % gift was not sent: this server named a different ` +
+          `receiving address than the one built into this tool for ${input.network}.`,
+      );
+      input.say(
+        `  Nothing was signed. On a server you run yourself, --trust-server-tip-address sends to ` +
+          `the address that server names.`,
+      );
       return "failed";
     }
     const sign = input.sign ?? (await import("./wallet-sign.ts")).signTransfer;

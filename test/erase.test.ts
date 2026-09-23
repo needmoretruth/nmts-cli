@@ -107,3 +107,19 @@ test("a path that names nothing refuses the whole run before any row is touched"
     assert.deepEqual(eraseState.erasures, []);
   });
 });
+
+test("⛔ an empty sub-folder leaves the list with its parent, not behind it", async () => {
+  await withSandbox(drive, "erase-empty-subfolder", async (code) => {
+    await drive.serve(code, [
+      folder({ id: "d", name: "docs" }),
+      folder({ id: "e", name: "empty", parentId: "d" }),
+      entry({ id: "a", name: "a.txt", parentId: "d" }),
+    ]);
+    drive.objects = ["a"];
+    const input = answering(CONFIRM_SENTENCE);
+    assert.equal(await erase(["docs"], opts(collect(), input.readLine)), 0);
+    assert.deepEqual(eraseState.erasures.map((e) => e.ids), [["a"]], "a folder was sent to the server");
+    const left = await drive.lastWritten(code);
+    assert.deepEqual(left, [], "the empty sub-folder stayed in the list with its parent gone");
+  });
+});

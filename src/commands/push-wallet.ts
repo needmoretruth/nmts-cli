@@ -36,7 +36,7 @@ export async function pushWithWallet(
   },
 ): Promise<number> {
   const { say } = run;
-  const { uploadOneWithWallet } = await import("./put-wallet.ts");
+  const { readNetworkCopy, uploadOneWithWallet } = await import("./put-wallet.ts");
   const ctx = {
     code: session.code,
     apiKey: session.apiKey,
@@ -53,6 +53,9 @@ export async function pushWithWallet(
       ...options,
       readActiveWallet: async () => activeWalletOf(run.settings),
     }),
+    // ⛔ ONCE FOR THE WHOLE RUN, not per file: it decides one sentence in each review and a read
+    //    per file would be one request per file for nothing. `--json` prints no review at all.
+    networkCopy: options.json === true ? false : await readNetworkCopy(session.server, session.apiKey),
     progress: new Progress(options.json === true ? silentSink() : stderrSink(), "uploading"),
     say,
     json: options.json === true,

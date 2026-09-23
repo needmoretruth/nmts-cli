@@ -52,6 +52,7 @@ const VALUE_OPTIONS = {
     //    credential and lists this one as the exception it is: what it names is a FILE, the shape
     //    this tool already recommends for every other secret (`NMTS_ACCOUNT_CODE_FILE`).
     "--sui-key-file": "suiKeyFile",
+    "--from": "from",
     "--account": "account",
     "--app": "app",
 };
@@ -101,6 +102,7 @@ const FLAG_OPTIONS = {
     "--desc": "desc",
     "--hidden": "hidden",
     "--reveal": "reveal",
+    "--phrase": "phrase",
     "--release-storage": "releaseStorage",
     "--print": "print",
     "--qr": "qr",
@@ -108,6 +110,7 @@ const FLAG_OPTIONS = {
     "--save": "save",
     "--remove": "remove",
     "--accept-extremes": "acceptExtremes",
+    "--trust-server-tip-address": "trustServerTipAddress",
 };
 // ⛔ Derived from the tables, not written again. A hand-kept list is how an option ends up tested
 //    for one property and accepted with another. ⚠ Every option that carries a value is in here,
@@ -145,8 +148,8 @@ function append(parsed, field, value) {
 const FLAG_DEFAULTS = {
     help: false, version: false, json: false, all: false, force: false, dryRun: false, releaseStorage: false,
     yes: false, publish: false, plain: false, env: false, status: false,
-    desc: false, hidden: false, reveal: false, print: false, qr: false, board: false,
-    save: false, acceptExtremes: false, remove: false, noWait: false,
+    desc: false, hidden: false, reveal: false, phrase: false, print: false, qr: false, board: false,
+    save: false, acceptExtremes: false, remove: false, noWait: false, trustServerTipAddress: false,
 };
 export function parseArgs(argv) {
     const parsed = { command: null, operands: [], ...FLAG_DEFAULTS };

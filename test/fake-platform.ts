@@ -29,6 +29,8 @@ export interface PlatformState {
   registered: { accountId: string; authSecret: string; bearer: string }[];
   /** Every key this business has rotated onto, in order. */
   rotations: string[];
+  /** When the key was last replaced, as the server reports it. Null until one is. */
+  keyChangedAt: string | null;
 }
 
 export const platformState: PlatformState = {
@@ -37,6 +39,7 @@ export const platformState: PlatformState = {
   usersDayCap: 1000,
   registered: [],
   rotations: [],
+  keyChangedAt: null,
 };
 
 export function resetPlatform(): void {
@@ -45,6 +48,7 @@ export function resetPlatform(): void {
   platformState.usersDayCap = 1000;
   platformState.registered = [];
   platformState.rotations = [];
+  platformState.keyChangedAt = null;
 }
 
 /** Answer the request if it is one of the Platform doors; say whether it was. */
@@ -80,6 +84,7 @@ function answer(method: string, url: string, req: IncomingMessage, res: ServerRe
         pubkey: platformState.business.publicKey,
         name: platformState.business.name,
         created_at: "2026-09-17T00:00:00Z",
+        key_changed_at: platformState.keyChangedAt,
         users_today: platformState.usersToday,
         users_day_cap: platformState.usersDayCap,
       },
@@ -99,6 +104,9 @@ function answer(method: string, url: string, req: IncomingMessage, res: ServerRe
     }
     platformState.business.publicKey = next;
     platformState.rotations.push(next);
+    // ⚠ A FIXED INSTANT, because what a test can check is that the answer CARRIES the moment — a
+    //   clock reading here would make the assertion about this fake's own timing.
+    platformState.keyChangedAt = "2026-09-20T12:00:00Z";
     res.writeHead(204);
     res.end();
     return;

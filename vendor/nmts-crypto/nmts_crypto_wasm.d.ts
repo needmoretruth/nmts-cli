@@ -138,10 +138,17 @@ export function account_code_display(code_bytes: Uint8Array): string;
 export function account_code_generate(): string;
 
 /**
- * Parses+validates a user-entered account code (any spacing/case), returning the 20 raw
- * bytes. Errors if the check symbol fails.
+ * Parses+validates a user-entered account code (any spacing/case) OR its 15-word recovery
+ * phrase, returning the 20 raw bytes. Errors if the check symbol or the phrase's
+ * checksum fails. A phrase error's message starts with `phrase:` (`phrase:count:12` ·
+ * `phrase:word:5` · `phrase:checksum`) so a screen can say which one.
  */
 export function account_code_parse(input: string): Uint8Array;
+
+/**
+ * The 15-word recovery phrase for 20 raw account-code bytes, in `en` or `ko`.
+ */
+export function account_code_phrase(code_bytes: Uint8Array, lang: string): string;
 
 /**
  * Unpadded base64url of arbitrary bytes. The textual `accountId` is
@@ -302,6 +309,30 @@ export function opener_open(serialized_signature: Uint8Array, slot: Uint8Array):
  * build. The result is what goes to the server, and the server can do nothing with it.
  */
 export function opener_seal(serialized_signature: Uint8Array, nmts_key: Uint8Array): Uint8Array;
+
+/**
+ * The 16-byte LOCATOR a passkey's 32-byte PRF result yields — what a passkey sign-in asks the
+ * server for (NCF-3 §1.7). Throws for a result of any other length.
+ */
+export function passkey_locator(prf: Uint8Array): Uint8Array;
+
+/**
+ * The 20 NMTS-key bytes inside a passkey's slot. One indistinguishable refusal for a different
+ * passkey or altered bytes, for the reason `opener_open` gives.
+ */
+export function passkey_open(prf: Uint8Array, slot: Uint8Array): Uint8Array;
+
+/**
+ * The PRF salt every NMTS passkey is asked about (NCF-3 §1.7): SHA-256 of
+ * `nmts/v3/passkey-prf/1`. The page passes these 32 bytes as WebAuthn `prf.eval.first`.
+ */
+export function passkey_prf_salt(): Uint8Array;
+
+/**
+ * The 62-byte SLOT holding `nmts_key` under a passkey's PRF result — kind `0x02`, a fresh nonce
+ * from WebCrypto, the same layout as a wallet's slot.
+ */
+export function passkey_seal(prf: Uint8Array, nmts_key: Uint8Array): Uint8Array;
 
 /**
  * The name this account's recovery manifest is stored under inside a quilt (NCF-3 §2.5).
@@ -465,9 +496,6 @@ export interface InitOutput {
     readonly __wbg_sha256hasher_free: (a: number, b: number) => void;
     readonly __wbg_streamdecryptor_free: (a: number, b: number) => void;
     readonly __wbg_streamencryptor_free: (a: number, b: number) => void;
-    readonly account_code_display: (a: number, b: number) => [number, number, number, number];
-    readonly account_code_generate: () => [number, number];
-    readonly account_code_parse: (a: number, b: number) => [number, number, number, number];
     readonly b64_encode: (a: number, b: number) => [number, number];
     readonly derive_ai_account_code: (a: number, b: number, c: number) => [number, number, number, number];
     readonly device_wrap_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
@@ -505,12 +533,20 @@ export interface InitOutput {
     readonly streamencryptor_push: (a: number, b: number, c: number) => [number, number, number, number];
     readonly streamencryptor_resumeFromHeader: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly verify_part_set: (a: number, b: number) => [number, number];
-    readonly voucher_hash_from_input: (a: number, b: number) => [number, number];
     readonly wallet_seed_for: (a: number, b: number, c: number) => [number, number, number, number];
     readonly opener_locator: (a: number, b: number) => [number, number, number, number];
     readonly opener_message: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly opener_open: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly opener_seal: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly passkey_locator: (a: number, b: number) => [number, number, number, number];
+    readonly passkey_open: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly passkey_prf_salt: () => [number, number];
+    readonly passkey_seal: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly account_code_display: (a: number, b: number) => [number, number, number, number];
+    readonly account_code_generate: () => [number, number];
+    readonly account_code_parse: (a: number, b: number) => [number, number, number, number];
+    readonly account_code_phrase: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly voucher_hash_from_input: (a: number, b: number) => [number, number];
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;

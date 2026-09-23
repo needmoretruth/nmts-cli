@@ -314,8 +314,10 @@ export function account_code_generate() {
 }
 
 /**
- * Parses+validates a user-entered account code (any spacing/case), returning the 20 raw
- * bytes. Errors if the check symbol fails.
+ * Parses+validates a user-entered account code (any spacing/case) OR its 15-word recovery
+ * phrase, returning the 20 raw bytes. Errors if the check symbol or the phrase's
+ * checksum fails. A phrase error's message starts with `phrase:` (`phrase:count:12` ·
+ * `phrase:word:5` · `phrase:checksum`) so a screen can say which one.
  * @param {string} input
  * @returns {Uint8Array}
  */
@@ -329,6 +331,35 @@ export function account_code_parse(input) {
     var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v2;
+}
+
+/**
+ * The 15-word recovery phrase for 20 raw account-code bytes, in `en` or `ko`.
+ * @param {Uint8Array} code_bytes
+ * @param {string} lang
+ * @returns {string}
+ */
+export function account_code_phrase(code_bytes, lang) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passArray8ToWasm0(code_bytes, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(lang, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.account_code_phrase(ptr0, len0, ptr1, len1);
+        var ptr3 = ret[0];
+        var len3 = ret[1];
+        if (ret[3]) {
+            ptr3 = 0; len3 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred4_0 = ptr3;
+        deferred4_1 = len3;
+        return getStringFromWasm0(ptr3, len3);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
 }
 
 /**
@@ -699,6 +730,78 @@ export function opener_seal(serialized_signature, nmts_key) {
     const ptr1 = passArray8ToWasm0(nmts_key, wasm.__wbindgen_malloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.opener_seal(ptr0, len0, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v3 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v3;
+}
+
+/**
+ * The 16-byte LOCATOR a passkey's 32-byte PRF result yields — what a passkey sign-in asks the
+ * server for (NCF-3 §1.7). Throws for a result of any other length.
+ * @param {Uint8Array} prf
+ * @returns {Uint8Array}
+ */
+export function passkey_locator(prf) {
+    const ptr0 = passArray8ToWasm0(prf, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.passkey_locator(ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
+ * The 20 NMTS-key bytes inside a passkey's slot. One indistinguishable refusal for a different
+ * passkey or altered bytes, for the reason `opener_open` gives.
+ * @param {Uint8Array} prf
+ * @param {Uint8Array} slot
+ * @returns {Uint8Array}
+ */
+export function passkey_open(prf, slot) {
+    const ptr0 = passArray8ToWasm0(prf, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(slot, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.passkey_open(ptr0, len0, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v3 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v3;
+}
+
+/**
+ * The PRF salt every NMTS passkey is asked about (NCF-3 §1.7): SHA-256 of
+ * `nmts/v3/passkey-prf/1`. The page passes these 32 bytes as WebAuthn `prf.eval.first`.
+ * @returns {Uint8Array}
+ */
+export function passkey_prf_salt() {
+    const ret = wasm.passkey_prf_salt();
+    var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v1;
+}
+
+/**
+ * The 62-byte SLOT holding `nmts_key` under a passkey's PRF result — kind `0x02`, a fresh nonce
+ * from WebCrypto, the same layout as a wallet's slot.
+ * @param {Uint8Array} prf
+ * @param {Uint8Array} nmts_key
+ * @returns {Uint8Array}
+ */
+export function passkey_seal(prf, nmts_key) {
+    const ptr0 = passArray8ToWasm0(prf, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(nmts_key, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.passkey_seal(ptr0, len0, ptr1, len1);
     if (ret[3]) {
         throw takeFromExternrefTable0(ret[2]);
     }

@@ -51,7 +51,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.43.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.44.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -106,7 +106,8 @@ handle and never the key itself, and does not replace a stored API key unless th
 
 `nmts whoami --reveal` prints your NMTS key itself. It is locked until you run `nmts unlock
 reveal` once, and asked about on every run; anything that logs your terminal has your NMTS key from
-then on.
+then on. Add `--phrase` for the same key as its 15-word recovery phrase (`--lang ko` for Korean
+words); `nmts login` accepts either form.
 
 **Neither credential is ever accepted as a command-line argument.** Any process can read another
 process's command line, and shells record it in history. There is no flag for either.
@@ -458,6 +459,11 @@ docker run --rm \
 ```
 
 A credential file that is named but missing is a hard stop (exit 3) before any request.
+
+With rootless Podman, `examples/podman.sh` does the same through a Podman secret: the key reaches
+the container as the file `/run/secrets/nmts-key`, and `podman inspect` shows only that path.
+`NMTS_ACCOUNT_CODE` wins over `NMTS_ACCOUNT_CODE_FILE` when both are set, so leave it unset in a
+container.
 
 Unlocks and the mode live in the config directory, and a container that is removed takes them
 with it. A fresh container lists and downloads freely; an upload asks, so a script passes `--yes`,

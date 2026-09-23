@@ -50,7 +50,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.43.0    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.44.0    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -103,7 +103,9 @@ nmts get x     # 파일 하나 다운로드
 것을 지웁니다.
 
 `nmts whoami --reveal`은 NMTS 키 자체를 찍습니다. `nmts unlock reveal`로 한 번 열기 전에는 잠겨
-있고 실행마다 다시 묻습니다. 터미널을 기록하는 무엇이든 그때부터 NMTS 키를 갖게 됩니다.
+있고 실행마다 다시 묻습니다. 터미널을 기록하는 무엇이든 그때부터 NMTS 키를 갖게 됩니다. `--phrase`를
+붙이면 같은 키를 단어 15개의 복구 구문으로 찍습니다(`--lang ko`면 한국어 단어). `nmts login`은 둘 중 어느
+쪽도 받습니다.
 
 **어느 자격도 명령행 인자로는 받지 않습니다.** 어떤 프로세스든 다른 프로세스의 명령행 인자를 읽을 수
 있고, 셸은 그것을 기록에 남깁니다. 둘 다 그런 옵션이 없습니다.
@@ -434,6 +436,10 @@ docker run --rm \
 ```
 
 이름은 댔는데 없는 자격 파일은 어떤 요청보다 먼저 멈춥니다(종료 코드 3).
+
+rootless Podman에서는 `examples/podman.sh`가 같은 일을 Podman 시크릿으로 합니다. 키는 컨테이너 안에
+`/run/secrets/nmts-key` 파일로 들어가고, `podman inspect`에는 그 경로만 보입니다. `NMTS_ACCOUNT_CODE`와
+`NMTS_ACCOUNT_CODE_FILE`이 둘 다 있으면 `NMTS_ACCOUNT_CODE`가 이기므로, 컨테이너 안에서는 그것을 비워 두십시오.
 
 잠금 상태와 모드는 설정 디렉터리에 있고, 지워진 컨테이너는 그것을 함께 가져갑니다. 새 컨테이너는 목록과
 다운로드는 그냥 되고, 업로드는 물으므로 스크립트는 `--yes`를 넘기며, 잠긴 것(지갑·공유)은 사람이 한 번 연

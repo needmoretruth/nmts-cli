@@ -64,8 +64,18 @@ function asSummary(value) {
         },
         terms: { acceptance_required: isRecord(terms) && terms["acceptance_required"] === true },
         ai_account: value["ai_account"] === true,
+        network_copy: value["network_copy"] === true,
         deposits: depositRows(credits["deposits"]),
     };
+}
+/**
+ * The narrow account read, typed — for the other commands that need one number out of it.
+ *
+ * ⛔ ONE READER OF THIS ROUTE. A second command that narrowed the answer itself would be a second
+ *    opinion about which fields a server is allowed to be missing.
+ */
+export async function readAccountSummary(server, apiKey) {
+    return asSummary(await request(server, "/v1/account/summary", { token: apiKey }));
 }
 /**
  * The per-file deposit rows, when the answer carries them.
@@ -96,7 +106,7 @@ function plural(n, one, many) {
 export async function balance(options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const session = await openSession({ server: options.server, network: options.network });
-    const summary = asSummary(await request(session.server, "/v1/account/summary", { token: session.apiKey }));
+    const summary = await readAccountSummary(session.server, session.apiKey);
     if (options.json === true) {
         say(JSON.stringify(summary));
         return 0;

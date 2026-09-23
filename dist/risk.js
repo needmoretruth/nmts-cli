@@ -35,6 +35,9 @@ export const ACTS = {
     trial: { tier: "none" },
     expiring: { tier: "none" },
     losses: { tier: "none" },
+    // Reading which accounts this one has made for an AI. The two acts that change something are
+    // below, under the tiers they belong to.
+    "ai-account": { tier: "none" },
     "public-code": { tier: "none" },
     wallet: { tier: "none" },
     get: { tier: "none" },
@@ -132,9 +135,20 @@ export const ACTS = {
     "whoami.reveal": { tier: "high", lock: "reveal", what: "Print the NMTS key on this screen." },
     kit: { tier: "high", lock: "kit", what: "Write the NMTS key into a recovery kit file on this disk." },
     create: { tier: "high", what: "Create a new account under the Terms in force.", asksItself: true },
+    // ⛔ BESIDE `create`, BECAUSE IT IS THE SAME ACT aimed at a new account: it makes an account under
+    //    the Terms in force, and the acceptance recorded for it is this caller's own. It does not ask
+    //    itself — there is no version for anybody to type, so the gate takes the yes.
+    "ai-account.create": { tier: "high", what: "Make a new account for an AI to work in, under the Terms in force." },
     "accept-terms.accept": { tier: "high", what: "Accept a new version of the Terms for this account.", asksItself: true },
     // ── ultra-high: permanent destruction ──
     "delete-account": { tier: "ultra-high", what: "Erase this account's server record, permanently.", asksItself: true },
+    // ⛔ THE SAME ERASURE, AIMED AT AN ACCOUNT THIS ONE MADE — the row, the files, the keys and the
+    //    shares in both directions. It types the same sentence `delete-account` does.
+    "ai-account.delete": {
+        tier: "ultra-high",
+        what: "Erase an AI account this one made, and everything in it, permanently.",
+        asksItself: true,
+    },
     erase: { tier: "ultra-high", what: "Erase files for good: the server's record and this account's key to them.", asksItself: true },
     "erase.release": {
         tier: "ultra-high",
@@ -190,6 +204,8 @@ export function actOf(args) {
             return args.pay === "wallet" ? "push.wallet" : "push";
         case "key":
             return sub === "new" ? "key.new" : sub === "revoke" ? "key.revoke" : "key";
+        case "ai-account":
+            return sub === "create" ? "ai-account.create" : sub === "delete" ? "ai-account.delete" : "ai-account";
         case "openers":
             return sub === "add" ? "openers.add" : sub === "remove" ? "openers.remove" : "openers";
         case "trial":

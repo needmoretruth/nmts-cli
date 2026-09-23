@@ -15,10 +15,24 @@ import { NmtsError } from "./errors.ts";
 import { host as runtime } from "./host.ts";
 import { reach, reachFetch } from "./reach.ts";
 
-/** Curated Walrus aggregator (read) endpoints per network, preference order. */
+/**
+ * Curated Walrus aggregator (read) endpoints per network, preference order.
+ *
+ * ⭐ 2026-09-22: a SECOND one per network, so "if one is down we move on" is true rather than
+ *    written. Both came from the canonical operator registry (https://docs.wal.app/operators.json)
+ *    and both answered `GET /v1/api` with 200 the same day. The browser's table carries the full
+ *    provenance and the reason each host and not another; this copy exists because this package
+ *    imports nothing from that tree, and `deploy/check-walrus-hosts.mjs` set-compares the two.
+ */
 export const AGGREGATOR_HOSTS: Readonly<Record<string, readonly string[]>> = {
-  testnet: ["https://aggregator.walrus-testnet.walrus.space"],
-  mainnet: ["https://aggregator.walrus-mainnet.walrus.space"],
+  testnet: [
+    "https://aggregator.walrus-testnet.walrus.space",
+    "https://walrus-testnet-aggregator.nodeinfra.com",
+  ],
+  mainnet: [
+    "https://aggregator.walrus-mainnet.walrus.space",
+    "https://sui-walrus-mainnet-aggregator.bwarelabs.com",
+  ],
 };
 
 /**

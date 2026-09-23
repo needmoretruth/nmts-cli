@@ -143,6 +143,7 @@ export async function extend(target, options = {}) {
         wallet: plan.wallet,
         paidWalFrost: budget.priceFrost,
         say: options.json === true ? (line) => void process.stderr.write(`${line}\n`) : say,
+        trustServerAddress: options.trustServerTipAddress === true,
         ...(options.tip ?? {}),
     });
     return 0;

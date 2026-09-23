@@ -52,8 +52,19 @@ export interface CryptoGlue {
     account_code_parse(input: string): Uint8Array;
     /** The grouped, human-readable spelling of a code. */
     account_code_display(codeBytes: Uint8Array): string;
+    /** The same code as its 15-word recovery phrase (BIP-39), `en` or `ko`. */
+    account_code_phrase(codeBytes: Uint8Array, lang: string): string;
     /** The full derivation output. Offsets are named in DERIVED below. */
     kdf_derive(codeBytes: Uint8Array): Uint8Array;
+    /**
+     * The NMTS KEY of this account's AI account number `index` (1-based), from the 32-byte
+     * `aiAccountRoot` slice of the derivation (NCF-3 §1.5).
+     *
+     * ⛔ IT IS A KEY, NOT A SEED, and the same root and index always give the same one back — which
+     *    is why a place that was erased can be re-derived rather than lost, and why nothing has to
+     *    store what it returns. ⚠ Wipe the root after calling: it is the parent of every one of them.
+     */
+    derive_ai_account_code(aiAccountRoot: Uint8Array, index: number): string;
     /** Display form — the grouped PUBLIC CODE a person reads, copies and types. */
     share_address_display(address: Uint8Array): string;
     /**

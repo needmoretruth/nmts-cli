@@ -58,12 +58,12 @@ export async function login(options = {}) {
     //    line mode, where it echoes what is typed and swallows lines the next prompt never sees —
     //    and this command asks up to three things with a check in the middle.
     const exit = await holdTerminal(async () => {
-        const code = await readTheCode(options, server);
+        const typed = await readTheCode(options, server);
         // ⛔ CHECKED BEFORE IT IS WRITTEN. The engine verifies the code's own check symbol offline, so
         //    a mistyped code fails here as "that is not a code" instead of being stored and coming
         //    back later as a sign-in failure indistinguishable from a wrong password or a suspended
         //    account.
-        await assertUsableCode(code);
+        const code = await assertUsableCode(typed);
         if (options.env === true)
             return printEnvForm(code, say);
         // ⛔ THE KEY IS SETTLED BEFORE THE PASSPHRASE IS ASKED FOR, for the reason the code is checked

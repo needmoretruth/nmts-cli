@@ -3,6 +3,29 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.44.0 — 2026-09-23
+
+- **Recovery phrase.** An NMTS key can be written as 15 words from the BIP-39 English or Korean word
+  list. `nmts whoami --reveal --phrase` prints them (`--lang ko` for Korean), and every place that
+  takes an NMTS key takes the phrase too. The phrase is the key in another form: it opens the
+  account exactly as the key does. For programs, `phraseOf` in `@needmoretruth/nmts-cli/portable`.
+- **AI accounts from the terminal.** `nmts ai-account list`, `nmts ai-account create` and
+  `nmts ai-account delete` run on the NMTS key's proof; an API key cannot call them. Deleting asks
+  you to type the confirmation back, and `--yes` answers it for an agent.
+- `nmts put --pay wallet --from <path>` takes a file that credits paid for, downloads and decrypts
+  it into this tool's own directory, encrypts and uploads it again paid from your wallet, and moves
+  the old file to the trash. Storage the treasury bought cannot be handed to a wallet, so this is a
+  new upload, not a transfer.
+- The standing gift address is fixed per network in the tool. A self-hosted server that names a
+  different one is followed only with `--trust-server-tip-address`; without it, `nmts` stops before
+  signing.
+- The upload review tells an account that asked for the recovery list's storage-network copy that
+  this upload does not carry it, and how to write the list out as a file instead.
+- Erasing a folder completely also removes the empty folders under it, which used to stay behind
+  in the list with nothing able to open them.
+- Reads try a second aggregator on each network when the first cannot be reached.
+- `examples/podman.sh` runs the tool in rootless Podman with the key handed in as a secret.
+
 ## 0.43.0 — 2026-09-20
 
 - Nothing changes for the `nmts` command: it signs with the wallet this NMTS key derives, as it

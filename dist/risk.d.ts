@@ -50,6 +50,9 @@ export declare const ACTS: {
     readonly losses: {
         readonly tier: "none";
     };
+    readonly "ai-account": {
+        readonly tier: "none";
+    };
     readonly "public-code": {
         readonly tier: "none";
     };
@@ -335,6 +338,10 @@ export declare const ACTS: {
         readonly what: "Create a new account under the Terms in force.";
         readonly asksItself: true;
     };
+    readonly "ai-account.create": {
+        readonly tier: "high";
+        readonly what: "Make a new account for an AI to work in, under the Terms in force.";
+    };
     readonly "accept-terms.accept": {
         readonly tier: "high";
         readonly what: "Accept a new version of the Terms for this account.";
@@ -343,6 +350,11 @@ export declare const ACTS: {
     readonly "delete-account": {
         readonly tier: "ultra-high";
         readonly what: "Erase this account's server record, permanently.";
+        readonly asksItself: true;
+    };
+    readonly "ai-account.delete": {
+        readonly tier: "ultra-high";
+        readonly what: "Erase an AI account this one made, and everything in it, permanently.";
         readonly asksItself: true;
     };
     readonly erase: {

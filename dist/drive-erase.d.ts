@@ -24,10 +24,12 @@ export interface ErasePlan {
     /** Every FILE going: the ones named, and every file under a folder that was named. */
     readonly files: readonly ErasePath[];
     /**
-     * The ids leaving the sealed list — the files above and the folders that were named.
+     * The ids leaving the sealed list — the files above, the folders that were named, and every
+     * folder under one of them.
      *
-     * ⚠ WIDER THAN `files` ON PURPOSE. A named folder has no server row of its own, so nothing is
-     *   erased for it; its entry still has to go, or the list keeps a folder whose contents are gone.
+     * ⚠ WIDER THAN `files` ON PURPOSE. A folder has no server row of its own, so nothing is erased
+     *   for it; its entry still has to go, or the list keeps a folder whose contents are gone — and
+     *   a sub-folder left behind is the worse half of that, because its parent went too.
      */
     readonly going: readonly string[];
 }

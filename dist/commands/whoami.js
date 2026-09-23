@@ -11,7 +11,10 @@
 //    situation, a person copying it out of a machine they are sitting at, and it is refused while
 //    a mode is on. There is no MCP tool for it either: an agent driving this tool was handed the
 //    code already, so a surface that prints it can only ever move it somewhere new.
-import { identityOf } from "../account.js";
+//
+// ⭐ `--reveal --phrase` prints the same key as its 15-word recovery phrase (`--lang ko` for the
+//    Korean list). It is the key in another spelling, so it rides the same flag and the same rule.
+import { identityOf, phraseOf } from "../account.js";
 import { requireAccountCode } from "../code-access.js";
 import { CODE_ENV_VAR, readCredentialsFile } from "../credentials.js";
 import { resolveNetwork } from "../network.js";
@@ -20,6 +23,16 @@ export async function whoami(options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const resolved = await requireAccountCode();
     const identity = await identityOf(resolved.code);
+    if (options.reveal === true && options.phrase === true) {
+        const phrase = await phraseOf(resolved.code, options.lang);
+        if (options.json === true) {
+            say(JSON.stringify({ recovery_phrase: phrase }));
+            return 0;
+        }
+        say(`This phrase is the NMTS key in 15 words: anyone who reads it can open every file.`);
+        say(phrase);
+        return 0;
+    }
     if (options.reveal === true) {
         if (options.json === true) {
             say(JSON.stringify({ account_code: identity.displayCode }));

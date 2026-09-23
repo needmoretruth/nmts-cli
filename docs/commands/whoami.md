@@ -10,3 +10,7 @@ to a program.
 key — so it is locked until a person runs `nmts unlock reveal` at a terminal, and then asked about
 on every run in every mode but skip-permissions. Never write the NMTS key anywhere it can be read
 again: a log, a commit, a file, a message. It is the only key to the account and cannot be rotated.
+
+`--reveal --phrase` prints the same key as its 15-word recovery phrase (BIP-39, the English list;
+`--lang ko` for the Korean one). It is the key in words, under the same lock and the same warning:
+whoever reads the phrase opens the account.

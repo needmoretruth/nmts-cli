@@ -14,13 +14,19 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import type { DonationConfig } from "../src/commands/wallet-donate.ts";
-import { standingTipAfter, THANKS_EN, THANKS_KO } from "../src/standing-tip.ts";
+import { standingTipAfter, THANKS_EN, THANKS_KO, TIP_ADDRESS } from "../src/standing-tip.ts";
 import { walCoinType } from "../src/wallet.ts";
 import type { SignTransfer } from "../src/wallet-sign.ts";
 import { collect } from "./fake-drive.ts";
 
-/** The published address, shaped like a real one so nothing refuses it early. */
-const DEV = `0x${"d".repeat(64)}`;
+/**
+ * The address a gift goes to — READ FROM THE TABLE THE TOOL HOLDS, not a shape invented here.
+ *
+ * ⛔ A LITERAL WOULD MAKE THESE TESTS PASS ON THE WRONG ADDRESS. The whole point of the pinned
+ *    table is that a server naming any other address is refused, so a test that wrote its own
+ *    string would be exercising the refusal path while claiming to exercise the sending one.
+ */
+const DEV = TIP_ADDRESS.testnet;
 const DIGEST = "3nJqYd2fRZ8m1s5vQ7wLpXk4TgB6uCa9HyEr2NdM8fPz";
 const AGREED = Date.UTC(2026, 8, 6);
 
@@ -114,4 +120,54 @@ test("⛔ a gift that fails is said and answered, never thrown — the storage p
   const text = out.lines.join("\n");
   assert.match(text, /gift was not sent: the wallet had nothing left/);
   assert.match(text, /The storage payment above is unaffected\./);
+});
+
+test("⛔ a server that names another receiving address gets nothing, until the caller says it owns that server", async () => {
+  const elsewhere = async (): Promise<DonationConfig> => ({
+    devAddress: `0x${"e".repeat(64)}`,
+    sendEnabled: true,
+    walEnabled: true,
+  });
+  const settings = { tipTenths: 25, tipConsentAt: AGREED };
+
+  const refused = collect();
+  const held = refuseToSign("a gift went to an address the server chose");
+  assert.equal(
+    await standingTipAfter({
+      server: "http://127.0.0.1:1",
+      network: "testnet",
+      code: "not-a-code",
+      settings,
+      paidWalFrost: 1_000_000n,
+      say: refused.write,
+      readDonation: elsewhere,
+      sign: held,
+    }),
+    "failed",
+  );
+  assert.equal(held.calls, 0, "it signed for an address this tool does not hold");
+  const text = refused.lines.join("\n");
+  assert.match(text, /named a different receiving address than the one built into this tool for testnet/);
+  assert.match(text, /--trust-server-tip-address/);
+
+  const allowed = collect();
+  const sign = recordingTransfer();
+  assert.equal(
+    await standingTipAfter({
+      server: "http://127.0.0.1:1",
+      network: "testnet",
+      code: "not-a-code",
+      settings,
+      paidWalFrost: 1_000_000n,
+      say: allowed.write,
+      readDonation: elsewhere,
+      sign,
+      trustServerAddress: true,
+    }),
+    "sent",
+  );
+  assert.deepEqual(
+    sign.asked.map((shape) => shape.destination),
+    [`0x${"e".repeat(64)}`],
+  );
 });

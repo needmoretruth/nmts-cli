@@ -52,6 +52,12 @@ export interface ParsedArgs {
     pay?: string;
     /** `put --pay wallet`: `fit`, `whole`, or a held storage resource's object id. */
     storage?: string;
+    /**
+     * `put --pay wallet --from <drive path>`: re-upload a file the account's credits paid for, this
+     * time on the wallet's money. The new file takes the old one's name and folder, and the old one
+     * goes to the trash.
+     */
+    from?: string;
     /** `consent grant wallet`: how long the grant lasts (days, at most 30), or until a date.
      *  `key new`: how many days the new API key lasts. The server clamps at its own ceiling. */
     days?: string;
@@ -165,6 +171,8 @@ export interface ParsedArgs {
      *    nothing and says what it does.
      */
     reveal: boolean;
+    /** `whoami --reveal --phrase`: the key as its 15-word recovery phrase. */
+    phrase: boolean;
     /**
      * `key new`: put the new key on the screen once, as well as storing it. A flag and not a value
      * for the reason above: it names no secret, it asks for the one this run was just handed.
@@ -187,4 +195,12 @@ export interface ParsedArgs {
      *    copy kept here and a copy kept from the browser are the same file.
      */
     save: boolean;
+    /**
+     * `put`/`push`/`extend --pay wallet`: send the standing gift to the address THIS SERVER names,
+     * even when it is not the one built into this tool (`standing-tip.ts` `TIP_ADDRESS`).
+     *
+     * ⛔ FOR A SERVER YOU RUN YOURSELF AND NOTHING ELSE. Off by default: a server that can choose
+     *    where a standing gift goes collects every one this machine sends.
+     */
+    trustServerTipAddress: boolean;
 }

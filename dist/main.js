@@ -83,6 +83,8 @@ export async function run(argv) {
                 server: args.server,
                 network: args.network,
                 reveal: args.reveal,
+                phrase: args.phrase,
+                lang: args.lang,
                 json: args.json,
             });
         }
@@ -131,12 +133,13 @@ export async function run(argv) {
         case "losses": {
             const { losses } = await import("./commands/losses.js");
             return await losses({
-                server: args.server,
-                network: args.network,
-                json: args.json,
-                recheck: args.recheck,
-                dismiss: args.dismiss,
+                server: args.server, network: args.network, json: args.json,
+                recheck: args.recheck, dismiss: args.dismiss,
             });
+        }
+        case "ai-account": {
+            const { aiAccount } = await import("./commands/ai-account.js");
+            return await aiAccount(args.operands[0], args);
         }
         case "extend": {
             const { extend } = await import("./commands/extend.js");
@@ -146,7 +149,7 @@ export async function run(argv) {
                 epochs: args.epochs,
                 dryRun: args.dryRun,
                 yes: args.yes,
-                json: args.json, wallet: args.wallet,
+                json: args.json, wallet: args.wallet, trustServerTipAddress: args.trustServerTipAddress,
             });
         }
         case "create": {
@@ -168,11 +171,7 @@ export async function run(argv) {
         case "get": {
             const { get } = await import("./commands/get.js");
             return await get(args.operands[0], {
-                server: args.server,
-                network: args.network,
-                out: args.out,
-                force: args.force,
-                json: args.json,
+                server: args.server, network: args.network, out: args.out, force: args.force, json: args.json,
             });
         }
         case "put": {
@@ -188,8 +187,8 @@ export async function run(argv) {
                 deposit: args.deposit,
                 pay: args.pay,
                 epochs: args.epochs,
-                storage: args.storage,
-                json: args.json, wallet: args.wallet,
+                storage: args.storage, from: args.from,
+                json: args.json, wallet: args.wallet, trustServerTipAddress: args.trustServerTipAddress,
             });
         }
         case "push": {
@@ -206,7 +205,7 @@ export async function run(argv) {
                 pay: args.pay,
                 epochs: args.epochs,
                 storage: args.storage,
-                json: args.json, wallet: args.wallet,
+                json: args.json, wallet: args.wallet, trustServerTipAddress: args.trustServerTipAddress,
             });
         }
         case "rm": {
@@ -258,11 +257,7 @@ export async function run(argv) {
         case "pull": {
             const { pull } = await import("./commands/pull.js");
             return await pull(args.operands[0], {
-                server: args.server,
-                network: args.network,
-                out: args.out,
-                force: args.force,
-                json: args.json,
+                server: args.server, network: args.network, out: args.out, force: args.force, json: args.json,
             });
         }
         case "mkdir": {

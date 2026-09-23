@@ -21,6 +21,9 @@ export interface PushOptions {
     storage?: string | undefined;
     /** `--pay wallet`: which of this key's wallets pays, this run only. Absent = the account's own. */
     wallet?: string | undefined;
+    /** `--trust-server-tip-address`: let THIS SERVER name where the standing gift goes. Off unless
+     *  typed, and only for a server the caller runs (`standing-tip.ts`). */
+    trustServerTipAddress?: boolean;
     json?: boolean;
     write?: (line: string) => void;
     /**

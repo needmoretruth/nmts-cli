@@ -32,6 +32,7 @@ import { resolveServer } from "../server.js";
 import { fileSource } from "../upload-file-node.js";
 import { partSizeFor } from "../upload-price.js";
 import { measureLocal } from "../upload-price-node.js";
+import { downloadForRefill, findOriginal, settleRefill } from "../refill-source.js";
 import { describeUploadReview } from "../upload-wallet-plan.js";
 import { walletPut } from "../upload-wallet-put.js";
 import { coinAmount } from "../wallet.js";
@@ -39,7 +40,9 @@ import { recordWalletSpend, requireWalletGrant } from "../wallet-grant.js";
 import { folderIdFor } from "./put.js";
 export async function putWithWallet(target, options) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
-    if (target === undefined || target === "") {
+    const from = options.from;
+    refuseFromClashes(target, options);
+    if (from === undefined && (target === undefined || target === "")) {
         throw new NmtsError("Say which file to put.", { exitCode: 2, nextStep: `\`${BINARY_NAME} put <file> --pay wallet\`` });
     }
     const resolved = await requireAccountCode();
@@ -50,8 +53,9 @@ export async function putWithWallet(target, options) {
             nextStep: `Make a key on the account screen at nmts.me and put it in ${API_KEY_ENV_VAR}, or store it with \`${BINARY_NAME} login\`.`,
         });
     }
-    const localPath = resolve(target);
-    const size = measureLocal(localPath);
+    // ⛔ MEASURED BEFORE A SINGLE NETWORK CALL, as it always was: a path that is not a file is a
+    //    command line to fix, and finding that out after three chain reads wastes somebody's time.
+    const local = from === undefined ? { localPath: resolve(target ?? ""), size: measureLocal(resolve(target ?? "")) } : null;
     const stored = readCredentialsFile();
     const server = resolveServer(options.server ?? stored?.server);
     const network = resolveNetwork(server, options.network ?? stored?.network);
@@ -66,9 +70,12 @@ export async function putWithWallet(target, options) {
         ...options,
         readActiveWallet: async () => activeWalletOf(list.manifest?.settings),
     });
-    const name = options.name ?? basename(localPath);
-    const destination = (options.to ?? "").replace(/^\.?\//, "").replace(/\/$/, "");
-    const parentId = folderIdFor(options.to, list.manifest?.entries ?? []);
+    // ⛔ THE PLACE COMES FROM THE ORIGINAL, NOT FROM THE COMMAND LINE, when there is one: this
+    //    replaces a file where it already sits, so its name and its folder are not open questions.
+    const original = from === undefined ? null : findOriginal(list.manifest?.entries ?? [], from);
+    const name = original?.name ?? options.name ?? basename(local?.localPath ?? "");
+    const destination = original?.destination ?? (options.to ?? "").replace(/^\.?\//, "").replace(/\/$/, "");
+    const parentId = original === null ? folderIdFor(options.to, list.manifest?.entries ?? []) : original.parentId;
     const ctx = {
         code: resolved.code,
         apiKey: key.key,
@@ -81,25 +88,73 @@ export async function putWithWallet(target, options) {
         onCollision: asked,
         settings: list.manifest?.settings,
         wallet,
+        networkCopy: options.json === true ? false : await readNetworkCopy(server, key.key),
         progress: new Progress(options.json === true ? silentSink() : stderrSink(), "uploading"),
         say,
         json: options.json === true,
     };
-    const done = await uploadOneWithWallet(ctx, { localPath, size, name, parentId, destination }, options);
+    // ⛔ NOTHING IS DOWNLOADED FOR A DRY RUN. The price is arithmetic over the size the sealed list
+    //    already holds, and `walletPut` returns at the review before the source is read — so the
+    //    empty path below can only be reached by a run that got past the review, which is this one.
+    const scratch = original === null || options.dryRun === true ? null : await downloadForRefill({ server, apiKey: key.key, code: resolved.code, network, original });
+    let done;
+    try {
+        const size = local?.size ?? original?.entry.size ?? 0;
+        const localPath = local?.localPath ?? scratch?.localPath ?? "";
+        done = await uploadOneWithWallet(ctx, { localPath, size, name, parentId, destination }, options);
+    }
+    finally {
+        // ⛔ ON EVERY PATH OUT, INCLUDING THE FAILING ONES. What it removes is a decrypted copy of
+        //    somebody's file; leaving one behind because a signature was refused is the worst case.
+        scratch?.remove();
+    }
     if (done === null)
         return 0;
+    // ⛔ THE NAME AND THE TRASH, AFTER THE PAID-FOR BYTES ARE IN THE LIST. See `settleRefill` for why
+    //    this is a second write rather than an overwrite on the commit.
+    const settled = original === null
+        ? null
+        : await settleRefill({ server, apiKey: key.key, code: resolved.code, accountId: identity.accountId }, original, done.itemId);
+    const savedAs = original?.name ?? done.savedAs;
     if (options.json) {
-        say(JSON.stringify({ id: done.itemId, name: done.savedAs, ...done.facts, resumed: done.resumed, renamed: done.savedAs !== name, ...(done.replaced ? { replacedIntoTrash: done.replaced } : {}), fileListVersion: done.seq }));
+        say(JSON.stringify({ id: done.itemId, name: savedAs, ...done.facts, resumed: done.resumed, renamed: savedAs !== name, ...(original !== null ? { replacedIntoTrash: original.entry.id } : done.replaced ? { replacedIntoTrash: done.replaced } : {}), fileListVersion: settled ?? done.seq }));
         return 0;
     }
-    say(`  saved as ${done.savedAs}`);
-    if (done.replaced)
+    say(`  saved as ${savedAs}`);
+    if (original !== null) {
+        say(`  The file credits paid for is in the trash now — ${BINARY_NAME} restore brings it back for 30 days.`);
+        say(`  Erasing it releases its storage and settles its deposit: ${BINARY_NAME} erase --release-storage.`);
+    }
+    else if (done.replaced)
         say(`  A file called ${name} was already there. It is in the trash now — ${BINARY_NAME} restore brings it back for 30 days.`);
     else if (done.savedAs !== name)
         say(`  A file called ${name} was already there, so this one was numbered rather than replacing it.`);
     if (done.resumed)
         say(`  This finished an upload a previous run had already signed for. Nothing was signed now.`);
     return 0;
+}
+/**
+ * The options `--from` leaves no room for, refused before anything is read.
+ *
+ * ⛔ REFUSED RATHER THAN IGNORED, for the reason `put-payer.ts` refuses the wallet-only options:
+ *    somebody who typed `--name` meant it, and an upload that quietly used a different name would
+ *    be discovered as a file in the wrong place, after the money moved.
+ */
+function refuseFromClashes(target, options) {
+    if (options.from === undefined)
+        return;
+    const nothing = `Nothing was signed and nothing was sent.`;
+    const clash = (what, why) => new NmtsError(`${what} does not apply with --from: ${why}`, { exitCode: 2, nextStep: nothing });
+    if (target !== undefined && target !== "") {
+        throw clash(`a local file`, `--from names the file, in the drive, and one run re-uploads one file.`);
+    }
+    if (options.name !== undefined)
+        throw clash(`--name`, `the re-upload keeps the name the file has.`);
+    if (options.to !== undefined)
+        throw clash(`--to`, `the re-upload keeps the folder the file is in.`);
+    if (options.onCollision !== undefined) {
+        throw clash(`--on-collision`, `a re-upload replaces the file it came from; that is what it is for.`);
+    }
 }
 /**
  * Review, agree, upload and record ONE file for a person who is watching. Null when `--dry-run`
@@ -148,6 +203,7 @@ export async function uploadOneWithWallet(ctx, file, options) {
                     tipMist: review.tipMist,
                     storage: review.storage,
                     heldResources: review.heldResources,
+                    networkCopy: ctx.networkCopy,
                 }, review.budget);
             },
             agree: (review) => {
@@ -182,9 +238,27 @@ export async function uploadOneWithWallet(ctx, file, options) {
         wallet: ctx.wallet,
         paidWalFrost: outcome.resumed ? 0n : outcome.review.budget.walNeededFrost,
         say: ctx.json ? (line) => void process.stderr.write(`${line}\n`) : say,
+        trustServerAddress: options.trustServerTipAddress === true,
         ...(options.tip ?? {}),
     });
     return { itemId: outcome.itemId, savedAs: outcome.savedAs, replaced: outcome.replaced, seq: outcome.fileListVersion, resumed: outcome.resumed, facts };
+}
+/**
+ * Whether this account asks its uploads to carry the recovery list's copy — for the review's one
+ * sentence about it, and for nothing else.
+ *
+ * ⛔ A FAILED READ IS `null`, NOT A FAILED UPLOAD. What hangs on this is a sentence; a server that
+ *    could not answer, or one older than the field, must not cost somebody the upload they asked
+ *    for. `--json` skips the read entirely — there is no review to print.
+ */
+export async function readNetworkCopy(server, apiKey) {
+    try {
+        const { readAccountSummary } = await import("./balance.js");
+        return (await readAccountSummary(server, apiKey)).network_copy;
+    }
+    catch {
+        return null;
+    }
 }
 /** The review as `--json` prints it: base units as strings, with the coin amounts beside them. */
 function factsOf(review) {

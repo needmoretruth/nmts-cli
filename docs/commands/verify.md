@@ -4,7 +4,7 @@ Commands: verify
 Tiers: verify=none
 
 The server keeps "has a person checked in lately" as a separate question from "is this a valid
-key", and the answer expires every four weeks. It does not gate the work: reading, writing,
+key", and the answer expires every twelve weeks. It does not gate the work: reading, writing,
 listing, folders, the trash, the recovery files and the wallet's balances never ask about it.
 Exactly three things do — making another account, the free trial, and creating a share — and
 while it is lapsed the account runs in a tighter rate tier (slower, not refused) and some requests

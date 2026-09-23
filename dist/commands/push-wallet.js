@@ -14,7 +14,7 @@ import { folderFor } from "./push.js";
 /** The wallet rail, one file at a time, stopping at the first failure as the credit rail does. */
 export async function pushWithWallet(session, options, run) {
     const { say } = run;
-    const { uploadOneWithWallet } = await import("./put-wallet.js");
+    const { readNetworkCopy, uploadOneWithWallet } = await import("./put-wallet.js");
     const ctx = {
         code: session.code,
         apiKey: session.apiKey,
@@ -31,6 +31,9 @@ export async function pushWithWallet(session, options, run) {
             ...options,
             readActiveWallet: async () => activeWalletOf(run.settings),
         }),
+        // ⛔ ONCE FOR THE WHOLE RUN, not per file: it decides one sentence in each review and a read
+        //    per file would be one request per file for nothing. `--json` prints no review at all.
+        networkCopy: options.json === true ? false : await readNetworkCopy(session.server, session.apiKey),
         progress: new Progress(options.json === true ? silentSink() : stderrSink(), "uploading"),
         say,
         json: options.json === true,

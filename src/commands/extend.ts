@@ -63,6 +63,9 @@ export interface ExtendOptions {
   sign?: SignExtension;
   /** The instant to measure against. Passed in so one run reports one moment. */
   now?: number;
+  /** `--trust-server-tip-address`: let THIS SERVER name where the standing gift goes. Off unless
+   *  typed, and only for a server the caller runs (`standing-tip.ts`). */
+  trustServerTipAddress?: boolean;
   /** ⚠ SEAMS, NOT OPTIONS — the standing tip's own read and signature. No flag reaches them. */
   tip?: Pick<StandingTipInput, "readDonation" | "sign">;
   /** `--wallet N`: which wallet pays, this run only. Absent = the account's own number. */
@@ -186,6 +189,7 @@ export async function extend(target: string | undefined, options: ExtendOptions 
     wallet: plan.wallet,
     paidWalFrost: budget.priceFrost,
     say: options.json === true ? (line: string): void => void process.stderr.write(`${line}\n`) : say,
+    trustServerAddress: options.trustServerTipAddress === true,
     ...(options.tip ?? {}),
   });
   return 0;

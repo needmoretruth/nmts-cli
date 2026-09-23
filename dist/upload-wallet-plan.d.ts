@@ -125,4 +125,12 @@ export declare function describeUploadReview(say: (line: string) => void, facts:
     tipMist: bigint;
     storage: StorageChoice;
     heldResources: number | null;
+    /**
+     * Does this account ask its uploads to carry the recovery list's storage-network copy?
+     *
+     * ⚠ `null` = it could not be read. The sentence below is said for `true` AND for `null`,
+     *   because silence would let somebody assume a copy rode along; only a switch known to be
+     *   off buys silence.
+     */
+    networkCopy: boolean | null;
 }, budget: UploadBudget): void;

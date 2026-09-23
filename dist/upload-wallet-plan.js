@@ -178,7 +178,16 @@ export function describeUploadReview(say, facts, budget) {
     say(``);
     say(`  This is paid in WAL and SUI from the wallet this NMTS key derives — not from credits, which`);
     say(`  is what \`${BINARY_NAME} put\` spends without --pay wallet. Nobody, NMTS included, can reverse it.`);
-    say(`  The storage is the wallet's own: NMTS records the file and does not hold it. This upload does`);
-    say(`  not carry the recovery list's storage-network copy, whatever the account's switch says —`);
-    say(`  only the browser's small-file uploads do.`);
+    say(`  The storage is the wallet's own: NMTS records the file and does not hold it.`);
+    // ⛔ SAID WHERE IT CHANGES WHAT SOMEBODY GETS, AND NOWHERE ELSE. The wallet rail never carries
+    //    the recovery list's copy; an account that never asked for one has nothing to be told, and
+    //    the sentence was printed to everybody until this account's own switch became readable
+    //    (`GET /v1/account/summary` `network_copy`, 2026-09-20).
+    if (facts.networkCopy !== false) {
+        say(facts.networkCopy === true
+            ? `  This account asks for the recovery list to be copied to the storage network with its uploads.`
+            : `  Whether this account asks for the recovery list's storage-network copy could not be read.`);
+        say(`  This upload does not carry that copy — only the browser's small-file uploads write one, and`);
+        say(`  \`${BINARY_NAME} recovery-list\` writes the list out as a file from here.`);
+    }
 }

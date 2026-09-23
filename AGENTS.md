@@ -57,7 +57,7 @@ Four things need a person, all at the beginning. If you are being set up, hand t
 |---|---|---|---|
 | 1. Make the account | a person | nmts.me, or `nmts create` at a terminal (it makes the NMTS key on that machine and hands the person a one-time link to finish in a browser) | once |
 | 2. Make an API key for you | a person | the account screen at nmts.me, or `nmts key new` on a machine that holds the NMTS key (`key list` and `key revoke` live there too) | once, and again if it is revoked |
-| 3. Pass the check that says a person is here | a person | nmts.me, one short code | **every four weeks**, and only for step 1, step 4 and sharing |
+| 3. Pass the check that says a person is here | a person | nmts.me, one short code | **every twelve weeks**, and only for step 1, step 4 and sharing |
 | 4. Get credits into the account | you, for the free trial (`nmts trial apply`, while step 3 is live) — a person, for a funded wallet | a terminal, or nmts.me | once, then as they run out |
 
 **Step 3 does not gate the work.** Reading, writing, listing, folders, the trash, the recovery files and the

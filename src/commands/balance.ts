@@ -30,7 +30,7 @@ export interface BalanceOptions {
 }
 
 /** What the narrow read answers. Everything is optional here because a server may be older. */
-interface Summary {
+export interface Summary {
   credits: {
     remaining: number;
     soonest_expiry: string | null;
@@ -62,6 +62,17 @@ interface Summary {
    *    every account was in before AI accounts existed.
    */
   ai_account: boolean;
+  /**
+   * Whether this account asks its uploads to carry the recovery list into the storage network.
+   *
+   * ⛔ IT SAYS WHAT WAS ASKED FOR, NOT WHAT EXISTS. The switch is an intention; whether a copy is
+   *    out there is a different fact this read does not carry.
+   *
+   * ⚠ A SERVER THAT PREDATES THE FIELD READS AS `false`, which is indistinguishable from a switch
+   *   that is off. What reads it (`put --pay wallet`'s review) only ADDS a sentence when it is on,
+   *   so the older server's answer costs a sentence and never states something untrue.
+   */
+  network_copy: boolean;
   /** One row per stored file that has a deposit: what it set aside, and what has been spent of it. */
   deposits: DepositRow[];
 }
@@ -116,8 +127,19 @@ function asSummary(value: unknown): Summary {
     },
     terms: { acceptance_required: isRecord(terms) && terms["acceptance_required"] === true },
     ai_account: value["ai_account"] === true,
+    network_copy: value["network_copy"] === true,
     deposits: depositRows(credits["deposits"]),
   };
+}
+
+/**
+ * The narrow account read, typed — for the other commands that need one number out of it.
+ *
+ * ⛔ ONE READER OF THIS ROUTE. A second command that narrowed the answer itself would be a second
+ *    opinion about which fields a server is allowed to be missing.
+ */
+export async function readAccountSummary(server: string, apiKey: string): Promise<Summary> {
+  return asSummary(await request(server, "/v1/account/summary", { token: apiKey }));
 }
 
 /**
@@ -148,9 +170,7 @@ function plural(n: number, one: string, many: string): string {
 export async function balance(options: BalanceOptions = {}): Promise<number> {
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));
   const session = await openSession({ server: options.server, network: options.network });
-  const summary = asSummary(
-    await request(session.server, "/v1/account/summary", { token: session.apiKey }),
-  );
+  const summary = await readAccountSummary(session.server, session.apiKey);
 
   if (options.json === true) {
     say(JSON.stringify(summary));

@@ -12,7 +12,7 @@ export type { RequestOptions, ServerRefusal } from "./api.ts";
 export { DEFAULT_SERVER, SERVER_ENV_VAR, resolveServer } from "./server.ts";
 export { NETWORKS, NETWORK_ENV_VAR, resolveNetwork } from "./network.ts";
 export type { Network } from "./network.ts";
-export { assertUsableCode, identityOf } from "./account.ts";
+export { assertUsableCode, identityOf, phraseOf } from "./account.ts";
 export type { AccountIdentity } from "./account.ts";
 export { AAD, DERIVED, loadCrypto } from "./crypto.ts";
 export type { CryptoGlue } from "./crypto.ts";

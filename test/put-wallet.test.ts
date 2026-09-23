@@ -18,9 +18,11 @@ import { tip } from "../src/commands/tip.ts";
 import { testConfigDir } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
 import { sealedLenFor } from "../src/seal.ts";
+import { TIP_ADDRESS } from "../src/standing-tip.ts";
 import type { StorageResource } from "../src/shared/lib/storage-control/chain.ts";
 import { planAndPrice } from "../src/upload-price.ts";
 import { coinAmount } from "../src/wallet.ts";
+import { setNetworkCopy } from "./fake-account.ts";
 import { collect, startFakeDrive, withSandbox } from "./fake-drive.ts";
 import { FEE_MIST, MAINNET, NOW, refusal, withWalletAgreed } from "./fake-extend.ts";
 import { FILE, fakeReads, putWalletOpts, recordingSigners, refuseToSign } from "./fake-put-wallet.ts";
@@ -52,7 +54,10 @@ test("⛔ --dry-run prints the whole review — price, tip, fee, balances, epoch
     assert.match(text, /Chain fee about 0\.003 SUI per register signature/);
     assert.match(text, /holds 10000000 WAL and 1 SUI/);
     assert.match(text, /not from credits/);
-    assert.match(text, /not carry the recovery list's storage-network copy/);
+    // ⛔ AND IT SAYS NOTHING ABOUT THE RECOVERY LIST, because this account never asked for a copy.
+    //    The sentence was printed to everybody before the switch could be read — see the test
+    //    below, which is the case where it is news.
+    assert.doesNotMatch(text, /recovery list/);
     assert.match(text, /Nothing was signed and nothing was sent/);
     assert.equal(sign.calls, 0);
   });
@@ -74,6 +79,19 @@ test("--dry-run --json says who pays and what it costs, in base units as strings
     assert.equal(typeof at("priceFrost"), "string");
     assert.equal(at("feeMist"), FEE_MIST.toString());
     assert.deepEqual(at("storage"), { kind: "buy" });
+  });
+});
+
+test("an account that asks for the recovery list's network copy is told this rail does not carry it", async () => {
+  await withWalletAgreed(drive, "put-wallet-network-copy", async (code) => {
+    await drive.serve(code, []);
+    setNetworkCopy(true);
+    const out = collect();
+    assert.equal(await put(FILE, opts(out, { dryRun: true, sign: refuseToSign("the review signed") })), 0);
+    const text = out.lines.join("\n");
+    assert.match(text, /This account asks for the recovery list to be copied to the storage network/);
+    assert.match(text, /This upload does not carry that copy/);
+    assert.match(text, /nmts recovery-list/);
   });
 });
 
@@ -264,7 +282,9 @@ test("the review mentions held resources when there are any, and buys new storag
 // ── the standing share, after the payment ─────────────────────────────────────────────────────
 
 /** The published address and the gift's digest, both shaped like real ones. */
-const DEV = `0x${"d".repeat(64)}`;
+// The pinned receiving address for this network — a standing gift to any other is refused
+// (`standing-tip.ts` `TIP_ADDRESS`).
+const DEV = TIP_ADDRESS.testnet;
 const GIFT = "5rTuLm9wQ2xVc7Yb1Kd8FgHj3NpZa6Se4RvXt2WqMh7B";
 
 /** What one default run of ten bytes pays in WAL: two epochs of storage plus the write. */

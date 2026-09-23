@@ -31,7 +31,7 @@
 
 import { request, ServerError } from "./api.ts";
 import { DriveEditError, resolving } from "./drive-edit/errors.ts";
-import { filesUnder, uniqueById } from "./drive-edit/tree.ts";
+import { filesUnder, foldersUnder, uniqueById } from "./drive-edit/tree.ts";
 import { buildIndex, fullPathOf, KIND_FILE } from "./drive-paths.ts";
 import { NmtsError } from "./errors.ts";
 import { readFileList } from "./manifest.ts";
@@ -73,10 +73,12 @@ export interface ErasePlan {
   /** Every FILE going: the ones named, and every file under a folder that was named. */
   readonly files: readonly ErasePath[];
   /**
-   * The ids leaving the sealed list — the files above and the folders that were named.
+   * The ids leaving the sealed list — the files above, the folders that were named, and every
+   * folder under one of them.
    *
-   * ⚠ WIDER THAN `files` ON PURPOSE. A named folder has no server row of its own, so nothing is
-   *   erased for it; its entry still has to go, or the list keeps a folder whose contents are gone.
+   * ⚠ WIDER THAN `files` ON PURPOSE. A folder has no server row of its own, so nothing is erased
+   *   for it; its entry still has to go, or the list keeps a folder whose contents are gone — and
+   *   a sub-folder left behind is the worse half of that, because its parent went too.
    */
   readonly going: readonly string[];
 }
@@ -129,7 +131,12 @@ export async function planErase(input: ListEditInput, paths: readonly string[]):
     batchTargets(entries, paths, { includeTrashed: true, nothingHappened: "Nothing was erased." }),
   );
   const files = uniqueById(targets.flatMap((t) => (t.kind === KIND_FILE ? [t] : filesUnder(entries, t.id))));
-  const going = uniqueById([...targets, ...files]);
+  // ⛔ AND THE FOLDERS UNDER A NAMED FOLDER, which `targets + files` left behind. A sub-folder
+  //    holding no file was in neither set, so it stayed in the sealed list with its parent gone —
+  //    a folder the drive still showed, sitting under nothing, that no command could reach
+  //    (2026-09-20). What is erased on the server is unchanged: folders have no row there.
+  const folders = uniqueById(targets.flatMap((t) => (t.kind === KIND_FILE ? [] : foldersUnder(entries, t.id))));
+  const going = uniqueById([...targets, ...files, ...folders]);
   if (files.length === 0) {
     throw new DriveEditError("NOT_FOUND", `Nothing named holds a file; empty folders are removed with \`${BINARY_NAME} rm\`.`, {
       exitCode: 4,

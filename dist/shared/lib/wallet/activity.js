@@ -83,6 +83,25 @@ function inputObjectIds(tx) {
     }
     return ids;
 }
+/**
+ * One balance change's amount, or null when the RPC's figure is not a whole decimal number.
+ *
+ * ⛔ WHY NULL RATHER THAN ZERO, AND WHY IT IS CHECKED AT ALL. `BigInt("1.5")` and `BigInt("")`
+ *    THROW, and this parse sits inside `toActivityRow`, which the list runs once per transaction —
+ *    so ONE malformed figure from ONE entry threw all the way out and the whole activity list came
+ *    up EMPTY, with nothing on screen to say why. The declared type says `string`, but the value
+ *    arrives as JSON from a public mirror we do not control, so the shape is a claim, not a fact.
+ *    ▶ A figure that cannot be read is ONE entry that cannot be priced: that entry is dropped and
+ *      every other row still stands. Zero would be worse than dropping it — it would print a real
+ *      movement as "0", which is the "not knowing drawn as nothing happened" this file forbids.
+ */
+function amountOf(raw) {
+    if (typeof raw !== "string")
+        return null;
+    const text = raw.trim();
+    // The regex is what makes BigInt total here: only an optionally-signed run of digits reaches it.
+    return /^-?\d+$/.test(text) ? BigInt(text) : null;
+}
 /** The functions of the Walrus `system` module whose names we know → our kind. */
 const WALRUS_FUNCTION_KIND = {
     register_blob: "seal",
@@ -114,7 +133,10 @@ export function toActivityRow(tx, ctx) {
         if (owner === null)
             continue;
         const normalized = normalizeAddress(owner);
-        const amount = BigInt(change.amount ?? "0");
+        const amount = change.amount === undefined ? 0n : amountOf(change.amount);
+        // An entry whose figure we cannot read is skipped; the rest of the transaction is still a row.
+        if (amount === null)
+            continue;
         if (normalized === me) {
             const coinType = change.coinType ?? "";
             changes.push({

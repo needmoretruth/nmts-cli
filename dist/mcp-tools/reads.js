@@ -68,9 +68,10 @@ export function readTools(ctx) {
         {
             name: "nmts_losses",
             description: "Storage objects paid with this account's credits that NMTS's daily check could not find " +
-                "on the chain, newest first. Read-only; costs nothing. Each row is a public chain object " +
-                "id and the day a check first missed it — no file name, because the server cannot pair " +
-                "them.",
+                "on the chain, newest first. Read-only; costs nothing. A program uploading with a key is " +
+                "the caller that keeps writing into storage that is gone, so read this before a long run. " +
+                "Each row is a public chain object id and the day a check first missed it — no file name, " +
+                "because the server cannot pair them.",
             inputSchema: NO_ARGS,
             run: () => say((write) => losses({ ...common(ctx), json: true, write })),
         },

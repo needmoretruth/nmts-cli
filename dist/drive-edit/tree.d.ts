@@ -13,3 +13,15 @@ export declare function uniqueById(files: readonly ManifestEntry[]): ManifestEnt
  *   `rm` takes this set whole. `restore` cannot: see the note at the call site.
  */
 export declare function filesUnder(entries: readonly ManifestEntry[], rootId: string): ManifestEntry[];
+/**
+ * Every FOLDER under one entry, the root itself excluded. Empty when the root is a file.
+ *
+ * ⛔ IT EXISTS BECAUSE A FOLDER WITH NO FILE IN IT HAS NOTHING TO CARRY IT OUT. What leaves the
+ *    sealed list is decided from the files under a named folder; a sub-folder holding none was in
+ *    nobody's set, so it stayed — an entry whose parent had gone, which the list still showed and
+ *    nothing could open or reach (2026-09-20).
+ *
+ * ⚠ Trashed descendants are included, for the reason `filesUnder` includes them: somebody who
+ *   trashed a sub-folder last week and then erases its parent expects both to be gone.
+ */
+export declare function foldersUnder(entries: readonly ManifestEntry[], rootId: string): ManifestEntry[];

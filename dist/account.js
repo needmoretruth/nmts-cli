@@ -22,38 +22,28 @@ import { toBase64Url } from "./bytes.js";
 import { DERIVED, loadCrypto } from "./crypto.js";
 import { NmtsError } from "./errors.js";
 /**
- * Check that a string is a real NMTS key.
+ * Check that a string is a real NMTS key — or its 15-word recovery phrase — and return the key in
+ * its display form, so what gets stored is the key whichever spelling was typed.
  *
  * ⛔ This is the engine's own parser, which verifies the trailing check symbol. A typo therefore
  *    fails HERE, offline, instead of becoming a sign-in failure the person cannot tell apart from
- *    a wrong password, a network problem or a suspended account.
+ *    a wrong password, a network problem or a suspended account. The engine's own message is not
+ *    repeated: it can contain the input.
  */
 export async function assertUsableCode(code) {
     const glue = await loadCrypto();
+    const bytes = parseKeyOrPhrase(glue, code);
     try {
-        glue.account_code_parse(code);
+        return glue.account_code_display(bytes);
     }
-    catch {
-        // ⛔ The engine's own message is not repeated: it can contain the input.
-        throw new NmtsError("That is not a valid NMTS key.", {
-            exitCode: 2,
-            nextStep: "Check for a mistyped or missing character. The last character is a check symbol.",
-        });
+    finally {
+        bytes.fill(0);
     }
 }
 /** Derive the public facts about an account from its code. */
 export async function identityOf(code) {
     const glue = await loadCrypto();
-    let bytes;
-    try {
-        bytes = glue.account_code_parse(code);
-    }
-    catch {
-        throw new NmtsError("That is not a valid NMTS key.", {
-            exitCode: 2,
-            nextStep: "Check for a mistyped or missing character. The last character is a check symbol.",
-        });
-    }
+    const bytes = parseKeyOrPhrase(glue, code);
     // ⛔ WIPED, like every other derivation in this tool. This buffer is not an account id — it is
     //    EVERY KEY IN THE ACCOUNT: the sign-in secret, the key that opens the files, the key that
     //    opens the file list, and the wallet root. This one call site was leaving all of it live for
@@ -71,6 +61,43 @@ export async function identityOf(code) {
     }
     finally {
         derived.fill(0);
+        bytes.fill(0);
+    }
+}
+/**
+ * The 20 bytes of an NMTS key or its 15-word recovery phrase. A phrase's refusal says which way it
+ * is wrong — a 12- or 24-word input is most likely a wallet's seed pasted into the wrong place.
+ */
+function parseKeyOrPhrase(glue, input) {
+    try {
+        return glue.account_code_parse(input);
+    }
+    catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        const nextStep = message.startsWith("phrase:count")
+            ? "An NMTS recovery phrase has 15 words. A 12- or 24-word phrase belongs to a wallet, not to NMTS."
+            : message.startsWith("phrase:word")
+                ? `Word ${message.split(":")[2] ?? "?"} is not in the recovery phrase word list. Check its spelling.`
+                : message.startsWith("phrase:checksum")
+                    ? "Every word is in the list, but one is wrong or two are in the wrong order."
+                    : "Check for a mistyped or missing character. The last character is a check symbol.";
+        throw new NmtsError("That is not a valid NMTS key or recovery phrase.", { exitCode: 2, nextStep });
+    }
+}
+/** The NMTS key as its 15-word recovery phrase, in `en` (default) or `ko`. */
+export async function phraseOf(code, lang) {
+    if (lang !== undefined && lang !== "en" && lang !== "ko") {
+        throw new NmtsError(`There is no recovery phrase word list "${lang}".`, {
+            exitCode: 2,
+            nextStep: "--lang takes en or ko.",
+        });
+    }
+    const glue = await loadCrypto();
+    const bytes = parseKeyOrPhrase(glue, code);
+    try {
+        return glue.account_code_phrase(bytes, lang ?? "en");
+    }
+    finally {
         bytes.fill(0);
     }
 }

@@ -35,7 +35,7 @@ export { request, ServerError, DEFAULT_TIMEOUT_MS } from "./api.js";
 export { DEFAULT_SERVER, SERVER_ENV_VAR, resolveServer } from "./server.js";
 export { NETWORKS, NETWORK_ENV_VAR, resolveNetwork } from "./network.js";
 // The account: what a code derives, and the engine that derives it.
-export { assertUsableCode, identityOf } from "./account.js";
+export { assertUsableCode, identityOf, phraseOf } from "./account.js";
 export { AAD, DERIVED, loadCrypto } from "./crypto.js";
 // The gate every engine load passes, whichever runtime found the build. A host that fetched one
 // runs its answer through this rather than trusting it.

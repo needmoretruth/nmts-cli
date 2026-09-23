@@ -69,13 +69,36 @@ export interface AccountState {
   erasures: { proof: string | null }[];
 }
 
-/** An account that owes acceptance of the pair that took effect on 2026-09-10. */
+/**
+ * An account that owes acceptance of the pair that took effect on 2026-09-10.
+ *
+ * ⛔ IT CARRIES THE WHOLE SHAPE, not only the part most of these tests read. The tool narrows this
+ *    answer in one place (`commands/balance.ts`) and REFUSES one it cannot read, so a stub with
+ *    three members missing made every other reader of this route fail for a reason that had nothing
+ *    to do with what it asked for.
+ */
 const DEFAULT_SUMMARY = {
+  account_id: "AAAAAAAAAAAAAAAAAAAAAA",
+  credits: {
+    remaining: 100,
+    soonest_expiry: null,
+    file_cap: 64,
+    daily_cap: 512,
+    deposit_max: 64,
+    deposit_default: 64,
+    held: 0,
+    deposits_held: 0,
+  },
+  quota: { granted: 104_857_600, used: 0 },
+  storage: { parts: 0, earliest_expiry_epoch: null },
   terms: {
     acceptance_required: true,
     required_terms_version: "2026-09-10-v11",
     required_privacy_version: "2026-09-10-v12",
   },
+  ai_account: false,
+  /** The recovery-list switch. Off, which is what every account starts as. */
+  network_copy: false,
 };
 
 const DEFAULT_ISSUE: FakeIssue = {
@@ -116,6 +139,16 @@ export function resetAccount(): void {
   accountState.refuseAcceptWith = null;
   accountState.signOuts = [];
   accountState.erasures = [];
+}
+
+/**
+ * Turn the recovery-list switch on in the answer above, leaving the rest of it as it is.
+ *
+ * ⚠ A WHOLE ANSWER, NOT A PATCH ON THE SHARED ONE: `DEFAULT_SUMMARY` is handed out by reference, so
+ *   a test that edited it in place would leave the switch on for every test after it.
+ */
+export function setNetworkCopy(on: boolean): void {
+  accountState.summary = { ...DEFAULT_SUMMARY, network_copy: on };
 }
 
 /**

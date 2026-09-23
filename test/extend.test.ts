@@ -25,6 +25,7 @@ import { after, test } from "node:test";
 import { extend } from "../src/commands/extend.ts";
 import { tip } from "../src/commands/tip.ts";
 import { testConfigDir } from "../src/credentials.ts";
+import { TIP_ADDRESS } from "../src/standing-tip.ts";
 import { collect, startFakeDrive, withSandbox } from "./fake-drive.ts";
 import {
   extendOpts,
@@ -197,7 +198,9 @@ test("--json says what was signed, in units a program cannot round away", async 
 // ── the standing share, after the payment ─────────────────────────────────────────────────────
 
 /** The published address and the gift's digest, both shaped like real ones. */
-const DEV = `0x${"d".repeat(64)}`;
+// The pinned receiving address for this network — a standing gift to any other is refused
+// (`standing-tip.ts` `TIP_ADDRESS`).
+const DEV = TIP_ADDRESS.testnet;
 const GIFT = "5rTuLm9wQ2xVc7Yb1Kd8FgHj3NpZa6Se4RvXt2WqMh7B";
 
 test("the standing share of what was just paid goes to the developer, after the payment", async () => {
