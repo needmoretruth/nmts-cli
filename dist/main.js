@@ -98,6 +98,7 @@ export async function run(argv) {
                 find: args.find,
                 sort: args.sort,
                 desc: args.desc,
+                media: args.media,
             });
         }
         case "usage": {
@@ -172,6 +173,7 @@ export async function run(argv) {
             const { get } = await import("./commands/get.js");
             return await get(args.operands[0], {
                 server: args.server, network: args.network, out: args.out, force: args.force, json: args.json,
+                thumbnail: args.thumbnail,
             });
         }
         case "put": {
@@ -189,6 +191,7 @@ export async function run(argv) {
                 epochs: args.epochs,
                 storage: args.storage, from: args.from,
                 json: args.json, wallet: args.wallet, trustServerTipAddress: args.trustServerTipAddress,
+                thumbnail: args.thumbnail, thumbnailFile: args.thumbnailFile,
             });
         }
         case "push": {

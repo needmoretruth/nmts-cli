@@ -1,10 +1,10 @@
 import type { ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";
-import { buildIndex, isLive, type ManifestIndex, trashedAt } from "./shared/lib/drive/manifest-index.ts";
+import { buildIndex, isLive, type ManifestIndex, shown, trashedAt } from "./shared/lib/drive/manifest-index.ts";
 /** Folder. The same numeric codes the items API uses. */
 export declare const KIND_FOLDER = 0;
 /** File. */
 export declare const KIND_FILE = 1;
-export { buildIndex, isLive, trashedAt };
+export { buildIndex, isLive, shown, trashedAt };
 export type { ManifestIndex };
 /**
  * The full path of one entry, marked when the walk could not reach the root.

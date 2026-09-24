@@ -14,3 +14,8 @@ already seen, or a different list at the same version. Report that and stop; it 
 
 `nmts listfile` writes this machine's copy of the sealed file list out as a file (`--out`, or
 `--out -` for stdout). It is sealed: without the NMTS key it says nothing.
+
+`--media image|video|audio` keeps only files of that kind, judged by the name's extension. A
+video's preview picture is never a line of its own while its video is in the list: fetch it with
+`nmts get <video> --thumbnail`. It goes to the trash, comes back and is erased with its video. A
+picture whose video is gone is listed like any file, so it can still be deleted.

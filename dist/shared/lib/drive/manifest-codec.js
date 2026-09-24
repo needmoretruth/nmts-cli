@@ -17,6 +17,7 @@
 // codec round-trip suite and resolves no path aliases.
 import { NETWORK_WHEN_UNRECORDED } from "../storage-network.js";
 import { settingsFromWire, settingsToWire, TEXT_SCALE_DEFAULT_PCT, TEXT_SCALE_MAX_PCT, TEXT_SCALE_MIN_PCT, } from "./manifest-settings.js";
+import { carriedFromWire, sharesFromWire, sharesToWire, withCarried, } from "./manifest-wire-extras.js";
 export { TEXT_SCALE_DEFAULT_PCT, TEXT_SCALE_MAX_PCT, TEXT_SCALE_MIN_PCT };
 /**
  * Current format version this build writes.
@@ -70,10 +71,11 @@ export function toWire(e) {
     // spelling it out would cost bytes on every file of every save to say nothing new.
     if (e.network !== undefined && e.network !== NETWORK_WHEN_UNRECORDED)
         w.sn = e.network;
-    if (e.shares && e.shares.length > 0) {
-        w.sh = e.shares.map((r) => (r.revoked ? { a: r.address, t: r.at, r: 1 } : { a: r.address, t: r.at }));
-    }
-    return w;
+    if (e.shares && e.shares.length > 0)
+        w.sh = sharesToWire(e.shares);
+    if (e.thumbOf !== undefined)
+        w.to = e.thumbOf;
+    return withCarried(w, e.carried);
 }
 export function fromWire(w) {
     const e = {
@@ -108,25 +110,15 @@ export function fromWire(w) {
     // "stored on Walrus" — a claim about someone else's bytes that nothing would ever correct.
     if (typeof w.sn === "number")
         e.network = w.sn;
-    // Defensive in the same way labels are, and for a sharper reason: a receipt with a blank address
-    // or a broken instant would be compared against the server's rows and could produce a warning
-    // about a share nobody ever made. Anything unusable is dropped — a receipt that cannot be
-    // checked says nothing, and saying nothing is the honest outcome.
-    if (Array.isArray(w.sh)) {
-        const clean = [];
-        for (const raw of w.sh) {
-            if (!raw || typeof raw !== "object")
-                continue;
-            const { a, t, r } = raw;
-            if (typeof a !== "string" || a === "")
-                continue;
-            if (typeof t !== "number" || !Number.isFinite(t))
-                continue;
-            clean.push(r === 1 ? { address: a, at: t, revoked: true } : { address: a, at: t });
-        }
-        if (clean.length > 0)
-            e.shares = clean;
-    }
+    // Checked receipt by receipt — see `sharesFromWire` for why a broken one says nothing.
+    const shares = sharesFromWire(w.sh);
+    if (shares)
+        e.shares = shares;
+    if (typeof w.to === "string" && w.to !== "")
+        e.thumbOf = w.to;
+    const carried = carriedFromWire(w);
+    if (carried)
+        e.carried = carried;
     return e;
 }
 /** Thrown when the plaintext is not a manifest this build can read. */

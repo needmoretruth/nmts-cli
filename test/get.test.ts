@@ -315,3 +315,46 @@ test("a file with no recorded hash is written, and the missing check is said out
     assert.match(said.lines.join("\n"), /no recorded hash/);
   });
 });
+
+// ── `--thumbnail`: the video's preview picture ───────────────────────
+test("--thumbnail gets the picture linked to the video, and says so when there is none", async () => {
+  await withSandbox("get-thumbnail", async (dir) => {
+    const code = await generateCode();
+    process.env[CODE_ENV_VAR] = code;
+    const picture = new Uint8Array(900).map((_, i) => (i * 3) % 251);
+    const sealed = await sealFile(code, [picture]);
+    // The network holds the picture's parts; the list holds it beside its video and a video without one.
+    await serve(code, "trip.mp4.thumb.jpg", sealed, picture.length);
+    const items = [
+      entry({ id: "video", name: "trip.mp4", size: 10 }),
+      entry({ id: "lone", name: "other.mp4", size: 10 }),
+      entry({
+        id: ITEM_ID,
+        name: "trip.mp4.thumb.jpg",
+        size: picture.length,
+        thumbOf: "video",
+        dekWrapped: sealed.dekWrapped,
+        contentHashCt: sealed.contentHashCt,
+      }),
+    ];
+    manifestBody = {
+      state: "present",
+      seq: 1,
+      ct: await sealFileList(code, await encodeManifest(items, 1)),
+      updated_at: "2026-08-23T00:00:00Z",
+    };
+
+    const out = join(dir, "thumb.jpg");
+    assert.equal(await get("trip.mp4", { server: BASE, network: "testnet", out, thumbnail: true, write: collect().write }), 0);
+    assert.deepEqual(new Uint8Array(readFileSync(out)), picture);
+
+    const lone = join(dir, "lone.jpg");
+    const failure = await get("other.mp4", { server: BASE, network: "testnet", out: lone, thumbnail: true, write: collect().write }).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    assert.ok(failure instanceof NmtsError);
+    assert.equal(failure.exitCode, 4);
+    assert.equal(existsSync(lone), false);
+  });
+});

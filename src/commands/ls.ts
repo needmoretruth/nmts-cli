@@ -18,8 +18,9 @@
 //    agent that mistyped a key goes off investigating the account instead of its own arguments.
 
 import { CODE_ENV_VAR } from "../credentials.ts";
-import { buildIndex, fullPathOf, isLive, KIND_FOLDER, trashedAt } from "../drive-paths.ts";
+import { buildIndex, fullPathOf, isLive, KIND_FOLDER, shown as inViews, trashedAt } from "../drive-paths.ts";
 import { NmtsError } from "../errors.ts";
+import { classify } from "../shared/lib/drive/preview-classify.ts";
 import { marksOf, markSuffix, type EntryMarks } from "../mark-render.ts";
 import { idsForQuery, needleOf } from "../list-view-find.ts";
 import { orderRows, parseSortKey, type SortDir, type SortKey } from "../list-view-order.ts";
@@ -35,6 +36,8 @@ export interface LsOptions {
   json?: boolean;
   /** Include entries that are in the trash. */
   all?: boolean;
+  /** Only files of this kind — `image`, `video` or `audio`, judged by name as the gallery does. */
+  media?: string | undefined;
   /**
    * Keep only files whose name contains this text, case-insensitively.
    *
@@ -97,6 +100,8 @@ function byPath(rows: readonly Row[], dir: SortDir): Row[] {
 }
 
 export async function ls(options: LsOptions = {}): Promise<number> {
+  // A kind that cannot mean anything is refused before the account is read.
+  const media = mediaOf(options.media);
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));
   const now = options.now ?? Date.now();
   const dir: SortDir = options.desc === true ? "desc" : "asc";
@@ -133,10 +138,12 @@ export async function ls(options: LsOptions = {}): Promise<number> {
   //    built to avoid, and it shipped: `hiddenTrashed` said 1 while two unreachable files were
   //    printed as live (2026-08-23).
   const index = buildIndex(list.manifest.entries);
-  const listed = options.all
-    ? list.manifest.entries
-    : list.manifest.entries.filter((e) => isLive(index, e));
-  const hidden = list.manifest.entries.length - listed.length;
+  // A video's preview picture is part of the video, never a line of its own — and it is
+  // not counted among what `--all` would add either.
+  const visible = list.manifest.entries.filter((e) => inViews(index, e));
+  const kept = media === null ? visible : visible.filter((e) => e.kind !== KIND_FOLDER && classify(e.name).kind === media);
+  const listed = options.all ? kept : kept.filter((e) => isLive(index, e));
+  const hidden = kept.length - listed.length;
 
   // The query runs over what was going to be shown, so `--find` and `--all` compose instead of one
   // quietly widening the other: a search without `--all` searches the drive, not the trash.
@@ -253,4 +260,11 @@ export async function ls(options: LsOptions = {}): Promise<number> {
     say(`  The sealed number is the one that is authenticated, so it is the one used.`);
   }
   return 0;
+}
+
+/** `--media`, checked: the three kinds the gallery and the music place gather, or null for all. */
+function mediaOf(asked: string | undefined): "image" | "video" | "audio" | null {
+  if (asked === undefined) return null;
+  if (asked === "image" || asked === "video" || asked === "audio") return asked;
+  throw new NmtsError(`--media takes image, video or audio, not "${asked}".`, { exitCode: 2 });
 }

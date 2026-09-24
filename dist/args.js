@@ -19,6 +19,8 @@ const VALUE_OPTIONS = {
     "--on-collision": "onCollision",
     "--deposit": "deposit",
     "--find": "find",
+    "--thumbnail-file": "thumbnailFile",
+    "--media": "media",
     "--sort": "sort",
     "--epochs": "epochs",
     "--pay": "pay",
@@ -92,6 +94,7 @@ const FLAG_OPTIONS = {
     "--all": "all",
     "--force": "force",
     "--dry-run": "dryRun",
+    "--thumbnail": "thumbnail",
     "--yes": "yes",
     "-y": "yes",
     "--publish": "publish",
@@ -146,7 +149,7 @@ function append(parsed, field, value) {
  * time, because a shape the compiler cannot see would let a new flag arrive as `undefined`.
  */
 const FLAG_DEFAULTS = {
-    help: false, version: false, json: false, all: false, force: false, dryRun: false, releaseStorage: false,
+    help: false, version: false, json: false, all: false, force: false, dryRun: false, thumbnail: false, releaseStorage: false,
     yes: false, publish: false, plain: false, env: false, status: false,
     desc: false, hidden: false, reveal: false, phrase: false, print: false, qr: false, board: false,
     save: false, acceptExtremes: false, remove: false, noWait: false, trustServerTipAddress: false,

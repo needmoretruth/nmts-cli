@@ -11,6 +11,8 @@ export interface GetOptions {
     /** Overwrite an existing file. Off by default, and saying so is the point. */
     force?: boolean;
     json?: boolean;
+    /** Fetch the video's preview picture — the small JPEG uploaded with it — instead of the video. */
+    thumbnail?: boolean;
     write?: (line: string) => void;
     /** Where the file's own bytes go when `out` is `-`. Injectable so a test can read them. */
     stdout?: ByteDestination;

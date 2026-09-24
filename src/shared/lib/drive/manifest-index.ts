@@ -17,6 +17,11 @@
 // CYCLES ARE TREATED AS DATA, NOT AS IMPOSSIBLE. A parent chain that loops would hang every walk
 //   in this file. Nothing we write can produce one, but the list is rebuilt by other devices and
 //   older builds, so every ancestor walk is bounded and a loop resolves to "detached".
+//
+// A VIDEO'S PREVIEW PICTURE IS NOT SHOWN AS A FILE. It is an ordinary
+//   file whose entry names its video (`thumbOf`), and every view here skips it while that video is
+//   in the list. Once the video is gone it is shown like any file, so a picture someone paid for
+//   can always be seen and deleted. ⚠ Walks that ACT on files (`descendantsOf`, `byId`) keep it.
 import type { ManifestEntry } from "./manifest-codec.ts";
 
 /** Folder items use kind 0, files kind 1 — the same numbers the items API uses. */
@@ -32,6 +37,10 @@ export interface ManifestIndex {
   readonly byId: ReadonlyMap<string, ManifestEntry>;
   /** Direct children by parent id (root under its own key). Values keep list order. */
   readonly childrenByParent: ReadonlyMap<string, readonly ManifestEntry[]>;
+  /** Preview pictures whose video is in the list — no view below shows these. */
+  readonly hidden: ReadonlySet<string>;
+  /** Video id → its hidden preview pictures, so every act on a video can take them along. */
+  readonly previews: ReadonlyMap<string, readonly string[]>;
 }
 
 /** Build the lookup structures for one version of the list. Cost is linear; do it once. */
@@ -45,7 +54,21 @@ export function buildIndex(entries: readonly ManifestEntry[]): ManifestIndex {
     if (bucket) bucket.push(e);
     else childrenByParent.set(key, [e]);
   }
-  return { all: entries, byId, childrenByParent };
+  const hidden = new Set<string>();
+  const previews = new Map<string, string[]>();
+  for (const e of entries) {
+    if (e.thumbOf === undefined || e.thumbOf === e.id || byId.get(e.thumbOf)?.kind !== KIND_FILE) continue;
+    hidden.add(e.id);
+    const bucket = previews.get(e.thumbOf);
+    if (bucket) bucket.push(e.id);
+    else previews.set(e.thumbOf, [e.id]);
+  }
+  return { all: entries, byId, childrenByParent, hidden, previews };
+}
+
+/** Would a view show this entry at all? False only for a preview picture whose video is listed. */
+export function shown(index: ManifestIndex, entry: ManifestEntry): boolean {
+  return !index.hidden.has(entry.id);
 }
 
 /**
@@ -83,7 +106,7 @@ export function isLive(index: ManifestIndex, entry: ManifestEntry): boolean {
  * writes the live drive, so a drive whose every file is in the trash has nothing to export.
  */
 export function hasLiveFile(index: ManifestIndex): boolean {
-  return index.all.some((e) => e.kind === KIND_FILE && isLive(index, e));
+  return index.all.some((e) => e.kind === KIND_FILE && shown(index, e) && isLive(index, e));
 }
 
 /**
@@ -96,7 +119,7 @@ export function childrenOf(
 ): readonly ManifestEntry[] {
   const bucket = index.childrenByParent.get(parentId ?? ROOT);
   if (!bucket) return [];
-  return bucket.filter((e) => isLive(index, e));
+  return bucket.filter((e) => shown(index, e) && isLive(index, e));
 }
 
 /**
@@ -105,7 +128,7 @@ export function childrenOf(
  */
 export function trashRoots(index: ManifestIndex): readonly ManifestEntry[] {
   const roots = index.all.filter((e) => {
-    if (e.deletedAt === undefined) return false;
+    if (e.deletedAt === undefined || !shown(index, e)) return false;
     if (e.parentId === null) return true;
     const parent = index.byId.get(e.parentId);
     // Parent gone entirely: this is the top of what remains, so it is its own root.
@@ -195,7 +218,7 @@ export function searchByName(
   for (const e of index.all) {
     if (out.length >= limit) break;
     if (!e.name.toLocaleLowerCase().includes(needle)) continue;
-    if (!isLive(index, e)) continue;
+    if (!shown(index, e) || !isLive(index, e)) continue;
     out.push(e);
   }
   return out;
@@ -209,7 +232,7 @@ export function searchByName(
  */
 export function favoriteFiles(index: ManifestIndex): readonly ManifestEntry[] {
   return index.all
-    .filter((e) => e.kind === KIND_FILE && e.favorite === true && isLive(index, e))
+    .filter((e) => e.kind === KIND_FILE && e.favorite === true && shown(index, e) && isLive(index, e))
     .slice()
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
@@ -224,7 +247,7 @@ export function labelCounts(index: ManifestIndex): { label: string; count: numbe
   const counts = new Map<string, number>();
   for (const e of index.all) {
     if (e.kind !== KIND_FILE || !e.labels || e.labels.length === 0) continue;
-    if (!isLive(index, e)) continue;
+    if (!shown(index, e) || !isLive(index, e)) continue;
     for (const label of e.labels) counts.set(label, (counts.get(label) ?? 0) + 1);
   }
   return [...counts.entries()]
@@ -242,6 +265,7 @@ export function filesWithLabel(
       (e) =>
         e.kind === KIND_FILE &&
         (e.labels ?? []).includes(label) &&
+        shown(index, e) &&
         isLive(index, e),
     )
     .slice()
@@ -261,7 +285,10 @@ export interface DriveTotals {
   trashedBytes: number;
 }
 
-/** Whole-drive counts. Exact, because the list is complete by construction. */
+/**
+ * Whole-drive counts. Exact, because the list is complete by construction.
+ * ⚠ A hidden preview picture is not counted: the totals describe what the lists show.
+ */
 export function totalsOf(index: ManifestIndex): DriveTotals {
   const totals: DriveTotals = {
     files: 0,
@@ -271,6 +298,7 @@ export function totalsOf(index: ManifestIndex): DriveTotals {
     trashedBytes: 0,
   };
   for (const e of index.all) {
+    if (!shown(index, e)) continue;
     const live = isLive(index, e);
     if (e.kind === KIND_FOLDER) {
       if (live) totals.folders += 1;

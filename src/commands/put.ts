@@ -84,6 +84,14 @@ export interface PutOptions {
   trustServerTipAddress?: boolean;
   json?: boolean;
   write?: (line: string) => void;
+  /** Send the video's preview picture with it — a frame from ffmpeg (`put-thumbnail.ts`). */
+  thumbnail?: boolean;
+  /** The picture to send as the video's preview, instead of a frame from ffmpeg. */
+  thumbnailFile?: string | undefined;
+  /** Set by `put-thumbnail.ts` on the picture's own run: the video's item id, written as `thumbOf`. */
+  thumbOf?: string;
+  /** Told the stored item's id and the name it was saved as, before anything is printed. */
+  onStored?: (itemId: string, savedAs: string) => void;
 }
 
 /** Who pays, and the options that lose their meaning under that answer — the rule is in `put-payer.ts`; this is its one road. */
@@ -129,6 +137,9 @@ export function folderIdFor(
 
 
 export async function put(target: string | undefined, options: PutOptions = {}): Promise<number> {
+  if (options.thumbnail === true || options.thumbnailFile !== undefined) {
+    return (await import("./put-thumbnail.ts")).putWithThumbnail(target, options, put);
+  }
   // ⛔ DECIDED BEFORE ANYTHING IS READ. The wallet path prices in WAL and signs; nothing below this
   //    line knows how to do either, and it must not learn.
   if (payerOf(options.pay) === "wallet") {
@@ -323,8 +334,10 @@ export async function put(target: string | undefined, options: PutOptions = {}):
       updatedAt: now,
       dekWrapped: result.entry.dekWrapped,
       contentHashCt: result.entry.contentHashCt,
+      ...(options.thumbOf !== undefined ? { thumbOf: options.thumbOf } : {}),
     },
   });
+  options.onStored?.(result.itemId, added.name);
   // ⛔ ONLY NOW, AND EVERY PART. Until the entry is in the list the file is paid for and invisible,
   //    and the records are the only thing that lets a second run finish the job without spending
   //    again. Clearing the file-level one first would leave a run able to commit a second time.

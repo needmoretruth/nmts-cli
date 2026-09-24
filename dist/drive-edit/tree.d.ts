@@ -3,6 +3,12 @@ import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
 export declare function isUnder(entries: readonly ManifestEntry[], id: string | null, rootId: string): boolean;
 /** Is any ancestor of this entry in the set? Used to drop a target a named folder already covers. */
 export declare function hasNamedAncestor(entries: readonly ManifestEntry[], entry: ManifestEntry, named: ReadonlySet<string>): boolean;
+/**
+ * `files` and the preview pictures of the videos among them. A video's
+ * picture is a file of its own, hidden from every listing while the video is there, so it goes
+ * wherever the video goes — left behind, it would be charged for and then show up on its own.
+ */
+export declare function withPreviews(entries: readonly ManifestEntry[], files: readonly ManifestEntry[]): ManifestEntry[];
 /** One entry per id, keeping the first. Two named folders can hold the same file only once. */
 export declare function uniqueById(files: readonly ManifestEntry[]): ManifestEntry[];
 /**

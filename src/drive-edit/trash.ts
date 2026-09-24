@@ -8,7 +8,7 @@ import { applyManyToList, batchTargets, type ListEditInput } from "../manifest-w
 import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
 import { applyIntent, type ManifestIntent } from "../shared/lib/drive/manifest-ops.ts";
 import { DriveEditError, resolving } from "./errors.ts";
-import { filesUnder, hasNamedAncestor, uniqueById } from "./tree.ts";
+import { filesUnder, hasNamedAncestor, uniqueById, withPreviews } from "./tree.ts";
 
 /**
  * What one run of the trash did — and, in this order, exactly what `nmts rm --json` prints.
@@ -144,9 +144,11 @@ export async function trashPaths(
   //    storage, and leave the list saying "trashed" while the server says "live" — after which
   //    `rm` refuses to put it back and there is no way out.
   const at = Date.now();
-  const ids = targets.map((t) => t.entry.id);
+  // A video's hidden preview picture goes into and out of the trash with it (gallery spec §4).
+  const under = withPreviews(entries, targets.flatMap((t) => filesUnder(entries, t.entry.id)));
+  const chosen = targets.map((t) => t.entry.id);
+  const ids = [...chosen, ...under.filter((f) => f.thumbOf !== undefined && !chosen.includes(f.id)).map((f) => f.id)];
   const preview = buildIndex(applyIntent(entries, intentFor(verb, ids, at)));
-  const under = uniqueById(targets.flatMap((t) => filesUnder(entries, t.entry.id)));
   // ⚠ Judged on the PREVIEW's own row, not on the one in hand: `applyIntent` returns new objects,
   //   so asking the preview about the old object reads the old `deletedAt` and answers "still
   //   trashed" for the very thing being restored.

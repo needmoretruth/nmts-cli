@@ -58,6 +58,8 @@ export interface WalletUploadFile {
     parentId: string | null;
     /** The destination AS TYPED — part of the reservation key. */
     destination: string;
+    /** A video's preview picture: the video's item id (`put-thumbnail.ts`). */
+    thumbOf?: string | undefined;
 }
 export interface WalletUploadContext {
     code: string;

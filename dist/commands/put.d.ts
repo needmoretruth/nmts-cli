@@ -44,6 +44,14 @@ export interface PutOptions {
     trustServerTipAddress?: boolean;
     json?: boolean;
     write?: (line: string) => void;
+    /** Send the video's preview picture with it — a frame from ffmpeg (`put-thumbnail.ts`). */
+    thumbnail?: boolean;
+    /** The picture to send as the video's preview, instead of a frame from ffmpeg. */
+    thumbnailFile?: string | undefined;
+    /** Set by `put-thumbnail.ts` on the picture's own run: the video's item id, written as `thumbOf`. */
+    thumbOf?: string;
+    /** Told the stored item's id and the name it was saved as, before anything is printed. */
+    onStored?: (itemId: string, savedAs: string) => void;
 }
 /** Who pays, and the options that lose their meaning under that answer — the rule is in `put-payer.ts`; this is its one road. */
 import { payerOf, refuseWalletOnlyOptions } from "./put-payer.ts";

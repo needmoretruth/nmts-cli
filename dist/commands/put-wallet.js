@@ -101,7 +101,7 @@ export async function putWithWallet(target, options) {
     try {
         const size = local?.size ?? original?.entry.size ?? 0;
         const localPath = local?.localPath ?? scratch?.localPath ?? "";
-        done = await uploadOneWithWallet(ctx, { localPath, size, name, parentId, destination }, options);
+        done = await uploadOneWithWallet(ctx, { localPath, size, name, parentId, destination, thumbOf: options.thumbOf }, options);
     }
     finally {
         // ⛔ ON EVERY PATH OUT, INCLUDING THE FAILING ONES. What it removes is a decrypted copy of
@@ -116,6 +116,7 @@ export async function putWithWallet(target, options) {
         ? null
         : await settleRefill({ server, apiKey: key.key, code: resolved.code, accountId: identity.accountId }, original, done.itemId);
     const savedAs = original?.name ?? done.savedAs;
+    options.onStored?.(done.itemId, savedAs);
     if (options.json) {
         say(JSON.stringify({ id: done.itemId, name: savedAs, ...done.facts, resumed: done.resumed, renamed: savedAs !== name, ...(original !== null ? { replacedIntoTrash: original.entry.id } : done.replaced ? { replacedIntoTrash: done.replaced } : {}), fileListVersion: settled ?? done.seq }));
         return 0;
@@ -179,7 +180,7 @@ export async function uploadOneWithWallet(ctx, file, options) {
             partSize: ctx.partSize,
             rule: ctx.rule,
             onCollision: ctx.onCollision,
-        }, { source: fileSource(file.localPath, file.size), name: file.name, parentId: file.parentId, destination: file.destination }, {
+        }, { source: fileSource(file.localPath, file.size), name: file.name, parentId: file.parentId, destination: file.destination, thumbOf: file.thumbOf }, {
             epochs: options.epochs,
             storage: options.storage,
             dryRun: options.dryRun,

@@ -351,3 +351,23 @@ test("⛔ an entry whose parent vanished does not take a healthy file hostage", 
     assert.equal(after.find((e) => e.id === "orphan")?.name, "a.txt");
   });
 });
+
+// ── a video's preview picture follows it ─────────────────────────────
+
+test("⛔ a video's preview picture goes to the trash with it and comes back with it", async () => {
+  await withSandbox("preview-follows", async (code) => {
+    await serve(code, [
+      entry({ id: "clip", name: "trip.mp4" }),
+      entry({ id: "pic", name: "trip.mp4.thumb.jpg", thumbOf: "clip" }),
+    ]);
+    assert.equal(await rm(["/trip.mp4"], opts(collect())), 0);
+    let after = await lastWritten(code);
+    // Left behind, it would be charged for and would show up in the list on its own.
+    assert.ok(after.find((e) => e.id === "pic")?.deletedAt !== undefined, "the picture stayed out of the trash");
+    assert.ok(calls.includes("DELETE /v1/items/pic"), `the picture's row was not trashed — ${calls.join(" · ")}`);
+
+    assert.equal(await restore(["/trip.mp4"], opts(collect())), 0);
+    after = await lastWritten(code);
+    assert.equal(after.find((e) => e.id === "pic")?.deletedAt, undefined, "the picture stayed in the trash");
+  });
+});

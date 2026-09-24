@@ -69,6 +69,9 @@ export function folderIdFor(wanted, entries) {
     return folder.id;
 }
 export async function put(target, options = {}) {
+    if (options.thumbnail === true || options.thumbnailFile !== undefined) {
+        return (await import("./put-thumbnail.js")).putWithThumbnail(target, options, put);
+    }
     // ⛔ DECIDED BEFORE ANYTHING IS READ. The wallet path prices in WAL and signs; nothing below this
     //    line knows how to do either, and it must not learn.
     if (payerOf(options.pay) === "wallet") {
@@ -258,8 +261,10 @@ export async function put(target, options = {}) {
             updatedAt: now,
             dekWrapped: result.entry.dekWrapped,
             contentHashCt: result.entry.contentHashCt,
+            ...(options.thumbOf !== undefined ? { thumbOf: options.thumbOf } : {}),
         },
     });
+    options.onStored?.(result.itemId, added.name);
     // ⛔ ONLY NOW, AND EVERY PART. Until the entry is in the list the file is paid for and invisible,
     //    and the records are the only thing that lets a second run finish the job without spending
     //    again. Clearing the file-level one first would leave a run able to commit a second time.

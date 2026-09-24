@@ -3,6 +3,18 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.45.0 — 2026-09-24
+
+- **Video preview pictures.** `nmts put <video> --thumbnail` takes one frame with ffmpeg, when it is
+  on your PATH, and uploads it beside the video as an ordinary small file linked to it; without
+  ffmpeg the video goes alone and `nmts` says why. `--thumbnail-file <picture>` hands in a picture
+  you made yourself. The picture is priced, encrypted and paid for like any other file.
+- `nmts get <video> --thumbnail` fetches the picture instead of the video.
+- `nmts ls --media` lists one kind of file. A preview picture is listed on its own only when its
+  video is gone.
+- Moving a video to the trash, restoring it and erasing it take its picture with it.
+- The MCP tools take the same options.
+
 ## 0.44.0 — 2026-09-23
 
 - **Recovery phrase.** An NMTS key can be written as 15 words from the BIP-39 English or Korean word

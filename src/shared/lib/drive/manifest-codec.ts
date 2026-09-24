@@ -26,30 +26,17 @@ import {
   type WireSettings,
 } from "./manifest-settings.ts";
 
-export { TEXT_SCALE_DEFAULT_PCT, TEXT_SCALE_MAX_PCT, TEXT_SCALE_MIN_PCT };
-export type { AccountSettings };
+import {
+  carriedFromWire,
+  sharesFromWire,
+  sharesToWire,
+  withCarried,
+  type ShareReceipt,
+  type WireShareReceipt,
+} from "./manifest-wire-extras.ts";
 
-/**
- * One share this device made, kept where the server cannot reach it (`ManifestEntry.shares`).
- *
- * A receipt is written only AFTER the server's created row was checked to carry the very address
- * the sender typed — so what is stored is the address she asked for, never one the server chose.
- */
-export interface ShareReceipt {
-  /** Recipient address in WIRE form: exactly what the create call was checked against. */
-  address: string;
-  /** When this device wrote the receipt, ms since the Unix epoch. This browser's clock. */
-  at: number;
-  /**
-   * A revoke was sent for this receipt and the listing has not yet come back without the row.
-   *
-   * The receipt outlives the revoke ON PURPOSE: a revoke this side cannot verify is exactly the
-   * case worth keeping, and a listing that still carries the address is the only evidence the
-   * removal did not happen. Dropped once a listing no longer names it (`sharePrune`), which is
-   * what keeps this array from growing forever.
-   */
-  revoked?: true;
-}
+export { TEXT_SCALE_DEFAULT_PCT, TEXT_SCALE_MAX_PCT, TEXT_SCALE_MIN_PCT };
+export type { AccountSettings, ShareReceipt };
 
 /** One entry — a file or a folder — as the rest of the app sees it. */
 export interface ManifestEntry {
@@ -129,6 +116,14 @@ export interface ManifestEntry {
    * log in the clear — the server is never handed a per-account value it could use as a handle.
    */
   labels?: string[];
+  /**
+   * This file is the preview picture of the video with this id: an
+   * ordinary file in every other way. Hidden wherever that video is in the list; shown once it is
+   * not, so a picture someone paid for never becomes an invisible orphan.
+   */
+  thumbOf?: string;
+  /** Wire keys this build does not know, written back verbatim (`manifest-wire-extras.ts`). */
+  carried?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -215,16 +210,7 @@ export interface WireEntry {
   l?: string[];
   sn?: number;
   sh?: WireShareReceipt[];
-}
-
-/** One share receipt on the wire. Same short-key reason as the entry above it. */
-interface WireShareReceipt {
-  /** address. */
-  a: string;
-  /** at. */
-  t: number;
-  /** revoked. */
-  r?: 1;
+  to?: string;
 }
 
 /** Account settings on the wire — short keys for the same reason the entries use them. */
@@ -262,10 +248,9 @@ export function toWire(e: ManifestEntry): WireEntry {
   // Walrus is written as absence: it is what every entry that lacks the field already means, so
   // spelling it out would cost bytes on every file of every save to say nothing new.
   if (e.network !== undefined && e.network !== NETWORK_WHEN_UNRECORDED) w.sn = e.network;
-  if (e.shares && e.shares.length > 0) {
-    w.sh = e.shares.map((r) => (r.revoked ? { a: r.address, t: r.at, r: 1 } : { a: r.address, t: r.at }));
-  }
-  return w;
+  if (e.shares && e.shares.length > 0) w.sh = sharesToWire(e.shares);
+  if (e.thumbOf !== undefined) w.to = e.thumbOf;
+  return withCarried(w, e.carried);
 }
 
 export function fromWire(w: WireEntry): ManifestEntry {
@@ -294,21 +279,12 @@ export function fromWire(w: WireEntry): ManifestEntry {
   // the entry without it on the next save, turning "stored somewhere I do not know" into
   // "stored on Walrus" — a claim about someone else's bytes that nothing would ever correct.
   if (typeof w.sn === "number") e.network = w.sn;
-  // Defensive in the same way labels are, and for a sharper reason: a receipt with a blank address
-  // or a broken instant would be compared against the server's rows and could produce a warning
-  // about a share nobody ever made. Anything unusable is dropped — a receipt that cannot be
-  // checked says nothing, and saying nothing is the honest outcome.
-  if (Array.isArray(w.sh)) {
-    const clean: ShareReceipt[] = [];
-    for (const raw of w.sh) {
-      if (!raw || typeof raw !== "object") continue;
-      const { a, t, r } = raw;
-      if (typeof a !== "string" || a === "") continue;
-      if (typeof t !== "number" || !Number.isFinite(t)) continue;
-      clean.push(r === 1 ? { address: a, at: t, revoked: true } : { address: a, at: t });
-    }
-    if (clean.length > 0) e.shares = clean;
-  }
+  // Checked receipt by receipt — see `sharesFromWire` for why a broken one says nothing.
+  const shares = sharesFromWire(w.sh);
+  if (shares) e.shares = shares;
+  if (typeof w.to === "string" && w.to !== "") e.thumbOf = w.to;
+  const carried = carriedFromWire(w);
+  if (carried) e.carried = carried;
   return e;
 }
 

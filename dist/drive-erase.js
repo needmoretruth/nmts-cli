@@ -30,7 +30,7 @@
 //   from each other. This is a sibling of that family rather than an outside caller.
 import { request, ServerError } from "./api.js";
 import { DriveEditError, resolving } from "./drive-edit/errors.js";
-import { filesUnder, foldersUnder, uniqueById } from "./drive-edit/tree.js";
+import { filesUnder, foldersUnder, uniqueById, withPreviews } from "./drive-edit/tree.js";
 import { buildIndex, fullPathOf, KIND_FILE } from "./drive-paths.js";
 import { NmtsError } from "./errors.js";
 import { readFileList } from "./manifest.js";
@@ -53,7 +53,7 @@ export async function planErase(input, paths) {
     const entries = list.manifest?.entries ?? [];
     const index = buildIndex(entries);
     const targets = resolving(() => batchTargets(entries, paths, { includeTrashed: true, nothingHappened: "Nothing was erased." }));
-    const files = uniqueById(targets.flatMap((t) => (t.kind === KIND_FILE ? [t] : filesUnder(entries, t.id))));
+    const files = withPreviews(entries, targets.flatMap((t) => (t.kind === KIND_FILE ? [t] : filesUnder(entries, t.id))));
     // ⛔ AND THE FOLDERS UNDER A NAMED FOLDER, which `targets + files` left behind. A sub-folder
     //    holding no file was in neither set, so it stayed in the sealed list with its parent gone —
     //    a folder the drive still showed, sitting under nothing, that no command could reach

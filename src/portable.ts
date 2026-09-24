@@ -71,6 +71,7 @@ export {
   KIND_FOLDER,
   namesIn,
   normalisePath,
+  shown,
   trashedAt,
 } from "./drive-paths.ts";
 export type { FindOptions, ManifestIndex } from "./drive-paths.ts";
@@ -162,6 +163,7 @@ export type { SignTransfer } from "./wallet-sign.ts";
 // numbers as `nmts wallet list` — a second walk, or a second reading of the setting, would be a
 // second answer to a question that has to have exactly one.
 export { activeWalletOf, walletCountOf, WALLET_INDEX_LIMIT } from "./shared/lib/drive/manifest-settings.ts";
+export { classify } from "./shared/lib/drive/preview-classify.ts";
 export { discoverWallets, WALLET_SCAN_GAP } from "./shared/lib/wallet/discover.ts";
 export type { WalletProbe, WalletScan } from "./shared/lib/wallet/discover.ts";
 export { hasHistory } from "./wallet-list-chain.ts";

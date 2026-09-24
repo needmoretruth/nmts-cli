@@ -43,7 +43,7 @@ export { isCryptoGlue, missingExports } from "./crypto-surface.js";
 // The sealed file list: reading it, editing it, and walking it by path.
 export { readFileList } from "./manifest.js";
 export { addEntry, applyManyToList, applyToList, planAddition } from "./manifest-write.js";
-export { buildIndex, entryAt, folderIdFor, fullPathOf, isLive, KIND_FILE, KIND_FOLDER, namesIn, normalisePath, trashedAt, } from "./drive-paths.js";
+export { buildIndex, entryAt, folderIdFor, fullPathOf, isLive, KIND_FILE, KIND_FOLDER, namesIn, normalisePath, shown, trashedAt, } from "./drive-paths.js";
 export { setTrashed } from "./item-trash.js";
 // The Platform's two credentials: a business's signature over one request, and the delegation
 // token it mints for one of its users. Making either needs no host and no server — a business
@@ -84,6 +84,7 @@ export { signerAddress, signExtension, signTransfer } from "./wallet-sign.js";
 // numbers as `nmts wallet list` — a second walk, or a second reading of the setting, would be a
 // second answer to a question that has to have exactly one.
 export { activeWalletOf, walletCountOf, WALLET_INDEX_LIMIT } from "./shared/lib/drive/manifest-settings.js";
+export { classify } from "./shared/lib/drive/preview-classify.js";
 export { discoverWallets, WALLET_SCAN_GAP } from "./shared/lib/wallet/discover.js";
 export { hasHistory } from "./wallet-list-chain.js";
 // What this package is.

@@ -16,7 +16,23 @@ export function buildIndex(entries) {
         else
             childrenByParent.set(key, [e]);
     }
-    return { all: entries, byId, childrenByParent };
+    const hidden = new Set();
+    const previews = new Map();
+    for (const e of entries) {
+        if (e.thumbOf === undefined || e.thumbOf === e.id || byId.get(e.thumbOf)?.kind !== KIND_FILE)
+            continue;
+        hidden.add(e.id);
+        const bucket = previews.get(e.thumbOf);
+        if (bucket)
+            bucket.push(e.id);
+        else
+            previews.set(e.thumbOf, [e.id]);
+    }
+    return { all: entries, byId, childrenByParent, hidden, previews };
+}
+/** Would a view show this entry at all? False only for a preview picture whose video is listed. */
+export function shown(index, entry) {
+    return !index.hidden.has(entry.id);
 }
 /**
  * The instant this item became trash — its own, or the nearest trashed ancestor's.
@@ -54,7 +70,7 @@ export function isLive(index, entry) {
  * writes the live drive, so a drive whose every file is in the trash has nothing to export.
  */
 export function hasLiveFile(index) {
-    return index.all.some((e) => e.kind === KIND_FILE && isLive(index, e));
+    return index.all.some((e) => e.kind === KIND_FILE && shown(index, e) && isLive(index, e));
 }
 /**
  * Live children of a folder (`null` = drive root), in list order.
@@ -64,7 +80,7 @@ export function childrenOf(index, parentId) {
     const bucket = index.childrenByParent.get(parentId ?? ROOT);
     if (!bucket)
         return [];
-    return bucket.filter((e) => isLive(index, e));
+    return bucket.filter((e) => shown(index, e) && isLive(index, e));
 }
 /**
  * What the trash view shows: items the person deleted directly, newest first.
@@ -72,7 +88,7 @@ export function childrenOf(index, parentId) {
  */
 export function trashRoots(index) {
     const roots = index.all.filter((e) => {
-        if (e.deletedAt === undefined)
+        if (e.deletedAt === undefined || !shown(index, e))
             return false;
         if (e.parentId === null)
             return true;
@@ -159,7 +175,7 @@ export function searchByName(index, query, limit = 500) {
             break;
         if (!e.name.toLocaleLowerCase().includes(needle))
             continue;
-        if (!isLive(index, e))
+        if (!shown(index, e) || !isLive(index, e))
             continue;
         out.push(e);
     }
@@ -173,7 +189,7 @@ export function searchByName(index, query, limit = 500) {
  */
 export function favoriteFiles(index) {
     return index.all
-        .filter((e) => e.kind === KIND_FILE && e.favorite === true && isLive(index, e))
+        .filter((e) => e.kind === KIND_FILE && e.favorite === true && shown(index, e) && isLive(index, e))
         .slice()
         .sort((a, b) => b.updatedAt - a.updatedAt);
 }
@@ -188,7 +204,7 @@ export function labelCounts(index) {
     for (const e of index.all) {
         if (e.kind !== KIND_FILE || !e.labels || e.labels.length === 0)
             continue;
-        if (!isLive(index, e))
+        if (!shown(index, e) || !isLive(index, e))
             continue;
         for (const label of e.labels)
             counts.set(label, (counts.get(label) ?? 0) + 1);
@@ -202,11 +218,15 @@ export function filesWithLabel(index, label) {
     return index.all
         .filter((e) => e.kind === KIND_FILE &&
         (e.labels ?? []).includes(label) &&
+        shown(index, e) &&
         isLive(index, e))
         .slice()
         .sort((a, b) => b.updatedAt - a.updatedAt);
 }
-/** Whole-drive counts. Exact, because the list is complete by construction. */
+/**
+ * Whole-drive counts. Exact, because the list is complete by construction.
+ * ⚠ A hidden preview picture is not counted: the totals describe what the lists show.
+ */
 export function totalsOf(index) {
     const totals = {
         files: 0,
@@ -216,6 +236,8 @@ export function totalsOf(index) {
         trashedBytes: 0,
     };
     for (const e of index.all) {
+        if (!shown(index, e))
+            continue;
         const live = isLive(index, e);
         if (e.kind === KIND_FOLDER) {
             if (live)

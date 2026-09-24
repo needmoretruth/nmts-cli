@@ -54,6 +54,8 @@ export interface WalletPutFile {
     parentId: string | null;
     /** The destination AS TYPED — part of the reservation key, so both runs of a resume agree. */
     destination: string;
+    /** A video's preview picture: the video's item id, written on the entry as `thumbOf`. */
+    thumbOf?: string | undefined;
 }
 /** The chain, the signatures, the wire and the four things a caller may be told. */
 export interface WalletPutSeams {

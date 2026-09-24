@@ -27,6 +27,16 @@ export function hasNamedAncestor(entries, entry, named) {
     }
     return false;
 }
+/**
+ * `files` and the preview pictures of the videos among them. A video's
+ * picture is a file of its own, hidden from every listing while the video is there, so it goes
+ * wherever the video goes — left behind, it would be charged for and then show up on its own.
+ */
+export function withPreviews(entries, files) {
+    const index = buildIndex(entries);
+    const pictures = files.flatMap((f) => (index.previews.get(f.id) ?? []).flatMap((id) => index.byId.get(id) ?? []));
+    return uniqueById([...files, ...pictures]);
+}
 /** One entry per id, keeping the first. Two named folders can hold the same file only once. */
 export function uniqueById(files) {
     const byId = new Map();

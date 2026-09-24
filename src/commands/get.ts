@@ -31,7 +31,8 @@ import { basename, resolve } from "node:path";
 import { CODE_ENV_VAR } from "../credentials.ts";
 import { fetchFile } from "../download.ts";
 import { fileSink, stdoutSink } from "../download-sink-node.ts";
-import { buildIndex, entryAt, fullPathOf, KIND_FILE, normalisePath } from "../drive-paths.ts";
+import { buildIndex, entryAt, fullPathOf, KIND_FILE, normalisePath, type ManifestIndex } from "../drive-paths.ts";
+import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
 import { NmtsError } from "../errors.ts";
 import { readFileList } from "../manifest.ts";
 import { resolveNetwork } from "../network.ts";
@@ -52,6 +53,8 @@ export interface GetOptions {
   /** Overwrite an existing file. Off by default, and saying so is the point. */
   force?: boolean;
   json?: boolean;
+  /** Fetch the video's preview picture — the small JPEG uploaded with it — instead of the video. */
+  thumbnail?: boolean;
   write?: (line: string) => void;
   /** Where the file's own bytes go when `out` is `-`. Injectable so a test can read them. */
   stdout?: ByteDestination;
@@ -89,7 +92,9 @@ export async function get(target: string | undefined, options: GetOptions = {}):
   const wanted = normalisePath(target);
   // ⚠ Looked up WITHOUT a kind filter on purpose: a path that names a folder must be told apart
   //   from a path that names nothing, and a filtered lookup can only say "nothing is there".
-  const entry = entryAt(list.manifest.entries, wanted, { nothingHappened: "Nothing was written." });
+  const named = entryAt(list.manifest.entries, wanted, { nothingHappened: "Nothing was written." });
+  // `--thumbnail`: the video's preview picture instead of the video.
+  const entry = options.thumbnail === true ? pictureOf(index, named) : named;
   if (entry.kind !== KIND_FILE) {
     throw new NmtsError(`No file at "${fullPathOf(index, entry)}".`, {
       exitCode: 4,
@@ -154,4 +159,14 @@ export async function get(target: string | undefined, options: GetOptions = {}):
     say(`  file against one. Every part still decrypted under this account's key.`);
   }
   return 0;
+}
+
+/** The preview picture uploaded with this video, or a refusal that says how one is made. */
+function pictureOf(index: ManifestIndex, video: ManifestEntry): ManifestEntry {
+  const picture = index.byId.get(index.previews.get(video.id)?.[0] ?? "");
+  if (picture !== undefined) return picture;
+  throw new NmtsError(`"${fullPathOf(index, video)}" has no preview picture.`, {
+    exitCode: 4,
+    nextStep: `Nothing was written. \`${BINARY_NAME} put <video> --thumbnail\` sends one with a video.`,
+  });
 }

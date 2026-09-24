@@ -31,6 +31,7 @@ import {
   KIND_FILE as SHARED_KIND_FILE,
   KIND_FOLDER as SHARED_KIND_FOLDER,
   type ManifestIndex,
+  shown,
   trashedAt,
 } from "./shared/lib/drive/manifest-index.ts";
 
@@ -39,7 +40,7 @@ export const KIND_FOLDER = SHARED_KIND_FOLDER;
 /** File. */
 export const KIND_FILE = SHARED_KIND_FILE;
 
-export { buildIndex, isLive, trashedAt };
+export { buildIndex, isLive, shown, trashedAt };
 export type { ManifestIndex };
 
 /**

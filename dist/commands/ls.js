@@ -17,8 +17,9 @@
 //    line, not a failing account, so it costs no round trip and reads as exit 2 — otherwise an
 //    agent that mistyped a key goes off investigating the account instead of its own arguments.
 import { CODE_ENV_VAR } from "../credentials.js";
-import { buildIndex, fullPathOf, isLive, KIND_FOLDER, trashedAt } from "../drive-paths.js";
+import { buildIndex, fullPathOf, isLive, KIND_FOLDER, shown as inViews, trashedAt } from "../drive-paths.js";
 import { NmtsError } from "../errors.js";
+import { classify } from "../shared/lib/drive/preview-classify.js";
 import { marksOf, markSuffix } from "../mark-render.js";
 import { idsForQuery, needleOf } from "../list-view-find.js";
 import { orderRows, parseSortKey } from "../list-view-order.js";
@@ -56,6 +57,8 @@ function byPath(rows, dir) {
     return dir === "desc" ? sorted.reverse() : sorted;
 }
 export async function ls(options = {}) {
+    // A kind that cannot mean anything is refused before the account is read.
+    const media = mediaOf(options.media);
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const now = options.now ?? Date.now();
     const dir = options.desc === true ? "desc" : "asc";
@@ -89,10 +92,12 @@ export async function ls(options = {}) {
     //    built to avoid, and it shipped: `hiddenTrashed` said 1 while two unreachable files were
     //    printed as live (2026-08-23).
     const index = buildIndex(list.manifest.entries);
-    const listed = options.all
-        ? list.manifest.entries
-        : list.manifest.entries.filter((e) => isLive(index, e));
-    const hidden = list.manifest.entries.length - listed.length;
+    // A video's preview picture is part of the video, never a line of its own — and it is
+    // not counted among what `--all` would add either.
+    const visible = list.manifest.entries.filter((e) => inViews(index, e));
+    const kept = media === null ? visible : visible.filter((e) => e.kind !== KIND_FOLDER && classify(e.name).kind === media);
+    const listed = options.all ? kept : kept.filter((e) => isLive(index, e));
+    const hidden = kept.length - listed.length;
     // The query runs over what was going to be shown, so `--find` and `--all` compose instead of one
     // quietly widening the other: a search without `--all` searches the drive, not the trash.
     const keep = needle === null ? null : idsForQuery(index, listed, needle);
@@ -199,4 +204,12 @@ export async function ls(options = {}) {
         say(`  The sealed number is the one that is authenticated, so it is the one used.`);
     }
     return 0;
+}
+/** `--media`, checked: the three kinds the gallery and the music place gather, or null for all. */
+function mediaOf(asked) {
+    if (asked === undefined)
+        return null;
+    if (asked === "image" || asked === "video" || asked === "audio")
+        return asked;
+    throw new NmtsError(`--media takes image, video or audio, not "${asked}".`, { exitCode: 2 });
 }

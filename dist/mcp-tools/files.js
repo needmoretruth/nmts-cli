@@ -61,13 +61,21 @@ export function fileTools(ctx) {
                 `The reply says where it went.`,
             inputSchema: {
                 type: "object",
-                properties: { path: { type: "string", description: "The file's path inside the account." } },
+                properties: {
+                    path: { type: "string", description: "The file's path inside the account." },
+                    thumbnail: {
+                        type: "boolean",
+                        description: "Fetch the video's preview picture instead of the video, as <path>.thumb.jpg.",
+                    },
+                },
                 required: ["path"],
                 additionalProperties: false,
             },
             run: (args) => {
                 const wanted = needString(args, "path");
-                return say((write) => get(wanted, { ...common(ctx), out: destinationFor(ctx.outDir, wanted), json: true, write }));
+                const thumbnail = args["thumbnail"] === true;
+                const out = destinationFor(ctx.outDir, thumbnail ? `${wanted}.thumb.jpg` : wanted);
+                return say((write) => get(wanted, { ...common(ctx), out, thumbnail, json: true, write }));
             },
         },
         {
@@ -118,6 +126,15 @@ export function fileTools(ctx) {
                     to: { type: "string", description: "An existing folder in the account, as nmts_list prints it." },
                     deposit_credits: { type: "integer", description: DEPOSIT_HINT },
                     dry_run: { type: "boolean", description: "Say what it would cost and stop. Nothing is sent or charged." },
+                    thumbnail: {
+                        type: "boolean",
+                        description: "For a video: also send one frame of it (taken by ffmpeg) as a small preview file every " +
+                            "app shows as the video's tile. It is priced and charged like any file.",
+                    },
+                    thumbnail_file: {
+                        type: "string",
+                        description: "For a video: a picture ON THIS MACHINE to send as its preview instead of a frame.",
+                    },
                 },
                 required: ["file"],
                 additionalProperties: false,
@@ -129,6 +146,8 @@ export function fileTools(ctx) {
                 ...(typeof args["to"] === "string" ? { to: args["to"] } : {}),
                 ...(typeof args["deposit_credits"] === "number" ? { deposit: args["deposit_credits"] } : {}),
                 ...(args["dry_run"] === true ? { dryRun: true } : {}),
+                ...(args["thumbnail"] === true ? { thumbnail: true } : {}),
+                ...(typeof args["thumbnail_file"] === "string" ? { thumbnailFile: args["thumbnail_file"] } : {}),
                 write,
             })),
         },

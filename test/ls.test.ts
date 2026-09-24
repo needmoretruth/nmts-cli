@@ -317,3 +317,46 @@ test("the same list served twice is not mistaken for a fork", async () => {
     assert.match(out.lines.join("\n"), /steady\.txt/);
   });
 });
+
+// ── A video's preview picture, and `--media` ─────────────────────────
+test("a video's preview picture is part of the video, not a line of its own", async () => {
+  await withSandbox("ls-preview", async () => {
+    const code = await generateCode();
+    process.env[CODE_ENV_VAR] = code;
+    process.env[API_KEY_ENV_VAR] = KEY;
+    await serveList(code, [
+      entry({ id: "clip", name: "trip.mp4" }),
+      entry({ id: "clip-thumb", name: "trip.mp4.thumb.jpg", thumbOf: "clip" }),
+      entry({ id: "stray", name: "old.mp4.thumb.jpg", thumbOf: "gone" }),
+    ], 1);
+    const out = collect();
+    assert.equal(await ls({ server: BASE, network: "testnet", json: true, write: out.write }), 0);
+    const paths = (JSON.parse(out.lines.join("")) as { entries: { path: string }[] }).entries.map((e) => e.path);
+    // ⛔ One whose video is gone is shown — a picture somebody paid for must stay deletable.
+    assert.deepEqual(paths.sort(), ["old.mp4.thumb.jpg", "trip.mp4"]);
+  });
+});
+
+test("--media keeps only files of that kind, and refuses a kind that means nothing before reading", async () => {
+  await withSandbox("ls-media", async () => {
+    const code = await generateCode();
+    process.env[CODE_ENV_VAR] = code;
+    process.env[API_KEY_ENV_VAR] = KEY;
+    await serveList(code, [
+      entry({ id: "box", name: "Trips", kind: 0, size: 0 }),
+      entry({ id: "clip", name: "trip.mp4", parentId: "box" }),
+      entry({ id: "photo", name: "beach.jpg", parentId: "box" }),
+      entry({ id: "song", name: "tune.mp3" }),
+    ], 1);
+    const out = collect();
+    assert.equal(await ls({ server: BASE, network: "testnet", json: true, media: "video", write: out.write }), 0);
+    const paths = (JSON.parse(out.lines.join("")) as { entries: { path: string }[] }).entries.map((e) => e.path);
+    assert.deepEqual(paths, ["Trips/trip.mp4"]);
+
+    lastPath = null;
+    const failure = await ls({ server: BASE, network: "testnet", media: "movie" }).then(() => null, (e: unknown) => e);
+    assert.ok(failure instanceof NmtsError);
+    assert.equal(failure.exitCode, 2);
+    assert.equal(lastPath, null, "the account was read before the refusal");
+  });
+});

@@ -5,6 +5,8 @@ export interface LsOptions {
     json?: boolean;
     /** Include entries that are in the trash. */
     all?: boolean;
+    /** Only files of this kind — `image`, `video` or `audio`, judged by name as the gallery does. */
+    media?: string | undefined;
     /**
      * Keep only files whose name contains this text, case-insensitively.
      *

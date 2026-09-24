@@ -23,12 +23,12 @@
 //    the third walk silently resolved the orphan to the same string. **The path that is printed
 //    must be the path that matches**, so there is one function and everybody calls it.
 import { NmtsError } from "./errors.js";
-import { buildIndex, isLive, KIND_FILE as SHARED_KIND_FILE, KIND_FOLDER as SHARED_KIND_FOLDER, trashedAt, } from "./shared/lib/drive/manifest-index.js";
+import { buildIndex, isLive, KIND_FILE as SHARED_KIND_FILE, KIND_FOLDER as SHARED_KIND_FOLDER, shown, trashedAt, } from "./shared/lib/drive/manifest-index.js";
 /** Folder. The same numeric codes the items API uses. */
 export const KIND_FOLDER = SHARED_KIND_FOLDER;
 /** File. */
 export const KIND_FILE = SHARED_KIND_FILE;
-export { buildIndex, isLive, trashedAt };
+export { buildIndex, isLive, shown, trashedAt };
 /**
  * What a broken parent chain is drawn as.
  *

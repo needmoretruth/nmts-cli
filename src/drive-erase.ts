@@ -31,7 +31,7 @@
 
 import { request, ServerError } from "./api.ts";
 import { DriveEditError, resolving } from "./drive-edit/errors.ts";
-import { filesUnder, foldersUnder, uniqueById } from "./drive-edit/tree.ts";
+import { filesUnder, foldersUnder, uniqueById, withPreviews } from "./drive-edit/tree.ts";
 import { buildIndex, fullPathOf, KIND_FILE } from "./drive-paths.ts";
 import { NmtsError } from "./errors.ts";
 import { readFileList } from "./manifest.ts";
@@ -130,7 +130,7 @@ export async function planErase(input: ListEditInput, paths: readonly string[]):
   const targets = resolving(() =>
     batchTargets(entries, paths, { includeTrashed: true, nothingHappened: "Nothing was erased." }),
   );
-  const files = uniqueById(targets.flatMap((t) => (t.kind === KIND_FILE ? [t] : filesUnder(entries, t.id))));
+  const files = withPreviews(entries, targets.flatMap((t) => (t.kind === KIND_FILE ? [t] : filesUnder(entries, t.id))));
   // ⛔ AND THE FOLDERS UNDER A NAMED FOLDER, which `targets + files` left behind. A sub-folder
   //    holding no file was in neither set, so it stayed in the sealed list with its parent gone —
   //    a folder the drive still showed, sitting under nothing, that no command could reach

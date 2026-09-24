@@ -20,6 +20,12 @@ export interface ParsedArgs {
     to?: string;
     /** Say what an upload would cost and stop. */
     dryRun: boolean;
+    /** `put`: send a video's preview picture with it (a frame from ffmpeg) · `get`: fetch only that picture. */
+    thumbnail: boolean;
+    /** `put`: the picture to send as the video's preview, instead of a frame from ffmpeg. */
+    thumbnailFile?: string;
+    /** `ls`: only files of this kind — image, video or audio. */
+    media?: string;
     /** `put`: how much of a file goes into one part. A byte count, optionally with a unit. */
     partSize?: string;
     /** `put`/`push`: what THIS run does about a name already in use. Absent = this machine's setting. */

@@ -8,9 +8,15 @@ export interface ManifestIndex {
     readonly byId: ReadonlyMap<string, ManifestEntry>;
     /** Direct children by parent id (root under its own key). Values keep list order. */
     readonly childrenByParent: ReadonlyMap<string, readonly ManifestEntry[]>;
+    /** Preview pictures whose video is in the list — no view below shows these. */
+    readonly hidden: ReadonlySet<string>;
+    /** Video id → its hidden preview pictures, so every act on a video can take them along. */
+    readonly previews: ReadonlyMap<string, readonly string[]>;
 }
 /** Build the lookup structures for one version of the list. Cost is linear; do it once. */
 export declare function buildIndex(entries: readonly ManifestEntry[]): ManifestIndex;
+/** Would a view show this entry at all? False only for a preview picture whose video is listed. */
+export declare function shown(index: ManifestIndex, entry: ManifestEntry): boolean;
 /**
  * The instant this item became trash — its own, or the nearest trashed ancestor's.
  * `null` means live. A parent chain that is broken or looping counts as live at the point it
@@ -94,5 +100,8 @@ export interface DriveTotals {
     /** Bytes held by trashed files — the figure that explains "deleting did not free space yet". */
     trashedBytes: number;
 }
-/** Whole-drive counts. Exact, because the list is complete by construction. */
+/**
+ * Whole-drive counts. Exact, because the list is complete by construction.
+ * ⚠ A hidden preview picture is not counted: the totals describe what the lists show.
+ */
 export declare function totalsOf(index: ManifestIndex): DriveTotals;

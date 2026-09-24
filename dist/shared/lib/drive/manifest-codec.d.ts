@@ -1,27 +1,7 @@
 import { TEXT_SCALE_DEFAULT_PCT, TEXT_SCALE_MAX_PCT, TEXT_SCALE_MIN_PCT, type AccountSettings } from "./manifest-settings.ts";
+import { type ShareReceipt, type WireShareReceipt } from "./manifest-wire-extras.ts";
 export { TEXT_SCALE_DEFAULT_PCT, TEXT_SCALE_MAX_PCT, TEXT_SCALE_MIN_PCT };
-export type { AccountSettings };
-/**
- * One share this device made, kept where the server cannot reach it (`ManifestEntry.shares`).
- *
- * A receipt is written only AFTER the server's created row was checked to carry the very address
- * the sender typed — so what is stored is the address she asked for, never one the server chose.
- */
-export interface ShareReceipt {
-    /** Recipient address in WIRE form: exactly what the create call was checked against. */
-    address: string;
-    /** When this device wrote the receipt, ms since the Unix epoch. This browser's clock. */
-    at: number;
-    /**
-     * A revoke was sent for this receipt and the listing has not yet come back without the row.
-     *
-     * The receipt outlives the revoke ON PURPOSE: a revoke this side cannot verify is exactly the
-     * case worth keeping, and a listing that still carries the address is the only evidence the
-     * removal did not happen. Dropped once a listing no longer names it (`sharePrune`), which is
-     * what keeps this array from growing forever.
-     */
-    revoked?: true;
-}
+export type { AccountSettings, ShareReceipt };
 /** One entry — a file or a folder — as the rest of the app sees it. */
 export interface ManifestEntry {
     /** Item id. Files: the id the server assigned at commit. Folders: client-generated. */
@@ -100,6 +80,14 @@ export interface ManifestEntry {
      * log in the clear — the server is never handed a per-account value it could use as a handle.
      */
     labels?: string[];
+    /**
+     * This file is the preview picture of the video with this id: an
+     * ordinary file in every other way. Hidden wherever that video is in the list; shown once it is
+     * not, so a picture someone paid for never becomes an invisible orphan.
+     */
+    thumbOf?: string;
+    /** Wire keys this build does not know, written back verbatim (`manifest-wire-extras.ts`). */
+    carried?: Readonly<Record<string, unknown>>;
 }
 /**
  * Account-level settings that live INSIDE the sealed list.
@@ -174,15 +162,7 @@ export interface WireEntry {
     l?: string[];
     sn?: number;
     sh?: WireShareReceipt[];
-}
-/** One share receipt on the wire. Same short-key reason as the entry above it. */
-interface WireShareReceipt {
-    /** address. */
-    a: string;
-    /** at. */
-    t: number;
-    /** revoked. */
-    r?: 1;
+    to?: string;
 }
 export declare function toWire(e: ManifestEntry): WireEntry;
 export declare function fromWire(w: WireEntry): ManifestEntry;

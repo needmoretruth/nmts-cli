@@ -194,6 +194,7 @@ export async function walletPut(ctx, file, seams = {}) {
             updatedAt: now,
             dekWrapped: result.entry.dekWrapped,
             contentHashCt: result.entry.contentHashCt,
+            ...(file.thumbOf !== undefined ? { thumbOf: file.thumbOf } : {}),
         },
     });
     // ⛔ ONLY NOW, AND EVERY PART — the same order the credit rail keeps and for the same reason: a

@@ -12,3 +12,6 @@ into place only once the hash matches, one part held in memory at a time. `--out
 to stdout and writes nothing; in that mode every line for a person, including `--json`, goes to
 stderr, binary bytes are refused when stdout is a terminal, and files over 64 MiB are refused
 because a pipe cannot be taken back.
+
+`--thumbnail` fetches the video's preview picture instead of the video (the one `put --thumbnail`
+or the browser sent with it). A video without one exits 4 and writes nothing.

@@ -6,7 +6,7 @@ import { readFileList } from "../manifest.js";
 import { applyManyToList, batchTargets } from "../manifest-write.js";
 import { applyIntent } from "../shared/lib/drive/manifest-ops.js";
 import { DriveEditError, resolving } from "./errors.js";
-import { filesUnder, hasNamedAncestor, uniqueById } from "./tree.js";
+import { filesUnder, hasNamedAncestor, uniqueById, withPreviews } from "./tree.js";
 /**
  * Move things to the trash, or bring them back.
  *
@@ -88,9 +88,11 @@ export async function trashPaths(input, verb, paths, options = {}) {
     //    storage, and leave the list saying "trashed" while the server says "live" — after which
     //    `rm` refuses to put it back and there is no way out.
     const at = Date.now();
-    const ids = targets.map((t) => t.entry.id);
+    // A video's hidden preview picture goes into and out of the trash with it (gallery spec §4).
+    const under = withPreviews(entries, targets.flatMap((t) => filesUnder(entries, t.entry.id)));
+    const chosen = targets.map((t) => t.entry.id);
+    const ids = [...chosen, ...under.filter((f) => f.thumbOf !== undefined && !chosen.includes(f.id)).map((f) => f.id)];
     const preview = buildIndex(applyIntent(entries, intentFor(verb, ids, at)));
-    const under = uniqueById(targets.flatMap((t) => filesUnder(entries, t.entry.id)));
     // ⚠ Judged on the PREVIEW's own row, not on the one in hand: `applyIntent` returns new objects,
     //   so asking the preview about the old object reads the old `deletedAt` and answers "still
     //   trashed" for the very thing being restored.

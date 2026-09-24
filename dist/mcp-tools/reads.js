@@ -24,7 +24,9 @@ export function readTools(ctx) {
             name: "nmts_list",
             description: "List the files stored in the NMTS account, as JSON. Paths are what nmts_get takes. " +
                 "Entries in the trash are left out unless include_trashed is true, and the reply says " +
-                "how many were left out. Optionally narrow with a search word and choose an order.",
+                "how many were left out. Optionally narrow with a search word or a media kind and choose " +
+                "an order. A video's preview picture is not listed while its video is: nmts_get with " +
+                "thumbnail fetches it.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -36,6 +38,11 @@ export function readTools(ctx) {
                         description: "Order the listing. Absent means the path order this tool has always printed.",
                     },
                     descending: { type: "boolean", description: "Reverse the order." },
+                    media: {
+                        type: "string",
+                        enum: ["image", "video", "audio"],
+                        description: "Keep only files of this kind, judged by the name's extension.",
+                    },
                 },
                 additionalProperties: false,
             },
@@ -46,6 +53,7 @@ export function readTools(ctx) {
                 ...(typeof args["find"] === "string" ? { find: args["find"] } : {}),
                 ...(typeof args["sort"] === "string" ? { sort: args["sort"] } : {}),
                 ...(args["descending"] === true ? { desc: true } : {}),
+                ...(typeof args["media"] === "string" ? { media: args["media"] } : {}),
                 write,
             })),
         },

@@ -34,3 +34,11 @@ fit|whole|<object id>` uses a free storage resource the wallet holds for a one-p
 cuts it to size and leaves the rest free, `whole` binds all of it with the file. Do not choose
 `--storage` for the person: the leftover is their decision. `--epochs` and `--storage` without
 `--pay wallet` exit 2.
+
+**`--thumbnail`** on a video also sends one frame of it as `<saved name>.thumb.jpg`: an ordinary
+small file, priced, sealed and paid for like any other, linked to the video so every app shows it
+as the video's tile. The frame is taken by `ffmpeg` (one second in, 512 px on the long side);
+`--thumbnail-file <picture>` sends that picture instead. Without `ffmpeg` the video is still stored
+and the output says why it went alone. `--dry-run` prices both. With `--json` the one object is
+the video's, with the picture's result under `thumbnail` (`{"skipped": "<why>"}` when none went).
+On a file that is not a video the flag sends nothing more.
