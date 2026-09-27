@@ -5,6 +5,7 @@
 
 import { strict as assert } from "node:assert";
 import { createHash } from "node:crypto";
+import { request } from "node:http";
 import { after, test } from "node:test";
 
 import { S3Refusal } from "../src/s3/answer.ts";
@@ -12,6 +13,7 @@ import { checksumOf } from "../src/s3/checksum.ts";
 import { createGateway } from "../src/s3/server.ts";
 import { completeAskOf, deleteAskOf, parseXml } from "../src/s3/xml-read.ts";
 import { CREDENTIAL, fakeDrive, listening, readOnly, send, values } from "./s3-gateway-drive.ts";
+import { sign } from "./s3-sign.ts";
 
 const drive = await fakeDrive();
 await drive.seed("a.txt", "a");
@@ -153,9 +155,39 @@ test("⛔ more than a thousand keys, no keys, or a body that is not the document
 });
 
 test("⛔ a body over a mebibyte is refused before it is read", async () => {
-  const res = await remove(`<Delete>${" ".repeat(1024 * 1024)}<Object><Key>a</Key></Object></Delete>`);
-  assert.equal(res.status, 400);
-  assert.match(await res.text(), /larger than/);
+  // Only the headers go out. The refusal comes from the declared length and closes the connection;
+  // with the body also on its way, macOS resets the socket first and fetch reports "fetch failed".
+  const body = Buffer.from(`<Delete>${" ".repeat(1024 * 1024)}<Object><Key>a</Key></Object></Delete>`);
+  const signed = sign("POST", "/b?delete", HOST, CREDENTIAL, new Date(), body);
+  const url = new URL(signed.url);
+  const answer = await new Promise<{ status: number; text: string }>((resolve, reject) => {
+    const req = request(
+      {
+        host: "127.0.0.1",
+        port: Number(url.port),
+        method: "POST",
+        path: url.pathname + url.search,
+        headers: {
+          ...signed.headers,
+          "content-type": "application/xml",
+          "content-md5": md5Of(body),
+          "content-length": String(body.length),
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () => {
+          req.destroy();
+          resolve({ status: res.statusCode ?? 0, text: Buffer.concat(chunks).toString() });
+        });
+      },
+    );
+    req.on("error", reject);
+    req.flushHeaders();
+  });
+  assert.equal(answer.status, 400);
+  assert.match(answer.text, /larger than/);
 });
 
 test("⛔ a read-only drive refuses the batch with its sentence", async () => {
