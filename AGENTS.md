@@ -61,11 +61,11 @@ Four things need a person, all at the beginning. If you are being set up, hand t
 | 4. Get credits into the account | you, for the free trial (`nmts trial apply`, while step 3 is live) — a person, for a funded wallet | a terminal, or nmts.me | once, then as they run out |
 
 **Step 3 does not gate the work.** Reading, writing, listing, folders, the trash, the recovery files and the
-wallet's balances never ask about it. Exactly five things do — making another account, the free trial,
-creating a share, making a public link, and moving credits between your own accounts. A lapsed check does not stop you storing and
-fetching files; it stops you growing the account, and the account runs in a tighter rate tier until a person
-checks in again. `nmts verify --status` says whether it is live and until when; you cannot pass it
-(`nmts help verify`).
+wallet's balances never ask about it. Exactly six things do — making another account, the free trial,
+creating a share, making a public link, making a new public code, and
+moving credits between your own accounts. A lapsed check does not stop you storing and fetching files; it
+stops you growing the account, and the account runs in a tighter rate tier until a person checks in again.
+`nmts verify --status` says whether it is live and until when; you cannot pass it (`nmts help verify`).
 
 **An account and the accounts made under it count as one.** The check is shared — one passed anywhere in that
 group is live for all of it — and so is the free trial: the whole group gets one application a week, not one
@@ -102,8 +102,8 @@ week's free places are gone, so it needs a funded wallet" is something a person 
 
 Every act this tool performs has a tier: **none** (free and reversible: listing, fetching,
 folders, marks), **low** (reversible but worth a word: the trash, a setting, a report), **medium**
-(spends credits or is permanent: uploading, publishing the public code, a new key), **high**
-(signs with the wallet, hands a file to somebody, reveals or stores the NMTS key unsealed), and
+(spends credits or is hard to undo: uploading, publishing or making a public code, a new key), **high**
+(signs with the wallet, hands a file to somebody, revokes a public code, reveals or stores the NMTS key unsealed), and
 **ultra-high** (erasing the account). The person's **mode** says what each tier meets:
 
 | | default | auto-low | auto-high | skip-permissions |
@@ -141,7 +141,7 @@ folders, marks), **low** (reversible but worth a word: the trash, a setting, a r
 | where am I | `env` · `whoami` · `mode` · `unlock` / `lock` |
 | credentials | `login` · `logout` · `key` (new · list · revoke) · `devices` · `verify` |
 | files | `ls` / `listfile` · `get` · `pull` · `put` · `push` · `rm` / `restore` / `sweep` · `mkdir` / `mv` / `rename` · `star` / `pin` / `label` |
-| the account | `usage` / `balance` / `expiring` · `losses` · `trial` · `credits` · `public-code` · `create` · `delete-account` · `accept-terms` |
+| the account | `usage` / `balance` / `expiring` · `losses` · `trial` · `credits` · `public-code` (list · new · revoke) · `create` · `delete-account` · `accept-terms` |
 | paying and the wallet | `extend` · `wallet` (address · activity · storage · send · swap · donate · hall) |
 | other accounts | `share` / `shares` / `receive` / `unshare` |
 | settings | `on-collision` · `padding` · `deposit` · `tip` |

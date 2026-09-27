@@ -56,7 +56,13 @@ export declare const ACTS: {
     readonly "public-code": {
         readonly tier: "none";
     };
+    readonly "public-code.list": {
+        readonly tier: "none";
+    };
     readonly handover: {
+        readonly tier: "none";
+    };
+    readonly link: {
         readonly tier: "none";
     };
     readonly wallet: {
@@ -179,6 +185,10 @@ export declare const ACTS: {
         readonly tier: "low";
         readonly what: "Withdraw this share. Whoever had it cannot download it again.";
     };
+    readonly "link.revoke": {
+        readonly tier: "low";
+        readonly what: "Cut a public link.";
+    };
     readonly tip: {
         readonly tier: "none";
     };
@@ -252,7 +262,11 @@ export declare const ACTS: {
     };
     readonly "public-code.publish": {
         readonly tier: "medium";
-        readonly what: "Publish this account's public code. Publishing cannot be undone.";
+        readonly what: "Publish this account's public code so other accounts can send files to it.";
+    };
+    readonly "public-code.new": {
+        readonly tier: "medium";
+        readonly what: "Make a new public code for this account.";
     };
     readonly "losses.dismiss": {
         readonly tier: "medium";
@@ -277,6 +291,11 @@ export declare const ACTS: {
         readonly lock: "share";
         readonly what: "Give another account this file in a handover file. It cannot be taken back.";
         readonly asksItself: true;
+    };
+    readonly "link.make": {
+        readonly tier: "high";
+        readonly lock: "share";
+        readonly what: "Anyone with the link can open this file. Cutting the link stops new downloads, but copies already downloaded stay with whoever has them.";
     };
     readonly "login.plain": {
         readonly tier: "high";
@@ -375,6 +394,11 @@ export declare const ACTS: {
     readonly "accept-terms.accept": {
         readonly tier: "high";
         readonly what: "Accept a new version of the Terms for this account.";
+        readonly asksItself: true;
+    };
+    readonly "public-code.revoke": {
+        readonly tier: "high";
+        readonly what: "Revoke a public code of this account. Nobody can send to it again, and nobody can bring it back.";
         readonly asksItself: true;
     };
     readonly "delete-account": {

@@ -47,6 +47,9 @@ const VALUE_OPTIONS = {
   "--recheck": "recheck",
   "--dismiss": "dismiss",
   "--sent": "sent",
+  "--expires": "expires",
+  "--replace": "replace",
+  "--as": "as",
   "--reason": "reason",
   "--size": "size",
   "--sign-out": "signOut",
@@ -112,6 +115,7 @@ const FLAG_OPTIONS = {
   "--yes": "yes",
   "-y": "yes",
   "--publish": "publish",
+  "--activity": "activity",
   "--plain": "plain",
   "--env": "env",
   "--status": "status",
@@ -129,6 +133,7 @@ const FLAG_OPTIONS = {
   "--accept-extremes": "acceptExtremes",
   "--trust-server-tip-address": "trustServerTipAddress",
   "--long": "long",
+  "--hide-name": "hideName",
 } as const satisfies Record<string, keyof ParsedArgs>;
 
 // ⛔ Derived from the tables, not written again. A hand-kept list is how an option ends up tested
@@ -177,9 +182,10 @@ function append(
  */
 const FLAG_DEFAULTS: Record<(typeof FLAG_OPTIONS)[keyof typeof FLAG_OPTIONS], boolean> = {
   help: false, version: false, json: false, all: false, force: false, dryRun: false, thumbnail: false, releaseStorage: false,
-  yes: false, publish: false, plain: false, env: false, status: false,
+  yes: false, publish: false, activity: false, plain: false, env: false, status: false,
   desc: false, hidden: false, reveal: false, phrase: false, print: false, qr: false, board: false,
   save: false, acceptExtremes: false, remove: false, noWait: false, trustServerTipAddress: false, long: false,
+  hideName: false,
 };
 
 export function parseArgs(argv: readonly string[]): ParsedArgs {

@@ -12,6 +12,11 @@ import { unlocked } from "../gate.js";
 import { BINARY_NAME } from "../product.js";
 import { ACTS } from "../risk.js";
 const READ = { act: "ls", readOnly: true };
+/** The revoke question, naming the code by its number — the same words `nmts public-code revoke` asks. */
+function revokeQuestion(index) {
+    return (`Revoke public code #${String(index)}? Nobody can send to it again, and nobody can bring it back. ` +
+        "Files already received with it stay.");
+}
 export const TOOL_TIERS = {
     nmts_whoami: { act: "whoami", readOnly: true },
     nmts_list: READ,
@@ -24,6 +29,15 @@ export const TOOL_TIERS = {
     nmts_wallet_storage: { act: "wallet", readOnly: true },
     nmts_devices: { act: "devices", readOnly: true },
     nmts_public_code: { act: "public-code", readOnly: true },
+    // ⛔ A REPLACEMENT IS A REVOKE, and is asked as one — the act follows the arguments.
+    nmts_public_code_new: {
+        act: (args) => (typeof args["replace"] === "number" ? "public-code.revoke" : "public-code.new"),
+        question: (args) => typeof args["replace"] === "number"
+            ? `Make a new public code for this account and revoke public code #${String(args["replace"])}? ` +
+                "Nobody can send to that one again, and nobody can bring it back. Files already received with it stay."
+            : "Make a new public code for this account. Go ahead?",
+    },
+    nmts_public_code_revoke: { act: "public-code.revoke", question: (args) => revokeQuestion(args["index"]) },
     nmts_shares: { act: "shares", readOnly: true },
     nmts_shares_sent: { act: "shares", readOnly: true },
     nmts_notices: { act: "notices", readOnly: true },
@@ -54,7 +68,8 @@ export const TOOL_TIERS = {
     nmts_restore: { act: "restore" },
     nmts_share: {
         act: "share",
-        question: (args) => `Share "${String(args["path"])}" with the NMTS account whose public code is ${String(args["public_code"])}?\n\n` +
+        question: (args) => `Share "${String(args["path"])}" with the NMTS account whose public code is ${String(args["public_code"])}` +
+            `${typeof args["as"] === "number" ? `, from this account's public code #${String(args["as"])}` : ""}?\n\n` +
             "Whoever holds that code can then download the file. Withdrawing the share afterwards stops " +
             "further downloads and cannot reach a copy already fetched. The code is not checked against " +
             "a person — if it is the wrong one, the file goes to whoever holds it.",

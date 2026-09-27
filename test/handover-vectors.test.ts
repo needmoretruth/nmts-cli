@@ -135,7 +135,12 @@ test("a handover file the web app made opens here, with no API key, to the bytes
     assert.equal(readFileSync(out, "utf8"), str(web, "body_utf8"));
     assert.ok(lines.join("\n").includes(str(web, "sender_code")), "the sender is named");
     assert.ok(calls.some((c) => c.includes("/v1/blobs/by-quilt-patch-id/web-patch-0")), "the quilt piece was fetched by its patch id");
-    assert.deepEqual(calls.filter((c) => !c.startsWith("GET /v1/blobs/")), [], "the open reached something other than an aggregator");
+    // ⛔ Besides the aggregator, only the public revoked list by one-hex-digit bucket — never one code.
+    const told = calls.filter((c) => !c.startsWith("GET /v1/blobs/"));
+    assert.ok(
+      told.every((c) => /^GET \/v1\/public-codes\/revoked\?prefix=[0-9a-f]$/.test(c)),
+      `the open reached something other than an aggregator and the revoked list: ${told.join(", ")}`,
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
     for (const n of ["NMTS_CONFIG_DIR", CODE_ENV_VAR, API_KEY_ENV_VAR, AGGREGATOR_ENV_VAR]) {

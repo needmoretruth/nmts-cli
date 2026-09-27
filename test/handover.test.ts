@@ -1,9 +1,10 @@
 // `nmts handover make` → `nmts handover open`, against a local server that plays both the NMTS API
 // and a Walrus aggregator. No fetch mocking: the wire and the crypto are what is tested.
 //
-// ⛔ THE PROPERTY WORTH THE HARNESS: opening a handover file asks the NMTS server NOTHING and needs
-//    no API key. The key is taken out of the environment before every open, every request the
-//    recipient's run makes is recorded, and the only ones allowed are aggregator reads. The file
+// ⛔ THE PROPERTY WORTH THE HARNESS: opening a handover file tells the NMTS server nothing about it
+//    and needs no API key. The key is taken out of the environment before every open, every request
+//    the recipient's run makes is recorded, and the only ones allowed are aggregator reads and the
+//    public revoked list by one-hex-digit bucket — never a question naming one code. The file
 //    comes back byte for byte at the SENDER's length, out of two stored pieces — a quilt patch and a
 //    whole blob sealed from more bytes than the file has.
 //
@@ -12,6 +13,7 @@
 
 import { strict as assert } from "node:assert";
 import { createServer, type Server } from "node:http";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { after, test } from "node:test";
@@ -23,6 +25,7 @@ import { NmtsError } from "../src/errors.ts";
 import { loadCrypto } from "../src/crypto.ts";
 import { AGGREGATOR_ENV_VAR } from "../src/walrus.ts";
 import { shareKeysOf } from "../src/share.ts";
+import { shareKeysAt } from "../src/share-codes.ts";
 import { encodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 import { assertModeWhereEnforced, generateCode, grantConsents, sealFile, sealFileList } from "./helpers.ts";
 
@@ -33,7 +36,31 @@ let manifestBody: unknown = { state: "absent" };
 let partsBody: unknown = { size: 0, parts: [] };
 let recipientBody: unknown = null;
 let blobs = new Map<string, Uint8Array>();
+/** What `GET /v1/account/public-codes` answers — one account's list, whoever asks. */
+let codesBody: unknown = { codes: [], live_max: 3, day_cap: 10, made_today: 0 };
+/** SHA-256 of every revoked address, base64url, as the server keeps them. */
+let revokedMarks: string[] = [];
 const calls: string[] = [];
+
+const mark = (address: Uint8Array): string => createHash("sha256").update(address).digest("base64url");
+
+/** A list in the server's shape: each code with its number, address and whether it is revoked. */
+function listOf(codes: { index: number; address: Uint8Array; revoked?: boolean }[]): unknown {
+  return {
+    codes: codes.map((c) => ({
+      index: c.index,
+      address: Buffer.from(c.address).toString("base64url"),
+      created_at: "2026-09-24T00:00:00Z",
+      revoked_at: c.revoked === true ? `2026-09-24T0${c.index}:00:00Z` : null,
+      sent: 0,
+      received: 0,
+      support: 0,
+    })),
+    live_max: 3,
+    day_cap: 10,
+    made_today: 0,
+  };
+}
 
 const server: Server = createServer((req, res) => {
   const url = req.url ?? "";
@@ -43,6 +70,12 @@ const server: Server = createServer((req, res) => {
     res.end(JSON.stringify(body));
   };
   if (url.startsWith("/v1/manifest")) return send(200, manifestBody);
+  if (url === "/v1/account/public-codes") return send(200, codesBody);
+  const bucket = url.match(/^\/v1\/public-codes\/revoked\?prefix=([0-9a-f])$/);
+  if (bucket) {
+    const prefix = bucket[1] ?? "";
+    return send(200, { fingerprints: revokedMarks.filter((m) => Buffer.from(m, "base64url").toString("hex").startsWith(prefix)) });
+  }
   if (url.startsWith("/v1/share-recipients/")) return recipientBody === null ? send(404, {}) : send(200, recipientBody);
   if (url.includes("/parts")) return send(200, partsBody);
   const blob = url.match(/\/v1\/blobs\/(?:by-quilt-patch-id\/)?(.+)$/);
@@ -150,7 +183,7 @@ test("a handover made to a public code file opens for its recipient with no API 
     // The recipient's public code file, under its default name in the current directory.
     process.chdir(dir);
     process.env[CODE_ENV_VAR] = recipient;
-    assert.equal(await publicCode({ ...quiet, save: true }), 0);
+    assert.equal(await publicCode({ ...net, ...quiet, save: true }), 0);
     const recipientKeys = shareKeysOf(crypt, recipient);
     const codeFile = join(dir, `nmts-public-code-${recipientKeys.display}.nmtscode`);
     recipientKeys.wipe();
@@ -173,10 +206,10 @@ test("a handover made to a public code file opens for its recipient with no API 
     const lines: string[] = [];
     assert.equal(await openAs(recipient, handoverFile, { write: (l) => lines.push(l) }), 0);
     assert.deepEqual(new Uint8Array(readFileSync(join(dir, "handed.txt"))), REAL);
-    assert.deepEqual(
-      calls.filter((c) => !c.startsWith("GET /v1/blobs/")),
-      [],
-      "opening a handover file reached the NMTS server",
+    const told = calls.filter((c) => !c.startsWith("GET /v1/blobs/"));
+    assert.ok(
+      told.every((c) => /^GET \/v1\/public-codes\/revoked\?prefix=[0-9a-f]$/.test(c)),
+      `opening a handover file asked the NMTS server more than a revoked-list bucket: ${told.join(", ")}`,
     );
     assert.ok(calls.some((c) => c.includes("/v1/blobs/by-quilt-patch-id/patch-0")), "the quilt piece was not fetched by its patch id");
     const senderKeys = shareKeysOf(crypt, sender);
@@ -236,5 +269,90 @@ test("a handover to a typed public code looks the code up; without --yes it writ
     assert.deepEqual(new Uint8Array(readFileSync(got)), REAL);
     r.wipe();
     recipientBody = null;
+  });
+});
+
+test("handovers under numbered public codes: sent from a live code, opened by whichever code it was sealed to, revocations said", async () => {
+  await withSandbox("handover-numbered", async (dir) => {
+    const [sender, recipient] = [await generateCode(), await generateCode()];
+    const crypt = await loadCrypto();
+    process.chdir(dir);
+    const [s0, s1] = [shareKeysAt(crypt, sender, 0), shareKeysAt(crypt, sender, 1)];
+    const [r0, r1, r2] = [shareKeysAt(crypt, recipient, 0), shareKeysAt(crypt, recipient, 1), shareKeysAt(crypt, recipient, 2)];
+
+    // The recipient's file for code #2, made on this machine alone: no key, no request.
+    process.env[CODE_ENV_VAR] = recipient;
+    delete process.env[API_KEY_ENV_VAR];
+    calls.length = 0;
+    const r2File = join(dir, "r2.nmtscode");
+    const saved: string[] = [];
+    assert.equal(await publicCode({ ...net, save: true, as: "2", file: r2File, write: (l) => saved.push(l) }), 0);
+    assert.deepEqual(calls, [], "--save --as asked the server");
+    assert.ok(saved.join("\n").includes(`#2  ${r2.display}`), saved.join("\n"));
+    process.env[API_KEY_ENV_VAR] = KEY;
+
+    // The sender's code 0 is revoked and code 1 is live, so code 1 is the default it sends from.
+    process.env[CODE_ENV_VAR] = sender;
+    codesBody = listOf([{ index: 0, address: s0.address, revoked: true }, { index: 1, address: s1.address }]);
+    revokedMarks = [mark(s0.address)];
+    const s0File = join(dir, "s0.nmtscode");
+    assert.equal(await publicCode({ ...net, ...quiet, save: true, as: "0", file: s0File }), 0);
+    // --save without --as writes the default: code 1.
+    const s1Json: string[] = [];
+    assert.equal(await publicCode({ ...net, save: true, json: true, file: join(dir, "s1.nmtscode"), write: (l) => s1Json.push(l) }), 0);
+    assert.equal(JSON.parse(s1Json[0] ?? "{}").index, 1);
+    await senderDrive(sender);
+    const out = join(dir, "numbered.nmtshandover");
+
+    // Any code of its own, revoked ones included, is not a recipient.
+    await refusedWith(handover("make", "handed.txt", { ...net, ...quiet, to: s0File, out, yes: true }), /your own public code/);
+    // Only a live code sends.
+    await refusedWith(handover("make", "handed.txt", { ...net, ...quiet, to: r2File, out, as: "0", yes: true }), /not a live code/);
+
+    // A recipient code on the revoked list is warned about, and the handover is still made.
+    revokedMarks = [mark(s0.address), mark(r2.address)];
+    const review: string[] = [];
+    assert.equal(await handover("make", "handed.txt", { ...net, to: r2File, out, as: "1", write: (l) => review.push(l) }), 5);
+    assert.ok(review.includes("Its owner has revoked this public code. Ask them for the code they use now."), review.join("\n"));
+    assert.match(review.join("\n"), /, from public code #1, to /);
+    assert.ok((review.find((l) => l.includes("To go ahead")) ?? "").includes("--as 1 "), review.join("\n"));
+    const made: string[] = [];
+    assert.equal(await handover("make", "handed.txt", { ...net, to: r2File, out, json: true, yes: true, write: (l) => made.push(l) }), 0);
+    assert.deepEqual(
+      { ...JSON.parse(made[0] ?? "{}"), out: null },
+      { out: null, name: "handed.txt", recipient: r2.display, fromIndex: 1, recipientRevoked: true },
+    );
+
+    // No key on the recipient's machine: code 0 fails, then 1, 2 … — and the revoked list says #2 is revoked.
+    calls.length = 0;
+    const offline: string[] = [];
+    assert.equal(await openAs(recipient, out, { out: join(dir, "a.txt"), write: (l) => offline.push(l) }), 0);
+    assert.deepEqual(new Uint8Array(readFileSync(join(dir, "a.txt"))), REAL);
+    assert.ok(offline.includes(`  received with your revoked public code #2  ${r2.display}`), offline.join("\n"));
+    assert.ok(!offline.some((l) => l.includes("The sender has since revoked")), offline.join("\n"));
+    assert.ok(!calls.includes("GET /v1/account/public-codes"), "the list was read with no key on this machine");
+
+    // With a key: the account's own list gives the order, and says which are revoked.
+    codesBody = listOf([{ index: 0, address: r0.address }, { index: 1, address: r1.address }, { index: 2, address: r2.address, revoked: true }]);
+    revokedMarks = [mark(s1.address)];
+    process.env[CODE_ENV_VAR] = recipient;
+    const held: string[] = [];
+    assert.equal(await handover("open", out, { ...net, out: join(dir, "b.txt"), json: true, write: (l) => held.push(l) }), 0);
+    const opened = JSON.parse(held[0] ?? "{}");
+    assert.deepEqual([opened.toIndex, opened.toRevoked, opened.senderRevoked], [2, true, true]);
+    const said: string[] = [];
+    assert.equal(await handover("open", out, { ...net, out: join(dir, "c.txt"), write: (l) => said.push(l) }), 0);
+    assert.ok(said.includes("  The sender has since revoked this code."), said.join("\n"));
+
+    // A live numbered code is named without the word revoked.
+    codesBody = listOf([{ index: 0, address: r0.address }, { index: 1, address: r1.address }, { index: 2, address: r2.address }]);
+    revokedMarks = [];
+    const live: string[] = [];
+    assert.equal(await handover("open", out, { ...net, out: join(dir, "d.txt"), write: (l) => live.push(l) }), 0);
+    assert.ok(live.includes(`  to #2  ${r2.display}`), live.join("\n"));
+
+    for (const k of [s0, s1, r0, r1, r2]) k.wipe();
+    codesBody = { codes: [], live_max: 3, day_cap: 10, made_today: 0 };
+    revokedMarks = [];
   });
 });

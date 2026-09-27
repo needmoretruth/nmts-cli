@@ -16,6 +16,7 @@
 //    made by the account it names. The claimed sender is therefore printed only AFTER the open
 //    succeeds — before that it is a claim, and printing a claim as a fact is how somebody trusts
 //    a file that was not sent by who it says.
+import { fromBase64Url, toBase64Url } from "./bytes.js";
 import { AAD, DERIVED } from "./crypto.js";
 import { NmtsError } from "./errors.js";
 import { decodeSharedFileInfo, encodeSharedFileInfo, } from "./shared/lib/share/shared-file-info.js";
@@ -27,12 +28,20 @@ const IDENTITY_LEN = 4989;
 /** Derive everything sharing needs from an NMTS key. */
 export function shareKeysOf(crypt, code) {
     const derived = crypt.kdf_derive(crypt.account_code_parse(code));
+    try {
+        return shareKeysFromDerived(crypt, derived);
+    }
+    finally {
+        derived.fill(0);
+    }
+}
+/** Code 0's keys out of one run of the key's derivation. The caller wipes `derived`. */
+export function shareKeysFromDerived(crypt, derived) {
     const slice = (range) => derived.slice(range[0], range[1]);
     const kemSeed = slice(DERIVED.shareKemSeed);
     const authSecret = slice(DERIVED.shareAuthSecret);
     const sigSeed = slice(DERIVED.shareSigSeed);
     const address = slice(DERIVED.shareAddress);
-    derived.fill(0);
     const identity = crypt.share_public_key(kemSeed, authSecret, sigSeed);
     if (identity.length !== IDENTITY_LEN) {
         throw new NmtsError(`This account's sharing identity came out ${identity.length} bytes.`, {
@@ -40,6 +49,7 @@ export function shareKeysOf(crypt, code) {
         });
     }
     return {
+        index: 0,
         kemSeed,
         authSecret,
         sigSeed,
@@ -75,15 +85,28 @@ export function sealShare(crypt, input) {
     if (digestCt.length !== DIGEST_ENVELOPE_LEN) {
         throw new NmtsError(`A sealed content hash came out ${digestCt.length} bytes.`);
     }
-    const envelope = crypt.share_wrap_dek(input.keys.authSecret, input.keys.sigSeed, input.recipientIdentity, input.recipientAddress, input.dek, input.itemId, nameCt, digestCt);
+    // ⚠ THE SENDER'S NUMBER IS INSIDE THE ENVELOPE: it names which of this key's codes sent it, so a
+    //   code other than 0 wraps through the engine's numbered form.
+    const k = input.keys;
+    const envelope = k.index === 0
+        ? crypt.share_wrap_dek(k.authSecret, k.sigSeed, input.recipientIdentity, input.recipientAddress, input.dek, input.itemId, nameCt, digestCt)
+        : crypt.share_wrap_dek_as(k.authSecret, k.sigSeed, k.index, input.recipientIdentity, input.recipientAddress, input.dek, input.itemId, nameCt, digestCt);
     if (envelope.length !== ENVELOPE_LEN) {
         throw new NmtsError(`A share envelope came out ${envelope.length} bytes.`);
     }
     return {
-        dek_share_ct: Buffer.from(envelope).toString("base64url"),
-        name_share_ct: Buffer.from(nameCt).toString("base64url"),
-        content_hash_share_ct: Buffer.from(digestCt).toString("base64url"),
+        dek_share_ct: toBase64Url(envelope),
+        name_share_ct: toBase64Url(nameCt),
+        content_hash_share_ct: toBase64Url(digestCt),
     };
+}
+/**
+ * Which of this account's codes a received row came to. A number the server should never send —
+ * negative, fractional, past a code's range — reads as 0, where the open then fails and says so.
+ */
+export function receivedIndex(row) {
+    const n = row.to_index;
+    return typeof n === "number" && Number.isSafeInteger(n) && n >= 0 && n <= 2 ** 31 - 2 ? n : 0;
 }
 /**
  * Open one received share.
@@ -98,6 +121,8 @@ export function openReceived(crypt, keys, row) {
         itemId: row.item_id,
         createdAt: row.created_at,
         digestCt: row.content_hash_share_ct,
+        toIndex: receivedIndex(row),
+        senderRevoked: row.sender_code_revoked === true,
     };
     const unopened = (problem) => ({
         ...base,
@@ -112,13 +137,17 @@ export function openReceived(crypt, keys, row) {
         // authenticate against, and an unauthenticated open is not one worth doing.
         return unopened("the sender's published identity is not available");
     }
-    const envelope = new Uint8Array(Buffer.from(row.dek_share_ct, "base64url"));
-    const nameCt = new Uint8Array(Buffer.from(row.name_share_ct, "base64url"));
-    const digestCt = new Uint8Array(Buffer.from(row.content_hash_share_ct, "base64url"));
-    const senderPublic = new Uint8Array(Buffer.from(row.sender_public_key, "base64url"));
+    // ⚠ Decoded inside the try: a row whose fields are not base64 is a row that will not open, and it
+    //   is still listed.
+    let envelope = new Uint8Array(0);
+    let nameCt = new Uint8Array(0);
     let dek;
     try {
-        dek = crypt.share_unwrap_dek(keys.kemSeed, keys.authSecret, keys.sigSeed, senderPublic, envelope, row.item_id, nameCt, digestCt);
+        envelope = fromBase64Url(row.dek_share_ct);
+        nameCt = fromBase64Url(row.name_share_ct);
+        const digestCt = fromBase64Url(row.content_hash_share_ct);
+        const senderPublic = fromBase64Url(row.sender_public_key);
+        dek = unwrapWith(crypt, keys, { senderPublic, envelope, itemId: row.item_id, nameCt, digestCt });
     }
     catch {
         return unopened("it did not open with this account's keys");
@@ -150,10 +179,21 @@ export function openReceived(crypt, keys, row) {
         problem: null,
     };
 }
+/**
+ * Open one envelope with one of this account's codes. Throws when it will not open.
+ *
+ * ⚠ THE RECIPIENT'S NUMBER IS PART OF WHAT OPENS IT, so the keys must be the code it was sent to:
+ *   code 0 through the engine's first form, any other through its numbered one.
+ */
+export function unwrapWith(crypt, keys, s) {
+    return keys.index === 0
+        ? crypt.share_unwrap_dek(keys.kemSeed, keys.authSecret, keys.sigSeed, s.senderPublic, s.envelope, s.itemId, s.nameCt, s.digestCt)
+        : crypt.share_unwrap_dek_as(keys.kemSeed, keys.authSecret, keys.sigSeed, keys.index, s.senderPublic, s.envelope, s.itemId, s.nameCt, s.digestCt);
+}
 /** The digest a recipient checks the downloaded bytes against. */
 export function openSharedDigest(crypt, dek, digestCt) {
     try {
-        return crypt.envelope_open(dek, encoder.encode(AAD.shareContentHash), new Uint8Array(Buffer.from(digestCt, "base64url")));
+        return crypt.envelope_open(dek, encoder.encode(AAD.shareContentHash), fromBase64Url(digestCt));
     }
     catch {
         return null;
@@ -187,7 +227,8 @@ export function identityMatches(crypt, identity, address) {
     if (identity.length !== IDENTITY_LEN)
         return false;
     try {
-        return Buffer.from(crypt.share_address_of(identity)).equals(Buffer.from(address));
+        const fingerprint = crypt.share_address_of(identity);
+        return fingerprint.length === address.length && fingerprint.every((byte, at) => byte === address[at]);
     }
     catch {
         return false;

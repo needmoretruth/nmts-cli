@@ -1,9 +1,8 @@
 // `nmts balance` and `nmts public-code`, against a server that answers on this machine.
 //
-// ⛔ THE ONE THAT MATTERS IS THE LAST: a server already holding a DIFFERENT public code means the
-//    NMTS key this machine is holding is not the one the account was made with. Publishing
-//    would fail anyway — the server is first-writer-wins — but "the write was refused" is a much
-//    smaller fact than the one worth telling somebody, and the useful message is the bigger fact.
+// ⛔ THE ONE THAT MATTERS IS THE LAST: a server listing a public code this key does not derive at
+//    that number means the NMTS key this machine is holding is not the one the account was made
+//    with. "The write was refused" would be a much smaller fact than the one worth telling somebody.
 
 import { strict as assert } from "node:assert";
 import { createServer, type Server } from "node:http";
@@ -17,14 +16,13 @@ import { loadCrypto } from "../src/crypto.ts";
 import { NETWORK_ENV_VAR } from "../src/network.ts";
 import { SERVER_ENV_VAR } from "../src/server.ts";
 import { shareKeysOf } from "../src/share.ts";
+import { publicCodesState, resetPublicCodes, servePublicCodes } from "./fake-public-codes.ts";
 import { generateCode, grantConsents } from "./helpers.ts";
 
 const KEY = ["nmts", "ak1", "Abcdefghijkl"].join("_") + "_" + "x".repeat(43);
 
-/** What the server answers, and what it was asked. Reset per test. */
+/** What the server answers. Reset per test; the public-code doors keep their own state. */
 let summary: unknown = null;
-let identity: { published: boolean; share_address?: string } = { published: false };
-let puts: Record<string, unknown>[] = [];
 
 const server: Server = createServer((req, res) => {
   const url = req.url ?? "";
@@ -33,19 +31,7 @@ const server: Server = createServer((req, res) => {
     res.end(JSON.stringify(body));
   };
   if (url.startsWith("/v1/account/summary") && req.method === "GET") return send(200, summary);
-  if (url.startsWith("/v1/account/share-identity") && req.method === "GET") return send(200, identity);
-  if (url.startsWith("/v1/account/share-identity") && req.method === "PUT") {
-    let body = "";
-    req.on("data", (chunk) => (body += String(chunk)));
-    req.on("end", () => {
-      const parsed: unknown = JSON.parse(body);
-      if (typeof parsed === "object" && parsed !== null) puts.push({ ...parsed });
-      const claimed = typeof parsed === "object" && parsed !== null ? Reflect.get(parsed, "share_address") : "";
-      identity = { published: true, share_address: String(claimed) };
-      send(204, {});
-    });
-    return;
-  }
+  if (servePublicCodes(req.method ?? "GET", url, req, res)) return;
   send(404, { error: { code: "NOT_FOUND", message: "no such route" } });
 });
 await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
@@ -74,8 +60,7 @@ async function sandbox(name: string, body: (ctx: { code: string }) => Promise<vo
   process.env[SERVER_ENV_VAR] = BASE;
   process.env[NETWORK_ENV_VAR] = "testnet";
   summary = JSON.parse(JSON.stringify(FULL));
-  identity = { published: false };
-  puts = [];
+  resetPublicCodes();
   try {
     await body({ code });
   } finally {
@@ -221,7 +206,9 @@ test("the public code is printed in the form a person reads, and an unpublished 
     assert.ok(said.includes((await mine(code)).shown), "the grouped form a person reads is missing");
     assert.match(said, /NOT published/);
     assert.match(said, /public-code --publish/);
-    assert.equal(puts.length, 0, "reading it wrote to the server");
+    assert.match(said, /revoke it and make a new one/);
+    assert.doesNotMatch(said, /permanent|cannot be withdrawn/i, "a code can be revoked, so it is not permanent");
+    assert.equal(publicCodesState.posts.length, 0, "reading it wrote to the server");
   });
 });
 
@@ -230,9 +217,10 @@ test("⛔ --publish writes exactly the value this account's code derives", async
     const expected = await mine(code);
     const lines: string[] = [];
     assert.equal(await publicCode({ publish: true, write: (l) => lines.push(l) }), 0);
-    assert.equal(puts.length, 1);
-    assert.equal(puts[0]?.["share_address"], expected.raw);
-    assert.match(lines.join("\n"), /published — another account can send files to it/);
+    assert.equal(publicCodesState.posts.length, 1);
+    assert.equal(publicCodesState.posts[0]?.index, 0, "the first code an account publishes is code 0");
+    assert.equal(publicCodesState.posts[0]?.address, expected.raw);
+    assert.ok(lines.join("\n").includes(`public code  ${expected.shown}   (default · 1 of 3 live)`));
   });
 });
 
@@ -240,19 +228,33 @@ test("publishing twice writes once", async () => {
   await sandbox("public-code-twice", async () => {
     await publicCode({ publish: true, write: () => {} });
     await publicCode({ publish: true, write: () => {} });
-    assert.equal(puts.length, 1, "it wrote a second time over an identical record");
+    assert.equal(publicCodesState.posts.length, 1, "it published a second code for the same --publish");
   });
 });
 
 test("⛔ a server holding a different public code stops, and says what that actually means", async () => {
   await sandbox("public-code-mismatch", async () => {
-    identity = { published: true, share_address: "AAAAAAAAAAAAAAAAAAAAAA" };
+    publicCodesState.codes = [
+      { index: 0, address: "AAAAAAAAAAAAAAAAAAAAAA", created_at: "2026-09-01T00:00:00Z", revoked_at: null, sent: 0, received: 0, support: 0 },
+    ];
     await assert.rejects(publicCode({ publish: true, write: () => {} }), (error: unknown) => {
       assert.match(String(error), /already publishes a different public code/);
       const step = error instanceof Error && "nextStep" in error ? String(Reflect.get(error, "nextStep")) : "";
       assert.match(step, /different account's code/);
       return true;
     });
-    assert.equal(puts.length, 0);
+    assert.equal(publicCodesState.posts.length, 0);
+  });
+});
+
+test("⛔ --publish on an account whose code 0 was revoked once publishes the next number instead", async () => {
+  await sandbox("public-code-walk", async ({ code }) => {
+    publicCodesState.revokedAddresses.add((await mine(code)).raw);
+    const lines: string[] = [];
+    assert.equal(await publicCode({ publish: true, json: true, write: (l) => lines.push(l) }), 0);
+    assert.deepEqual(publicCodesState.posts.map((p) => p.index), [0, 1], "it did not walk past the revoked number");
+    const said: unknown = JSON.parse(lines.join(""));
+    assert.equal(Reflect.get(Object(said), "index"), 1);
+    assert.equal(Reflect.get(Object(said), "published"), true);
   });
 });

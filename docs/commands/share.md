@@ -8,10 +8,13 @@ download it; withdrawing later stops further downloads and cannot recall a copy 
 and the code is not checked against a person — the wrong code sends the file to whoever holds it.
 So it is locked until a person runs `nmts unlock share` once, and then asks on every run: it prints
 the file and the code and stops until the same command is run with `--yes`, in every mode but
-skip-permissions. Sharing is also on the short list the periodic human check gates.
+skip-permissions. Sharing is also on the short list the periodic human check gates. It sends from
+the account's lowest-numbered live public code, or from the one `--as <n>` names; an account with
+no live code publishes one first.
 
-`shares` lists what was shared with this account; `shares --sent <path>` says who one file was
-shared with. `receive <id>` downloads one shared file (`--out`, `--force` as for `get`); without
+`shares` lists what was shared with this account, with the code each share came to once more than
+one code has received, and a mark where the sender has revoked theirs; `shares --sent <path>` says
+who one file was shared with. `receive <id>` downloads one shared file (`--out`, `--force` as for `get`); without
 `--out` it is saved in the current directory under the name the sender gave it, reduced to its last
 segment, so a name such as `../x` or an absolute path cannot place it anywhere else. `unshare
 <id>` withdraws a share you sent, or removes one you were sent; in the default mode it asks once.

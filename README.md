@@ -51,7 +51,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.46.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.47.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -187,12 +187,17 @@ your main one.
 | `nmts create` | Make a NEW account and print its NMTS key once. Nothing can print it again. With no verified API key on this machine it makes the NMTS key here, prints an address, and waits while a person opens it, types that NMTS key and passes the human check — the account exists the moment they finish. `--no-wait` prints the address and stops |
 | `nmts verify` | Ask a person to pass the check that opens this account's limits. Only the account holder can: signed in to this account in that browser, or typing its NMTS key there |
 | `nmts public-code` | The code other accounts send files to. `--publish` makes it reachable; `--save [file]` writes your public code file |
+| `nmts public-code list · new · revoke <n>` | Every code your NMTS key has published; publish the next one (`--replace <n>` revokes one in the same step); revoke one — nobody can send to it again. Revoking asks every time |
 | `nmts share <path> <address>` | Give one file to another account — **withdrawing does not recall it**. Locked until `nmts unlock share`; every share stops and `--yes` answers for that one file |
 | `nmts shares` | What was shared with this account; `--sent <path>` shows who one file went to |
 | `nmts receive <id>` | Download one file somebody shared with this account |
 | `nmts unshare <id>` | Withdraw a share you sent, or remove one you were sent |
 | `nmts handover make <path> --to <public code \| public code file>` | Write a handover file for one account and pass it on yourself — **it cannot be taken back**, and NMTS keeps no record of it. Locked like `share` |
-| `nmts handover open <file>` | Download the file a handover file carries. Needs the NMTS key and no API key; asks the NMTS server nothing |
+| `nmts handover open <file>` | Download the file a handover file carries. Needs the NMTS key and no API key; tells the NMTS server nothing about the file |
+| `nmts link make <path> [--hide-name] [--expires <n>d]` | Make a public link to a file |
+| `nmts link list <path>` | List a file's public links |
+| `nmts link revoke <id>` | Cut a public link |
+| `nmts link open <link> [--out <path>]` | Download and decrypt a file from a public link, without logging in |
 | `nmts rebuild` | Build a file list from the server's rows, for an account with none |
 | `nmts rollback` | Put the previous version of the file list back — locked until `nmts unlock rollback`, `--yes` every run |
 | `nmts listfile` | Write this machine's copy of the sealed file list out as a file |
@@ -358,9 +363,11 @@ share stops further downloads and cannot reach a copy already taken, which is wh
 for an agreement the first time.
 
 `public-code` prints the value other accounts send files to and says whether it is published.
-Until it is published nobody can send to you. `--publish` writes it, permanently: it derives from
-your NMTS key, so it cannot be chosen or changed. It is not your NMTS key, and it opens
-nothing on its own.
+Until it is published nobody can send to you. `--publish` writes it. Every code derives from your
+NMTS key at a number, so it cannot be chosen; you hold one to three live ones, make the next with
+`public-code new`, and revoke one with `public-code revoke <n>` — nobody can send to a revoked code,
+and files already received with it stay. `share --as <n>` picks which code sends. A public code is
+not your NMTS key, and it opens nothing on its own.
 
 `nmts shares --sent <path>` lists who one file was shared with — the recipient address, since when,
 and the share id `unshare` takes.
@@ -368,7 +375,7 @@ and the share id `unshare` takes.
 A share tells NMTS who shared with whom. A handover does not: `nmts handover make <path> --to
 <recipient>` writes the file, sealed to one recipient, into a handover file you pass on yourself,
 and no share is registered. The recipient opens it with `nmts handover open <file>`, which needs no
-API key and asks the NMTS server nothing. Give `--to` their public code file (`nmts public-code
+API key and tells the NMTS server nothing about the file. Give `--to` their public code file (`nmts public-code
 --save` on their side) and the server is not even asked whose code it is; give it the code and the
 server sees that lookup. Whoever holds a handover file sees your public code in it. It cannot be
 taken back: the recipient can download the file until its storage ends or its stored bytes are
@@ -437,10 +444,11 @@ nmts openers remove <locator>                          # take one off
 ## What it stops to ask about
 
 Every act has a tier. **None** (listing, fetching, folders, marks) never asks. **Low** (the trash,
-a setting, a report) and **medium** (uploading, publishing the public code, a new key) ask once
-per run — y/N at the terminal, or `--yes`. **High** (signing with the wallet, giving another
+a setting, a report) and **medium** (uploading, publishing or making a public code, a new key) ask
+once per run — y/N at the terminal, or `--yes`. **High** (signing with the wallet, giving another
 account a file, revealing or storing your NMTS key unsealed) is locked until you run `nmts unlock
-<key>` once on this machine, and then still asks on every run. **Ultra-high** (erasing the
+<key>` once on this machine, and then still asks on every run; revoking a public code is high too,
+with no unlock, and asks every time. **Ultra-high** (erasing the
 account) is a typed sentence. `nmts unlock` lists the keys; each unlock prints what it opens, what
 could go wrong and what it does not cover before it asks. `nmts help <command>` prints any
 command's document, with its tier at the top.
@@ -542,14 +550,14 @@ the arguments `mcp --out <directory>`, for example in opencode's own file:
 { "mcp": { "nmts": { "type": "local", "command": ["nmts", "mcp", "--out", "/where/files/should/land"] } } }
 ```
 
-It offers thirty-eight tools: reading the account (`nmts_whoami`, `nmts_list`, `nmts_usage`,
+It offers forty tools: reading the account (`nmts_whoami`, `nmts_list`, `nmts_usage`,
 `nmts_expiring`, `nmts_balance`, `nmts_shares`, `nmts_shares_sent`), the wallet's own reads
 (`nmts_wallet_activity`, `nmts_wallet_storage`), the signed-in devices (`nmts_devices`), storage the daily check could
 not find (`nmts_losses`, `nmts_loss_recheck`), fetching (`nmts_get`, `nmts_pull`, `nmts_receive`),
 uploading (`nmts_put`, `nmts_push`, `nmts_padding`, `nmts_deposit`), rearranging (`nmts_mkdir`, `nmts_move`,
 `nmts_rename`, `nmts_mark`, `nmts_label_rename`, `nmts_unlabel_all`, `nmts_trash`, `nmts_restore`),
 moving credits between accounts of your own (`nmts_credits_transfer`),
-sharing (`nmts_public_code`, `nmts_share`, `nmts_unshare`), writing to the developer
+sharing (`nmts_public_code`, `nmts_public_code_new`, `nmts_public_code_revoke`, `nmts_share`, `nmts_unshare`), writing to the developer
 (`nmts_support_send`, `nmts_support_list`, `nmts_support_show`, `nmts_support_reply`) and the
 documents this service publishes (`nmts_notices`, `nmts_notice`, `nmts_terms`, `nmts_privacy`).
 

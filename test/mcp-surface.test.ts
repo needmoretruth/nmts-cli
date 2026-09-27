@@ -54,6 +54,8 @@ test("⛔ nothing a machine must not do is in the surface, and the reads that ar
     "nmts_padding",
     "nmts_privacy",
     "nmts_public_code",
+    "nmts_public_code_new",
+    "nmts_public_code_revoke",
     "nmts_pull",
     "nmts_push",
     "nmts_put",

@@ -147,6 +147,48 @@ export interface CryptoGlue {
     contentHashShareCt: Uint8Array,
   ): Uint8Array;
   /**
+   * The three secrets of sharing identity `index` (1 and up), from the 32-byte `shareIdRoot` slice
+   * of the derivation (NCF-3 §5.9): `kem(32) || auth(32) || sig(32)`. Throws for 0 — identity 0's
+   * secrets are the three share slices of the derivation itself.
+   */
+  share_id_seeds(shareIdRoot: Uint8Array, index: number): Uint8Array;
+  /** Identity `index`'s published bundle. At 0 it is `share_public_key`, byte for byte. */
+  share_public_key_at(
+    shareKemSeed: Uint8Array,
+    shareAuthSecret: Uint8Array,
+    shareSigSeed: Uint8Array,
+    index: number,
+  ): Uint8Array;
+  /** Identity `index`'s 16-byte public code, from its signing seed alone. */
+  share_address_at(shareSigSeed: Uint8Array, index: number): Uint8Array;
+  /** `share_wrap_dek` sending as identity `senderIndex`: the envelope carries that identity's code. */
+  share_wrap_dek_as(
+    senderAuthSecret: Uint8Array,
+    senderSigSeed: Uint8Array,
+    senderIndex: number,
+    recipientPublic: Uint8Array,
+    recipientAddress: Uint8Array,
+    dek: Uint8Array,
+    itemId: string,
+    nameShareCt: Uint8Array,
+    contentHashShareCt: Uint8Array,
+  ): Uint8Array;
+  /**
+   * `share_unwrap_dek` as identity `index`. An envelope does not say which of the account's
+   * identities it was sealed to; opened as the wrong one it throws exactly like anybody else's.
+   */
+  share_unwrap_dek_as(
+    shareKemSeed: Uint8Array,
+    shareAuthSecret: Uint8Array,
+    shareSigSeed: Uint8Array,
+    index: number,
+    senderPublic: Uint8Array,
+    envelope: Uint8Array,
+    itemId: string,
+    nameShareCt: Uint8Array,
+    contentHashShareCt: Uint8Array,
+  ): Uint8Array;
+  /**
    * Open one NCF-3 envelope: key, the associated data it was sealed with, the envelope bytes.
    *
    * ⛔ The associated data is not decoration. An envelope sealed for one purpose cannot be opened
@@ -273,6 +315,16 @@ export interface CryptoGlue {
    *    (`heavy-evm.ts`); the key is wiped by whoever asked for it.
    */
   evm_key_for(walletRoot: Uint8Array, index: number): Uint8Array;
+  /** A fresh 32-byte public-link secret `S` (NCF-3 §5.8), drawn inside the engine. */
+  link_generate_secret(): Uint8Array;
+  /** `E(S, "nmts/v3/link-wrap", DEK)`, 104 bytes. */
+  link_wrap_dek(linkSecret: Uint8Array, dek: Uint8Array): Uint8Array;
+  /** The file key back from a link's wrapped key; throws when `S` or the envelope was changed. */
+  link_unwrap_dek(linkSecret: Uint8Array, wrapped: Uint8Array): Uint8Array;
+  /** `E(dataKey, "nmts/v3/link-secret", S)` — the owner's copy, so the link can be printed again. */
+  link_seal_secret(dataKey: Uint8Array, linkSecret: Uint8Array): Uint8Array;
+  /** `S` back from the owner's copy. */
+  link_open_secret(dataKey: Uint8Array, sealed: Uint8Array): Uint8Array;
 }
 
 const REQUIRED: readonly (keyof CryptoGlue)[] = [
@@ -308,9 +360,19 @@ const REQUIRED: readonly (keyof CryptoGlue)[] = [
   // "this function is missing" said at load time is a different day's problem from
   // `undefined is not a function` in the middle of deriving somebody's second account.
   "derive_ai_account_code",
+  // Numbered sharing identities (NCF-3 §5.9). Required for the same reason: an engine without them
+  // cannot make, show or open with any public code but the first.
+  "share_id_seeds",
+  "share_public_key_at",
+  "share_address_at",
+  "share_wrap_dek_as",
+  "share_unwrap_dek_as",
   // The EVM wallets (NCF-3 §1.9), required for the same reason: `put --tier heavy --pay evm` and
   // `heavy wallet` cannot run on a build without it.
   "evm_key_for",
+  // Public links (NCF-3 §5.8): `link make`, `link list` and `link open` cannot run without them.
+  "link_generate_secret", "link_wrap_dek", "link_unwrap_dek",
+  "link_seal_secret", "link_open_secret",
 ];
 
 export function isCryptoGlue(value: unknown): value is CryptoGlue {

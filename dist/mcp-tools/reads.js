@@ -5,6 +5,8 @@
 //    do next will call them repeatedly, and a surface where "just checking" costs money teaches
 //    the opposite of the habit this tool wants.
 import { publicCode } from "../commands/public-code.js";
+import { listCodes } from "../commands/public-code-manage.js";
+import { isRecord } from "../guards.js";
 import { balance } from "../commands/balance.js";
 import { devices } from "../commands/devices.js";
 import { legal, notices } from "../commands/documents.js";
@@ -122,13 +124,25 @@ export function readTools(ctx) {
         },
         {
             name: "nmts_public_code",
-            description: "The account's PUBLIC CODE — the value other accounts send files to — and whether it has " +
-                "been published yet. Until it is published nobody can send to this account. ⛔ It only " +
-                "reads. Publishing is permanent and is a person's decision at the command line: if the " +
-                "reply says it is not published, say so rather than working around it. ⚠ Not the NMTS " +
+            description: "The account's PUBLIC CODES — the values other accounts send files to. `code` is the " +
+                "default one (the lowest-numbered live code) and whether it is published; `codes` lists " +
+                "every code with its number, whether it is live or revoked, and how many shares and " +
+                "messages went through it; `live`, `liveMax`, `madeToday` and `dayCap` are the server's " +
+                "ceilings. With `activity`, each code also lists its shares. Until a code is published " +
+                "nobody can send to this account; nmts_public_code_new publishes one. ⚠ Not the NMTS " +
                 "key, which opens every file and is never given away.",
-            inputSchema: NO_ARGS,
-            run: () => say((write) => publicCode({ ...common(ctx), json: true, write })),
+            inputSchema: {
+                type: "object",
+                properties: {
+                    activity: { type: "boolean", description: "List each code's sent and received shares too." },
+                },
+                additionalProperties: false,
+            },
+            run: async (args) => {
+                const head = JSON.parse(await say((write) => publicCode({ ...common(ctx), json: true, write })));
+                const all = JSON.parse(await say((write) => listCodes({ ...common(ctx), json: true, activity: args["activity"] === true, write })));
+                return JSON.stringify({ ...(isRecord(head) ? head : {}), ...(isRecord(all) ? all : {}) });
+            },
         },
         {
             name: "nmts_shares",

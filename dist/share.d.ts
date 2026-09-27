@@ -7,6 +7,11 @@ import { type CryptoGlue } from "./crypto.ts";
  *    failures.
  */
 export interface ShareKeys {
+    /**
+     * Which of this key's numbered public codes these are (NCF-3 §5.9). 0 is the code every account
+     * has had from the start; `share-codes.ts` derives the others.
+     */
+    index: number;
     /** Key-agreement seed. */
     kemSeed: Uint8Array;
     /** Proves this account SENT a share. */
@@ -23,6 +28,8 @@ export interface ShareKeys {
 }
 /** Derive everything sharing needs from an NMTS key. */
 export declare function shareKeysOf(crypt: CryptoGlue, code: string): ShareKeys;
+/** Code 0's keys out of one run of the key's derivation. The caller wipes `derived`. */
+export declare function shareKeysFromDerived(crypt: CryptoGlue, derived: Uint8Array): ShareKeys;
 /** The three sealed fields a share carries, base64url, exactly as they go to the server. */
 export interface SharePayload {
     dek_share_ct: string;
@@ -64,11 +71,20 @@ export interface ReceivedRow {
     /** Bytes on the storage network — NOT the file's length. The sealed document has that. */
     size: number;
     sender_public_key?: string;
+    /** Which of this account's public codes it was sent to. Absent from an older server: code 0. */
+    to_index?: number;
+    /** Whether the sender has revoked the code it was sent from. */
+    sender_code_revoked?: boolean;
     dek_share_ct: string;
     name_share_ct: string;
     content_hash_share_ct: string;
     created_at: string;
 }
+/**
+ * Which of this account's codes a received row came to. A number the server should never send —
+ * negative, fractional, past a code's range — reads as 0, where the open then fails and says so.
+ */
+export declare function receivedIndex(row: ReceivedRow): number;
 /** What a received share turns into once opened, or why it could not be. */
 export interface OpenedShare {
     id: string;
@@ -80,6 +96,9 @@ export interface OpenedShare {
     size: number | null;
     /** The sender's address, in readable form — only ever set when the open SUCCEEDED. */
     sender: string | null;
+    /** Which of this account's public codes it came to, and whether the sender revoked theirs. */
+    toIndex: number;
+    senderRevoked: boolean;
     /** The file's own key. Present only when it opened; the caller wipes it. */
     dek: Uint8Array | null;
     /** The sealed digest, carried through so a download can check the bytes. */
@@ -95,6 +114,21 @@ export interface OpenedShare {
  *    line — not to leave a gap somebody has no way to notice.
  */
 export declare function openReceived(crypt: CryptoGlue, keys: ShareKeys, row: ReceivedRow): OpenedShare;
+/** The sealed parts of one share that its recipient opens with. */
+export interface ShareSealed {
+    senderPublic: Uint8Array;
+    envelope: Uint8Array;
+    itemId: string;
+    nameCt: Uint8Array;
+    digestCt: Uint8Array;
+}
+/**
+ * Open one envelope with one of this account's codes. Throws when it will not open.
+ *
+ * ⚠ THE RECIPIENT'S NUMBER IS PART OF WHAT OPENS IT, so the keys must be the code it was sent to:
+ *   code 0 through the engine's first form, any other through its numbered one.
+ */
+export declare function unwrapWith(crypt: CryptoGlue, keys: ShareKeys, s: ShareSealed): Uint8Array;
 /** The digest a recipient checks the downloaded bytes against. */
 export declare function openSharedDigest(crypt: CryptoGlue, dek: Uint8Array, digestCt: string): Uint8Array | null;
 /**

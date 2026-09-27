@@ -4,6 +4,8 @@ export interface ShareOptions {
     json?: boolean;
     /** `--yes`: the per-attempt answer `share` needs in normal mode (see `share`). */
     yes?: boolean;
+    /** `--as <n>`: which live public code sends. Absent = the lowest-numbered live one. */
+    as?: string | undefined;
     write?: (line: string) => void;
 }
 export declare function out(options: ShareOptions): (line: string) => void;

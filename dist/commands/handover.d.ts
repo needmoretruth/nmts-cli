@@ -5,6 +5,8 @@ export interface HandoverOptions {
     to?: string | undefined;
     /** `make`: the handover file to write. `open`: the file to save the received file as. */
     out?: string | undefined;
+    /** `make`: the number of the live public code to send from. Default: the lowest-numbered live one. */
+    as?: string | undefined;
     force?: boolean;
     yes?: boolean;
     json?: boolean;

@@ -80,3 +80,17 @@ test("the wrapper puts the tier before the description and the gate before the r
   assert.match(await tool.run({ file: "a" }), /Refused/);
   assert.equal(ran, 0);
 });
+
+test("⛔ revoking a public code is destructive and asked in every mode but skip, naming the code", async () => {
+  assert.equal(annotationsOf("nmts_public_code_revoke").destructiveHint, true);
+  assert.equal(annotationsOf("nmts_public_code").readOnlyHint, true);
+  let asked = "";
+  const ask = (m: string): Promise<"yes"> => ((asked = m), Promise.resolve("yes"));
+  assert.equal(await passTool("nmts_public_code_revoke", { index: 2 }, "auto-high", ask), null);
+  assert.match(asked, /^Revoke public code #2\? Nobody can send to it again, and nobody can bring it back\./);
+  assert.match(String(await passTool("nmts_public_code_revoke", { index: 2 }, "auto-low", null)), /cannot put a question/);
+  assert.equal(await passTool("nmts_public_code_revoke", { index: 2 }, "skip-permissions", null), null);
+  // A new code is medium; a new code that REPLACES one is the revoke, asked as one.
+  assert.equal(await passTool("nmts_public_code_new", {}, "auto-low", null), null);
+  assert.match(String(await passTool("nmts_public_code_new", { replace: 0 }, "auto-low", null)), /cannot put a question/);
+});

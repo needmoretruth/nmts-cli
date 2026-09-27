@@ -2,6 +2,7 @@
 import { request } from "../api.js";
 import { buildIndex, entryAt, fullPathOf, KIND_FILE, normalisePath } from "../drive-paths.js";
 import { NmtsError } from "../errors.js";
+import { isRecord } from "../guards.js";
 import { readFileList } from "../manifest.js";
 import { BINARY_NAME } from "../product.js";
 import { openSession } from "../session.js";
@@ -65,12 +66,14 @@ export async function sharesSent(target, options = {}) {
         return 0;
     }
     say(`${path} is shared with:`);
+    // ⚠ WHICH OF THIS ACCOUNT'S CODES SENT IT is said once any row went from a code other than 0.
+    const fromShown = rows.some((row) => isRecord(row) && typeof row["from_index"] === "number" && row["from_index"] !== 0);
     for (const row of rows)
-        say(sentLine(row));
+        say(sentLine(row, fromShown));
     return 0;
 }
 /** One row of `GET /v1/shares/sent`, as a person reads it. */
-function sentLine(row) {
+function sentLine(row, fromShown) {
     const at = (name) => {
         const value = typeof row === "object" && row !== null ? Reflect.get(row, name) : undefined;
         if (typeof value !== "string") {
@@ -80,7 +83,9 @@ function sentLine(row) {
         }
         return value;
     };
-    return `${at("recipient_address")}  since ${utcDay(at("created_at"))}  share ${at("id")}`;
+    const from = fromShown && isRecord(row) && typeof row["from_index"] === "number" ? `  from #${row["from_index"]}` : "";
+    const gone = isRecord(row) && row["recipient_code_revoked"] === true ? "  · the recipient has revoked this code" : "";
+    return `${at("recipient_address")}  since ${utcDay(at("created_at"))}${from}  share ${at("id")}${gone}`;
 }
 /** The UTC day of an RFC 3339 instant, `YYYY-MM-DD`. */
 function utcDay(instant) {

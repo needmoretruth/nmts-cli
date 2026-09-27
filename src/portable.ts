@@ -56,6 +56,32 @@ export type { CryptoGlue } from "./crypto.ts";
 export { isCryptoGlue, missingExports } from "./crypto-surface.ts";
 
 // The sealed file list: reading it, editing it, and walking it by path.
+// Public codes (spec 2026-09-23): the numbered codes one key derives, the account's list of them on
+// the server, and what each one was used for. `openShareAnyCode` is what opens a share whose code is
+// not named — it tries the numbers it is given.
+export {
+  CODE_INDEX_MAX,
+  openShareAnyCode,
+  openShareWithRing,
+  requireCodeIndex,
+  shareKeyRing,
+  shareKeysAt,
+  type ShareKeyRing,
+} from "./share-codes.ts";
+export type { ShareKeys, ShareSealed } from "./share.ts";
+export {
+  defaultCode,
+  ensureLiveCode,
+  liveCodes,
+  nextCodeIndex,
+  publishCode,
+  PUBLISH_TRIES,
+  readPublicCodes,
+  revokeCode,
+} from "./public-codes.ts";
+export type { CodeDoor, PublicCodeList, PublicCodeRow, PublishedCode } from "./public-codes.ts";
+export { codeActivity } from "./public-code-activity.ts";
+export type { ActivityDoor, CodeActivity, ReceivedThrough, SentThrough } from "./public-code-activity.ts";
 export { readFileList } from "./manifest.ts";
 export type { FileList } from "./manifest.ts";
 export { addEntry, applyManyToList, applyToList, planAddition } from "./manifest-write.ts";
@@ -150,6 +176,10 @@ export { AGGREGATOR_ENV_VAR, readBlob, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./
 //    caller said first, then the environment, then the network's own.
 export { relayHost, storageNodesThrough, suiRpcHosts } from "./walrus.ts";
 export type { ReadOptions } from "./walrus.ts";
+
+// Public links (NCF-3 §5.8): make, list, cut, and open without an account — `nmts link`'s four.
+export { listLinks, makeLink, openLink, revokeLink } from "./links.ts";
+export type { LinkAccount, ListedLink, MadeLink, OpenedLinkFile } from "./links.ts";
 
 // The wallet the NMTS key derives: reading it, and signing with it.
 export { coinAmount, readBalances, walCoinType, walletAddress } from "./wallet.ts";

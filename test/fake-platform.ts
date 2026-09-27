@@ -31,6 +31,12 @@ export interface PlatformState {
   rotations: string[];
   /** When the key was last replaced, as the server reports it. Null until one is. */
   keyChangedAt: string | null;
+  /**
+   * `POST /p1/public-codes`: every batch that arrived (its items, as sent), and each user's next
+   * number — absent for a user with no code yet, who may start at any number.
+   */
+  codeBatches: Record<string, unknown>[][];
+  codeNext: Map<string, number>;
   /** The accounts `GET /p1/users` pages through, oldest first. Every accepted registration joins it. */
   members: { account_id: string; created_at: string; status: string }[];
   /** What `GET /p1/usage` counts beside the members. */
@@ -45,6 +51,8 @@ export const platformState: PlatformState = {
   registered: [],
   rotations: [],
   keyChangedAt: null,
+  codeBatches: [],
+  codeNext: new Map(),
   members: [],
   files: 0,
   storedBytes: 0,
@@ -57,6 +65,8 @@ export function resetPlatform(): void {
   platformState.registered = [];
   platformState.rotations = [];
   platformState.keyChangedAt = null;
+  platformState.codeBatches = [];
+  platformState.codeNext = new Map();
   platformState.members = [];
   platformState.files = 0;
   platformState.storedBytes = 0;
@@ -155,6 +165,23 @@ function answer(method: string, url: string, req: IncomingMessage, res: ServerRe
   }
   if (method === "POST" && url === "/p1/users") {
     return withCredentials(raw, json, refuse, bearer);
+  }
+  if (method === "POST" && url === "/p1/public-codes") {
+    // ⚠ Numbering only: whether each sign-in secret belongs to its user is the server's check.
+    const items = at(JSON.parse(raw), "items");
+    if (!Array.isArray(items)) return refuse("VALIDATION", 400, "the request body is not valid JSON");
+    const rows = items.map((item: unknown): Record<string, unknown> => (typeof item === "object" && item !== null ? { ...item } : {}));
+    platformState.codeBatches.push(rows);
+    return json(200, {
+      results: rows.map((row) => {
+        const user = String(row["user"]);
+        const index = row["index"];
+        const next = platformState.codeNext.get(user);
+        if (typeof index !== "number" || (next !== undefined && index !== next)) return { ok: false, error: "INDEX_NOT_NEXT" };
+        platformState.codeNext.set(user, index + 1);
+        return { ok: true, index };
+      }),
+    });
   }
   refuse("NOT_FOUND", 404, "no such route");
 }

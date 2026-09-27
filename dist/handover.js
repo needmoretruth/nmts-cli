@@ -22,7 +22,7 @@
 import { createHash } from "node:crypto";
 import { AAD } from "./crypto.js";
 import { NmtsError } from "./errors.js";
-import { addressFromTyped, identityMatches, sealShare } from "./share.js";
+import { addressFromTyped, identityMatches, sealShare, unwrapWith } from "./share.js";
 import { decodeHandover, decodeHandoverName, decodePartsList, decodePublicCodeFile, earliestExpiry, encodeHandover, encodeHandoverName, encodePartsList, encodePublicCodeFile, handoverNameFits, HandoverFormatError, } from "./shared/lib/share/handover-format.js";
 const encoder = new TextEncoder();
 const b64 = (bytes) => Buffer.from(bytes).toString("base64url");
@@ -84,8 +84,21 @@ export function makeHandoverText(crypt, input) {
         });
     }
 }
-/** Open a handover file's text with this account's keys. */
-export function openHandoverText(crypt, keys, text, network) {
+function damagedFile() {
+    return new NmtsError("This handover file is damaged: its fields do not hold together.", {
+        exitCode: 1,
+        nextStep: "Nothing was written. Ask the sender to send it again.",
+    });
+}
+/** The one refusal for a file none of this account's codes opens. */
+export function notForThisKey() {
+    return new NmtsError("This file does not open with your NMTS key.", {
+        exitCode: 4,
+        nextStep: "Nothing was written. It was made for another key, or it was changed after it was made.",
+    });
+}
+/** Read a handover file's text and check what can be checked before opening it. */
+export function readHandoverText(crypt, text, network) {
     let file;
     try {
         file = decodeHandover(text, network);
@@ -93,10 +106,6 @@ export function openHandoverText(crypt, keys, text, network) {
     catch (error) {
         throw readRefusal(error, network);
     }
-    const damaged = new NmtsError("This handover file is damaged: its fields do not hold together.", {
-        exitCode: 1,
-        nextStep: "Nothing was written. Ask the sender to send it again.",
-    });
     const senderIdentity = bytesOf(file.sender);
     const envelope = bytesOf(file.envelope);
     let claimed;
@@ -104,33 +113,30 @@ export function openHandoverText(crypt, keys, text, network) {
         claimed = crypt.share_claimed_sender(envelope);
     }
     catch {
-        throw damaged;
+        throw damagedFile();
     }
     if (!identityMatches(crypt, senderIdentity, claimed))
-        throw damaged;
-    const nameCt = bytesOf(file.name);
-    const digestCt = bytesOf(file.hash);
-    const partsCt = bytesOf(file.parts);
-    let dek;
+        throw damagedFile();
+    return {
+        file,
+        sealed: { senderPublic: senderIdentity, envelope, itemId: file.item, nameCt: bytesOf(file.name), digestCt: bytesOf(file.hash) },
+        claimed,
+        partsCt: bytesOf(file.parts),
+    };
+}
+/** Everything inside a handover whose envelope opened to `dek`. Wipes `dek` when it fails. */
+export function finishHandover(crypt, h, dek) {
     try {
-        dek = crypt.share_unwrap_dek(keys.kemSeed, keys.authSecret, keys.sigSeed, senderIdentity, envelope, file.item, nameCt, digestCt);
-    }
-    catch {
-        throw new NmtsError("This file does not open with your NMTS key.", {
-            exitCode: 4,
-            nextStep: "Nothing was written. It was made for another key, or it was changed after it was made.",
-        });
-    }
-    try {
-        const named = decodeHandoverName(new TextDecoder().decode(crypt.envelope_open(dek, encoder.encode(AAD.shareName), nameCt)));
-        if (named.network !== file.network || named.partsSha256 !== sha256(partsCt))
-            throw damaged;
-        const parts = decodePartsList(new TextDecoder().decode(crypt.envelope_open(dek, encoder.encode(AAD.handoverParts), partsCt)));
-        const digest = crypt.envelope_open(dek, encoder.encode(AAD.shareContentHash), digestCt);
+        const named = decodeHandoverName(new TextDecoder().decode(crypt.envelope_open(dek, encoder.encode(AAD.shareName), h.sealed.nameCt)));
+        if (named.network !== h.file.network || named.partsSha256 !== sha256(h.partsCt))
+            throw damagedFile();
+        const parts = decodePartsList(new TextDecoder().decode(crypt.envelope_open(dek, encoder.encode(AAD.handoverParts), h.partsCt)));
+        const digest = crypt.envelope_open(dek, encoder.encode(AAD.shareContentHash), h.sealed.digestCt);
         return {
             name: named.name,
             size: named.size,
-            sender: crypt.share_address_display(claimed),
+            sender: crypt.share_address_display(h.claimed),
+            senderAddress: h.claimed,
             parts,
             expiryEpoch: earliestExpiry(parts),
             dek,
@@ -139,8 +145,20 @@ export function openHandoverText(crypt, keys, text, network) {
     }
     catch {
         dek.fill(0);
-        throw damaged;
+        throw damagedFile();
     }
+}
+/** Open a handover file's text with one of this account's codes. */
+export function openHandoverText(crypt, keys, text, network) {
+    const h = readHandoverText(crypt, text, network);
+    let dek;
+    try {
+        dek = unwrapWith(crypt, keys, h.sealed);
+    }
+    catch {
+        throw notForThisKey();
+    }
+    return finishHandover(crypt, h, dek);
 }
 /** This account's public code file. */
 export function publicCodeFileText(keys) {

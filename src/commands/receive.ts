@@ -22,7 +22,8 @@ import { destinationFor } from "../safe-path.ts";
 import { resolveNetwork } from "../network.ts";
 import { BINARY_NAME } from "../product.ts";
 import { openSession } from "../session.ts";
-import { openReceived, openSharedDigest, shareKeysOf, type ReceivedRow } from "../share.ts";
+import { openReceived, openSharedDigest, receivedIndex, type ReceivedRow } from "../share.ts";
+import { shareKeyRing } from "../share-codes.ts";
 import { processStdout, STDOUT_TARGET, type ByteDestination } from "../stdout.ts";
 
 export interface ReceiveOptions {
@@ -61,7 +62,8 @@ export async function receive(id: string | undefined, options: ReceiveOptions = 
   const session = await openSession({ server: options.server, network: options.network });
   const chain = resolveNetwork(session.server, session.network);
   const crypt = await loadCrypto();
-  const keys = shareKeysOf(crypt, session.code);
+  // The row names which of this account's codes it came to; that code's keys open it.
+  const ring = shareKeyRing(crypt, session.code);
   try {
     // ⛔ THE ROW IS FOUND IN THE LISTING, not asked for by id. The listing is what carries the
     //    sender's published identity, and without that identity the envelope cannot be
@@ -82,7 +84,7 @@ export async function receive(id: string | undefined, options: ReceiveOptions = 
       });
     }
 
-    const opened = openReceived(crypt, keys, row);
+    const opened = openReceived(crypt, ring.at(receivedIndex(row)), row);
     if (opened.dek === null || opened.name === null) {
       throw new NmtsError(`That share ${opened.problem ?? "did not open"}.`, {
         exitCode: 1,
@@ -142,6 +144,8 @@ export async function receive(id: string | undefined, options: ReceiveOptions = 
           name: opened.name,
           bytes: fetched.byteCount,
           from: opened.sender,
+          senderRevoked: opened.senderRevoked,
+          toIndex: opened.toIndex,
           parts: fetched.partCount,
           out: destination ?? STDOUT_TARGET,
         }),
@@ -149,10 +153,11 @@ export async function receive(id: string | undefined, options: ReceiveOptions = 
       return 0;
     }
     say(`${opened.name}  ${fetched.byteCount} bytes`);
-    say(`  from ${opened.sender ?? ""}`);
+    say(`  from ${opened.sender ?? ""}${opened.senderRevoked ? "  · the sender has revoked this code" : ""}`);
+    if (opened.toIndex !== 0) say(`  to #${opened.toIndex}  ${ring.at(opened.toIndex).display}`);
     say(`  checked against the hash the sender sealed with it`);
     return 0;
   } finally {
-    keys.wipe();
+    ring.wipe();
   }
 }

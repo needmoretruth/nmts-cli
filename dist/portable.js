@@ -41,6 +41,12 @@ export { AAD, DERIVED, loadCrypto } from "./crypto.js";
 // runs its answer through this rather than trusting it.
 export { isCryptoGlue, missingExports } from "./crypto-surface.js";
 // The sealed file list: reading it, editing it, and walking it by path.
+// Public codes (spec 2026-09-23): the numbered codes one key derives, the account's list of them on
+// the server, and what each one was used for. `openShareAnyCode` is what opens a share whose code is
+// not named — it tries the numbers it is given.
+export { CODE_INDEX_MAX, openShareAnyCode, openShareWithRing, requireCodeIndex, shareKeyRing, shareKeysAt, } from "./share-codes.js";
+export { defaultCode, ensureLiveCode, liveCodes, nextCodeIndex, publishCode, PUBLISH_TRIES, readPublicCodes, revokeCode, } from "./public-codes.js";
+export { codeActivity } from "./public-code-activity.js";
 export { readFileList } from "./manifest.js";
 export { addEntry, applyManyToList, applyToList, planAddition } from "./manifest-write.js";
 export { buildIndex, entryAt, folderIdFor, fullPathOf, isLive, KIND_FILE, KIND_FOLDER, namesIn, normalisePath, shown, trashedAt, } from "./drive-paths.js";
@@ -75,6 +81,8 @@ export { AGGREGATOR_ENV_VAR, readBlob, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./
 //    to rather than finding out from a request that went somewhere else. Each reads what the
 //    caller said first, then the environment, then the network's own.
 export { relayHost, storageNodesThrough, suiRpcHosts } from "./walrus.js";
+// Public links (NCF-3 §5.8): make, list, cut, and open without an account — `nmts link`'s four.
+export { listLinks, makeLink, openLink, revokeLink } from "./links.js";
 // The wallet the NMTS key derives: reading it, and signing with it.
 export { coinAmount, readBalances, walCoinType, walletAddress } from "./wallet.js";
 export { chainReader } from "./wallet-chain.js";

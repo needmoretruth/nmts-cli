@@ -32,12 +32,60 @@
 //    code that belongs to somebody else is sent, and is not recallable. Confirm it with whoever
 //    gave it to you, out of band, before calling this.
 
+import { newCode, revokeCodeCommand } from "../commands/public-code-manage.ts";
 import { share, unshare } from "../commands/share.ts";
 import type { ToolDefinition } from "../mcp.ts";
 import { common, needString, say, type ToolContext } from "./context.ts";
 
+/** A code's number from a tool call, as the command takes it. The schema already said it is an integer. */
+function numberArg(args: Record<string, unknown>, name: string): string | undefined {
+  const value = args[name];
+  return typeof value === "number" ? String(value) : undefined;
+}
+
 export function shareTools(ctx: ToolContext): ToolDefinition[] {
   return [
+    {
+      name: "nmts_public_code_new",
+      description:
+        "Make a new public code for this account — the next number from the same NMTS key — and " +
+        "publish it, so other accounts can send files to it. `replace` names a live code to revoke " +
+        "in the same step: nobody can send to that one again and nobody can bring it back. The " +
+        "server caps how many codes are live at once and how many are made per UTC day; the reply " +
+        "of nmts_public_code says both.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          replace: {
+            type: "integer",
+            description: "The number of a live code to revoke in the same step, from nmts_public_code.",
+          },
+        },
+        additionalProperties: false,
+      },
+      run: (args) =>
+        say((write) =>
+          newCode({ ...common(ctx), json: true, yes: true, replace: numberArg(args, "replace"), write }),
+        ),
+    },
+    {
+      name: "nmts_public_code_revoke",
+      description:
+        "Revoke one of this account's public codes, by its number from nmts_public_code. Nobody can " +
+        "send to it again and nobody can bring it back; files already received with it stay and " +
+        "still open. The account's last live code cannot be revoked — make a new one with " +
+        "nmts_public_code_new and `replace` instead.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          index: { type: "integer", description: "The code's number, from nmts_public_code." },
+        },
+        required: ["index"],
+        additionalProperties: false,
+      },
+      run: (args) =>
+        say((write) => revokeCodeCommand(numberArg(args, "index"), { ...common(ctx), json: true, yes: true, write })),
+    },
     {
       name: "nmts_share",
       description:
@@ -57,6 +105,12 @@ export function shareTools(ctx: ToolContext): ToolDefinition[] {
             type: "string",
             description: "The recipient's PUBLIC CODE, given to you by them. Not their NMTS key.",
           },
+          as: {
+            type: "integer",
+            description:
+              "Which of this account's live public codes sends it, by number from nmts_public_code. " +
+              "Absent: the lowest-numbered live one.",
+          },
         },
         required: ["path", "public_code"],
         additionalProperties: false,
@@ -64,7 +118,7 @@ export function shareTools(ctx: ToolContext): ToolDefinition[] {
       run: async (args) => {
         const path = needString(args, "path");
         const code = needString(args, "public_code");
-        return say((write) => share(path, code, { ...common(ctx), json: true, write }));
+        return say((write) => share(path, code, { ...common(ctx), json: true, as: numberArg(args, "as"), write }));
       },
     },
     {

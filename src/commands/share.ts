@@ -24,12 +24,16 @@ import {
   addressFromTyped,
   identityMatches,
   openReceived,
+  receivedIndex,
   sealShare,
-  shareKeysOf,
   type OpenedShare,
   type ReceivedRow,
+  type ShareKeys,
 } from "../share.ts";
 import { AAD, DERIVED } from "../crypto.ts";
+import { codeNumber, differentCode, notLiveCode, publicCodeRefusal } from "../public-code-refusals.ts";
+import { ensureLiveCode, liveCodes } from "../public-codes.ts";
+import { shareKeyRing, shareKeysAt } from "../share-codes.ts";
 
 export interface ShareOptions {
   server?: string | undefined;
@@ -37,6 +41,8 @@ export interface ShareOptions {
   json?: boolean;
   /** `--yes`: the per-attempt answer `share` needs in normal mode (see `share`). */
   yes?: boolean;
+  /** `--as <n>`: which live public code sends. Absent = the lowest-numbered live one. */
+  as?: string | undefined;
   write?: (line: string) => void;
 }
 
@@ -46,34 +52,6 @@ export function out(options: ShareOptions): (line: string) => void {
 
 function b64(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("base64url");
-}
-
-/**
- * Make sure this account has published the identity other people encrypt to.
- *
- * ⛔ IT IS THE SAME BYTES EVERY TIME. The identity is derived from the NMTS key, so a browser
- *    and this tool publish something identical for one account — which is why publishing from here
- *    cannot claim a different account's place or overwrite anything meaningful.
- */
-async function ensurePublished(
-  session: { server: string; apiKey: string },
-  identity: Uint8Array,
-  address: Uint8Array,
-  say: (line: string) => void,
-  quiet: boolean,
-): Promise<void> {
-  const seen: unknown = await request(session.server, "/v1/account/share-identity", {
-    token: session.apiKey,
-  });
-  const published =
-    typeof seen === "object" && seen !== null && Reflect.get(seen, "published") === true;
-  if (published) return;
-  if (!quiet) say(`  publishing this account's public code for the first time`);
-  await request(session.server, "/v1/account/share-identity", {
-    token: session.apiKey,
-    method: "PUT",
-    body: { share_public_key: b64(identity), share_address: b64(address) },
-  });
 }
 
 /** `nmts share <path> <address>` — hand one file to one account. */
@@ -90,6 +68,7 @@ export async function share(
         + `and the code as their \`${BINARY_NAME} public-code\` or account screen prints it.`,
     });
   }
+  const sendAs = options.as === undefined ? undefined : codeNumber(options.as, "--as");
   const crypt = await loadCrypto();
   // ⛔ BEFORE ANYTHING ELSE, AND BEFORE THE NETWORK. A typo caught here costs nothing; a typo sent
   //    to the recipient lookup asks the server a question about an account that is not ours to ask.
@@ -125,15 +104,17 @@ export async function share(
   //    allowed at all; `--yes` says THIS file to THIS address. A high act, so the tier gate
   //    takes the yes in every mode but skip-permissions, where it hands `--yes` in.
   if (options.yes !== true) {
-    say(`Would share "${fullPathOf(index, entry)}" with ${typedAddress}.`);
+    const from = sendAs === undefined ? "" : `, from public code #${sendAs}`;
+    say(`Would share "${fullPathOf(index, entry)}" with ${typedAddress}${from}.`);
     say(``);
     say(`⛔ Withdrawing later does not recall it — once the recipient has opened it, they have it.`);
-    say(`Nothing was shared. To go ahead:  ${BINARY_NAME} share ${JSON.stringify(target)} ${typedAddress} --yes`);
+    const as = sendAs === undefined ? "" : ` --as ${sendAs}`;
+    say(`Nothing was shared. To go ahead:  ${BINARY_NAME} share ${JSON.stringify(target)} ${typedAddress}${as} --yes`);
     say(`⛔ If a program is reading this on somebody's behalf: show it to them and let them decide.`);
     return 5;
   }
 
-  const keys = shareKeysOf(crypt, session.code);
+  let keys: ShareKeys | null = null;
   const derived = crypt.kdf_derive(crypt.account_code_parse(session.code));
   const dataKey = derived.slice(DERIVED.dataKey[0], DERIVED.dataKey[1]);
   derived.fill(0);
@@ -152,7 +133,20 @@ export async function share(
     );
     dataKey.fill(0);
 
-    await ensurePublished(session, keys.identity, keys.address, say, options.json === true);
+    // ⛔ A SHARE NEEDS A LIVE CODE TO COME FROM. The first one publishes the next number; a
+    //    later one sends from the lowest-numbered live code unless `--as` names another.
+    const door = { server: session.server, token: session.apiKey };
+    const quiet = options.json === true;
+    const { list: codes } = await ensureLiveCode(crypt, session.code, door, () => {
+      if (!quiet) say(`  publishing this account's public code for the first time`);
+    }).catch((error: unknown) => {
+      throw publicCodeRefusal(error);
+    });
+    const live = liveCodes(codes);
+    const sender = sendAs === undefined ? live[0] : live.find((c) => c.index === sendAs);
+    if (sender === undefined) throw notLiveCode(sendAs ?? 0);
+    keys = shareKeysAt(crypt, session.code, sender.index);
+    if (b64(keys.address) !== sender.address) throw differentCode();
 
     const answer: unknown = await request(
       session.server,
@@ -210,7 +204,7 @@ export async function share(
     }
     const id = typeof created === "object" && created !== null ? Reflect.get(created, "id") : null;
     if (options.json) {
-      say(JSON.stringify({ id, name: entry.name, recipient: crypt.share_address_display(recipientAddress) }));
+      say(JSON.stringify({ id, name: entry.name, recipient: crypt.share_address_display(recipientAddress), fromIndex: keys.index }));
       return 0;
     }
     say(`${entry.name}  →  ${crypt.share_address_display(recipientAddress)}`);
@@ -219,6 +213,7 @@ export async function share(
     say(`  and cannot reach a copy they have already taken.`);
     return 0;
   } catch (error) {
+    if (error instanceof ServerError && error.code === "PUBLIC_CODE_REVOKED") throw publicCodeRefusal(error);
     if (error instanceof ServerError && error.status === 403) {
       throw new NmtsError(error.message, {
         exitCode: 3,
@@ -232,7 +227,7 @@ export async function share(
     dataKey.fill(0);
     dek?.fill(0);
     digest?.fill(0);
-    keys.wipe();
+    keys?.wipe();
   }
 }
 
@@ -241,13 +236,17 @@ export async function shares(options: ShareOptions = {}): Promise<number> {
   const say = out(options);
   const session = await openSession({ server: options.server, network: options.network });
   const crypt = await loadCrypto();
-  const keys = shareKeysOf(crypt, session.code);
+  // Each row opens with the code it came to; each code's keys are derived once.
+  const ring = shareKeyRing(crypt, session.code);
   try {
     const received = asReceived(
       await request(session.server, "/v1/shares/received", { token: session.apiKey }),
     );
-    const opened = received.rows.map((row) => openReceived(crypt, keys, row));
+    const opened = received.rows.map((row) => openReceived(crypt, ring.at(receivedIndex(row)), row));
     for (const one of opened) one.dek?.fill(0);
+    // ⚠ WHICH CODE IT CAME TO is said once any row came to a code other than 0: for an account
+    //   that has only ever received with one, the line would say nothing.
+    const toCode = opened.some((o) => o.toIndex !== 0) ? (o: OpenedShare) => `#${o.toIndex}  ${ring.at(o.toIndex).display}` : null;
 
     if (options.json) {
       say(
@@ -257,6 +256,8 @@ export async function shares(options: ShareOptions = {}): Promise<number> {
             name: o.name,
             size: o.size,
             sender: o.sender,
+            senderRevoked: o.senderRevoked,
+            toIndex: o.toIndex,
             createdAt: o.createdAt,
             problem: o.problem,
           })),
@@ -269,7 +270,7 @@ export async function shares(options: ShareOptions = {}): Promise<number> {
       say(`Nothing has been shared with this account.`);
     } else {
       say(`Shared with this account:`);
-      for (const one of opened) printRow(say, one);
+      for (const one of opened) printRow(say, one, toCode);
       // ⛔ SAID OUT LOUD. The listing is bounded, and a person who is not told cannot know that
       //    what they are looking at is not everything.
       if (received.total > opened.length) {
@@ -282,18 +283,19 @@ export async function shares(options: ShareOptions = {}): Promise<number> {
     say(`  from this list, which does not touch the sender's own file.`);
     return 0;
   } finally {
-    keys.wipe();
+    ring.wipe();
   }
 }
 
-function printRow(say: (line: string) => void, one: OpenedShare): void {
+function printRow(say: (line: string) => void, one: OpenedShare, toCode: ((o: OpenedShare) => string) | null): void {
   if (one.problem !== null) {
     say(`  ${one.id}  (will not open: ${one.problem})`);
     return;
   }
   const size = one.size === null ? "" : `  ${one.size} bytes`;
   say(`  ${one.id}  ${one.name ?? ""}${size}`);
-  say(`      from ${one.sender ?? ""}`);
+  say(`      from ${one.sender ?? ""}${one.senderRevoked ? "  · the sender has revoked this code" : ""}`);
+  if (toCode !== null) say(`      to ${toCode(one)}`);
 }
 
 export async function unshare(id: string | undefined, options: ShareOptions = {}): Promise<number> {

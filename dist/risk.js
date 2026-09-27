@@ -39,9 +39,13 @@ export const ACTS = {
     // below, under the tiers they belong to.
     "ai-account": { tier: "none" },
     "public-code": { tier: "none" },
+    "public-code.list": { tier: "none" },
     // Opening a handover file someone passed on: it reads the file, fetches from Walrus and writes
     // one file here. `handover.make`, which gives a file away, is under `high` beside `share`.
     handover: { tier: "none" },
+    // Listing this file's public links, and opening somebody's link (no account). `link.make` is under
+    // `high` beside `share`; `link.revoke` is under `low` beside `unshare`.
+    link: { tier: "none" },
     wallet: { tier: "none" },
     get: { tier: "none" },
     pull: { tier: "none" },
@@ -86,6 +90,7 @@ export const ACTS = {
     rm: { tier: "low", what: "Move these to the trash, restorable for 30 days." },
     restore: { tier: "low", what: "Bring these back out of the trash." },
     unshare: { tier: "low", what: "Withdraw this share. Whoever had it cannot download it again." },
+    "link.revoke": { tier: "low", what: "Cut a public link." },
     tip: { tier: "none" },
     "tip.set": { tier: "none" },
     "on-collision.set": { tier: "low", what: "Change what an upload does when its name is already taken." },
@@ -117,7 +122,8 @@ export const ACTS = {
     // once has held the NMTS key — removal cannot unknow that.
     "openers.add": { tier: "medium", what: "Let this wallet open this account and every file in it." },
     "openers.remove": { tier: "medium", what: "Stop this wallet opening this account from now on." },
-    "public-code.publish": { tier: "medium", what: "Publish this account's public code. Publishing cannot be undone." },
+    "public-code.publish": { tier: "medium", what: "Publish this account's public code so other accounts can send files to it." },
+    "public-code.new": { tier: "medium", what: "Make a new public code for this account." },
     "losses.dismiss": { tier: "medium", what: "Put this loss notice down. It will not be shown again." },
     // ⛔ MEDIUM AND NOT HIGH. It moves value, so it is not `low`; but it moves it INSIDE one person's
     //    own family of accounts — nothing reaches a third party, nothing is spent, and the same
@@ -133,6 +139,12 @@ export const ACTS = {
         lock: "share",
         what: "Give another account this file in a handover file. It cannot be taken back.",
         asksItself: true,
+    },
+    // ⛔ THE SAME UNLOCK AS `share`: it gives the file to whoever holds the link, account or not.
+    "link.make": {
+        tier: "high",
+        lock: "share",
+        what: "Anyone with the link can open this file. Cutting the link stops new downloads, but copies already downloaded stay with whoever has them.",
     },
     "login.plain": { tier: "high", lock: "unsafe-code-storage", what: "Store the NMTS key in the clear.", standing: true },
     "login.env": { tier: "high", lock: "plain-env", what: "Print the NMTS key for an environment variable.", standing: true },
@@ -157,6 +169,14 @@ export const ACTS = {
     //    itself — there is no version for anybody to type, so the gate takes the yes.
     "ai-account.create": { tier: "high", what: "Make a new account for an AI to work in, under the Terms in force." },
     "accept-terms.accept": { tier: "high", what: "Accept a new version of the Terms for this account.", asksItself: true },
+    // ⛔ HIGH, AND EVERY ROAD TO IT IS THIS ACT — `public-code new --replace` too. Nothing brings a
+    //    revoked code back, and whoever holds it can no longer send to this account through it. It
+    //    asks itself because the question names the code — and never without a yes.
+    "public-code.revoke": {
+        tier: "high",
+        what: "Revoke a public code of this account. Nobody can send to it again, and nobody can bring it back.",
+        asksItself: true,
+    },
     // ── ultra-high: permanent destruction ──
     "delete-account": { tier: "ultra-high", what: "Erase this account's server record, permanently.", asksItself: true },
     // ⛔ THE SAME ERASURE, AIMED AT AN ACCOUNT THIS ONE MADE — the row, the files, the keys and the
@@ -234,9 +254,20 @@ export function actOf(args) {
         case "losses":
             return args.dismiss !== undefined ? "losses.dismiss" : "losses";
         case "public-code":
+            // ⚠ `--save [file]` first: its operand is a file name, not one of the verbs below.
+            if (args.save)
+                return "public-code";
+            if (sub === "list")
+                return "public-code.list";
+            if (sub === "revoke" || (sub === "new" && args.replace !== undefined))
+                return "public-code.revoke";
+            if (sub === "new")
+                return "public-code.new";
             return args.publish ? "public-code.publish" : "public-code";
         case "handover":
             return sub === "make" ? "handover.make" : "handover";
+        case "link":
+            return sub === "make" ? "link.make" : sub === "revoke" ? "link.revoke" : "link";
         case "support":
             return sub === "send" || sub === "reply" ? "support.send" : "support";
         case "platform":

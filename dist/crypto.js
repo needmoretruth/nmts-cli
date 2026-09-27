@@ -94,6 +94,11 @@ export const DERIVED = {
      *   directly — and what it expands to is 20 bytes that ARE an NMTS key, not a seed.
      */
     aiAccountRoot: [256, 288],
+    /**
+     * The parent of this account's numbered sharing identities, 1 and up (NCF-3 §5.9). Identity 0
+     * is the three share slices above. Appended at the TAIL on 2026-09-23, for the same reason.
+     */
+    shareIdRoot: [288, 320],
 };
 /**
  * The engine, loaded once by whichever host this program registered.

@@ -207,7 +207,7 @@ export function envelope_seal(key: Uint8Array, aad: Uint8Array, plaintext: Uint8
  *
  * ⚠ The ADDRESS is deliberately not exported. Computing it needs the curve's point arithmetic,
  * which added 63 KB to a package every visitor downloads (measured 2026-09-24: 539,169 → 602,131
- * bytes; the key alone is 545,338) for a value no browser screen shows. The command-line tool and
+ * bytes; the key alone is 545,370) for a value no browser screen shows. The command-line tool and
  * the recovery tool compute the address themselves.
  */
 export function evm_key_for(wallet_root: Uint8Array, index: number): Uint8Array;
@@ -246,7 +246,7 @@ export function header_plaintext_len(header: Uint8Array): number;
 /**
  * Derives the account keys from the 20 raw account-code bytes (NCF-3 §1).
  *
- * Returns one concatenated buffer (`KDF_DERIVE_LEN` = 288 bytes) the caller slices:
+ * Returns one concatenated buffer (`KDF_DERIVE_LEN` = 320 bytes) the caller slices:
  * ```text
  *   0.. 16  account_id         public — the server's lookup key
  *  16.. 48  auth_secret        secret — sent to the server over TLS at login
@@ -258,12 +258,13 @@ export function header_plaintext_len(header: Uint8Array): number;
  * 208..224  share_address      public — the address a user hands out to be shared with
  * 224..256  share_sig_seed     secret — ML-DSA-44 seed; its key IS the identity root (§5.2a)
  * 256..288  ai_account_root    secret — parent of every AI-account code (§1.5, the product rule of 2026-09-06)
+ * 288..320  share_id_root      secret — parent of share identities 1 and up (§5.9, 2026-09-23)
  * ```
  * Every secret region above must be retained inside the crypto worker and never cross the
  * postMessage boundary.
  *
- * ⚠ **This layout only ever grows at the TAIL**, and `ai_account_root` was appended on 2026-09-06
- * under the same rule. `share_sig_seed` was appended in 2026-08-02
+ * ⚠ **This layout only ever grows at the TAIL**: `ai_account_root` was appended on 2026-09-06 and
+ * `share_id_root` on 2026-09-23 under that rule. `share_sig_seed` was appended in 2026-08-02
  * rather than filed beside the other two share secrets, where it would read better, because
  * inserting it there would shift `wallet_root` and `share_address` and every constant on the
  * JS side would be silently wrong about which 32 bytes it was holding. Readability loses to
@@ -274,6 +275,33 @@ export function header_plaintext_len(header: Uint8Array): number;
  * has to decide for itself which key an address belongs to.
  */
 export function kdf_derive(code_bytes: Uint8Array): Uint8Array;
+
+/**
+ * A fresh 32-byte link secret `S`, drawn inside Rust from WebCrypto. One per link.
+ */
+export function link_generate_secret(): Uint8Array;
+
+/**
+ * Opens a link secret sealed by `link_seal_secret`, returning the 32-byte `S`.
+ */
+export function link_open_secret(data_key: Uint8Array, sealed: Uint8Array): Uint8Array;
+
+/**
+ * Seals a link secret under the uploader's dataKey: `E(dataKey, "nmts/v3/link-secret", S)`,
+ * 104 bytes. Stored beside the link so the uploader can copy the same link again later.
+ */
+export function link_seal_secret(data_key: Uint8Array, link_secret: Uint8Array): Uint8Array;
+
+/**
+ * Opens a link's wrapped DEK with the secret from the fragment, returning the 32-byte DEK.
+ */
+export function link_unwrap_dek(link_secret: Uint8Array, wrapped: Uint8Array): Uint8Array;
+
+/**
+ * Wraps a file DEK under a link secret: `E(S, "nmts/v3/link-wrap", DEK)`, 104 bytes. The server
+ * stores the result beside the link's token.
+ */
+export function link_wrap_dek(link_secret: Uint8Array, dek: Uint8Array): Uint8Array;
 
 /**
  * The 16-byte LOCATOR a wallet signature yields — the name the server files this opener's slot
@@ -368,6 +396,12 @@ export function recovery_patch_name(data_key: Uint8Array): string;
 export function sha256(data: Uint8Array): Uint8Array;
 
 /**
+ * The 16-byte share ADDRESS of identity number `index`, from its signing seed alone — no
+ * signature is made to answer it. At index 0 it is `kdf_derive`'s `share_address` (208..224).
+ */
+export function share_address_at(share_sig_seed: Uint8Array, index: number): Uint8Array;
+
+/**
  * The display form of a share address (`kdf_derive` bytes 208..224):
  * `XXXXXXXXX-XXXXXXXXX-XXXXXXXXC` — Crockford Base32 with a trailing check symbol.
  */
@@ -403,6 +437,19 @@ export function share_address_parse(input: string): Uint8Array;
 export function share_claimed_sender(envelope: Uint8Array): Uint8Array;
 
 /**
+ * The three secret seeds of share identity number `index` (1-based) from the 32-byte
+ * `share_id_root` at `kdf_derive` bytes 288..320: `kem(32) || auth(32) || sig(32)`, 96 bytes.
+ *
+ * ⛔ It takes the ROOT rather than the account code for the reason `wallet_seed_for` does: the
+ * browser derives once at sign-in and keeps only the roots, and a person makes a new public code
+ * whenever they like. Holding the root grants identities 1 and up and nothing else.
+ *
+ * Rejects `index` 0. All 96 bytes are secret and stay inside the crypto worker, like the
+ * `kdf_derive` regions they sit beside.
+ */
+export function share_id_seeds(share_id_root: Uint8Array, index: number): Uint8Array;
+
+/**
  * The 4989-byte PUBLIC share identity, built from the three secrets at `kdf_derive` bytes
  * 112..176 and 224..256 (KEM seed, auth secret, signing seed).
  *
@@ -418,6 +465,15 @@ export function share_claimed_sender(envelope: Uint8Array): Uint8Array;
 export function share_public_key(share_kem_seed: Uint8Array, share_auth_secret: Uint8Array, share_sig_seed: Uint8Array): Uint8Array;
 
 /**
+ * The 4989-byte PUBLIC share identity number `index`: the bundle `share_public_key` builds, with
+ * `derivation_index = index`. At index 0 it is `share_public_key`, byte for byte.
+ *
+ * The number is inside the root, so each number has its own address; the self-signature covers
+ * it, so a numbered bundle is verified by exactly the steps any bundle is.
+ */
+export function share_public_key_at(share_kem_seed: Uint8Array, share_auth_secret: Uint8Array, share_sig_seed: Uint8Array, index: number): Uint8Array;
+
+/**
  * Unwraps a share envelope addressed to us, returning the 32-byte file DEK.
  *
  * An envelope meant for somebody else fails exactly like a tampered one — the recipient's key is
@@ -426,6 +482,15 @@ export function share_public_key(share_kem_seed: Uint8Array, share_auth_secret: 
  * bound in too, and a rewritten row is indistinguishable from a forged envelope.
  */
 export function share_unwrap_dek(share_kem_seed: Uint8Array, share_auth_secret: Uint8Array, share_sig_seed: Uint8Array, sender_public: Uint8Array, envelope: Uint8Array, item_id: string, name_share_ct: Uint8Array, content_hash_share_ct: Uint8Array): Uint8Array;
+
+/**
+ * `share_unwrap_dek` as identity number `index`, returning the 32-byte file DEK.
+ *
+ * An envelope does not name its recipient, so the caller picks the number — the inbox knows
+ * which address a share was stored against. Opened as the wrong number it fails with the same
+ * message as an envelope meant for somebody else, a forged sender or a rewritten row.
+ */
+export function share_unwrap_dek_as(share_kem_seed: Uint8Array, share_auth_secret: Uint8Array, share_sig_seed: Uint8Array, index: number, sender_public: Uint8Array, envelope: Uint8Array, item_id: string, name_share_ct: Uint8Array, content_hash_share_ct: Uint8Array): Uint8Array;
 
 /**
  * Wraps a file DEK for ONE recipient, given the public key the server returned AND the address
@@ -448,6 +513,17 @@ export function share_unwrap_dek(share_kem_seed: Uint8Array, share_auth_secret: 
  * person.
  */
 export function share_wrap_dek(sender_auth_secret: Uint8Array, sender_sig_seed: Uint8Array, recipient_public: Uint8Array, recipient_address: Uint8Array, dek: Uint8Array, item_id: string, name_share_ct: Uint8Array, content_hash_share_ct: Uint8Array): Uint8Array;
+
+/**
+ * `share_wrap_dek` sending AS identity number `sender_index`: the two sender secrets are that
+ * identity's, and the envelope's sender address is that identity's address.
+ *
+ * Every other argument and every check is `share_wrap_dek`'s — the recipient key is checked
+ * against `recipient_address` before anything is encrypted to it, the last three arguments are
+ * the row the envelope is bound to, and fresh randomness is drawn per call. Returns the 1240-byte
+ * share envelope.
+ */
+export function share_wrap_dek_as(sender_auth_secret: Uint8Array, sender_sig_seed: Uint8Array, sender_index: number, recipient_public: Uint8Array, recipient_address: Uint8Array, dek: Uint8Array, item_id: string, name_share_ct: Uint8Array, content_hash_share_ct: Uint8Array): Uint8Array;
 
 /**
  * Decrypts a whole NCF-3 stream under the file DEK, verifying framing/anti-tamper.
@@ -548,6 +624,11 @@ export interface InitOutput {
     readonly streamencryptor_push: (a: number, b: number, c: number) => [number, number, number, number];
     readonly streamencryptor_resumeFromHeader: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly verify_part_set: (a: number, b: number) => [number, number];
+    readonly share_address_at: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly share_id_seeds: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly share_public_key_at: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
+    readonly share_unwrap_dek_as: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => [number, number, number, number];
+    readonly share_wrap_dek_as: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => [number, number, number, number];
     readonly opener_locator: (a: number, b: number) => [number, number, number, number];
     readonly opener_message: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly opener_open: (a: number, b: number, c: number, d: number) => [number, number, number, number];
@@ -556,12 +637,17 @@ export interface InitOutput {
     readonly passkey_open: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly passkey_prf_salt: () => [number, number];
     readonly passkey_seal: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly link_generate_secret: () => [number, number];
+    readonly link_open_secret: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly link_seal_secret: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly link_unwrap_dek: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly link_wrap_dek: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly account_code_display: (a: number, b: number) => [number, number, number, number];
     readonly account_code_generate: () => [number, number];
     readonly account_code_parse: (a: number, b: number) => [number, number, number, number];
     readonly account_code_phrase: (a: number, b: number, c: number, d: number) => [number, number, number, number];
-    readonly evm_key_for: (a: number, b: number, c: number) => [number, number, number, number];
     readonly voucher_hash_from_input: (a: number, b: number) => [number, number];
+    readonly evm_key_for: (a: number, b: number, c: number) => [number, number, number, number];
     readonly wallet_seed_for: (a: number, b: number, c: number) => [number, number, number, number];
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;

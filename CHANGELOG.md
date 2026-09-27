@@ -3,6 +3,22 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.47.0 — 2026-09-27
+
+- **Public links.** `nmts link make <path>` makes a link to one file that anyone can open without
+  an account, and prints it. The file's key travels in the part after `#`, which no request
+  carries. `--hide-name` leaves the name out and `--expires <n>d` ends the link after 1 to 3650
+  days. `link list <path>` prints every link to that file with its download count, `link revoke
+  <id>` cuts one, and `link open <link>` downloads and checks a file from a link without logging
+  in. `make` sits behind the same unlock as `share`. See `nmts help link`.
+- **Up to three public codes.** Every code comes from the one NMTS key at a number.
+  `nmts public-code list` shows them all, live and revoked, with what went through each;
+  `public-code new` publishes the next one (`--replace <n>` revokes one in the same request); and
+  `public-code revoke <n>` revokes one for good, asking every time. `share`, `handover make` and
+  `public-code --save` take `--as <n>` to use a code other than the lowest-numbered live one.
+- **NMTS Heavy on nmts.me.** nmts.me switched Heavy on, paid with credits. Its `--pay wallet`
+  payment is still off and answers `heavy_wallet_pay_off`; `--pay evm` works as before.
+
 ## 0.46.0 — 2026-09-27
 
 - **NMTS Heavy.** `nmts put --tier heavy` and `nmts push --tier heavy` keep each part of a file whole

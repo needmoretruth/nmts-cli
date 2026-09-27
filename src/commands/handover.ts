@@ -5,8 +5,15 @@
 //    public code file — asks the server for the recipient's published identity, exactly as `share`
 //    does. No share row is written: the handover is a file on this disk, passed on by the person.
 //
-// ⛔ OPEN asks the NMTS server nothing, and needs no API key: the file carries everything, the
-//    NMTS key opens it, and the pieces come from Walrus aggregators.
+// ⛔ OPEN needs no API key and tells the NMTS server nothing about the file or who sent it: the file
+//    carries everything, the NMTS key opens it, and the pieces come from Walrus aggregators. It asks
+//    the server two things at most, neither about this file: this account's own list of codes, only
+//    when code 0 did not open it and a key on this machine can read the list (which code to try
+//    next); and the public revoked list, one sixteenth at a time, never a single code
+//    (`revokedOnServer`). Offline, both are skipped and it still opens.
+//
+// ⛔ MAKE SENDS FROM A LIVE CODE of this account — the default, or `--as <n>` as `share` takes it —
+//    and refuses a recipient that is any code of this account, live or revoked.
 //
 // ⛔ A HANDOVER CANNOT BE TAKEN BACK. There is no row to delete. The recipient can download the file
 //    until its storage ends or its stored bytes are destroyed; removing it from the drive (`rm`,
@@ -30,7 +37,8 @@ import { fileSink } from "../download-sink-node.ts";
 import { buildIndex, entryAt, fullPathOf, KIND_FILE, normalisePath } from "../drive-paths.ts";
 import { NmtsError } from "../errors.ts";
 import { isRecord } from "../guards.ts";
-import { checkHandoverName, isHandoverNetwork, makeHandoverText, openHandoverText, readPublicCodeFileText } from "../handover.ts";
+import { checkHandoverName, finishHandover, isHandoverNetwork, makeHandoverText, readHandoverText, readPublicCodeFileText, type OpenedHandover } from "../handover.ts";
+import { checkedKeys, isMine, openWithMyCodes, senderIndexOf } from "../handover-codes.ts";
 import { readFileList } from "../manifest.ts";
 import { resolveNetwork } from "../network.ts";
 import { BINARY_NAME } from "../product.ts";
@@ -38,7 +46,9 @@ import { destinationFor } from "../safe-path.ts";
 import { resolveServer } from "../server.ts";
 import { readCredentialsFile } from "../credentials.ts";
 import { openSession } from "../session.ts";
-import { addressFromTyped, identityMatches, shareKeysOf } from "../share.ts";
+import { publicCodeRefusal } from "../public-code-refusals.ts";
+import { readPublicCodes, revokedOnServer } from "../public-codes.ts";
+import { addressFromTyped, identityMatches } from "../share.ts";
 import {
   handoverFileName,
   MAX_HANDOVER_FILE_BYTES,
@@ -55,6 +65,8 @@ export interface HandoverOptions {
   to?: string | undefined;
   /** `make`: the handover file to write. `open`: the file to save the received file as. */
   out?: string | undefined;
+  /** `make`: the number of the live public code to send from. Default: the lowest-numbered live one. */
+  as?: string | undefined;
   force?: boolean;
   yes?: boolean;
   json?: boolean;
@@ -158,11 +170,20 @@ async function make(target: string | undefined, options: HandoverOptions): Promi
   }
   checkHandoverName(entry.name, entry.size, network);
   const recipientShown = codeFile?.display ?? options.to;
+  const codes = await readPublicCodes(session.server, session.apiKey);
+  const senderIndex = senderIndexOf(codes, options.as);
+  // ⚠ A WARNING, NOT A REFUSAL: a revoked code still opens what is sealed to it. Only a file can
+  //   reach here with one — a typed revoked code has no identity to look up (410, below).
+  const recipientRevoked = codeFile === null ? false : await revokedOnServer(session.server, codeFile.address);
+  if (recipientRevoked === true && options.json !== true) {
+    say(`Its owner has revoked this public code. Ask them for the code they use now.`);
+  }
 
   // ⛔ The same unlock as `share` — it gives another account this file — and asked every time.
   requireConsent("share");
   if (options.yes !== true) {
-    say(`Would write a handover file for "${fullPathOf(index, entry)}", sealed to ${recipientShown}, to ${out}.`);
+    const from = options.as === undefined ? "" : `, from public code #${senderIndex}`;
+    say(`Would write a handover file for "${fullPathOf(index, entry)}", sealed to ${recipientShown}${from}, to ${out}.`);
     say(``);
     say(`⛔ A handover cannot be taken back. The recipient can download the file until its storage ends or its stored bytes are destroyed.`);
     say(`   Removing the file from your drive does not stop it.`);
@@ -171,7 +192,7 @@ async function make(target: string | undefined, options: HandoverOptions): Promi
     return 5;
   }
 
-  const keys = shareKeysOf(crypt, session.code);
+  const keys = checkedKeys(crypt, session.code, codes, senderIndex);
   const derived = crypt.kdf_derive(crypt.account_code_parse(session.code));
   const dataKey = derived.slice(DERIVED.dataKey[0], DERIVED.dataKey[1]);
   derived.fill(0);
@@ -190,9 +211,14 @@ async function make(target: string | undefined, options: HandoverOptions): Promi
     } else {
       if (typedAddress === null) throw new NmtsError("No recipient was given.", { exitCode: 2 });
       recipientAddress = typedAddress;
-      const answer: unknown = await request(session.server, `/v1/share-recipients/${encodeURIComponent(b64(recipientAddress))}`, {
-        token: session.apiKey,
-      });
+      let answer: unknown;
+      try {
+        answer = await request(session.server, `/v1/share-recipients/${encodeURIComponent(b64(recipientAddress))}`, {
+          token: session.apiKey,
+        });
+      } catch (error) {
+        throw publicCodeRefusal(error);
+      }
       const identityB64 = isRecord(answer) ? answer["share_public_key"] : null;
       if (typeof identityB64 !== "string") {
         throw new NmtsError("That public code has never published an identity to seal to.", {
@@ -208,7 +234,7 @@ async function make(target: string | undefined, options: HandoverOptions): Promi
         });
       }
     }
-    if (Buffer.from(recipientAddress).equals(Buffer.from(keys.address))) {
+    if (isMine(codes, keys, recipientAddress)) {
       throw new NmtsError("That is your own public code.", { exitCode: 2, nextStep: "Nothing was written." });
     }
 
@@ -237,7 +263,7 @@ async function make(target: string | undefined, options: HandoverOptions): Promi
     }
     const shown = codeFile?.display ?? crypt.share_address_display(recipientAddress);
     if (options.json === true) {
-      say(JSON.stringify({ out, name: entry.name, recipient: shown }));
+      say(JSON.stringify({ out, name: entry.name, recipient: shown, fromIndex: keys.index, recipientRevoked }));
       return 0;
     }
     say(`${entry.name}  →  ${shown}`);
@@ -259,6 +285,8 @@ function goAhead(target: string, options: HandoverOptions): string {
   const words = [BINARY_NAME, "handover", "make", JSON.stringify(target), "--to", JSON.stringify(options.to ?? "")];
   if (options.out !== undefined) words.push("--out", JSON.stringify(options.out));
   if (options.force === true) words.push("--force");
+  // ⚠ Already read as a number before the review is printed, so it is digits.
+  if (options.as !== undefined) words.push("--as", options.as.trim());
   if (options.server !== undefined) words.push("--server", JSON.stringify(options.server));
   if (options.network !== undefined) words.push("--network", JSON.stringify(options.network));
   words.push("--yes");
@@ -306,12 +334,14 @@ async function open(file: string | undefined, options: HandoverOptions): Promise
   //    NMTS key (to open the file) and the network (which aggregators to ask) are needed.
   const code = await requireAccountCode();
   const stored = readCredentialsFile();
-  const chain = resolveNetwork(resolveServer(options.server ?? stored?.server), options.network ?? stored?.network);
+  const server = resolveServer(options.server ?? stored?.server);
+  const chain = resolveNetwork(server, options.network ?? stored?.network);
   const crypt = await loadCrypto();
-  const keys = shareKeysOf(crypt, code.code);
-  let opened: ReturnType<typeof openHandoverText> | null = null;
+  const sealed = readHandoverText(crypt, text, networkOf(chain));
+  const found = await openWithMyCodes(crypt, code.code, sealed.sealed, server);
+  let opened: OpenedHandover | null = null;
   try {
-    opened = openHandoverText(crypt, keys, text, networkOf(chain));
+    opened = finishHandover(crypt, sealed, found.dek);
     // ⛔ The name is the SENDER'S choice: only its last segment, in the current directory.
     const destination = options.out !== undefined ? resolve(options.out) : destinationFor(".", opened.name);
     const parts: PartView[] = opened.parts.map((p, i) => ({
@@ -329,17 +359,34 @@ async function open(file: string | undefined, options: HandoverOptions): Promise
       chain,
       sink: fileSink(destination, { force: options.force === true }),
     });
+    // ⛔ Both by bucket, never by code; null (offline, refused) says nothing.
+    const buckets = new Map<string, Promise<Uint8Array[]>>();
+    const toRevoked = found.revoked ?? (await revokedOnServer(server, found.address, buckets));
+    const senderRevoked = await revokedOnServer(server, opened.senderAddress, buckets);
     if (options.json === true) {
-      say(JSON.stringify({ name: opened.name, bytes: fetched.byteCount, from: opened.sender, out: destination, expiryEpoch: opened.expiryEpoch }));
+      say(
+        JSON.stringify({
+          name: opened.name,
+          bytes: fetched.byteCount,
+          from: opened.sender,
+          out: destination,
+          expiryEpoch: opened.expiryEpoch,
+          toIndex: found.index,
+          toRevoked,
+          senderRevoked,
+        }),
+      );
       return 0;
     }
     say(`${opened.name}  ${fetched.byteCount} bytes`);
     say(`  from ${opened.sender}`);
+    if (senderRevoked === true) say(`  The sender has since revoked this code.`);
+    if (toRevoked === true) say(`  received with your revoked public code #${found.index}  ${found.display}`);
+    else if (found.index !== 0) say(`  to #${found.index}  ${found.display}`);
     say(`  saved to ${destination}, checked against the hash the sender sealed with it`);
     return 0;
   } finally {
-    opened?.dek.fill(0);
+    found.dek.fill(0);
     opened?.digest.fill(0);
-    keys.wipe();
   }
 }

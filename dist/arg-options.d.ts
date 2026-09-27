@@ -34,8 +34,14 @@ export interface ParsedArgs {
     deposit?: string;
     /** Answer yes to a warning this run would otherwise stop on. */
     yes: boolean;
-    /** `public-code`: publish this account's public code on the server. Permanent. */
+    /** `public-code`: publish this account's public code on the server. */
     publish: boolean;
+    /** `public-code list`: each code's shares as well as its counts. */
+    activity: boolean;
+    /** `public-code new`: the number of the live code the new one replaces, revoked in the same step. */
+    replace?: string;
+    /** `share`: which of this account's live public codes sends. Absent = the lowest-numbered live one. */
+    as?: string;
     /** `login`: store the NMTS key unsealed rather than under a passphrase. */
     plain: boolean;
     /** `login`: store nothing; print the environment variable to set. */
@@ -143,6 +149,10 @@ export interface ParsedArgs {
     dismiss?: string;
     /** `shares`: who ONE file was shared with, instead of what was shared with this account. */
     sent?: string;
+    /** `link make`: how long the link lasts, `<n>d` (1 to 3650 days). Absent = until it is cut. */
+    expires?: string;
+    /** `link make`: seal the size without the file's name, and the page shows 「Shared file」. */
+    hideName: boolean;
     /** ultra-high acts under skip-permissions: why this is right to do now. Kept in the run log. */
     reason?: string;
     releaseStorage: boolean;

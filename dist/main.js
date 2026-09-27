@@ -114,10 +114,10 @@ export async function run(argv) {
             });
         }
         case "public-code":
-            return await (await import("./commands/public-code.js")).publicCode({ server: args.server, network: args.network, publish: args.publish, json: args.json, save: args.save, file: args.operands[0], force: args.force });
+            return await (await import("./commands/public-code.js")).runPublicCode(args);
         case "handover":
             return await (await import("./commands/handover.js")).handover(args.operands[0], args.operands[1], {
-                server: args.server, network: args.network, to: args.to, out: args.out, force: args.force, yes: args.yes, json: args.json,
+                server: args.server, network: args.network, to: args.to, out: args.out, as: args.as, force: args.force, yes: args.yes, json: args.json,
             });
         case "wallet": {
             const { wallet } = await import("./commands/wallet.js");
@@ -295,6 +295,7 @@ export async function run(argv) {
         case "share":
         case "shares":
         case "unshare":
+        case "link":
         case "receive": {
             const { runShare } = await import("./commands/share-dispatch.js");
             return await runShare(args.command, args);

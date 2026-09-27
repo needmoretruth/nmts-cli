@@ -46,6 +46,15 @@ test("an act is what is DONE, not the command word", () => {
   assert.equal(actOf(parseArgs(["frobnicate"])), null);
 });
 
+test("⛔ a public code is read, made or revoked — and a replacement is the revoke", () => {
+  assert.equal(actOf(parseArgs(["public-code"])), "public-code");
+  assert.equal(actOf(parseArgs(["public-code", "--publish"])), "public-code.publish");
+  assert.equal(actOf(parseArgs(["public-code", "list", "--activity"])), "public-code.list");
+  assert.equal(actOf(parseArgs(["public-code", "new"])), "public-code.new");
+  assert.equal(actOf(parseArgs(["public-code", "new", "--replace", "0"])), "public-code.revoke");
+  assert.equal(actOf(parseArgs(["public-code", "revoke", "1"])), "public-code.revoke");
+});
+
 /** Run the gate for one act under one mode, with nothing unlocked unless said, and say what happened. */
 async function outcome(
   act: ActId,

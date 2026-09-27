@@ -20,7 +20,8 @@ import { destinationFor } from "../safe-path.js";
 import { resolveNetwork } from "../network.js";
 import { BINARY_NAME } from "../product.js";
 import { openSession } from "../session.js";
-import { openReceived, openSharedDigest, shareKeysOf } from "../share.js";
+import { openReceived, openSharedDigest, receivedIndex } from "../share.js";
+import { shareKeyRing } from "../share-codes.js";
 import { processStdout, STDOUT_TARGET } from "../stdout.js";
 export async function receive(id, options = {}) {
     const toStdout = options.out === "-";
@@ -34,7 +35,8 @@ export async function receive(id, options = {}) {
     const session = await openSession({ server: options.server, network: options.network });
     const chain = resolveNetwork(session.server, session.network);
     const crypt = await loadCrypto();
-    const keys = shareKeysOf(crypt, session.code);
+    // The row names which of this account's codes it came to; that code's keys open it.
+    const ring = shareKeyRing(crypt, session.code);
     try {
         // ⛔ THE ROW IS FOUND IN THE LISTING, not asked for by id. The listing is what carries the
         //    sender's published identity, and without that identity the envelope cannot be
@@ -52,7 +54,7 @@ export async function receive(id, options = {}) {
                 nextStep: `Nothing was written. \`${BINARY_NAME} shares\` lists what is there.`,
             });
         }
-        const opened = openReceived(crypt, keys, row);
+        const opened = openReceived(crypt, ring.at(receivedIndex(row)), row);
         if (opened.dek === null || opened.name === null) {
             throw new NmtsError(`That share ${opened.problem ?? "did not open"}.`, {
                 exitCode: 1,
@@ -109,17 +111,21 @@ export async function receive(id, options = {}) {
                 name: opened.name,
                 bytes: fetched.byteCount,
                 from: opened.sender,
+                senderRevoked: opened.senderRevoked,
+                toIndex: opened.toIndex,
                 parts: fetched.partCount,
                 out: destination ?? STDOUT_TARGET,
             }));
             return 0;
         }
         say(`${opened.name}  ${fetched.byteCount} bytes`);
-        say(`  from ${opened.sender ?? ""}`);
+        say(`  from ${opened.sender ?? ""}${opened.senderRevoked ? "  · the sender has revoked this code" : ""}`);
+        if (opened.toIndex !== 0)
+            say(`  to #${opened.toIndex}  ${ring.at(opened.toIndex).display}`);
         say(`  checked against the hash the sender sealed with it`);
         return 0;
     }
     finally {
-        keys.wipe();
+        ring.wipe();
     }
 }
