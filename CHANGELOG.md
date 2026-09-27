@@ -17,7 +17,8 @@ update history, which covers the site and the server too, is at https://nmts.me/
   into Filecoin Pay. `put --tier heavy --pay evm` then pays the storage providers from that deposit,
   with `--copies` (1 to 12, default 2) and `--providers` choosing where; it does not go through
   NMTS's treasury. See `nmts help heavy`.
-- **Empty files** are stored instead of refused, by `put`, `push` and `nmts s3`.
+- **Empty files:** `put` and `nmts s3` store an empty file on NMTS Standard instead of refusing it.
+  `push` still skips empty files, and `--tier heavy` refuses one.
 - **`nmts s3`:**
   - A range is read from the stored part it starts in. Each range used to be decrypted from the
     file's first byte, so a client fetching a 1 GB file in 8 MiB ranges read about 64 GB and the
