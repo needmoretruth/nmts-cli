@@ -11,5 +11,7 @@ the file and the code and stops until the same command is run with `--yes`, in e
 skip-permissions. Sharing is also on the short list the periodic human check gates.
 
 `shares` lists what was shared with this account; `shares --sent <path>` says who one file was
-shared with. `receive <id>` downloads one shared file (`--out`, `--force` as for `get`). `unshare
+shared with. `receive <id>` downloads one shared file (`--out`, `--force` as for `get`); without
+`--out` it is saved in the current directory under the name the sender gave it, reduced to its last
+segment, so a name such as `../x` or an absolute path cannot place it anywhere else. `unshare
 <id>` withdraws a share you sent, or removes one you were sent; in the default mode it asks once.

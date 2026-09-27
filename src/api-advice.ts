@@ -15,6 +15,8 @@
 //    ask a person, or to stop. Several entries exist only to stop an agent from retrying the one
 //    remedy that cannot possibly work.
 
+import { HEAVY_COPY } from "./heavy-copy.ts";
+
 /** What a caller does next about a refusal, when the tool knows something the message does not. */
 export function adviseFor(code: string): string | null {
   switch (code) {
@@ -156,11 +158,14 @@ export function adviseFor(code: string): string | null {
       );
 
     // ── Credits and the free trial ────────────────────────────────────────────────────────────
+    // NMTS Heavy's order route names the same three credit refusals in its own spelling (lower case).
+    case "file_credits_cap":
     case "CREDIT_FILE_CAP":
       return (
         "One file may cost at most the published cap in credits, and this one costs more. The " +
         "refusal carries both numbers. Splitting the file is the way through; more credits is not."
       );
+    case "day_credits_cap":
     case "CREDIT_DAILY_CAP":
       return (
         "The account has spent its allowance for today. The refusal carries the cap and what is " +
@@ -239,8 +244,9 @@ export function adviseFor(code: string): string | null {
     case "SPONSORED_IDEM_MISMATCH":
       return (
         "This reservation key already names a different blob: the piece was re-encrypted after it " +
-        "was reserved. Repeating the call under this key cannot work. Start the upload again so it " +
-        "derives new keys; nothing was charged for this call."
+        "was reserved. Repeating the call under this key cannot work, and nothing was charged for " +
+        "it. Reserve the new bytes under a key the account has never used — a key made fresh for " +
+        "each upload, not one worked out from the file, which gives the same answer again."
       );
     case "SPONSORED_STATE":
       return (
@@ -294,8 +300,18 @@ export function adviseFor(code: string): string | null {
         "clear by retrying; the records have their own retention and it has to run out."
       );
 
+    case "credits_insufficient":
     case "CREDITS_SHORT":
       return "The account does not have enough credits for this upload.";
+    // ── NMTS Heavy ── the words are the copy table's (`heavy-copy.ts`).
+    case "heavy_wallet_pay_off":
+      return HEAVY_COPY.adviceWalletPayOff;
+    case "heavy_unavailable":
+      return HEAVY_COPY.adviceUnavailable;
+    case "heavy_price_unavailable":
+      return HEAVY_COPY.advicePriceUnavailable;
+    case "unpaid_orders_cap":
+      return HEAVY_COPY.adviceUnpaidCap;
     default:
       return null;
   }

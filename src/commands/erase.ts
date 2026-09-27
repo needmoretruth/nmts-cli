@@ -72,6 +72,7 @@ export async function erase(paths: readonly string[], options: EraseOptions = {}
     say(`                \`--release-storage\` also destroys the storage bought with credits under them.`);
   }
   say(`  Not refunded: storage already paid for.`);
+  say(`  Anyone you gave a handover file to can still open that file until its storage ends or its stored bytes are destroyed.`);
   say(``);
   const typed = typedFor ? CONFIRM_SENTENCE : (await ask(`Type exactly: ${CONFIRM_SENTENCE}\n> `)).trim();
   if (typed !== CONFIRM_SENTENCE) {

@@ -51,7 +51,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.45.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.46.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -186,11 +186,13 @@ your main one.
 | `nmts trial` | What is left of this week's free credits. `trial apply` asks for some |
 | `nmts create` | Make a NEW account and print its NMTS key once. Nothing can print it again. With no verified API key on this machine it makes the NMTS key here, prints an address, and waits while a person opens it, types that NMTS key and passes the human check — the account exists the moment they finish. `--no-wait` prints the address and stops |
 | `nmts verify` | Ask a person to pass the check that opens this account's limits. Only the account holder can: signed in to this account in that browser, or typing its NMTS key there |
-| `nmts public-code` | The code other accounts send files to. `--publish` makes it reachable |
+| `nmts public-code` | The code other accounts send files to. `--publish` makes it reachable; `--save [file]` writes your public code file |
 | `nmts share <path> <address>` | Give one file to another account — **withdrawing does not recall it**. Locked until `nmts unlock share`; every share stops and `--yes` answers for that one file |
 | `nmts shares` | What was shared with this account; `--sent <path>` shows who one file went to |
 | `nmts receive <id>` | Download one file somebody shared with this account |
 | `nmts unshare <id>` | Withdraw a share you sent, or remove one you were sent |
+| `nmts handover make <path> --to <public code \| public code file>` | Write a handover file for one account and pass it on yourself — **it cannot be taken back**, and NMTS keeps no record of it. Locked like `share` |
+| `nmts handover open <file>` | Download the file a handover file carries. Needs the NMTS key and no API key; asks the NMTS server nothing |
 | `nmts rebuild` | Build a file list from the server's rows, for an account with none |
 | `nmts rollback` | Put the previous version of the file list back — locked until `nmts unlock rollback`, `--yes` every run |
 | `nmts listfile` | Write this machine's copy of the sealed file list out as a file |
@@ -363,6 +365,15 @@ nothing on its own.
 `nmts shares --sent <path>` lists who one file was shared with — the recipient address, since when,
 and the share id `unshare` takes.
 
+A share tells NMTS who shared with whom. A handover does not: `nmts handover make <path> --to
+<recipient>` writes the file, sealed to one recipient, into a handover file you pass on yourself,
+and no share is registered. The recipient opens it with `nmts handover open <file>`, which needs no
+API key and asks the NMTS server nothing. Give `--to` their public code file (`nmts public-code
+--save` on their side) and the server is not even asked whose code it is; give it the code and the
+server sees that lookup. Whoever holds a handover file sees your public code in it. It cannot be
+taken back: the recipient can download the file until its storage ends or its stored bytes are
+destroyed, and removing the file from your drive does not stop it. The format is NCF-3 §5.6–§5.7.
+
 ### Recovery
 
 `recovery-list` writes the encrypted file that locates your bytes on the storage network; it holds
@@ -486,7 +497,8 @@ $ nmts s3
 ```
 
 - One bucket, `drive`. A key is the file's path without the leading slash. Folders come back as
-  common prefixes, including empty ones.
+  common prefixes, including empty ones, and as `folder/` markers of 0 bytes in a listing without a
+  delimiter; a `PUT` of `folder/` with no bytes makes one. An empty file is stored like any other.
 - The credentials are made when the command starts, stored nowhere, and die with it.
 - It listens on 127.0.0.1 only, with no option to change that.
 - Starting it asks once (uploads through it spend credits); `--yes` answers for a script. Deleting

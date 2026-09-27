@@ -43,6 +43,9 @@ const REQUIRED = [
     // "this function is missing" said at load time is a different day's problem from
     // `undefined is not a function` in the middle of deriving somebody's second account.
     "derive_ai_account_code",
+    // The EVM wallets (NCF-3 §1.9), required for the same reason: `put --tier heavy --pay evm` and
+    // `heavy wallet` cannot run on a build without it.
+    "evm_key_for",
 ];
 export function isCryptoGlue(value) {
     return missingExports(value).length === 0;

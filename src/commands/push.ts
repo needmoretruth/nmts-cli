@@ -17,11 +17,7 @@
 //    asked for: a directory of source code carries credentials in exactly those files, and an
 //    upload goes to a public storage network. `--hidden` includes them.
 
-import { readdirSync, statSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
-
 import { DERIVED, loadCrypto } from "../crypto.ts";
-import { normaliseName, normalisePath } from "../drive-paths.ts";
 import { NmtsError } from "../errors.ts";
 import { addEntry } from "../manifest-write.ts";
 import { parseAsked, type OnCollision } from "../collision.ts";
@@ -33,7 +29,6 @@ import { Progress, silentSink } from "../progress.ts";
 import { stderrSink } from "../progress-node.ts";
 import { openSession } from "../session.ts";
 import type { PaddingRule } from "../shared/lib/crypto/size-padding.ts";
-import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
 import { partKeysOf, uploadFile } from "../upload-file.ts";
 import { fileSource } from "../upload-file-node.ts";
 import { createUploadApi } from "../upload-api.ts";
@@ -42,8 +37,10 @@ import { CREDIT_BYTES, partSizeFor, planAndPrice, UPLOAD_EPOCHS } from "../uploa
 import { createBlobProtocol, readCurrentEpoch } from "../walrus-write.ts";
 import { ensureFolderPath } from "../drive-edit.ts";
 import { payerOf, refuseWalletOnlyOptions } from "./put.ts";
+import { tierOf, type HeavyFlags } from "./put-payer.ts";
+import { filesUnderDirectory, localTree, splitAlready, type PlannedFile } from "./push-tree.ts";
 
-export interface PushOptions {
+export interface PushOptions extends HeavyFlags {
   server?: string | undefined;
   network?: string | undefined;
   /** Where the tree goes in the drive. The top of the drive when absent. */
@@ -80,15 +77,6 @@ export interface PushOptions {
   send?: (one: PlannedFile, parentId: string | null) => Promise<string>;
 }
 
-/** One local file, and where it goes in the drive. */
-export interface PlannedFile {
-  /** Absolute path on this machine. */
-  local: string;
-  /** Folder path inside the drive. */
-  folder: string;
-  name: string;
-  size: number;
-}
 
 export async function push(target: string | undefined, options: PushOptions = {}): Promise<number> {
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));
@@ -98,6 +86,7 @@ export async function push(target: string | undefined, options: PushOptions = {}
       nextStep: `\`${BINARY_NAME} push <directory>\` — a directory on this machine.`,
     });
   }
+  if (tierOf(options) === "heavy") return (await import("./push-heavy.ts")).pushHeavy(target, options);
   const payer = payerOf(options.pay);
   if (payer === "wallet") refuseDepositWithWallet(options.deposit);
   if (payer === "credits") refuseWalletOnlyOptions(options);
@@ -109,23 +98,7 @@ export async function push(target: string | undefined, options: PushOptions = {}
       nextStep: `Nothing was sent. Leave --storage off to buy new storage for each file.`,
     });
   }
-  const root = resolve(target);
-  let rootStat: ReturnType<typeof statSync>;
-  try {
-    rootStat = statSync(root);
-  } catch {
-    throw new NmtsError(`There is nothing at ${root}.`, { exitCode: 4 });
-  }
-  if (!rootStat.isDirectory()) {
-    throw new NmtsError(`${root} is a file.`, {
-      exitCode: 4,
-      nextStep: `Nothing was sent. \`${BINARY_NAME} put\` uploads one file.`,
-    });
-  }
-
-  const under = normalisePath(options.to ?? "");
-  const base = under === "" ? basename(root) : `${under}/${basename(root)}`;
-  const found = walk(root, base, options.hidden === true);
+  const { root, found } = localTree(target, options.to, options.hidden === true);
   if (found.length === 0) {
     if (options.json) {
       say(JSON.stringify({ files: 0, uploaded: 0, skipped: 0, credits: 0 }));
@@ -144,21 +117,7 @@ export async function push(target: string | undefined, options: PushOptions = {}
 
   // ⛔ WHAT IS ALREADY THERE IS DECIDED BEFORE ANYTHING IS PRICED, so the number printed is what
   //    this run will actually spend rather than what a first run would have.
-  const entries = list.manifest?.entries ?? [];
-  const taken = new Set(
-    entries
-      .filter((e) => e.deletedAt === undefined)
-      .map((e) => `${e.parentId ?? ""} ${normaliseName(e.name)}`),
-  );
-  const folderIds = new Map<string, string | null>();
-  const already: PlannedFile[] = [];
-  const todo: PlannedFile[] = [];
-  for (const one of found) {
-    const parentId = knownFolderId(entries, one.folder);
-    if (parentId !== undefined) folderIds.set(one.folder, parentId);
-    const there = parentId !== undefined && taken.has(`${parentId ?? ""} ${normaliseName(one.name)}`);
-    (there ? already : todo).push(one);
-  }
+  const { folderIds, already, todo } = splitAlready(list.manifest?.entries ?? [], found);
 
   const credits = todo.reduce((sum, one) => sum + planAndPrice(one.size, partSize, rule).credits, 0);
   const bytes = todo.reduce((sum, one) => sum + one.size, 0);
@@ -344,48 +303,4 @@ export async function folderFor(
   return parentId;
 }
 
-/** The id of a drive folder path that ALREADY exists, or undefined when it does not. */
-function knownFolderId(
-  entries: readonly ManifestEntry[],
-  folder: string,
-): string | null | undefined {
-  if (folder === "") return null;
-  let parentId: string | null = null;
-  for (const name of folder.split("/")) {
-    const there: ManifestEntry | undefined = entries.find(
-      (e) =>
-        e.parentId === parentId &&
-        e.kind === 0 &&
-        e.deletedAt === undefined &&
-        normaliseName(e.name) === normaliseName(name),
-    );
-    if (there === undefined) return undefined;
-    parentId = there.id;
-  }
-  return parentId;
-}
-
-export { walk as filesUnderDirectory };
-
-/** Every file under a local directory, with the drive folder each one belongs in. */
-function walk(dir: string, driveFolder: string, hidden: boolean): PlannedFile[] {
-  const out: PlannedFile[] = [];
-  const items = readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
-  for (const item of items) {
-    if (!hidden && item.name.startsWith(".")) continue;
-    const local = join(dir, item.name);
-    // ⛔ SYMBOLIC LINKS ARE NOT FOLLOWED. One pointing at a parent directory would walk forever,
-    //    and one pointing outside would upload a file nobody meant to send.
-    if (item.isSymbolicLink()) continue;
-    if (item.isDirectory()) {
-      out.push(...walk(local, `${driveFolder}/${item.name}`, hidden));
-      continue;
-    }
-    if (!item.isFile()) continue;
-    const size = statSync(local).size;
-    // An empty file has nothing to store, and the storage network would refuse the reservation.
-    if (size === 0) continue;
-    out.push({ local, folder: driveFolder, name: item.name, size });
-  }
-  return out;
-}
+export { filesUnderDirectory, localTree, splitAlready, type PlannedFile };

@@ -6,31 +6,59 @@
 //    machine, and every page a browser on it loads, can also reach 127.0.0.1. The signature is the
 //    one thing that separates the tool the person started from everything else running as them.
 //
-// ⛔ WHAT IS DELIBERATELY NOT HERE. The body is not hashed here. The signature covers a payload hash
+// ⛔ TWO WAYS TO CARRY ONE SIGNATURE. An `Authorization` header, which is what every S3 client
+//    sends, and a presigned URL (`X-Amz-Algorithm`, `X-Amz-Credential`, … in the query), which is
+//    what a client hands to somebody who has no key: a browser, `curl`, a download link. Both are
+//    checked by the same code against the same pairs with the same comparison; what differs is only
+//    where the parts are read from, and that a presigned URL carries its own lifetime. The query
+//    form is read in `sigv4-presigned.ts`; what both forms share is in `sigv4-canonical.ts`.
+//
+// ⛔ WHAT IS DELIBERATELY NOT HERE. The body is not read here. The signature covers a payload hash
 //    the client DECLARES in `x-amz-content-sha256`, and whether the bytes that follow really hash to
-//    that value can only be known once they have all arrived. This module returns the declared value
-//    and the caller enforces it while streaming -- doing it here would mean holding whole uploads in
-//    memory before a single byte reached the storage network.
+//    that value -- or, for a chunk-signed body, whether each chunk's signature holds -- can only be
+//    known once they have arrived. This module checks that the declared value is one S3 allows and
+//    hands `body.ts` what it needs to continue the check while the bytes stream: the signing key,
+//    the scope, the timestamp and the seed signature. Doing it here would mean holding whole uploads
+//    in memory before a single byte reached the storage network.
 //
 // The rules implemented are S3's, which differ from the generic SigV4 ones in one way that matters:
 // the canonical path is the request path EXACTLY as it arrived, neither normalised nor re-encoded.
 
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
+import {
+  amzDateToMs,
+  canonicalOf,
+  headerValue,
+  isPayloadHash,
+  parseCredentialScope,
+  queryParts,
+  refuse,
+  scopeProblem,
+  signingKey,
+  unsignedHeaders,
+  type AuthorizationParts,
+  type IncomingRequest,
+  type Presented,
+  type QueryPart,
+  type Refusal,
+} from "./sigv4-canonical.ts";
+import { isPresigned, presentedFromQuery } from "./sigv4-presigned.ts";
+
+export {
+  amzDateToMs,
+  canonicalQuery,
+  isPayloadHash,
+  STREAMING_PAYLOAD,
+  STREAMING_PAYLOAD_TRAILER,
+  STREAMING_UNSIGNED_PAYLOAD_TRAILER,
+  UNSIGNED_PAYLOAD,
+} from "./sigv4-canonical.ts";
+export type { IncomingRequest } from "./sigv4-canonical.ts";
+export { MAX_PRESIGNED_EXPIRY_SECONDS } from "./sigv4-presigned.ts";
+
 /** How far a request's own timestamp may sit from ours before it is refused. AWS uses the same. */
 export const MAX_CLOCK_SKEW_MS = 15 * 60 * 1000;
-
-/** The literals a client may put in `x-amz-content-sha256` instead of a hex digest. */
-export const UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
-export const STREAMING_PAYLOAD = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD";
-export const STREAMING_PAYLOAD_TRAILER = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER";
-
-export interface IncomingRequest {
-  readonly method: string;
-  /** Raw request target, path and query together, exactly as it came off the wire. */
-  readonly url: string;
-  readonly headers: Readonly<Record<string, string | readonly string[] | undefined>>;
-}
 
 export interface GatewayCredential {
   readonly accessKeyId: string;
@@ -45,66 +73,35 @@ export interface GatewayCredential {
   readonly buckets?: readonly string[] | undefined;
 }
 
+/**
+ * What a chunk-signed body needs to go on checking the request's signature: every chunk signature
+ * is an HMAC under the same key, over a string that names the same timestamp and scope and the
+ * signature before it -- starting from the request's own.
+ */
+export interface SigningContext {
+  /** The key derived for this request's date, region and service. */
+  readonly key: Buffer;
+  /** `20130524/us-east-1/s3/aws4_request`. */
+  readonly scope: string;
+  /** The request's timestamp, `20130524T000000Z`. */
+  readonly stamp: string;
+  /** The request's signature, which the first chunk signature chains from. */
+  readonly seedSignature: string;
+}
+
 export type Verified =
-  | { readonly ok: true; readonly payloadHash: string }
+  | { readonly ok: true; readonly payloadHash: string; readonly signing: SigningContext }
   | { readonly ok: false; readonly code: string; readonly message: string };
 
 /** What `verifyAgainst` answers: the same verdict, plus which of the pairs signed. */
 export type VerifiedAgainst =
-  | { readonly ok: true; readonly payloadHash: string; readonly credential: GatewayCredential }
+  | {
+      readonly ok: true;
+      readonly payloadHash: string;
+      readonly signing: SigningContext;
+      readonly credential: GatewayCredential;
+    }
   | { readonly ok: false; readonly code: string; readonly message: string };
-
-/** One refusal, shaped so it satisfies both verdict types — neither of which has an `ok: true`. */
-function refuse(code: string, message: string): { readonly ok: false; readonly code: string; readonly message: string } {
-  return { ok: false, code, message };
-}
-
-function headerValue(
-  headers: IncomingRequest["headers"],
-  name: string,
-): string | undefined {
-  const raw = headers[name];
-  if (raw === undefined) return undefined;
-  return Array.isArray(raw) ? raw.join(",") : String(raw);
-}
-
-/**
- * RFC 3986 encoding, which is what SigV4 means by "URI-encode".
- *
- * ⚠ `encodeURIComponent` leaves `!'()*` alone and AWS does not, so those four are finished by hand.
- * A query string that contains one of them and is encoded the JavaScript way produces a different
- * canonical request from the client's, and the request is refused for no reason a person can see.
- */
-function uriEncode(value: string): string {
-  return encodeURIComponent(value).replace(
-    /[!'()*]/g,
-    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
-  );
-}
-
-/** `k=v&k2=v2` in the order AWS wants: encoded, sorted by key and then by value. */
-export function canonicalQuery(rawQuery: string): string {
-  if (rawQuery.length === 0) return "";
-  const pairs: Array<[string, string]> = [];
-  for (const part of rawQuery.split("&")) {
-    if (part.length === 0) continue;
-    const at = part.indexOf("=");
-    const key = at < 0 ? part : part.slice(0, at);
-    const value = at < 0 ? "" : part.slice(at + 1);
-    pairs.push([uriEncode(decodeURIComponent(key)), uriEncode(decodeURIComponent(value))]);
-  }
-  pairs.sort((a, b) => (a[0] === b[0] ? (a[1] < b[1] ? -1 : 1) : a[0] < b[0] ? -1 : 1));
-  return pairs.map(([k, v]) => `${k}=${v}`).join("&");
-}
-
-interface AuthorizationParts {
-  readonly accessKeyId: string;
-  readonly date: string;
-  readonly region: string;
-  readonly service: string;
-  readonly signedHeaders: readonly string[];
-  readonly signature: string;
-}
 
 /** Pull apart `AWS4-HMAC-SHA256 Credential=…, SignedHeaders=…, Signature=…`. */
 export function parseAuthorization(header: string | undefined): AuthorizationParts | null {
@@ -119,78 +116,119 @@ export function parseAuthorization(header: string | undefined): AuthorizationPar
   const signedHeaders = fields.get("SignedHeaders");
   const signature = fields.get("Signature");
   if (credential === undefined || signedHeaders === undefined || signature === undefined) return null;
-  const scope = credential.split("/");
-  if (scope.length !== 5 || scope[4] !== "aws4_request") return null;
-  const [accessKeyId, date, region, service] = scope;
-  if (accessKeyId === undefined || date === undefined || region === undefined || service === undefined) {
-    return null;
-  }
+  const scope = parseCredentialScope(credential);
+  if (scope === null) return null;
   return {
-    accessKeyId,
-    date,
-    region,
-    service,
+    ...scope,
     signedHeaders: signedHeaders.split(";").filter((h) => h.length > 0),
     signature,
   };
 }
 
-function signingKey(secret: string, date: string, region: string, service: string): Buffer {
-  const kDate = createHmac("sha256", `AWS4${secret}`).update(date).digest();
-  const kRegion = createHmac("sha256", kDate).update(region).digest();
-  const kService = createHmac("sha256", kRegion).update(service).digest();
-  return createHmac("sha256", kService).update("aws4_request").digest();
+/** Which of the two forms the request used, and its parts. */
+function present(request: IncomingRequest): Presented | Refusal {
+  const at = request.url.indexOf("?");
+  const rawQuery = at < 0 ? "" : request.url.slice(at + 1);
+  let parts: QueryPart[];
+  try {
+    parts = queryParts(rawQuery);
+  } catch {
+    return refuse("InvalidURI", "the query string has a percent escape that does not decode");
+  }
+  const presigned = isPresigned(parts);
+  const header = headerValue(request.headers, "authorization");
+
+  // ⛔ ONE SIGNATURE PER REQUEST. With both, which one was checked would be a choice this code
+  //    made, and the other would be a signature nobody verified riding on a request that passed.
+  if (presigned && header !== undefined) {
+    return refuse("InvalidArgument", "a request is signed by an authorization header or by its query, not both");
+  }
+  // ⛔ NO SESSION TOKENS, IN EITHER FORM. This gateway hands out plain pairs and nothing else, so a
+  //    request signed with temporary credentials was not signed with one of them. The presigned
+  //    form's query parameter is refused where that form is read.
+  if (headerValue(request.headers, "x-amz-security-token") !== undefined) {
+    return refuse("InvalidToken", "this gateway issues no session tokens, so x-amz-security-token cannot be honoured");
+  }
+  if (presigned) return presentedFromQuery(request, parts);
+  const auth = parseAuthorization(header);
+  if (auth === null) {
+    return refuse("AccessDenied", "no AWS Signature Version 4 authorization header or presigned query");
+  }
+  const problem = scopeProblem(auth);
+  if (problem !== null) return refuse("AuthorizationHeaderMalformed", `The authorization header is malformed: ${problem}.`);
+  return {
+    ...auth,
+    stamp: headerValue(request.headers, "x-amz-date"),
+    expiresSeconds: null,
+    canonicalQuery: canonicalOf(parts),
+    payloadHash: headerValue(request.headers, "x-amz-content-sha256"),
+  };
 }
 
-/** `20260824T232759Z` → epoch milliseconds, or null if it is not that shape. */
-export function amzDateToMs(stamp: string | undefined): number | null {
-  if (stamp === undefined) return null;
-  const m = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(stamp);
-  if (m === null) return null;
-  return Date.UTC(
-    Number(m[1]),
-    Number(m[2]) - 1,
-    Number(m[3]),
-    Number(m[4]),
-    Number(m[5]),
-    Number(m[6]),
-  );
+function isRefusal(value: Presented | Refusal): value is Refusal {
+  return "ok" in value;
 }
 
 /**
- * Rebuild the string the client signed and check that the signature matches.
+ * The check itself, once the parts have been found and the pair chosen.
  *
- * The clock is passed in rather than read here: a test that cannot choose "now" cannot check the
- * skew rule at all, and that rule is the one that stops a captured request being replayed tomorrow.
+ * ⛔ A PRESIGNED URL LIVES FROM ITS DATE TO ITS DATE PLUS `X-Amz-Expires`, AND NO LONGER. The skew
+ *    rule still guards its start -- a URL dated further ahead than the clock may drift is refused --
+ *    but its end is the lifetime it names with no slack added: slack on an expiry is a link that
+ *    still works after the person who made it was told it would not.
  */
-export function verifySignature(
+function verifyPresented(
   request: IncomingRequest,
+  presented: Presented,
   credential: GatewayCredential,
   now: number,
 ): Verified {
-  const auth = parseAuthorization(headerValue(request.headers, "authorization"));
-  if (auth === null) return refuse("AccessDenied", "no AWS Signature Version 4 authorization header");
-  if (auth.accessKeyId !== credential.accessKeyId) {
+  if (presented.accessKeyId !== credential.accessKeyId) {
     return refuse("InvalidAccessKeyId", "that access key is not the one this gateway printed");
   }
 
-  const stamp = headerValue(request.headers, "x-amz-date");
+  const stamp = presented.stamp;
   const signedAt = amzDateToMs(stamp);
-  if (signedAt === null) return refuse("AccessDenied", "missing or malformed x-amz-date");
-  if (Math.abs(now - signedAt) > MAX_CLOCK_SKEW_MS) {
-    return refuse("RequestTimeTooSkewed", "the request's own timestamp is too far from this clock");
+  if (stamp === undefined || signedAt === null) return refuse("AccessDenied", "missing or malformed x-amz-date");
+  if (presented.expiresSeconds === null) {
+    if (Math.abs(now - signedAt) > MAX_CLOCK_SKEW_MS) {
+      return refuse("RequestTimeTooSkewed", "the request's own timestamp is too far from this clock");
+    }
+  } else {
+    if (signedAt - now > MAX_CLOCK_SKEW_MS) {
+      return refuse("RequestTimeTooSkewed", "the presigned URL is dated further ahead than this clock allows");
+    }
+    if (now > signedAt + presented.expiresSeconds * 1000) {
+      return refuse("AccessDenied", "Request has expired");
+    }
   }
-  if (stamp !== undefined && !stamp.startsWith(auth.date)) {
+  // Exactly the day: the scope's date was checked to be eight digits, so an empty one cannot pass
+  // as the start of every timestamp.
+  if (stamp.slice(0, 8) !== presented.date) {
     return refuse("AccessDenied", "the signature's date does not match x-amz-date");
   }
 
-  const payloadHash = headerValue(request.headers, "x-amz-content-sha256");
+  const unsigned = unsignedHeaders(request, presented);
+  if (unsigned.length > 0) {
+    return refuse(
+      "AccessDenied",
+      `There were headers present in the request which were not signed: ${unsigned.join(", ")}`,
+    );
+  }
+
+  const payloadHash = presented.payloadHash;
   if (payloadHash === undefined) {
     return refuse("AccessDenied", "missing x-amz-content-sha256");
   }
+  if (!isPayloadHash(payloadHash)) {
+    return refuse(
+      "InvalidArgument",
+      "x-amz-content-sha256 must be a lowercase hex SHA-256, UNSIGNED-PAYLOAD or one of the STREAMING- values",
+    );
+  }
 
   const canonicalHeaders: string[] = [];
-  for (const name of auth.signedHeaders) {
+  for (const name of presented.signedHeaders) {
     const value = headerValue(request.headers, name);
     if (value === undefined) {
       return refuse("AccessDenied", `the signature covers a header that is not here: ${name}`);
@@ -200,17 +238,16 @@ export function verifySignature(
 
   const at = request.url.indexOf("?");
   const path = at < 0 ? request.url : request.url.slice(0, at);
-  const query = at < 0 ? "" : request.url.slice(at + 1);
   const canonicalRequest = [
     request.method.toUpperCase(),
     path,
-    canonicalQuery(query),
+    presented.canonicalQuery,
     canonicalHeaders.join(""),
-    auth.signedHeaders.join(";"),
+    presented.signedHeaders.join(";"),
     payloadHash,
   ].join("\n");
 
-  const scope = `${auth.date}/${auth.region}/${auth.service}/aws4_request`;
+  const scope = `${presented.date}/${presented.region}/${presented.service}/aws4_request`;
   const stringToSign = [
     "AWS4-HMAC-SHA256",
     stamp,
@@ -218,19 +255,32 @@ export function verifySignature(
     createHash("sha256").update(canonicalRequest).digest("hex"),
   ].join("\n");
 
-  const expected = createHmac(
-    "sha256",
-    signingKey(credential.secretAccessKey, auth.date, auth.region, auth.service),
-  )
-    .update(stringToSign)
-    .digest("hex");
+  const key = signingKey(credential.secretAccessKey, presented.date, presented.region, presented.service);
+  const expected = createHmac("sha256", key).update(stringToSign).digest("hex");
 
-  const given = Buffer.from(auth.signature, "utf8");
+  const given = Buffer.from(presented.signature, "utf8");
   const mine = Buffer.from(expected, "utf8");
   if (given.length !== mine.length || !timingSafeEqual(given, mine)) {
     return refuse("SignatureDoesNotMatch", "the signature does not match what was signed");
   }
-  return { ok: true, payloadHash };
+  return { ok: true, payloadHash, signing: { key, scope, stamp, seedSignature: expected } };
+}
+
+/**
+ * Rebuild the string the client signed and check that the signature matches -- in the
+ * `Authorization` header or in a presigned query, whichever the request carries.
+ *
+ * The clock is passed in rather than read here: a test that cannot choose "now" cannot check the
+ * skew rule at all, and that rule is the one that stops a captured request being replayed tomorrow.
+ */
+export function verifySignature(
+  request: IncomingRequest,
+  credential: GatewayCredential,
+  now: number,
+): Verified {
+  const presented = present(request);
+  if (isRefusal(presented)) return presented;
+  return verifyPresented(request, presented, credential, now);
 }
 
 /**
@@ -240,38 +290,50 @@ export function verifySignature(
  *    it travels in the header in the clear -- but a scan that returned at the first match would
  *    take a length of time that says WHERE in the list a key sits, and that is a fact about the
  *    gateway's customers rather than about the request.
+ *
+ * ⛔ TWO PAIRS WITH ONE ID ARE NOBODY'S. Which secret, and which bucket restriction, a request is
+ *    held to would otherwise be whichever came later in the list -- a choice made by the order a
+ *    business happened to build it in. `gatewayHandler` refuses such a list when the gateway is
+ *    made; this answers `"ambiguous"` for a list changed after that.
  */
 function named(
   credentials: readonly GatewayCredential[],
   accessKeyId: string,
-): GatewayCredential | null {
+): GatewayCredential | "ambiguous" | null {
   const wanted = Buffer.from(accessKeyId, "utf8");
   let found: GatewayCredential | null = null;
+  let matches = 0;
   for (const candidate of credentials) {
     const id = Buffer.from(candidate.accessKeyId, "utf8");
-    if (id.length === wanted.length && timingSafeEqual(id, wanted)) found = candidate;
+    if (id.length === wanted.length && timingSafeEqual(id, wanted)) {
+      found = candidate;
+      matches += 1;
+    }
   }
-  return found;
+  return matches > 1 ? "ambiguous" : found;
 }
 
 /**
  * The whole check, against every pair a gateway answers to: which one signed, and whether it did.
  *
- * ⚠ THE THREE REFUSALS ARE DIFFERENT ON PURPOSE. "No authorization header at all", "a key this
- *   gateway does not have" and "a signature that does not hold" are three different things for
- *   whoever is reading a client's logs, and none of them says anything about what is in the drive.
+ * ⚠ THE THREE REFUSALS ARE DIFFERENT ON PURPOSE. "No signature at all", "a key this gateway does
+ *   not have" and "a signature that does not hold" are three different things for whoever is
+ *   reading a client's logs, and none of them says anything about what is in the drive.
  */
 export function verifyAgainst(
   request: IncomingRequest,
   credentials: readonly GatewayCredential[],
   now: number,
 ): VerifiedAgainst {
-  const auth = parseAuthorization(headerValue(request.headers, "authorization"));
-  if (auth === null) return refuse("AccessDenied", "no AWS Signature Version 4 authorization header");
-  const credential = named(credentials, auth.accessKeyId);
+  const presented = present(request);
+  if (isRefusal(presented)) return presented;
+  const credential = named(credentials, presented.accessKeyId);
   if (credential === null) {
     return refuse("InvalidAccessKeyId", "that access key is not one this gateway answers to");
   }
-  const verdict = verifySignature(request, credential, now);
-  return verdict.ok ? { ok: true, payloadHash: verdict.payloadHash, credential } : verdict;
+  if (credential === "ambiguous") {
+    return refuse("InvalidAccessKeyId", "more than one of this gateway's pairs has that access key id");
+  }
+  const verdict = verifyPresented(request, presented, credential, now);
+  return verdict.ok ? { ...verdict, credential } : verdict;
 }

@@ -118,6 +118,21 @@ test("⛔ a different body, method, path, moment or nonce is a different signatu
   }
 });
 
+test("⛔ the query string is signed as it is sent — not dropped, not put in order", () => {
+  // `GET /p1/users?after=…&limit=…` reads its page from the query, so a signature over the bare
+  // path would let whoever carries the request ask for a different page under the same credential.
+  const target = "/p1/users?after=AQEBAQEBAQEBAQEBAQEBAQ&limit=2";
+  assert.equal(
+    new TextDecoder().decode(businessSigningInput(1, NONCE, "GET", target, new Uint8Array(0))),
+    `nmts/p1/business/v1\n1\n${NONCE}\nGET\n${target}\n${bytesToHex(sha256(new Uint8Array(0)))}`,
+  );
+  const base = { accountId: BUSINESS, privateKey: PRIVATE_KEY, method: "GET", at: 99, nonce: NONCE };
+  const signed = signBusinessRequest({ ...base, path: target });
+  for (const other of ["/p1/users", "/p1/users?after=AQEBAQEBAQEBAQEBAQEBAQ&limit=3", "/p1/users?limit=2&after=AQEBAQEBAQEBAQEBAQEBAQ"]) {
+    assert.notEqual(signed, signBusinessRequest({ ...base, path: other }), `${other} signed the same as ${target}`);
+  }
+});
+
 test("⛔ two identical requests in the same second are two credentials", () => {
   // The whole reason the nonce exists: Ed25519 is deterministic and the moment is whole seconds,
   // so without a drawn nonce the second of these would be the first, byte for byte.

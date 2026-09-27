@@ -94,4 +94,12 @@ export type FileUploadStep = {
 export declare function uploadFile(input: FileUploadInput): Promise<UploadResult>;
 /** The file key's records, so a caller can clear them once the list is written. */
 export declare function partKeysOf(fileKey: string, parts: number): string[];
+/**
+ * The part's bytes, followed by zeros up to the length it will declare.
+ *
+ * ⛔ ZEROS APPENDED TO THE PLAINTEXT, NOT BYTES TACKED ONTO THE STORED STREAM. A stream's header is
+ *    authenticated but not encrypted, so padding added after sealing would leave the real length
+ *    legible in the header of a public object — which is the exact thing this is for.
+ */
+export declare function padded(chunks: AsyncIterable<Uint8Array>, real: number, sealFrom: number): AsyncIterable<Uint8Array>;
 export { entryOf };

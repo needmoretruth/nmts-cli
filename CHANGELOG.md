@@ -3,6 +3,67 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.46.0 — 2026-09-27
+
+- **NMTS Heavy.** `nmts put --tier heavy` and `nmts push --tier heavy` keep each part of a file whole
+  in two separate places on Filecoin instead of spreading it across Walrus storage nodes. Paid with
+  credits, each part costs half the Standard credits, rounded up and at least one, and the file is
+  kept 28 days. `get`, `pull` and `receive` open Heavy files from their recorded Filecoin copies,
+  `ls --long` has a tier column, and the recovery list records Heavy parts so `nmts-recovery` can
+  read them. A server that has not switched Heavy on answers `heavy_unavailable` before anything is
+  charged; nmts.me has not switched it on yet.
+- **Paying Filecoin yourself.** `nmts heavy wallet` shows the EVM wallet your NMTS key derives
+  (NCF-3 §1.9), its FIL and USDFC, and its Filecoin Pay deposit. `nmts heavy fund <USDFC>` deposits
+  into Filecoin Pay. `put --tier heavy --pay evm` then pays the storage providers from that deposit,
+  with `--copies` (1 to 12, default 2) and `--providers` choosing where; it does not go through
+  NMTS's treasury. See `nmts help heavy`.
+- **Empty files** are stored instead of refused, by `put`, `push` and `nmts s3`.
+- **`nmts s3`:**
+  - A range is read from the stored part it starts in. Each range used to be decrypted from the
+    file's first byte, so a client fetching a 1 GB file in 8 MiB ranges read about 64 GB and the
+    late ranges timed out.
+  - A large upload is no longer cut after five minutes. The connection closes only when the body
+    stops arriving for two minutes, and a request sent with `Expect: 100-continue` is refused
+    before its body when its signature or bucket is wrong.
+  - Presigned URLs work, and every `aws-chunked` body form is decoded with each chunk signature and
+    checksum checked. A request whose signature leaves out `host` or an `x-amz-` header is refused.
+  - A listing without a delimiter shows folders as `folder/` markers of 0 bytes, and a `PUT` of
+    `folder/` with no bytes makes one.
+  - Refusals are answered with the S3 codes clients act on (`AccessDenied`, `AccountProblem`,
+    `OperationAborted`, `InvalidRequest`, `NotImplemented`, `SlowDown`) and one fixed sentence each;
+    the details go to the log line. Before, most became a `500` the client retried.
+  - Served files carry `Content-Security-Policy: sandbox` and `X-Content-Type-Options: nosniff`, and a
+    signed link can set the type and disposition with `response-content-type` and
+    `response-content-disposition`.
+  - `CompleteMultipartUpload` and `CopyObject` answer at once and keep the connection alive while the
+    file is stored. A batch delete that puts a condition on one of its keys is refused.
+- Uploading the same bytes to the same place a second time is a new upload with its own keys. It
+  used to rebuild the first upload's keys, so each reservation was refused and a wallet-paid second
+  run was answered with the first file.
+- For programs: a library call that says whether to rename or overwrite is taken as the program's
+  choice; `null` means the machine's setting. Upload refusals carry the server's code, status and
+  `Retry-After`, and a wallet known to be short is refused with the code `WALLET_SHORT`.
+
+- **Handover files.** `nmts handover make <path> --to <public code | public code file>` writes one
+  file of your drive into a handover file sealed to one recipient, which you pass on yourself; no
+  share is registered. `nmts handover open <file>` opens it with your NMTS key, needs no API key,
+  asks the NMTS server nothing and fetches the pieces from Walrus aggregators. A handover cannot be
+  taken back: the recipient can download the file until its storage ends or its stored bytes are
+  destroyed, and removing the file from your drive does not stop it. The format is NCF-3 §5.6.
+- **Public code files.** `nmts public-code --save [file]` writes your public code and the identity
+  behind it (`nmts-public-code-<code>.nmtscode` by default). Someone who has it can make a handover
+  file for you without looking your code up, so NMTS does not learn who is sending to you. It proves
+  only itself: compare the code it shows with the one you were given. The format is NCF-3 §5.7.
+- `nmts receive <id>` without `--out` now saves into the current directory under the last segment
+  of the name the sender sealed. A name such as `../x` or an absolute path used to be written where
+  it pointed.
+- A download refuses a stored piece whose header names a different position than the one it was
+  listed in, as NCF-3 §4.1 requires.
+- `nmts erase` says that anyone you gave a handover file to can still open the file until its
+  storage ends or its stored bytes are destroyed.
+- The local run log no longer writes down `--to` or the public code a recipient lookup asked for.
+- Download errors no longer speak of "this account" where the reader may be a recipient.
+
 ## 0.45.0 — 2026-09-24
 
 - **Video preview pictures.** `nmts put <video> --thumbnail` takes one frame with ffmpeg, when it is

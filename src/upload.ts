@@ -36,6 +36,7 @@ import {
   writeReservation,
   type Reservation,
 } from "./upload-store.ts";
+import { refuseOtherSealing, runIdField } from "./upload-run.ts";
 import { pushPart } from "./upload-steps.ts";
 import {
   UploadError,
@@ -105,6 +106,9 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
       });
     }
   }
+  // ⛔ JUDGED ON THE SAME READ THAT WOULD RESUME IT. A record another sealing of this file wrote is
+  //    refused here, not picked up (`upload-run.ts`).
+  refuseOtherSealing(existing, input);
 
   // ── the credits already moved: ask where the reservation stands before doing anything ──
   if (existing?.ledgerId !== undefined) {
@@ -119,6 +123,7 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
         phase: "reserve",
         message: `Could not ask about the paid reservation ${ledgerId}: ${why(error)}`,
         paid: true,
+        from: error,
         nextStep:
           "Nothing more was spent. The storage this account paid for is still bought — run the " +
           "same command again when the server answers.",
@@ -130,12 +135,12 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
       return paidPart(record, ledgerId, true);
     }
     if (!isLive(status.state)) {
-      // ⛔ THE RECORD IS KEPT AND ITS ATTEMPT NUMBER GOES UP. Deleting it looks tidier and is the
-      //    trap: the idempotency key is derived from a key that is a pure function of the account,
-      //    the bytes and the destination, and the server replays a reservation row under its key
-      //    whatever state it is in — `failed` included. A cleared record means the next run
-      //    rebuilds the same key, is handed the same dead row, and is told to start over into it.
-      //    Forever. Counting up is what starting over actually means.
+      // ⛔ THE RECORD IS KEPT AND ITS ATTEMPT NUMBER GOES UP. The server replays a reservation row
+      //    under its key whatever state it is in — `failed` included — so the next run, which reads
+      //    its key off this record, would be handed the same dead row and told to start over into
+      //    it. Forever. Counting up is what starting over actually means. (A record written before
+      //    run ids existed has a key that is a pure function of the account, the bytes and the
+      //    destination, so for it even deleting the record would not have helped.)
       await writeReservation(
         key,
         { ...stripReservation(record), attempt: record.attempt + 1 },
@@ -196,6 +201,7 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
     // ⛔ The attempt number is CARRIED FORWARD, not reset. A record that survives a dead
     //    reservation is exactly the case that needs a different idempotency key.
     attempt: existing?.attempt ?? 0,
+    ...runIdField(existing, input.runId),
     blobId: meta.blobId,
     nonceB64,
     rootHashB64: toBase64Url(meta.rootHash),
@@ -218,7 +224,7 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
   let reply: ReserveReply;
   try {
     reply = await api.reserve({
-      idempotency_key: idempotencyKey(key, record.attempt),
+      idempotency_key: idempotencyKey(key, record),
       blob_id: meta.blobId,
       root_hash_b64: record.rootHashB64,
       // One number, measured: what the treasury is asked to buy and what the credits are charged
@@ -239,6 +245,9 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
       // ⛔ A refusal did not spend. A request that never got an answer MIGHT have — and the record
       //    is on disk either way, so the next run asks the server instead of guessing here.
       paid: false,
+      // ⛔ THE SERVER'S CODE GOES WITH IT. Credits that ran out and a ceiling that was hit are two
+      //    different things for a program to do, and the words alone do not say which.
+      from: error,
       nextStep:
         error instanceof ServerError
           ? "Nothing was uploaded. No credits were spent on a refused reservation."
@@ -305,14 +314,20 @@ function paidPart(record: Reservation, ledgerId: number, resumed: boolean): Paid
 }
 
 /**
- * The idempotency key for one attempt at one file.
+ * The idempotency key for one attempt at one part of one upload.
  *
- * ⛔ THE ATTEMPT NUMBER IS IN IT. Without it the key is a pure function of the account, the bytes
- *    and the destination — and the server replays whatever row it has under a key, including a
- *    settled one that can never become storage.
+ * ⛔ THE RUN ID AND THE ATTEMPT NUMBER ARE BOTH IN IT. Without them the key is a pure function of
+ *    the account, the bytes and the destination — and the server replays whatever row it has under
+ *    a key: a settled one that can never become storage, or the one an EARLIER upload of the same
+ *    file bought for bytes that are not these (`newRunId` in `upload-store.ts`).
+ *
+ * ⚠ A record an earlier version wrote has no run id and keeps the key that version asked under,
+ *   because that is where its reservation is.
  */
-function idempotencyKey(key: string, attempt: number): string {
-  return `nmts-cli-${key}-${attempt}`;
+function idempotencyKey(key: string, record: Reservation): string {
+  return record.runId === undefined
+    ? `nmts-cli-${key}-${record.attempt}`
+    : `nmts-cli-${key}-${record.runId}-${record.attempt}`;
 }
 
 /** What the file list must record about this upload. Always from the record, never from a run. */

@@ -20,6 +20,8 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 
 import { createDriveSource, fetchObject, LIST_CACHE_MS } from "../s3/drive.ts";
+import { freeTrashedName } from "../s3/drive-trashed-name.ts";
+import { createStagingStore, SWEEP_EVERY_MS } from "../s3/staging.ts";
 import { NmtsError } from "../errors.ts";
 import { ensureFolderPath } from "../drive-edit.ts";
 import { put } from "./put.ts";
@@ -43,6 +45,17 @@ export interface S3Options {
   write?: (line: string) => void;
   /** Resolves when the caller wants the gateway to stop. Tests pass one; a person presses Ctrl-C. */
   until?: Promise<void>;
+}
+
+/** The `id` in the one line `put --json` prints, or undefined when there is none to read. */
+function idIn(line: string): string | undefined {
+  try {
+    const parsed: unknown = JSON.parse(line);
+    const id: unknown = typeof parsed === "object" && parsed !== null ? Reflect.get(parsed, "id") : undefined;
+    return typeof id === "string" ? id : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function portOf(raw: string | undefined): number {
@@ -70,6 +83,8 @@ export async function s3(options: S3Options = {}): Promise<number> {
    *    takes and afterwards.
    */
   const stagingRoot = join(tmpdir(), `nmts-s3-${randomUUID()}`);
+  // The uploads in pieces, swept on a timer that does not keep the process alive.
+  const staging = createStagingStore(stagingRoot, { sweepEveryMs: SWEEP_EVERY_MS });
 
   // ⛔ THE QUESTION WAS ANSWERED BEFORE THIS STARTED. A gateway cannot ask: its caller is a program
   //    and its stdin is not a terminal. `s3` is a medium act (`risk.ts`) — uploads through it spend
@@ -80,14 +95,19 @@ export async function s3(options: S3Options = {}): Promise<number> {
   /**
    * This account, as the shared drive module takes it.
    *
-   * ⛔ THE SIX FUNCTIONS ARE THE ONLY THING THIS COMMAND CONTRIBUTES. What an upload DOES — the
+   * ⛔ THESE FUNCTIONS ARE THE ONLY THING THIS COMMAND CONTRIBUTES. What an upload DOES — the
    *    same-file verdict, the folders above the key, forgetting the cached list — lives in
    *    `s3/drive.ts`, so that the gateway a business runs from the SDK and the one a person runs
    *    here cannot come to disagree about it.
    */
   const source = createDriveSource({
     stagingRoot,
+    staging,
+    bucket: BUCKET,
     writable,
+    // ⛔ A FILE ALREADY IN THE DRIVE IS NOT REPLACED FROM HERE. Different bytes at a taken key are
+    //    refused, and the person deletes the old file first; what is said at start-up below.
+    overwrite: "refuse",
     onAlreadyStored: (key) => say(`same ${key} — already stored, nothing sent`),
     account: {
       readList: async () => {
@@ -99,22 +119,32 @@ export async function s3(options: S3Options = {}): Promise<number> {
       makeFolder: async (folder) => {
         await ensureFolderPath(session, folder);
       },
-      store: async (path, name, folder) => {
+      // ⚠ The collision rule is named rather than left to this machine's setting: the drive module
+      //   decides replace-or-not, and a person's `on-collision` must not quietly change that answer.
+      // ⚠ Asked for `--json` so the id of the stored file comes back, and the tag answered is its.
+      store: async (path, name, folder, how) => {
+        let said = "";
         await put(path, {
           server: options.server,
           network: options.network,
           ...(folder === undefined ? {} : { to: folder }),
           name,
-          write: () => undefined,
+          onCollision: how.replace ? "overwrite" : "rename",
+          json: true,
+          write: (line) => {
+            said = line;
+          },
         });
+        return { id: idIn(said) };
       },
       trash: async (path) => {
-        await rm([path], {
-          server: options.server,
-          network: options.network,
-          write: () => undefined,
-        });
+        await rm([path], { server: options.server, network: options.network, write: () => undefined });
       },
+      // One run of `rm` is one write to the file list, however many paths it names.
+      trashMany: async (paths) => {
+        await rm(paths, { server: options.server, network: options.network, write: () => undefined });
+      },
+      freeTrashedName: (folder, name) => freeTrashedName(session, folder, name),
       fetch: (object, sink) =>
         fetchObject(
           { server: session.server, bearer: session.apiKey, code: session.code, chain },
@@ -184,11 +214,15 @@ export async function s3(options: S3Options = {}): Promise<number> {
 
   await new Promise<void>((resolve) => {
     const stop = (): void => {
-      // Nothing half-uploaded outlives the command that was staging it.
-      void removeFile(stagingRoot, { recursive: true, force: true });
       server.close(() => resolve());
       // A client holding a connection open must not keep the process alive after Ctrl-C.
       server.closeAllConnections();
+      // Nothing half-uploaded outlives the command that was staging it — but a finish still
+      // storing is waited for, rather than having its file removed underneath it.
+      void staging
+        .close()
+        .then(() => removeFile(stagingRoot, { recursive: true, force: true }))
+        .catch(() => undefined);
     };
     process.once("SIGINT", stop);
     process.once("SIGTERM", stop);

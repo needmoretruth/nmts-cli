@@ -13,9 +13,54 @@ import { rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 
+import { ServerError } from "../src/api.ts";
+import { NmtsError } from "../src/errors.ts";
 import { UploadError } from "../src/upload-wire.ts";
 import { readItemRecord, readReservation, reservationKey, clearReservation } from "../src/upload-store.ts";
 import { BLOB_OF_SEALED, SEALED, apiThat, inputFor, isolate, protocolThat, uploadOnePart } from "./upload-fixture.ts";
+
+test("⛔ a refused reservation keeps the server's code, status and wait, for a program to branch on", async () => {
+  const dir = isolate();
+  try {
+    const { api, calls } = apiThat({
+      async reserve() {
+        throw new ServerError(409, { code: "CREDIT_DAILY_CAP", message: "today's credit ceiling is reached" }, null, 3600);
+      },
+    });
+    const failure = await uploadOnePart(inputFor(api, protocolThat(), "k-refused")).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    assert.ok(failure instanceof UploadError, "a refused reservation did not arrive as an UploadError");
+    assert.deepEqual(
+      { phase: failure.phase, paid: failure.paid, code: failure.code, status: failure.status, retryAfter: failure.retryAfter },
+      { phase: "reserve", paid: false, code: "CREDIT_DAILY_CAP", status: 409, retryAfter: 3600 },
+    );
+    assert.equal(failure.message, "today's credit ceiling is reached", "the server's words changed on the way");
+    assert.equal(calls.uploaded, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a reservation that got no answer names no server code — there was no refusal to name", async () => {
+  const dir = isolate();
+  try {
+    const { api } = apiThat({
+      async reserve() {
+        throw new NmtsError("Could not reach the server.");
+      },
+    });
+    const failure = await uploadOnePart(inputFor(api, protocolThat(), "k-unreached")).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    assert.ok(failure instanceof UploadError);
+    assert.deepEqual([failure.code, failure.status, failure.retryAfter], [undefined, undefined, undefined]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test("the happy path spends once, uploads once and commits once", async () => {
   const dir = isolate();
@@ -200,7 +245,7 @@ test("⛔ a dead reservation is KEPT and counted up — clearing it would brick 
     const fresh = apiThat();
     await uploadOnePart(inputFor(fresh.api, protocolThat(), "k6"));
     assert.equal(fresh.calls.reserve, 1, "it started over rather than resuming into the dead row");
-    assert.equal(fresh.calls.lastReserveKey, "nmts-cli-k6-1", "under a key the server has not settled");
+    assert.equal(fresh.calls.lastReserveKey, "nmts-cli-k6-run-1-1", "under a key the server has not settled");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -228,13 +273,13 @@ test("⛔ the record OUTLIVES the commit — the file list has not been written 
   }
 });
 
-test("the two idempotency keys are derived from the reservation key, not invented per run", async () => {
+test("the two idempotency keys are the reservation key, the upload's run id and the attempt", async () => {
   const dir = isolate();
   try {
     const { api, calls } = apiThat();
     await uploadOnePart(inputFor(api, protocolThat(), "k8"));
-    assert.equal(calls.lastReserveKey, "nmts-cli-k8-0");
-    assert.equal(calls.lastIdempotencyKey, "nmts-cli-commit-k8-0");
+    assert.equal(calls.lastReserveKey, "nmts-cli-k8-run-1-0");
+    assert.equal(calls.lastIdempotencyKey, "nmts-cli-commit-k8-run-1-0");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

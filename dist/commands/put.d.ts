@@ -1,5 +1,5 @@
 import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
-export interface PutOptions {
+export interface PutOptions extends HeavyFlags {
     server?: string | undefined;
     network?: string | undefined;
     /** The name it gets in the drive. Defaults to the local file's own name. */
@@ -54,7 +54,7 @@ export interface PutOptions {
     onStored?: (itemId: string, savedAs: string) => void;
 }
 /** Who pays, and the options that lose their meaning under that answer — the rule is in `put-payer.ts`; this is its one road. */
-import { payerOf, refuseWalletOnlyOptions } from "./put-payer.ts";
+import { payerOf, refuseWalletOnlyOptions, type HeavyFlags } from "./put-payer.ts";
 export { payerOf, refuseWalletOnlyOptions };
 /**
  * The folder id `--to` names, or null for the root. Refuses rather than guessing.

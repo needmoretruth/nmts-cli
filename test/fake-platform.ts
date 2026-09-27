@@ -31,6 +31,11 @@ export interface PlatformState {
   rotations: string[];
   /** When the key was last replaced, as the server reports it. Null until one is. */
   keyChangedAt: string | null;
+  /** The accounts `GET /p1/users` pages through, oldest first. Every accepted registration joins it. */
+  members: { account_id: string; created_at: string; status: string }[];
+  /** What `GET /p1/usage` counts beside the members. */
+  files: number;
+  storedBytes: number;
 }
 
 export const platformState: PlatformState = {
@@ -40,6 +45,9 @@ export const platformState: PlatformState = {
   registered: [],
   rotations: [],
   keyChangedAt: null,
+  members: [],
+  files: 0,
+  storedBytes: 0,
 };
 
 export function resetPlatform(): void {
@@ -49,7 +57,14 @@ export function resetPlatform(): void {
   platformState.registered = [];
   platformState.rotations = [];
   platformState.keyChangedAt = null;
+  platformState.members = [];
+  platformState.files = 0;
+  platformState.storedBytes = 0;
 }
+
+/** The page size `GET /p1/users` answers with when none is asked for, and the most it will. */
+export const USERS_PAGE_DEFAULT = 100;
+export const USERS_PAGE_MAX = 1000;
 
 /** Answer the request if it is one of the Platform doors; say whether it was. */
 export function servePlatform(method: string, url: string, req: IncomingMessage, res: ServerResponse): boolean {
@@ -87,6 +102,33 @@ function answer(method: string, url: string, req: IncomingMessage, res: ServerRe
         key_changed_at: platformState.keyChangedAt,
         users_today: platformState.usersToday,
         users_day_cap: platformState.usersDayCap,
+      },
+    });
+  }
+  // ⛔ THE QUERY STRING IS PART OF WHAT WAS SIGNED: the sentence above is rebuilt from the whole
+  //    target that arrived, so a client that signed the bare path was refused before this line.
+  if (method === "GET" && (url === "/p1/users" || url.startsWith("/p1/users?"))) {
+    const query = new URL(url, "http://fake").searchParams;
+    const asked = query.get("limit");
+    const limit = asked === null ? USERS_PAGE_DEFAULT : Number(asked);
+    if (!Number.isInteger(limit) || limit < 1 || limit > USERS_PAGE_MAX) {
+      return refuse("VALIDATION", 400, "limit must be 1 to 1000");
+    }
+    const after = query.get("after");
+    const from = after === null ? 0 : platformState.members.findIndex((m) => m.account_id === after) + 1;
+    const page = platformState.members.slice(from, from + limit);
+    const more = from + limit < platformState.members.length;
+    return json(200, { users: page, next: more ? (page.at(-1)?.account_id ?? null) : null });
+  }
+  if (method === "GET" && url === "/p1/usage") {
+    return json(200, {
+      usage: {
+        members: platformState.members.length,
+        users_today: platformState.usersToday,
+        users_day_cap: platformState.usersDayCap,
+        files: platformState.files,
+        stored_bytes: platformState.storedBytes,
+        as_of: "2026-09-24T00:00:00Z",
       },
     });
   }
@@ -135,6 +177,7 @@ function withCredentials(
   }
   platformState.usersToday += 1;
   platformState.registered.push({ accountId, authSecret, bearer });
+  platformState.members.push({ account_id: accountId, created_at: "2026-09-17T00:00:00Z", status: "active" });
   json(201, {
     account: { account_id: accountId, kdf_version: 1, status: "active", created_at: "2026-09-17T00:00:00Z" },
   });

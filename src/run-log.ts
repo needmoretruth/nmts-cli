@@ -91,8 +91,12 @@ export const MAX_ATTACHED_RUNS = 20;
  * ⛔ `--code`, `--passphrase` AND `--api-key` DO NOT EXIST TODAY, and they are here anyway. The
  *    rule in `args.ts` is that no option carries a secret; this table is what makes the log safe
  *    on the day somebody argues for an exception to it.
+ *
+ * ⛔ `--to` IS WHOM. A handover exists so that nobody but the two people knows who gave a file to
+ *    whom; a record on this disk — and a support attachment made from it — must not say it either.
  */
 const HIDDEN_VALUES: Readonly<Record<string, string>> = {
+  "--to": "[recipient]",
   "--message": "[message]",
   "--omit": "[omitted]",
   "--code": "[account-code]",
@@ -127,7 +131,9 @@ function remember(event: RunEvent): void {
  * ⚠ The path is recorded as it was requested, query string and all. Anything secret in it is a
  *   label by the time it lands: `redact` runs over the whole record before it is written.
  */
-export function noteRequest(method: string, path: string, status: number, error?: string): void {
+export function noteRequest(method: string, requested: string, status: number, error?: string): void {
+  // ⛔ A recipient lookup names whom a file is about to go to; the address is not written down.
+  const path = requested.replace(/^\/v1\/share-recipients\/[^/?]+/, "/v1/share-recipients/[recipient]");
   remember(error === undefined ? { kind: "http", method, path, status } : { kind: "http", method, path, status, error });
 }
 

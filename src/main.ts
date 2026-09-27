@@ -102,9 +102,7 @@ export async function run(argv: readonly string[]): Promise<number> {
         json: args.json,
         all: args.all,
         find: args.find,
-        sort: args.sort,
-        desc: args.desc,
-        media: args.media,
+        sort: args.sort, desc: args.desc, long: args.long, media: args.media,
       });
     }
     case "usage": {
@@ -121,10 +119,12 @@ export async function run(argv: readonly string[]): Promise<number> {
         server: args.server, network: args.network, json: args.json, to: args.to,
       });
     }
-    case "public-code": {
-      const { publicCode } = await import("./commands/public-code.ts");
-      return await publicCode({ server: args.server, network: args.network, publish: args.publish, json: args.json });
-    }
+    case "public-code":
+      return await (await import("./commands/public-code.ts")).publicCode({ server: args.server, network: args.network, publish: args.publish, json: args.json, save: args.save, file: args.operands[0], force: args.force });
+    case "handover":
+      return await (await import("./commands/handover.ts")).handover(args.operands[0], args.operands[1], {
+        server: args.server, network: args.network, to: args.to, out: args.out, force: args.force, yes: args.yes, json: args.json,
+      });
     case "wallet": {
       const { wallet } = await import("./commands/wallet.ts");
       return await wallet(args.operands[0], {
@@ -192,11 +192,10 @@ export async function run(argv: readonly string[]): Promise<number> {
         dryRun: args.dryRun,
         partSize: args.partSize,
         onCollision: args.onCollision,
-        deposit: args.deposit,
-        pay: args.pay,
-        epochs: args.epochs,
+        deposit: args.deposit, pay: args.pay, epochs: args.epochs,
         storage: args.storage, from: args.from,
         json: args.json, wallet: args.wallet, trustServerTipAddress: args.trustServerTipAddress,
+        tier: args.tier, copies: args.copies, providers: args.providers, evmWallet: args.evmWallet, days: args.days,
         thumbnail: args.thumbnail, thumbnailFile: args.thumbnailFile,
       });
     }
@@ -215,6 +214,7 @@ export async function run(argv: readonly string[]): Promise<number> {
         epochs: args.epochs,
         storage: args.storage,
         json: args.json, wallet: args.wallet, trustServerTipAddress: args.trustServerTipAddress,
+        tier: args.tier, copies: args.copies, providers: args.providers, evmWallet: args.evmWallet, days: args.days,
       });
     }
     case "rm": {
@@ -356,6 +356,8 @@ export async function run(argv: readonly string[]): Promise<number> {
     }
     case "platform":
       return (await import("./commands/platform.ts")).platform(args.operands[0], { out: args.out });
+    case "heavy":
+      return await (await import("./commands/heavy.ts")).heavy(args.operands[0], args);
     case "s3": {
       const { s3 } = await import("./commands/s3.ts");
       return await s3({ server: args.server, network: args.network, port: args.port, json: args.json });

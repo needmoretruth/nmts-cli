@@ -31,15 +31,15 @@ import { BINARY_NAME } from "../product.ts";
 import type { PaddingRule } from "../shared/lib/crypto/size-padding.ts";
 import { resolveServer } from "../server.ts";
 import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
-import { clearItemRecord, clearReservation } from "../upload-store.ts";
+import { forgetUpload } from "../upload-run.ts";
 import { createUploadApi } from "../upload-api.ts";
-import { partKeysOf, uploadFile, type FileUploadStep } from "../upload-file.ts";
+import { uploadFile, type FileUploadStep } from "../upload-file.ts";
 import { fileSource } from "../upload-file-node.ts";
 import { CREDIT_BYTES, creditsFor, partSizeFor, planAndPrice, UPLOAD_EPOCHS } from "../upload-price.ts";
 import { measureLocal } from "../upload-price-node.ts";
 import { createBlobProtocol, readCurrentEpoch } from "../walrus-write.ts";
 
-export interface PutOptions {
+export interface PutOptions extends HeavyFlags {
   server?: string | undefined;
   network?: string | undefined;
   /** The name it gets in the drive. Defaults to the local file's own name. */
@@ -95,7 +95,7 @@ export interface PutOptions {
 }
 
 /** Who pays, and the options that lose their meaning under that answer — the rule is in `put-payer.ts`; this is its one road. */
-import { payerOf, refuseWalletOnlyOptions } from "./put-payer.ts";
+import { payerOf, refuseWalletOnlyOptions, tierOf, type HeavyFlags } from "./put-payer.ts";
 
 export { payerOf, refuseWalletOnlyOptions };
 
@@ -137,6 +137,8 @@ export function folderIdFor(
 
 
 export async function put(target: string | undefined, options: PutOptions = {}): Promise<number> {
+  // NMTS Heavy is its own road (`put-heavy.ts`), taken before the preview picture: Heavy refuses one.
+  if (tierOf(options) === "heavy") return (await import("./put-heavy.ts")).putHeavy(target, options);
   if (options.thumbnail === true || options.thumbnailFile !== undefined) {
     return (await import("./put-thumbnail.ts")).putWithThumbnail(target, options, put);
   }
@@ -340,9 +342,8 @@ export async function put(target: string | undefined, options: PutOptions = {}):
   options.onStored?.(result.itemId, added.name);
   // ⛔ ONLY NOW, AND EVERY PART. Until the entry is in the list the file is paid for and invisible,
   //    and the records are the only thing that lets a second run finish the job without spending
-  //    again. Clearing the file-level one first would leave a run able to commit a second time.
-  await clearItemRecord(result.fileKey);
-  for (const record of partKeysOf(result.fileKey, result.parts)) await clearReservation(record);
+  //    again. The order they are forgotten in is `forgetUpload`'s.
+  await forgetUpload(result.fileKey, result.parts);
 
   // ⛔ THE DISPLACED FILE IS TOLD TO THE SERVER ONLY NOW, and only after the new one is in the
   //    list. Until this line the person still had the file they started with.

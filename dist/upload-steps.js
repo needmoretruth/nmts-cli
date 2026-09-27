@@ -48,6 +48,7 @@ export async function pushPart(input, step) {
             phase: "certify",
             message: why(error),
             paid: true,
+            from: error,
             nextStep: "The bytes are on the network. Certifying moves no money, so running the same command " +
                 "again finishes the job.",
         });
@@ -70,14 +71,23 @@ export async function commitItem(input, fileKey, parts) {
     // Advisory only — the chain is the authority on a blob's life. 0 when this machine could not
     // read the epoch clock: a number we do not have is not a number to invent.
     const expiryEpoch = input.currentEpoch === null ? 0 : input.currentEpoch + input.epochs;
-    const previous = await readItemRecord(fileKey);
+    const found = await readItemRecord(fileKey);
+    // ⛔ ONLY THIS UPLOAD'S RECORD COUNTS. One carrying another run id was left by an earlier upload
+    //    of the same bytes to the same place, and answering its item for the parts just bought would
+    //    name the OLD file for them. A record an earlier version wrote carries none, and is this
+    //    upload's by the only rule that version had.
+    const previous = found !== null && (found.runId === undefined || found.runId === input.runId) ? found : null;
     // ⛔ ALREADY COMMITTED IS NOT COMMITTED AGAIN. The record outlives the commit precisely so a run
     //    that died before writing the file list does not make a second file out of storage that is
     //    already named.
     if (previous?.itemId !== undefined)
         return previous.itemId;
     const attempt = previous?.attempt ?? 0;
-    await writeItemRecord(fileKey, { attempt });
+    // ⚠ A commit an earlier version attempted keeps the key it was attempted under, because the server
+    //   may already hold its row; every other commit is this upload's.
+    const runId = previous === null ? input.runId : previous.runId;
+    const record = runId === undefined ? { attempt } : { attempt, runId };
+    await writeItemRecord(fileKey, record);
     let view;
     try {
         view = await input.api.createItem({
@@ -86,13 +96,14 @@ export async function commitItem(input, fileKey, parts) {
             content_hash_ct: input.entry.contentHashCt,
             visibility: VISIBILITY_PERSONAL,
             parts: parts.map((part) => describePart(part, expiryEpoch)),
-        }, `nmts-cli-commit-${fileKey}-${attempt}`);
+        }, runId === undefined ? `nmts-cli-commit-${fileKey}-${attempt}` : `nmts-cli-commit-${fileKey}-${runId}-${attempt}`);
     }
     catch (error) {
         throw new UploadError({
             phase: "committing",
             message: `The file is stored but saving it to the drive failed: ${why(error)}`,
             paid: true,
+            from: error,
             nextStep: "Nothing more will be spent. Running the same command again commits the same stored " +
                 "bytes — the retry is recognised and does not make a second file.",
         });
@@ -100,7 +111,7 @@ export async function commitItem(input, fileKey, parts) {
     // ⛔ Written down before returning: from here on the file EXISTS and is paid for, and the only
     //    thing still missing is the account's own list. Losing the record now would make it
     //    unreachable.
-    await writeItemRecord(fileKey, { attempt, itemId: view.id });
+    await writeItemRecord(fileKey, { ...record, itemId: view.id });
     return view.id;
 }
 /**

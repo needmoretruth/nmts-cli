@@ -7,19 +7,16 @@
 //
 // ⛔ REAL SOCKETS, NOT A CALLED HANDLER, for the reason `s3-gateway.test.ts` gives: the parsing
 //    between a request line and a signature is where a gateway goes wrong.
+//
+// ⛔ THE WRITER IS THE REAL ONE (`createDriveSource`) over a fake account, with the default
+//    overwrite rule — `refuse`, which is what `nmts s3` runs. Replacing is `s3-gateway-overwrite`.
 
 import { strict as assert } from "node:assert";
 import { after, test } from "node:test";
-import type { AddressInfo } from "node:net";
 
-import { mkdtempSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
-import { createGateway, type DriveSource } from "../src/s3/server.ts";
-import { refusalFor } from "../src/s3/same-file.ts";
-import { createStaging } from "../src/s3/staging.ts";
-import { CREDENTIAL, readOnly } from "./s3-gateway-drive.ts";
+import { EMPTY_ETAG } from "../src/s3/listing.ts";
+import { createGateway } from "../src/s3/server.ts";
+import { CREDENTIAL, fakeDrive, listening, raw, readOnly, send, values } from "./s3-gateway-drive.ts";
 import { sign } from "./s3-sign.ts";
 
 const refusing = createGateway({
@@ -27,193 +24,215 @@ const refusing = createGateway({
   bucketOf: (name) => (name === "drive" ? readOnly : null),
   bucketNames: () => ["drive"],
 });
-await new Promise<void>((resolve) => refusing.listen(0, "127.0.0.1", resolve));
-const HOST = `127.0.0.1:${(refusing.address() as AddressInfo).port}`;
+const HOST = await listening(refusing);
 after(() => refusing.close());
 
-const written: Array<{ key: string; bytes: string }> = [];
-const trashed: string[] = [];
-
-/**
- * What this stub drive already holds, so it can answer the question the real writer answers:
- * is the file arriving the file already there?
- *
- * ⛔ THE RULE ITSELF IS NOT REIMPLEMENTED HERE — `src/s3/same-file.ts` is, and `same-file.test.ts`
- *    drives it. What this stub exists for is the half only a socket can show: that "identical" is
- *    answered 200 with nothing written, and "different" comes back as 409 rather than 500, on BOTH
- *    upload paths. A stub that accepted everything would let a gateway that lost the distinction
- *    pass every test here.
- */
-const STORED = new Map<string, string>([["readme.txt", "the readme, exactly as stored\n"]]);
-const accept = (key: string, bytes: string): void => {
-  const standing = STORED.get(key);
-  if (standing === bytes) return; // the same file: nothing is sent, and that is a success
-  if (standing !== undefined) throw refusalFor("differs", key);
-  STORED.set(key, bytes);
-  written.push({ key, bytes });
-};
-const writableSource: DriveSource = {
-  ...readOnly,
-  write: {
-    put: async (key, body, size) => {
-      const chunks: Buffer[] = [];
-      for await (const chunk of body) chunks.push(Buffer.from(chunk));
-      assert.equal(Buffer.concat(chunks).length, size, "the declared size was not the body's size");
-      accept(key, Buffer.concat(chunks).toString());
-    },
-    trash: async (object) => {
-      trashed.push(object.key);
-    },
-    multipart: createStaging(mkdtempSync(join(tmpdir(), "nmts-gateway-test-")), async (key, path) => {
-      accept(key, readFileSync(path, "utf8"));
-    }),
-  },
-};
+const drive = await fakeDrive();
+await drive.seed("readme.txt", "the readme, exactly as stored\n");
+const source = drive.source();
 const writable = createGateway({
   credentials: [CREDENTIAL],
-  bucketOf: (name) => (name === "drive" ? writableSource : null),
+  bucketOf: (name) => (name === "drive" ? source : null),
   bucketNames: () => ["drive"],
 });
-await new Promise<void>((resolve) => writable.listen(0, "127.0.0.1", resolve));
-const WRITE_HOST = `127.0.0.1:${(writable.address() as AddressInfo).port}`;
+const WRITE_HOST = await listening(writable);
 after(() => writable.close());
 
-async function send(
-  method: string,
-  target: string,
-  body: Buffer = Buffer.alloc(0),
-  extra: Record<string, string> = {},
-  host: string = WRITE_HOST,
-): Promise<Response> {
-  const signed = sign(method, target, host, CREDENTIAL, new Date(), body);
-  return await fetch(signed.url, {
-    method,
-    headers: { ...signed.headers, ...extra, "content-length": String(body.length) },
-    ...(body.length > 0 ? { body } : {}),
+const put = (target: string, text: string, headers: Record<string, string> = {}): Promise<Response> =>
+  send(WRITE_HOST, "PUT", target, { body: Buffer.from(text), headers });
+
+async function begin(key: string, headers: Record<string, string> = {}): Promise<string> {
+  const begun = await send(WRITE_HOST, "POST", `/drive/${key}?uploads=`, { headers });
+  assert.equal(begun.status, 200);
+  const uploadId = values(await begun.text(), "UploadId")[0];
+  assert.ok(uploadId !== undefined && uploadId !== "", "no upload id came back");
+  return uploadId;
+}
+
+/** Stage the pieces, then finish with the list of what came back — the way every client does. */
+async function upload(key: string, pieces: ReadonlyArray<[number, string]>): Promise<Response> {
+  const uploadId = await begin(key);
+  const tags = new Map<number, string>();
+  for (const [n, text] of pieces) {
+    const res = await put(`/drive/${key}?partNumber=${n}&uploadId=${uploadId}&x-id=UploadPart`, text);
+    assert.equal(res.status, 200);
+    tags.set(n, res.headers.get("etag") ?? "");
+  }
+  const list = [...tags.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([n, etag]) => `<Part><PartNumber>${n}</PartNumber><ETag>${etag}</ETag></Part>`)
+    .join("");
+  return await send(WRITE_HOST, "POST", `/drive/${key}?uploadId=${uploadId}`, {
+    body: Buffer.from(`<CompleteMultipartUpload>${list}</CompleteMultipartUpload>`),
   });
 }
 
 // ⛔ MEASURED FROM A REAL CLIENT: rclone's first act when copying a file is to create the bucket.
 //    Refusing it ends the copy before the upload is attempted.
 test("making the bucket that is already there succeeds", async () => {
-  assert.equal((await send("PUT", "/drive")).status, 200);
+  assert.equal((await send(WRITE_HOST, "PUT", "/drive")).status, 200);
 });
 
-test("a file arrives whole, at the key the client used", async () => {
-  const body = Buffer.from("hello from a sync tool\n");
-  const res = await send("PUT", "/drive/notes/new.txt?x-id=PutObject", body);
+test("a file arrives whole, at the key the client used, and its tag is what HEAD answers", async () => {
+  const res = await put("/drive/notes/new.txt?x-id=PutObject", "hello from a sync tool\n");
   assert.equal(res.status, 200);
-  assert.deepEqual(written.at(-1), { key: "notes/new.txt", bytes: body.toString() });
+  assert.equal(drive.textAt("notes/new.txt"), "hello from a sync tool\n");
+  const etag = res.headers.get("etag");
+  assert.match(etag ?? "", /^"[0-9a-f]{32}-1"$/);
+  const head = await send(WRITE_HOST, "HEAD", "/drive/notes/new.txt");
+  assert.equal(head.headers.get("etag"), etag, "PUT and HEAD answered different tags");
+  const listed = await (await send(WRITE_HOST, "GET", "/drive?list-type=2&prefix=notes%2F")).text();
+  // The folder's own marker, `notes/`, lists first with the empty object's tag.
+  assert.deepEqual(values(listed, "Key"), ["notes/", "notes/new.txt"]);
+  assert.deepEqual(values(listed, "ETag"), [EMPTY_ETAG, etag], "the listing answered a different tag");
 });
 
 // ⛔ THE ONE THAT KEEPS A SYNC TOOL FROM DUPLICATING FOREVER. This drive does not replace files,
 //    so DIFFERENT content at a taken key is declined — and declined with 409, because the request
 //    was well formed and the drive said no. A 500 would have the client retry it forever.
 test("⛔ a key that already holds a DIFFERENT file is a conflict, and nothing is written", async () => {
-  const before = written.length;
-  const res = await send("PUT", "/drive/readme.txt", Buffer.from("replacement"));
+  const before = drive.stores.length;
+  const res = await put("/drive/readme.txt", "replacement");
   assert.equal(res.status, 409);
-  assert.match(await res.text(), /does not replace files/);
-  assert.equal(written.length, before, "it uploaded over an existing file");
+  const body = await res.text();
+  assert.match(body, /<Code>InvalidRequest<\/Code>/);
+  assert.match(body, /does not replace files/);
+  assert.equal(drive.stores.length, before, "it uploaded over an existing file");
+  assert.equal(drive.textAt("readme.txt"), "the readme, exactly as stored\n");
 });
 
 // ⭐ THE SAME BYTES AT THE SAME KEY IS NOT A FAILURE, it is a file that is already there. A backup
 //    program sends the same names every night, and answering 409 made every one of those nights a
 //    page of errors.
-test("⭐ the SAME file at a taken key is answered 200, and nothing is uploaded", async () => {
-  const before = written.length;
-  const res = await send("PUT", "/drive/readme.txt", Buffer.from("the readme, exactly as stored\n"));
+test("⭐ the SAME file at a taken key is answered 200 with its tag, and nothing is uploaded", async () => {
+  const before = drive.stores.length;
+  const head = await send(WRITE_HOST, "HEAD", "/drive/readme.txt");
+  const res = await put("/drive/readme.txt", "the readme, exactly as stored\n");
   assert.equal(res.status, 200, "an unchanged file must not read as a failure");
-  assert.equal(written.length, before, "it sent bytes for a file that was already stored");
+  assert.equal(res.headers.get("etag"), head.headers.get("etag"));
+  assert.equal(drive.stores.length, before, "it sent bytes for a file that was already stored");
+});
+
+test("what the client said about the file reaches the store: storage class and type", async () => {
+  await put("/drive/meta.txt", "x", { "x-amz-storage-class": " standard_ia ", "content-type": "text/plain" });
+  assert.deepEqual(drive.stores.at(-1)?.meta, { storageClass: "STANDARD_IA", contentType: "text/plain" });
+  await put("/drive/bare.txt", "y");
+  assert.deepEqual(drive.stores.at(-1)?.meta, { storageClass: null, contentType: null });
 });
 
 test("deleting puts the file in the trash, and deleting nothing is still fine", async () => {
-  assert.equal((await send("DELETE", "/drive/readme.txt")).status, 204);
-  assert.deepEqual(trashed.at(-1), "readme.txt");
-  const again = await send("DELETE", "/drive/not-there.txt");
+  await drive.seed("doomed.txt", "bye");
+  assert.equal((await send(WRITE_HOST, "DELETE", "/drive/doomed.txt")).status, 204);
+  assert.equal(drive.trashed.at(-1), "/doomed.txt");
+  const again = await send(WRITE_HOST, "DELETE", "/drive/doomed.txt");
   assert.equal(again.status, 204, "a second delete of the same key must not fail a sync");
 });
 
 // ⛔ WITHOUT THE SPENDING AGREEMENT EVERY WRITE IS REFUSED, and the refusal names the one command
 //    that changes it. A gateway cannot ask: its caller is a program.
 test("⛔ with no writer, writes are refused and say why", async () => {
-  const res = await send("PUT", "/drive/new.txt", Buffer.from("x"), {}, HOST);
+  const res = await send(HOST, "PUT", "/drive/new.txt", { body: Buffer.from("x") });
   assert.equal(res.status, 501);
   const body = await res.text();
   assert.match(body, /read only/i);
   assert.match(body, /consent grant spend/);
-  assert.equal((await send("DELETE", "/drive/readme.txt", Buffer.alloc(0), {}, HOST)).status, 501);
+  assert.equal((await send(HOST, "DELETE", "/drive/readme.txt")).status, 501);
+  assert.equal((await send(HOST, "PUT", "/drive/c.txt", { headers: { "x-amz-copy-source": "drive/readme.txt" } })).status, 501);
 });
 
 // ⛔ MEASURED FROM A REAL CLIENT, AND THE ORDER IS THE POINT: rclone sent parts 1, 3, 2.
-test("a file that arrives in pieces is stored whole, in order", async () => {
-  const begun = await send("POST", "/drive/big.bin?uploads=");
-  assert.equal(begun.status, 200);
-  const uploadId = /<UploadId>([^<]+)<\/UploadId>/.exec(await begun.text())?.[1];
-  assert.ok(uploadId !== undefined, "no upload id came back");
-  const at = (n: number, text: string): Promise<Response> =>
-    send("PUT", `/drive/big.bin?partNumber=${n}&uploadId=${uploadId}&x-id=UploadPart`, Buffer.from(text));
-  assert.equal((await at(1, "ONE-")).status, 200);
-  assert.equal((await at(3, "THREE")).status, 200);
-  assert.equal((await at(2, "TWO-")).status, 200);
-  const done = await send("POST", `/drive/big.bin?uploadId=${uploadId}`, Buffer.from("<CompleteMultipartUpload/>"));
+test("a file that arrives in pieces is stored whole, in order, and answers the tag HEAD does", async () => {
+  const done = await upload("big.bin", [
+    [1, "ONE-"],
+    [3, "THREE"],
+    [2, "TWO-"],
+  ]);
   assert.equal(done.status, 200);
-  assert.match(await done.text(), /<Key>big\.bin<\/Key>/);
-  assert.deepEqual(written.at(-1), { key: "big.bin", bytes: "ONE-TWO-THREE" });
+  const body = await done.text();
+  assert.deepEqual(values(body, "Key"), ["big.bin"]);
+  assert.equal(drive.textAt("big.bin"), "ONE-TWO-THREE");
+  const head = await send(WRITE_HOST, "HEAD", "/drive/big.bin");
+  assert.deepEqual(values(body, "ETag"), [head.headers.get("etag") ?? ""]);
+});
+
+test("what the client said when it began reaches the store when it finishes", async () => {
+  const uploadId = await begin("pieces-meta.bin", { "x-amz-storage-class": "glacier", "content-type": "image/png" });
+  const part = await put(`/drive/pieces-meta.bin?partNumber=1&uploadId=${uploadId}`, "abc");
+  const list = `<Part><PartNumber>1</PartNumber><ETag>${part.headers.get("etag") ?? ""}</ETag></Part>`;
+  const done = await send(WRITE_HOST, "POST", `/drive/pieces-meta.bin?uploadId=${uploadId}`, {
+    body: Buffer.from(`<CompleteMultipartUpload>${list}</CompleteMultipartUpload>`),
+  });
+  assert.equal(done.status, 200);
+  await done.text();
+  assert.deepEqual(drive.stores.at(-1)?.meta, { storageClass: "GLACIER", contentType: "image/png" });
 });
 
 // ⛔ ONE RULE FOR BOTH SIZES. A client switches to pieces above a size of its own choosing, so a
 //    rule that differs between the two shows up only above that threshold — on the large files.
-//    ⚠ The verdict now lands at COMPLETE rather than at begin: until the pieces are one file there
-//      is nothing to hash, and refusing at begin is refusing on the strength of the name again.
+//    ⚠ The finish's refusal carries the same code as the whole upload's, inside a 200: only the
+//      joined bytes can decide it, and by then the finish has begun answering (`long-answer.ts`).
 test("⛔ pieces that add up to a DIFFERENT file are the same refusal as a whole one", async () => {
-  const before = written.length;
-  const begun = await send("POST", "/drive/readme.txt?uploads=");
-  assert.equal(begun.status, 200, "it refused before it could know what was arriving");
-  const uploadId = /<UploadId>([^<]+)<\/UploadId>/.exec(await begun.text())?.[1];
-  assert.ok(uploadId !== undefined);
-  await send("PUT", `/drive/readme.txt?partNumber=1&uploadId=${uploadId}`, Buffer.from("something else"));
-  const done = await send("POST", `/drive/readme.txt?uploadId=${uploadId}`, Buffer.from("<CompleteMultipartUpload/>"));
-  assert.equal(done.status, 409, "large files got a different rule from small ones");
-  assert.equal(written.length, before, "it uploaded over an existing file");
+  const before = drive.stores.length;
+  const whole = await put("/drive/readme.txt", "something else");
+  assert.equal(whole.status, 409);
+  const done = await upload("readme.txt", [[1, "something else"]]);
+  // Refused inside the first keep-alive interval, so with the same status too (`long-answer.ts`).
+  assert.equal(done.status, 409);
+  const codes = values(await done.text(), "Code");
+  assert.deepEqual(codes, values(await whole.text(), "Code"), "large files got a different rule from small ones");
+  assert.deepEqual(codes, ["InvalidRequest"]);
+  assert.equal(drive.stores.length, before, "it uploaded over an existing file");
 });
 
 test("⭐ pieces that add up to the SAME file are answered 200, and nothing is uploaded", async () => {
-  const before = written.length;
-  const begun = await send("POST", "/drive/readme.txt?uploads=");
-  const uploadId = /<UploadId>([^<]+)<\/UploadId>/.exec(await begun.text())?.[1];
-  assert.ok(uploadId !== undefined);
-  await send("PUT", `/drive/readme.txt?partNumber=1&uploadId=${uploadId}`, Buffer.from("the readme, "));
-  await send("PUT", `/drive/readme.txt?partNumber=2&uploadId=${uploadId}`, Buffer.from("exactly as stored\n"));
-  const done = await send("POST", `/drive/readme.txt?uploadId=${uploadId}`, Buffer.from("<CompleteMultipartUpload/>"));
+  const before = drive.stores.length;
+  const done = await upload("readme.txt", [
+    [1, "the readme, "],
+    [2, "exactly as stored\n"],
+  ]);
   assert.equal(done.status, 200);
-  assert.equal(written.length, before, "it sent bytes for a file that was already stored");
+  assert.match(await done.text(), /<CompleteMultipartUploadResult /);
+  assert.equal(drive.stores.length, before, "it sent bytes for a file that was already stored");
 });
 
 test("⛔ with no writer, a piecewise upload is refused too", async () => {
-  const res = await send("POST", "/drive/big2.bin?uploads=", Buffer.alloc(0), {}, HOST);
+  const res = await send(HOST, "POST", "/drive/big2.bin?uploads=");
   assert.equal(res.status, 501);
   assert.match(await res.text(), /consent grant spend/);
 });
 
 test("aborting a piecewise upload answers 204", async () => {
-  const begun = await send("POST", "/drive/gone.bin?uploads=");
-  const uploadId = /<UploadId>([^<]+)<\/UploadId>/.exec(await begun.text())?.[1] ?? "";
-  const res = await send("DELETE", `/drive/gone.bin?uploadId=${uploadId}`);
+  const uploadId = await begin("gone.bin");
+  const res = await send(WRITE_HOST, "DELETE", `/drive/gone.bin?uploadId=${uploadId}`);
   assert.equal(res.status, 204);
 });
 
-test("⛔ a chunk-signed body is refused rather than stored wrong", async () => {
-  // The signature is computed over the literal, exactly as a client sending chunks would.
-  const signed = sign("PUT", "/drive/chunked.bin", WRITE_HOST, CREDENTIAL, new Date());
-  const headers = { ...signed.headers, "x-amz-content-sha256": "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" };
-  const resigned = sign("PUT", "/drive/chunked.bin", WRITE_HOST, CREDENTIAL, new Date());
-  void resigned;
-  const res = await fetch(signed.url, {
-    method: "PUT",
-    headers: { ...headers, "content-length": "0" },
+// ⛔ THE BODY'S OWN RULES DECIDE BEFORE ANYTHING IS STORED. The signature covers the digest the
+//    client declared, not the bytes; bytes that do not hash to it are refused as the body decoder
+//    says, and never become somebody's file.
+test("⛔ a body that does not hash to what was signed is refused, and nothing is stored", async () => {
+  const before = drive.stores.length;
+  const signed = sign("PUT", "/drive/tampered.txt", WRITE_HOST, CREDENTIAL, new Date(), Buffer.from("what was signed"));
+  const res = await raw(
+    WRITE_HOST,
+    "PUT",
+    "/drive/tampered.txt",
+    { ...signed.headers, "content-length": "15" },
+    Buffer.from("what was sent!!"),
+  );
+  assert.ok(res.status >= 400 && res.status < 500, `answered ${res.status}`);
+  assert.doesNotMatch(res.body, /InternalError/);
+  assert.equal(drive.stores.length, before, "a body that failed its digest was stored");
+  assert.equal(drive.textAt("tampered.txt"), undefined);
+});
+
+test("⛔ an upload with no length is refused as S3 refuses it, not stored as an empty file", async () => {
+  const signed = sign("PUT", "/drive/lengthless.txt", WRITE_HOST, CREDENTIAL, new Date(), Buffer.alloc(0));
+  const res = await raw(WRITE_HOST, "PUT", "/drive/lengthless.txt", {
+    ...signed.headers,
+    "transfer-encoding": "chunked",
   });
-  // The declared hash is part of the signature, so changing it fails the signature first — which is
-  // also a refusal, and the one that matters: nothing is stored either way.
-  assert.equal(res.status, 403);
+  assert.equal(res.status, 411);
+  assert.match(res.body, /<Code>MissingContentLength<\/Code>/);
+  assert.equal(drive.textAt("lengthless.txt"), undefined);
 });

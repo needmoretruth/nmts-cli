@@ -29,6 +29,12 @@ import { NCF3_SHAPE } from "./seal.js";
 import { freeCeiling, keepLengths, padmeLen, pow2Len, } from "./shared/lib/crypto/size-padding.js";
 import { buildIndex, KIND_FOLDER, pathOf } from "./shared/lib/drive/manifest-index.js";
 import { NETWORK_WHEN_UNRECORDED, networkName, } from "./shared/lib/storage-network.js";
+import { NETWORK_FILECOIN } from "./shared/lib/storage-network.js";
+import { FILECOIN_CHAIN_FOR_NETWORK } from "./shared/lib/filecoin/providers.js";
+/** The Filecoin chain that goes with this list's chain; null for one this build does not pair. */
+function filecoinChainOf(chain) {
+    return chain === "testnet" || chain === "mainnet" ? FILECOIN_CHAIN_FOR_NETWORK[chain] : null;
+}
 import { CREDIT_BYTES } from "./upload-price.js";
 const utf8 = new TextEncoder();
 /** Path of the account root. Every file sits at this or below it. */
@@ -169,6 +175,16 @@ export function buildRecoveryList(input) {
                 part.padded_len = p.streamPlaintextLen;
             if (p.sui_object_id !== undefined)
                 part.sui_object_id = p.sui_object_id;
+            // NRM-5: a Heavy part also names its Filecoin chain — this build's, as for every other network
+            // fact in the list — and the companies keeping it, in the order the server stored them. The
+            // encoder refuses the part if either is not something a reader accepts.
+            if (p.network === NETWORK_FILECOIN) {
+                const chain = filecoinChainOf(input.meta.storage.chain);
+                if (chain !== null)
+                    part.chain = chain;
+                if (p.copies !== undefined)
+                    part.copies = p.copies;
+            }
             return part;
         });
         // A quilted file is one patch inside one shared blob — by construction one part — so the

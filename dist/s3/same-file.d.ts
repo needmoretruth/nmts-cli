@@ -1,4 +1,5 @@
 import type { ManifestEntry } from "../shared/lib/drive/manifest-codec.ts";
+import { type DriveObject } from "./listing.ts";
 import { NmtsError } from "../errors.ts";
 /** What this drive holds at a key, compared with what is arriving. */
 export type SameFile = 
@@ -42,6 +43,8 @@ export declare function recordedHash(accountCode: string, contentHashCt: string 
  *   and pays nothing for this.
  */
 export declare function verdictForKey(entries: readonly ManifestEntry[], key: string, accountCode: string, path: string): Promise<SameFile>;
+/** The same question, for the file already found at the key (or nothing). */
+export declare function verdictFor(standing: DriveObject | undefined, accountCode: string, path: string): Promise<SameFile>;
 /** The verdict, given what is on record and what arrived. */
 export declare function compare(recorded: Uint8Array | null | undefined, arriving: Uint8Array): SameFile;
 /**
@@ -51,4 +54,4 @@ export declare function compare(recorded: Uint8Array | null | undefined, arrivin
  *    file that changed and for a file this drive cannot compare, and the two need different things
  *    from the person reading the log.
  */
-export declare function refusalFor(verdict: "differs" | "unknown", key: string): KeyConflict;
+export declare function refusalFor(verdict: "differs" | "unknown" | "spelling", key: string, standing?: string): KeyConflict;

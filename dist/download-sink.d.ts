@@ -25,4 +25,19 @@ export interface PlaintextSink {
     commit(): Promise<boolean>;
     /** Something did not check out: leave nothing behind. Never throws. */
     abandon(): Promise<void>;
+    /**
+     * A destination that keeps only SOME of the file — an HTTP range — says which bytes, inclusive.
+     * Absent (or null) is the whole file, which is every sink but one.
+     *
+     * ⚠ WITH `skip`, AND ONLY WITH IT, a reader may leave out whole stored parts that end before
+     *   `start`, and stop reading once `end` is written: a late range then costs the parts it falls
+     *   in rather than every part before it. A sink that names a window must still cut what it is
+     *   given, because a reader is free to hand it everything.
+     */
+    readonly window?: {
+        readonly start: number;
+        readonly end: number;
+    } | null | undefined;
+    /** Told, before the next write, that the reader left out this many bytes of the file. */
+    skip?(bytes: number): void;
 }

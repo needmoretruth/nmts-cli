@@ -26,6 +26,8 @@ export function isolate(): string {
 }
 
 export const SEALED = new Uint8Array([9, 8, 7, 6, 5, 4, 3, 2, 1, 0]);
+/** The run id every single-part input here is an upload under. */
+export const RUN_ID = "run-1";
 export const BLOB_OF_SEALED = blobIdOf(SEALED);
 
 /** The storage network's id for some bytes, as this fake computes it. */
@@ -119,6 +121,7 @@ export function inputFor(api: UploadApi, protocol: BlobProtocol, key: string): U
   return {
     api,
     protocol,
+    runId: RUN_ID,
     key,
     sealed: SEALED,
     relayUrl: "https://relay.example",
@@ -150,7 +153,7 @@ export async function uploadOnePart(
   // ⛔ THE SAME SHORT CIRCUIT THE ORCHESTRATOR HAS. A committed file needs nothing from the server,
   //    and asking anyway would be a round trip per part to learn what the record already says.
   const committed = await readItemRecord(input.key);
-  if (committed?.itemId !== undefined) {
+  if (committed?.itemId !== undefined && (committed.runId === undefined || committed.runId === input.runId)) {
     return { itemId: committed.itemId, resumed: true, ledgerId: 0 };
   }
   const part = await buyAndPushPart(input);

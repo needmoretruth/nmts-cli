@@ -1,3 +1,4 @@
+import { type PartView } from "./download-part.ts";
 import type { PlaintextSink } from "./download-sink.ts";
 import type { ReadOptions } from "./walrus.ts";
 export interface FetchedFile {
@@ -74,6 +75,19 @@ export declare function fetchWithKey(input: {
     chain: string;
     read?: ReadOptions;
     /** Where the plaintext goes as it is decrypted. Committed only after the whole file checks out. */
+    sink: PlaintextSink;
+}): Promise<FetchedFile>;
+/**
+ * Fetch, decrypt and verify a file whose key is open AND whose pieces are already known — a
+ * handover file carries them sealed, so the NMTS server is asked nothing at all.
+ */
+export declare function fetchKnownParts(input: {
+    parts: readonly PartView[];
+    size: number;
+    dek: Uint8Array;
+    expected: Uint8Array;
+    chain: string;
+    read?: ReadOptions;
     sink: PlaintextSink;
 }): Promise<FetchedFile>;
 export declare function fetchFile(input: FetchInput): Promise<FetchedFile>;

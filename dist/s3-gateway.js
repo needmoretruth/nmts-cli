@@ -8,6 +8,9 @@
 //
 // ⚠ WHAT IS NOT HERE: the bucket name `nmts s3` uses, the address it binds, and the pair it prints
 //   when it starts. Those are that command's answers to questions a business answers for itself.
-export { createGateway, gatewayHandler } from "./s3/server.js";
+export { BODY_IDLE_MS, checkContinueHandler, createGateway, failureReasonOf, GATEWAY_SERVER_OPTIONS, gatewayHandler, refusalBeforeBody, watchBodyIdle, } from "./s3/server.js";
 export { createDriveSource, fetchObject, placeOf, LIST_CACHE_MS } from "./s3/drive.js";
-export { createStaging } from "./s3/staging.js";
+export { createKeyLocks } from "./s3/drive-lock.js";
+export { freeTrashedName } from "./s3/drive-trashed-name.js";
+export { MAX_CONCURRENT_WRITES, MAX_UPLOADS_PER_BUCKET } from "./s3/drive-limits.js";
+export { createStaging, createStagingStore, SWEEP_EVERY_MS, UPLOAD_LIFETIME_MS } from "./s3/staging.js";

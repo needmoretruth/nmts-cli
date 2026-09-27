@@ -47,7 +47,7 @@ export declare function runLogIsOff(): boolean;
  * ⚠ The path is recorded as it was requested, query string and all. Anything secret in it is a
  *   label by the time it lands: `redact` runs over the whole record before it is written.
  */
-export declare function noteRequest(method: string, path: string, status: number, error?: string): void;
+export declare function noteRequest(method: string, requested: string, status: number, error?: string): void;
 /** This run failed, with this sentence. Called from the entry point's own catch. */
 export declare function noteFailure(message: string): void;
 /** Throw away what has been collected. For tests, and for a second run inside one process. */

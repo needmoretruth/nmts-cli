@@ -23,6 +23,12 @@
 // ⚠ WHAT THIS CANNOT DO is tell an agent from a person. Nothing on a command line can. What it can
 //   do is make the destructive answer require a setting that was turned on deliberately, and say
 //   which setting decided.
+//
+// ⛔ A PROGRAM'S OWN CALL IS NOT A COMMAND LINE. `put(file, { onCollision })` in a library is
+//    written into a program by whoever wrote the program, and calling it is that program's
+//    decision — the same way calling it is the agreement to spend. It arrives here as a
+//    `ProgramChoice`, which nothing that reads a command line or a tool call can produce: those
+//    parse into a bare word and stay held to the modes.
 import { currentMode, type Autonomy } from "./autonomy.ts";
 import { fromUtf8, utf8 } from "./bytes.ts";
 import { NmtsError } from "./errors.ts";
@@ -34,6 +40,18 @@ const KEY = "collision";
 
 /** What to do with a name that is already in use. Mirrors the browser's two buttons. */
 export type OnCollision = "rename" | "overwrite";
+
+/** What a program passed in its own call, for that one upload. Taken as given — see the header. */
+export interface ProgramChoice {
+  readonly choice: OnCollision;
+  readonly by: "program";
+}
+
+/**
+ * What one upload was told about a taken name: a bare word from a command line or a tool call,
+ * which is held to the modes, or a program's own choice, which is not.
+ */
+export type CollisionAsk = OnCollision | ProgramChoice;
 
 export const COLLISION_CHOICES: readonly OnCollision[] = ["rename", "overwrite"];
 
@@ -115,8 +133,9 @@ export interface Decision {
    * `setting` — what a person answered at setup, or the default when nobody has.
    * `asked-for` — an agent asked for this run to overwrite, and a mode allows it.
    * `agent-refused` — an agent asked to overwrite while no mode is on, so it renames instead.
+   * `program` — a program's own call said which, and that is the answer.
    */
-  readonly by: "setting" | "asked-for" | "agent-refused";
+  readonly by: "setting" | "asked-for" | "agent-refused" | "program";
 }
 
 /**
@@ -132,15 +151,26 @@ export interface Decision {
  *
  * ⛔ THE OVERRIDE IS ONE-WAY. A mode can let `overwrite` through; nothing here turns a `rename`
  *    into an `overwrite`.
+ *
+ * ⛔ A PROGRAM'S CHOICE IS ANSWERED BEFORE ANY OF THAT, and only a `ProgramChoice` is one. A bare
+ *    `"overwrite"` is a command line's, whoever hands it in.
  */
 export async function decide(
-  /** What this run asked for, if anything. `undefined` means "use what this machine is set to". */
-  askedFor?: OnCollision,
+  /**
+   * What this run asked for, if anything. `undefined` — or `null`, which is how untyped code and
+   * JSON say "nothing" — means "use what this machine is set to".
+   */
+  askedFor?: CollisionAsk | null,
   setting?: OnCollision,
   mode?: Autonomy,
 ): Promise<Decision> {
-  if (askedFor === undefined) return { choice: setting ?? (await currentChoice()), by: "setting" };
-  if (askedFor === "rename") return { choice: "rename", by: "asked-for" };
+  // ⛔ NULL IS CHECKED BEFORE `typeof … === "object"`, which is also true of null: read as a
+  //    program's choice it threw on `.choice` instead of answering.
+  if (askedFor === undefined || askedFor === null) return { choice: setting ?? (await currentChoice()), by: "setting" };
+  // ⚠ Only the exact word overwrites, as at the setup question: a value from untyped code that is
+  //   neither word is the answer that destroys nothing.
+  if (typeof askedFor === "object") return { choice: askedFor.choice === "overwrite" ? "overwrite" : "rename", by: "program" };
+  if (askedFor !== "overwrite") return { choice: "rename", by: "asked-for" };
   if ((mode ?? (await currentMode())) === "default") return { choice: "rename", by: "agent-refused" };
   return { choice: "overwrite", by: "asked-for" };
 }

@@ -98,6 +98,7 @@ async function attempt(open, row) {
         return await open(row);
     }
     catch {
+        // Every way the reader throws means the bytes did not arrive, which is `unreadable`.
         return { ok: false, reason: "unreadable" };
     }
 }

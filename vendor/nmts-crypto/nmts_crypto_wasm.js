@@ -498,6 +498,34 @@ export function envelope_seal(key, aad, plaintext) {
 }
 
 /**
+ * The secp256k1 private key (32 bytes, big-endian) of EVM wallet number `index` from the 32-byte
+ * `wallet_root` (NCF-3 §1.9) — the key that pays for NMTS Heavy on Filecoin when a person pays
+ * from their own EVM wallet.
+ *
+ * ⛔ Like `wallet_seed_for`, this hands back key material. It is called in-process by the crypto
+ * worker and by the command-line tool; no page-facing RPC returns it.
+ *
+ * ⚠ The ADDRESS is deliberately not exported. Computing it needs the curve's point arithmetic,
+ * which added 63 KB to a package every visitor downloads (measured 2026-09-24: 539,169 → 602,131
+ * bytes; the key alone is 545,338) for a value no browser screen shows. The command-line tool and
+ * the recovery tool compute the address themselves.
+ * @param {Uint8Array} wallet_root
+ * @param {number} index
+ * @returns {Uint8Array}
+ */
+export function evm_key_for(wallet_root, index) {
+    const ptr0 = passArray8ToWasm0(wallet_root, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.evm_key_for(ptr0, len0, index);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
  * A fresh random 32-byte file DEK (WebCrypto-backed).
  * @returns {Uint8Array}
  */

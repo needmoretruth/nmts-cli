@@ -12,6 +12,7 @@ import {
   decide,
   parseAsked,
   readAnswer,
+  type ProgramChoice,
 } from "../src/collision.ts";
 import { onCollision } from "../src/commands/on-collision.ts";
 
@@ -43,6 +44,43 @@ test("with a mode on, an agent may ask for an overwrite", async () => {
 
 test("⛔ a mode never turns a rename into an overwrite — the override is one way", async () => {
   assert.equal((await decide("rename", "overwrite", "skip-permissions")).choice, "rename");
+});
+
+test("a program's own choice is its answer, whatever the modes and the machine say", async () => {
+  // `put(file, { onCollision })` is written into a program by whoever wrote it; the modes are about
+  // what an agent at a command line may decide by itself, which this is not.
+  assert.deepEqual(await decide({ choice: "overwrite", by: "program" }, "rename", "default"), {
+    choice: "overwrite",
+    by: "program",
+  });
+  assert.deepEqual(await decide({ choice: "rename", by: "program" }, "overwrite", "skip-permissions"), {
+    choice: "rename",
+    by: "program",
+  });
+});
+
+test("⛔ what a command line can say is a bare word, and a bare word is still held to the modes", async () => {
+  // Nothing that reads `--on-collision` or a tool call can make a program's choice: it parses to a
+  // word, and that word, with no mode on, renames.
+  const typed = parseAsked("overwrite");
+  assert.equal(typeof typed, "string");
+  assert.deepEqual(await decide(typed, "rename", "default"), { choice: "rename", by: "agent-refused" });
+});
+
+test("⛔ a program's choice that is neither word destroys nothing", async () => {
+  // What untyped code can hand in: `JSON.parse` answers whatever the text says, whatever the type.
+  const asked: ProgramChoice = JSON.parse('{"choice":"overwite","by":"program"}');
+  assert.deepEqual(await decide(asked, "overwrite", "skip-permissions"), { choice: "rename", by: "program" });
+});
+
+test("⛔ null from untyped code means nothing was asked, and a word that is neither never overwrites", async () => {
+  // `typeof null` is "object": read as a program's choice, null threw on `.choice`.
+  const nothing: ProgramChoice | undefined = JSON.parse("null");
+  assert.deepEqual(await decide(nothing, "rename", "skip-permissions"), { choice: "rename", by: "setting" });
+  assert.deepEqual(await decide(nothing, "overwrite", "default"), { choice: "overwrite", by: "setting" });
+  // With a mode on, only the exact word may overwrite; anything else untyped code hands in renames.
+  const junk: "overwrite" = JSON.parse('"overwite"');
+  assert.deepEqual(await decide(junk, "rename", "skip-permissions"), { choice: "rename", by: "asked-for" });
 });
 
 test("⛔ each choice says what it does in one line, and neither claims a permanence this tool has not got", () => {

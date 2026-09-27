@@ -32,6 +32,12 @@ export interface ListQuery {
 /**
  * An ETag that is stable for a file and changes when the file does.
  *
+ * ⛔ IT IS A HASH OF WHAT CHANGES WHEN THE FILE DOES: the entry's id, its time and its size. A file
+ *    replaced at the same key is a new entry; one edited in place has a new time. The tag used to
+ *    be the id and the time laid side by side and cut to 32 characters, which for a long id cut the
+ *    time off altogether — and a tag that does not change when the file does is how a sync tool
+ *    decides there is nothing to fetch.
+ *
  * ⛔ IT ENDS IN `-1` FOR A REASON. S3 clients treat an ETag that looks like a hex digest as the
  *    MD5 of the object and check downloads against it; this drive has no MD5 of anything -- the
  *    bytes are encrypted before they leave the machine and the digest it does keep is a different
@@ -40,7 +46,27 @@ export interface ListQuery {
  *    reported as corrupt.
  */
 export declare function etagOf(entry: ManifestEntry): string;
-/** Every live file in the account, as keys, in the order S3 promises: ascending by key. */
+/** The tag of an object with no bytes: the MD5 of nothing, which is what S3 answers for one. */
+export declare const EMPTY_ETAG = "\"d41d8cd98f00b204e9800998ecf8427e\"";
+/**
+ * Two keys in the order S3 lists them, which is the order of their UTF-8 bytes.
+ *
+ * ⛔ NOT `<`. JavaScript compares UTF-16 code units, and those put a character above U+FFFF (most
+ *    emoji) BEFORE one in U+E000–U+FFFF, where UTF-8 puts it after. A client that pages through a
+ *    listing resumes after the last key it saw, so a listing in the other order skips keys or
+ *    repeats them.
+ */
+export declare function compareKeys(a: string, b: string): number;
+/** True for the key of a folder marker: it ends in `/`. */
+export declare function isFolderKey(key: string): boolean;
+/**
+ * Every live file in the account, and every live folder as its marker, as keys, in the order S3
+ * promises: ascending by key.
+ *
+ * ⚠ A MARKER'S ENTRY IS THE FOLDER'S, WITH AN EMPTY `dekWrapped`. A folder has no key to open, and
+ *   the reader refuses an entry with none; the empty string says "nothing to open", and the drive's
+ *   own `fetch` answers a folder with no bytes before anything would try.
+ */
 export declare function objectsOf(entries: readonly ManifestEntry[]): DriveObject[];
 /** Every live folder, as a key ending in the delimiter — see the note at the top of this file. */
 export declare function folderPrefixesOf(entries: readonly ManifestEntry[]): string[];

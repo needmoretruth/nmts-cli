@@ -27,7 +27,7 @@ import { writeChunkedList, type ChunkIO } from "./manifest-chunk-flow.ts";
 import { readFileList, recordWrittenList } from "./manifest.ts";
 import type { ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";
 import { buildIndex, entryAt, type FindOptions, isLive, KIND_FILE, namesIn, normaliseName } from "./drive-paths.ts";
-import { decide, type OnCollision } from "./collision.ts";
+import { decide, type CollisionAsk, type OnCollision } from "./collision.ts";
 import {
   applyIntents,
   applySettingsPatch,
@@ -225,9 +225,10 @@ export interface AddEntryInput extends ListEditInput {
   entry: ManifestEntry;
   /**
    * What THIS run asked for when the name is already in use. Absent = whatever this machine is
-   * set to (`collision.ts`), which is what an ordinary upload wants.
+   * set to (`collision.ts`), which is what an ordinary upload wants. A program's own choice comes
+   * as a `ProgramChoice`, and `collision.ts` says why that one is not held to the modes.
    */
-  onCollision?: OnCollision;
+  onCollision?: CollisionAsk;
 }
 
 export interface AddEntryResult {

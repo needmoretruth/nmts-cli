@@ -38,13 +38,16 @@ import { addEntry } from "./manifest-write.js";
 import { sealedLenFor } from "./seal.js";
 import { statusOf } from "./shared/lib/storage-control/plan.js";
 import { createUploadApi } from "./upload-api.js";
-import { partKeysOf, uploadFile } from "./upload-file.js";
+import { uploadFile } from "./upload-file.js";
 import { CREDIT_BYTES, planAndPrice } from "./upload-price.js";
-import { clearItemRecord, clearReservation } from "./upload-store.js";
+import { forgetUpload } from "./upload-run.js";
 import { walletRail } from "./upload-wallet.js";
 import { chooseUploadEpochs, daysOf, parseStorageAsk, pickResource, uploadBudget, uploadShortfallNextStep, } from "./upload-wallet-plan.js";
+import { UploadError } from "./upload-wire.js";
 import { walletAddress } from "./wallet.js";
 import { createBlobProtocol } from "./walrus-write.js";
+/** The `code` of the refusal a wallet known to be short of either coin is answered with. */
+export const WALLET_SHORT = "WALLET_SHORT";
 /**
  * Price, agree, sign, upload and record ONE file, paid from the wallet the NMTS key derives.
  *
@@ -130,8 +133,17 @@ export async function walletPut(ctx, file, seams = {}) {
     if (seams.dryRun === true)
         return { kind: "review", review };
     // ⛔ A WALLET KNOWN TO BE SHORT IS REFUSED BEFORE THE AGREEMENT IS ASKED FOR (`extend-budget.ts`).
+    //    As the refusal a program branches on: `WALLET_SHORT`, where a credit shortfall carries the
+    //    server's own code.
     if (budget.shortfall !== null) {
-        throw new NmtsError(budget.shortfall, { exitCode: 4, nextStep: uploadShortfallNextStep(budget) });
+        throw new UploadError({
+            phase: "reserve",
+            message: budget.shortfall,
+            paid: false,
+            nextStep: uploadShortfallNextStep(budget),
+            exitCode: 4,
+            code: WALLET_SHORT,
+        });
     }
     seams.agree?.(review);
     const sign = seams.sign ?? (await signers());
@@ -200,9 +212,7 @@ export async function walletPut(ctx, file, seams = {}) {
     // ⛔ ONLY NOW, AND EVERY PART — the same order the credit rail keeps and for the same reason: a
     //    paid-for file the list does not name is invisible, and the records are what let a second
     //    call finish the job without signing again.
-    await clearItemRecord(result.fileKey);
-    for (const record of partKeysOf(result.fileKey, result.parts))
-        await clearReservation(record);
+    await forgetUpload(result.fileKey, result.parts);
     if (added.replaced)
         await setTrashed(ctx.server, ctx.apiKey, added.replaced.id, true);
     return {

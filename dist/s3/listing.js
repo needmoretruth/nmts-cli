@@ -9,9 +9,13 @@
 //    entry's own field alone would list files whose bytes the server already refuses -- an S3 client
 //    would see them, ask for them, and get a failure for every one.
 //
-// ⚠ ONE DELIBERATE DIFFERENCE FROM S3: a folder holding no files still comes back as a common
-//   prefix. Real S3 has no folders, so an empty one cannot exist there; this drive does have them,
-//   and hiding them would make `rclone lsd` describe a drive that is not the one in the browser.
+// ⛔ A FOLDER IS A FOLDER MARKER: the key `photos/`, no bytes, and the tag of an empty object.
+//    That is how S3 itself holds an empty folder — the zero-byte object a console's "create folder"
+//    makes and every sync tool knows to skip — so a folder here lists, HEADs and GETs exactly like
+//    one there, and a zero-byte PUT of `photos/` is how a client makes one. Without it a folder
+//    holding no files could only be seen as a common prefix, and a client that made one with a
+//    marker was told 200 and then 404 for the key it had just written.
+import { createHash } from "node:crypto";
 import { buildIndex, fullPathOf, isLive, KIND_FOLDER } from "../drive-paths.js";
 /**
  * The bucket `nmts s3` serves. Named for what it is, and not configurable: two names for one drive
@@ -27,6 +31,12 @@ export const MAX_KEYS_LIMIT = 1000;
 /**
  * An ETag that is stable for a file and changes when the file does.
  *
+ * ⛔ IT IS A HASH OF WHAT CHANGES WHEN THE FILE DOES: the entry's id, its time and its size. A file
+ *    replaced at the same key is a new entry; one edited in place has a new time. The tag used to
+ *    be the id and the time laid side by side and cut to 32 characters, which for a long id cut the
+ *    time off altogether — and a tag that does not change when the file does is how a sync tool
+ *    decides there is nothing to fetch.
+ *
  * ⛔ IT ENDS IN `-1` FOR A REASON. S3 clients treat an ETag that looks like a hex digest as the
  *    MD5 of the object and check downloads against it; this drive has no MD5 of anything -- the
  *    bytes are encrypted before they leave the machine and the digest it does keep is a different
@@ -35,28 +45,57 @@ export const MAX_KEYS_LIMIT = 1000;
  *    reported as corrupt.
  */
 export function etagOf(entry) {
-    const id = entry.id.replace(/[^0-9a-zA-Z]/g, "");
-    const stamp = entry.updatedAt.toString(16);
-    return `"${(id + stamp).slice(0, 32).padEnd(32, "0")}-1"`;
+    const digest = createHash("sha256").update(`${entry.id}\n${entry.updatedAt}\n${entry.size}`).digest("hex");
+    return `"${digest.slice(0, 32)}-1"`;
 }
-/** Every live file in the account, as keys, in the order S3 promises: ascending by key. */
+/** The tag of an object with no bytes: the MD5 of nothing, which is what S3 answers for one. */
+export const EMPTY_ETAG = `"d41d8cd98f00b204e9800998ecf8427e"`;
+/**
+ * Two keys in the order S3 lists them, which is the order of their UTF-8 bytes.
+ *
+ * ⛔ NOT `<`. JavaScript compares UTF-16 code units, and those put a character above U+FFFF (most
+ *    emoji) BEFORE one in U+E000–U+FFFF, where UTF-8 puts it after. A client that pages through a
+ *    listing resumes after the last key it saw, so a listing in the other order skips keys or
+ *    repeats them.
+ */
+export function compareKeys(a, b) {
+    const shorter = Math.min(a.length, b.length);
+    for (let i = 0; i < shorter;) {
+        const x = a.codePointAt(i) ?? 0;
+        const y = b.codePointAt(i) ?? 0;
+        if (x !== y)
+            return x < y ? -1 : 1;
+        i += x > 0xffff ? 2 : 1;
+    }
+    return a.length === b.length ? 0 : a.length < b.length ? -1 : 1;
+}
+/** True for the key of a folder marker: it ends in `/`. */
+export function isFolderKey(key) {
+    return key.endsWith("/");
+}
+/**
+ * Every live file in the account, and every live folder as its marker, as keys, in the order S3
+ * promises: ascending by key.
+ *
+ * ⚠ A MARKER'S ENTRY IS THE FOLDER'S, WITH AN EMPTY `dekWrapped`. A folder has no key to open, and
+ *   the reader refuses an entry with none; the empty string says "nothing to open", and the drive's
+ *   own `fetch` answers a folder with no bytes before anything would try.
+ */
 export function objectsOf(entries) {
     const index = buildIndex(entries);
     const rows = [];
     for (const entry of entries) {
-        if (entry.kind === KIND_FOLDER)
-            continue;
         if (!isLive(index, entry))
             continue;
-        rows.push({
-            key: fullPathOf(index, entry).replace(/^\//, ""),
-            lastModified: new Date(entry.updatedAt).toISOString(),
-            etag: etagOf(entry),
-            size: entry.size,
-            entry,
-        });
+        const key = fullPathOf(index, entry).replace(/^\//, "");
+        const lastModified = new Date(entry.updatedAt).toISOString();
+        if (entry.kind === KIND_FOLDER) {
+            rows.push({ key: `${key}/`, lastModified, etag: EMPTY_ETAG, size: 0, entry: { ...entry, dekWrapped: "" } });
+            continue;
+        }
+        rows.push({ key, lastModified, etag: etagOf(entry), size: entry.size, entry });
     }
-    rows.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    rows.sort((a, b) => compareKeys(a.key, b.key));
     return rows;
 }
 /** Every live folder, as a key ending in the delimiter — see the note at the top of this file. */
@@ -116,10 +155,13 @@ export function listObjects(objects, folders, query) {
             rows.push({ sort: prefix, row: null, prefix });
         }
     }
-    rows.sort((a, b) => (a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0));
-    const started = query.after === null ? rows : rows.filter((r) => r.sort > (query.after ?? ""));
+    rows.sort((a, b) => compareKeys(a.sort, b.sort));
+    const after = query.after;
+    const started = after === null ? rows : rows.filter((r) => compareKeys(r.sort, after) > 0);
     const page = started.slice(0, maxKeys);
-    const truncated = started.length > page.length;
+    // ⚠ `max-keys=0` asks for nothing and is answered nothing, untruncated: S3's answer, and the only
+    //   one a client can act on — "truncated" with no key to resume after has it ask again forever.
+    const truncated = maxKeys > 0 && started.length > page.length;
     const last = page[page.length - 1];
     // ⛔ Split in a loop rather than two filter-and-map passes: a `map` over a filtered array cannot
     //    convince the type checker that the field is there, and the usual way round that is to invent

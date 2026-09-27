@@ -61,8 +61,8 @@ Four things need a person, all at the beginning. If you are being set up, hand t
 | 4. Get credits into the account | you, for the free trial (`nmts trial apply`, while step 3 is live) — a person, for a funded wallet | a terminal, or nmts.me | once, then as they run out |
 
 **Step 3 does not gate the work.** Reading, writing, listing, folders, the trash, the recovery files and the
-wallet's balances never ask about it. Exactly four things do — making another account, the free trial,
-creating a share, and moving credits between your own accounts. A lapsed check does not stop you storing and
+wallet's balances never ask about it. Exactly five things do — making another account, the free trial,
+creating a share, making a public link, and moving credits between your own accounts. A lapsed check does not stop you storing and
 fetching files; it stops you growing the account, and the account runs in a tighter rate tier until a person
 checks in again. `nmts verify --status` says whether it is live and until when; you cannot pass it
 (`nmts help verify`).

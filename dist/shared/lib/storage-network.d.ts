@@ -1,6 +1,6 @@
 /** Network codes, as stored. Fixed forever once a row carries one. */
 export declare const NETWORK_WALRUS = 0;
-/** Filecoin — product tier 「NMTS Heavy」. Reserved; no upload path exists yet. */
+/** Filecoin — what the "NMTS Heavy" tier stores on (whole copies kept by storage companies). */
 export declare const NETWORK_FILECOIN = 1;
 /** Arweave — reserved and deliberately last: it cannot be deleted, ever (BACKLOG §2.2). */
 export declare const NETWORK_ARWEAVE = 2;
@@ -18,8 +18,8 @@ export declare function networkCode(name: string): number | null;
 /**
  * What an ABSENT network field means: Walrus.
  *
- * This is a fact, not a fallback. No other network has ever had an upload path, so every part,
- * entry and map written before the field existed is on Walrus by construction. Stated as a named
- * constant so the reasoning sits next to every use of it rather than being re-derived.
+ * This is a fact, not a fallback. No other network had an upload path until well after the field
+ * existed, so every part, entry and map written without it is on Walrus by construction. Stated as
+ * a named constant so the reasoning sits next to every use of it rather than being re-derived.
  */
 export declare const NETWORK_WHEN_UNRECORDED = 0;

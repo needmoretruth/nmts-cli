@@ -256,7 +256,7 @@ test("⛔ a part on a network this build cannot read is refused before anything 
     const body = partsBody as { parts: { network: number }[] };
     const part = body.parts[0];
     assert.ok(part !== undefined);
-    part.network = 1;
+    part.network = 2; // 0 is Walrus and 1 is Filecoin (NMTS Heavy); 2 is not a network yet
 
     const destination = join(out, "n.bin");
     const failure = await get("n.bin", { server: BASE, network: "testnet", out: destination, write: collect().write }).then(

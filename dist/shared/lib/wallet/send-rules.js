@@ -45,6 +45,7 @@ export function parseTokenAmountToBaseUnits(input, decimals = TOKEN_DECIMALS) {
         return BigInt(`${intPart === "" ? "0" : intPart}${frac}`);
     }
     catch {
+        // The pattern above admits only digits; a BigInt failure still means not an amount.
         return null;
     }
 }

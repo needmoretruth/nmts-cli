@@ -81,9 +81,9 @@ export async function receive(id, options = {}) {
             ? null
             : options.out !== undefined
                 ? resolve(options.out)
-                : options.intoDir !== undefined
-                    ? destinationFor(options.intoDir, opened.name)
-                    : resolve(opened.name);
+                : // ⛔ The name is the SENDER'S choice, so it lands in a directory by its last segment only:
+                    //    `../x` or an absolute path must not put a file outside where this tool was run.
+                    destinationFor(options.intoDir ?? ".", opened.name);
         // ⛔ `--force` has nothing to overwrite on the stdout branch and is ignored there on purpose.
         //    On the disk branch the file streams into a temporary name beside the destination and is
         //    renamed into place only once the sender's digest matches, so a share that turns out to be

@@ -73,6 +73,19 @@ function parseSize(text: string): number {
 
 
 /**
+ * Where the cuts fall — and for an EMPTY file, one part that carries nothing.
+ *
+ * ⛔ AN EMPTY FILE IS A FILE, NOT A MISTAKE. S3 clients make them routinely, and NCF-3 seals zero
+ *    bytes as one empty final chunk: 88 sealed bytes, which the server reserves and commits and every
+ *    reader opens like any other part. `planParts` is a byte-for-byte copy shared with the browser
+ *    and refuses a zero length, so the one extra case is said here, in the one place both the price
+ *    and the sealing read the plan from.
+ */
+export function planFor(size: number, partSize: number): PartRange[] {
+  return size === 0 ? [{ partIndex: 0, offset: 0, length: 0 }] : planParts(size, partSize);
+}
+
+/**
  * The plan, and what it will cost — one function so the price and the sealing cannot disagree.
  *
  * ⛔ ONLY THE LAST PART IS ROUNDED UP. The earlier ones are exactly the part size, which is what
@@ -84,7 +97,7 @@ export function planAndPrice(
   partSize: number,
   rule: PaddingRule,
 ): { plan: PartRange[]; sealedBytes: number; credits: number; sealFor(range: PartRange): number } {
-  const plan = planParts(size, partSize);
+  const plan = planFor(size, partSize);
   const sealFor = (range: PartRange): number =>
     range.partIndex === plan.length - 1
       ? paddedPlaintextLen(range.length, rule, { unitBytes: CREDIT_BYTES, shape: NCF3_SHAPE })

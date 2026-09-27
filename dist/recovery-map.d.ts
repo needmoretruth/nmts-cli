@@ -1,54 +1,19 @@
 import type { ArtifactAbout } from "./artifact-about.ts";
 import { NmtsError } from "./errors.ts";
+import { type ManifestPart, type ManifestPartInput } from "./recovery-map-part.ts";
 /** The newest NRM version this writer knows how to emit. */
-export declare const NRM_VERSION_LATEST = 4;
+export declare const NRM_VERSION_LATEST = 5;
 /** The first NRM version in which every part carries `part_index`. */
 export declare const NRM_VERSION_WITH_PART_INDEX = 2;
 /** The first NRM version in which a quilt placement may be `{ identifier }` alone. */
 export declare const NRM_VERSION_WITH_OWN_QUILT = 3;
 /** The first NRM version in which a part may carry `padded_len`. */
 export declare const NRM_VERSION_WITH_PADDING = 4;
+/** The first NRM version in which a part may be on Filecoin (`network`, `chain`, `copies`). */
+export declare const NRM_VERSION_WITH_FILECOIN = 5;
 /** Practical ceiling from RECOVERY-MANIFEST.md §1 — beyond this the format needs chunk framing. */
 export declare const MANIFEST_ITEM_SOFT_CAP = 100000;
-/** One stored piece of a file, in order. */
-export interface ManifestPart {
-    /**
-     * Where this part belongs: 0 for the first, and the position it must be concatenated at
-     * thereafter. Required from NRM-2.
-     *
-     * It is written down because array order alone cannot be CHECKED. A reader holds each fetched
-     * part's 72-byte NCF-3 header, which carries the index sealed under the file key, so with this
-     * field it can compare three things that must agree: the position it is writing at, what the
-     * list says belongs there, and what the bytes themselves say they are.
-     */
-    part_index: number;
-    /** Blob id holding this part's stream, in `network`'s own naming. */
-    blob_id?: string;
-    /** The REAL bytes this part contributes to the file. */
-    plaintext_len: number;
-    /**
-     * What the stored stream's header DECLARES, when the part was padded and that is larger.
-     * Absent means it was not padded. New in NRM-4.
-     *
-     * ⛔ THE TWO NUMBERS STAY APART so that "the parts sum to exactly `size`" keeps its exact
-     *    strength. Folded into one, the check softens to "at least", which accepts any size below
-     *    the real one: the file comes back short and nothing says so.
-     */
-    padded_len?: number;
-    /** On-chain blob object, when the uploading client captured it. Omitted, never null. */
-    sui_object_id?: string;
-    /**
-     * Which storage network holds `blob_id` — a NAME (`"walrus"`), not a code.
-     *
-     * A word rather than a number because whoever parses this may be doing so years from now with
-     * none of our code beside them, and a bare `1` is not something a stranger can look up.
-     */
-    network?: string;
-}
-/** As a writer hands one in: the position is the value, so `part_index` is filled by the encoder. */
-export interface ManifestPartInput extends Omit<ManifestPart, "part_index"> {
-    part_index?: number;
-}
+export type { ManifestFilecoinCopy, ManifestPart, ManifestPartInput } from "./recovery-map-part.ts";
 /** Quilt placement naming a quilt anywhere on the network. */
 export interface ManifestQuiltAbsolute {
     quilt_blob_id: string;

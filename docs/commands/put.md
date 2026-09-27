@@ -1,7 +1,7 @@
 # nmts put — encrypt one file and upload it
 
 Commands: put
-Tiers: put=medium · put.wallet=high(wallet)
+Tiers: put=medium · put.wallet=high(wallet) · put.evm=high(wallet)
 
 `put` spends credits: one per started mebibyte, and the price is printed before the upload
 starts. In the default mode it asks first (answer at the terminal, or run with `--yes`);
@@ -34,6 +34,20 @@ fit|whole|<object id>` uses a free storage resource the wallet holds for a one-p
 cuts it to size and leaves the rest free, `whole` binds all of it with the file. Do not choose
 `--storage` for the person: the leftover is their decision. `--epochs` and `--storage` without
 `--pay wallet` exit 2.
+
+**`--tier heavy`** stores the file on NMTS Heavy instead of NMTS Standard: each part is kept whole in
+two separate places on Filecoin rather than spread across Walrus storage nodes. It is paid the same
+two ways. With credits (the default) each part costs half the Standard credits, rounded up and at
+least one, and the file is kept 28 days. With
+`--pay wallet` the WAL price is set when the upload opens, the wallet is checked for it before
+anything is encrypted, and it is paid once, after the file is stored; `--days N` (1–365, default 28)
+is the term. Parts are 512 MiB, and `--part-size`, `--epochs`, `--storage`, `--from`, `--deposit` and
+`--thumbnail` do not apply.
+`get`, `ls` and deletion work the same for both tiers; `nmts ls --long` shows each file's tier. The
+default is `--tier standard`. A Heavy run that stops is not resumed: running it again is a new upload.
+
+**`--tier heavy --pay evm`** pays Filecoin yourself from the EVM wallet the NMTS key derives, out of
+its Filecoin Pay deposit, with `--copies` and `--providers` choosing where. See `nmts help heavy`.
 
 **`--thumbnail`** on a video also sends one frame of it as `<saved name>.thumb.jpg`: an ordinary
 small file, priced, sealed and paid for like any other, linked to the video so every app shows it

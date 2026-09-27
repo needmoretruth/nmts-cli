@@ -12,6 +12,9 @@ import { NmtsError } from "./errors.js";
  * ⛔ IT IS NOT READ HERE. A file large enough to need several parts is a file too large to hold,
  *    and the size is all that is needed to plan the upload and quote its price. The bytes are read
  *    later, a slice at a time, by the part that is being sealed.
+ *
+ * ⚠ ZERO IS A SIZE. An empty file is sealed and stored like any other (`planFor` in
+ *   `upload-price.ts`), so it is not refused here.
  */
 export function measureLocal(path) {
     let stat;
@@ -25,12 +28,6 @@ export function measureLocal(path) {
         throw new NmtsError(`${path} is a folder.`, {
             exitCode: 4,
             nextStep: "This version uploads one file at a time.",
-        });
-    }
-    if (stat.size === 0) {
-        throw new NmtsError(`${path} is empty.`, {
-            exitCode: 4,
-            nextStep: "The storage network has nothing to store and would refuse the reservation.",
         });
     }
     return stat.size;

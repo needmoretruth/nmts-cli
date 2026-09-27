@@ -106,6 +106,8 @@ test("⛔ a wallet short of WAL is refused with both numbers, before the agreeme
     assert.equal(failure.exitCode, 4);
     assert.match(failure.message, /holds 0\.000000001 WAL and this upload costs [0-9.]+ WAL/);
     assert.match(String(failure.nextStep), /Nothing was signed and nothing was sent\. Send WAL to 0x[0-9a-f]+/);
+    // ⛔ AND A CODE A PROGRAM CAN BRANCH ON, beside the sentence a person reads.
+    assert.equal(Reflect.get(failure, "code"), "WALLET_SHORT");
     assert.equal(sign.calls, 0);
   });
 });

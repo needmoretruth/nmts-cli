@@ -32,7 +32,7 @@
 //   machine signed under one agreement, and a standing gift is a choice a person made in their own
 //   account. A library that kept either would be deciding for a caller who never asked it to.
 
-import type { OnCollision } from "./collision.ts";
+import type { CollisionAsk } from "./collision.ts";
 import { DERIVED, type CryptoGlue } from "./crypto.ts";
 import { NmtsError } from "./errors.ts";
 import { setTrashed } from "./item-trash.ts";
@@ -42,9 +42,9 @@ import { sealedLenFor } from "./seal.ts";
 import type { PaddingRule } from "./shared/lib/crypto/size-padding.ts";
 import { statusOf } from "./shared/lib/storage-control/plan.ts";
 import { createUploadApi } from "./upload-api.ts";
-import { partKeysOf, uploadFile, type FileUploadStep, type PlaintextSource } from "./upload-file.ts";
+import { uploadFile, type FileUploadStep, type PlaintextSource } from "./upload-file.ts";
 import { CREDIT_BYTES, planAndPrice } from "./upload-price.ts";
-import { clearItemRecord, clearReservation } from "./upload-store.ts";
+import { forgetUpload } from "./upload-run.ts";
 import { walletRail } from "./upload-wallet.ts";
 import {
   chooseUploadEpochs,
@@ -57,11 +57,14 @@ import {
   type UploadBudget,
   type WalletUploadReads,
 } from "./upload-wallet-plan.ts";
-import type { BlobProtocol, UploadApi } from "./upload-wire.ts";
+import { UploadError, type BlobProtocol, type UploadApi } from "./upload-wire.ts";
 import { walletAddress } from "./wallet.ts";
 import type { Spend } from "./wallet-grant.ts";
 import type { SignBlobCertify, SignBlobRegister } from "./wallet-sign.ts";
 import { createBlobProtocol } from "./walrus-write.ts";
+
+/** The `code` of the refusal a wallet known to be short of either coin is answered with. */
+export const WALLET_SHORT = "WALLET_SHORT";
 
 /** The account this upload belongs to, and how it seals. */
 export interface WalletPutContext {
@@ -76,8 +79,11 @@ export interface WalletPutContext {
   partSize: number;
   /** The rounding rule from the account's sealed list — it changes the stored size, so the price. */
   rule: PaddingRule;
-  /** What to do about a name already in use. Absent = the machine's setting, as `addEntry` reads it. */
-  onCollision?: OnCollision | undefined;
+  /**
+   * What to do about a name already in use, for this upload. Absent = the machine's setting, as
+   * `addEntry` reads it; a bare word is a command line's and is held to the modes (`collision.ts`).
+   */
+  onCollision?: CollisionAsk | undefined;
   /**
    * Which of this key's wallets pays, by index (0 = the first one).
    *
@@ -275,8 +281,17 @@ export async function walletPut(
   seams.onReview?.(review);
   if (seams.dryRun === true) return { kind: "review", review };
   // ⛔ A WALLET KNOWN TO BE SHORT IS REFUSED BEFORE THE AGREEMENT IS ASKED FOR (`extend-budget.ts`).
+  //    As the refusal a program branches on: `WALLET_SHORT`, where a credit shortfall carries the
+  //    server's own code.
   if (budget.shortfall !== null) {
-    throw new NmtsError(budget.shortfall, { exitCode: 4, nextStep: uploadShortfallNextStep(budget) });
+    throw new UploadError({
+      phase: "reserve",
+      message: budget.shortfall,
+      paid: false,
+      nextStep: uploadShortfallNextStep(budget),
+      exitCode: 4,
+      code: WALLET_SHORT,
+    });
   }
   seams.agree?.(review);
   const sign = seams.sign ?? (await signers());
@@ -345,8 +360,7 @@ export async function walletPut(
   // ⛔ ONLY NOW, AND EVERY PART — the same order the credit rail keeps and for the same reason: a
   //    paid-for file the list does not name is invisible, and the records are what let a second
   //    call finish the job without signing again.
-  await clearItemRecord(result.fileKey);
-  for (const record of partKeysOf(result.fileKey, result.parts)) await clearReservation(record);
+  await forgetUpload(result.fileKey, result.parts);
   if (added.replaced) await setTrashed(ctx.server, ctx.apiKey, added.replaced.id, true);
   return {
     kind: "uploaded",

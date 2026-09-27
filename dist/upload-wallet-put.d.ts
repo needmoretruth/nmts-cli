@@ -1,12 +1,14 @@
-import type { OnCollision } from "./collision.ts";
+import type { CollisionAsk } from "./collision.ts";
 import { type CryptoGlue } from "./crypto.ts";
 import type { Network } from "./network.ts";
 import type { PaddingRule } from "./shared/lib/crypto/size-padding.ts";
 import { type FileUploadStep, type PlaintextSource } from "./upload-file.ts";
 import { type StorageChoice, type UploadBudget, type WalletUploadReads } from "./upload-wallet-plan.ts";
-import type { BlobProtocol, UploadApi } from "./upload-wire.ts";
+import { type BlobProtocol, type UploadApi } from "./upload-wire.ts";
 import type { Spend } from "./wallet-grant.ts";
 import type { SignBlobCertify, SignBlobRegister } from "./wallet-sign.ts";
+/** The `code` of the refusal a wallet known to be short of either coin is answered with. */
+export declare const WALLET_SHORT = "WALLET_SHORT";
 /** The account this upload belongs to, and how it seals. */
 export interface WalletPutContext {
     /** ⛔ The NMTS key. It seals the file AND derives the wallet that pays. It is never written down. */
@@ -20,8 +22,11 @@ export interface WalletPutContext {
     partSize: number;
     /** The rounding rule from the account's sealed list — it changes the stored size, so the price. */
     rule: PaddingRule;
-    /** What to do about a name already in use. Absent = the machine's setting, as `addEntry` reads it. */
-    onCollision?: OnCollision | undefined;
+    /**
+     * What to do about a name already in use, for this upload. Absent = the machine's setting, as
+     * `addEntry` reads it; a bare word is a command line's and is held to the modes (`collision.ts`).
+     */
+    onCollision?: CollisionAsk | undefined;
     /**
      * Which of this key's wallets pays, by index (0 = the first one).
      *

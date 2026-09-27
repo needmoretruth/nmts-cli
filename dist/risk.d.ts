@@ -56,6 +56,9 @@ export declare const ACTS: {
     readonly "public-code": {
         readonly tier: "none";
     };
+    readonly handover: {
+        readonly tier: "none";
+    };
     readonly wallet: {
         readonly tier: "none";
     };
@@ -269,6 +272,12 @@ export declare const ACTS: {
         readonly what: "Give another account this file.";
         readonly asksItself: true;
     };
+    readonly "handover.make": {
+        readonly tier: "high";
+        readonly lock: "share";
+        readonly what: "Give another account this file in a handover file. It cannot be taken back.";
+        readonly asksItself: true;
+    };
     readonly "login.plain": {
         readonly tier: "high";
         readonly lock: "unsafe-code-storage";
@@ -298,6 +307,27 @@ export declare const ACTS: {
         readonly lock: "wallet";
         readonly what: "Sign transactions that spend WAL and SUI from the wallet.";
         readonly standing: true;
+    };
+    readonly "put.evm": {
+        readonly tier: "high";
+        readonly lock: "wallet";
+        readonly what: "Sign Filecoin storage payments in USDFC from the EVM wallet this key derives.";
+        readonly standing: true;
+    };
+    readonly "push.evm": {
+        readonly tier: "high";
+        readonly lock: "wallet";
+        readonly what: "Sign Filecoin storage payments in USDFC from the EVM wallet this key derives.";
+        readonly standing: true;
+    };
+    readonly heavy: {
+        readonly tier: "none";
+    };
+    readonly "heavy.fund": {
+        readonly tier: "high";
+        readonly lock: "wallet";
+        readonly what: "Deposit USDFC from the EVM wallet this key derives into Filecoin Pay.";
+        readonly asksItself: true;
     };
     readonly "wallet.send": {
         readonly tier: "high";

@@ -23,7 +23,13 @@
 // ⚠ IT IS NOT THE NMTS KEY. That one opens every file in the account and must never be given
 //   to anybody; this one is meant to be given away, and on its own it opens nothing.
 
+import { writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { request } from "../api.ts";
+import { requireAccountCode } from "../code-access.ts";
+import { publicCodeFileText } from "../handover.ts";
+import { publicCodeFileName } from "../shared/lib/share/handover-format.ts";
 import { NmtsError } from "../errors.ts";
 import { isRecord } from "../guards.ts";
 import { loadCrypto } from "../crypto.ts";
@@ -36,6 +42,12 @@ export interface PublicCodeOptions {
   network?: string | undefined;
   /** Publish it, so other accounts can send to it. Permanent. */
   publish?: boolean;
+  /** `--save [file]`: write this account's public code file (NCF-3 §5.7). Asks the server nothing. */
+  save?: boolean;
+  /** The file `--save` writes; by default `nmts-public-code-<code>.nmtscode` here. */
+  file?: string | undefined;
+  /** Replace that file if it exists. */
+  force?: boolean;
   json?: boolean;
   write?: (line: string) => void;
 }
@@ -46,6 +58,12 @@ function b64(bytes: Uint8Array): string {
 
 export async function publicCode(options: PublicCodeOptions = {}): Promise<number> {
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));
+  if (options.save === true) {
+    if (options.publish === true) {
+      throw new NmtsError("--save and --publish are two different things; run them one at a time.", { exitCode: 2 });
+    }
+    return await savePublicCodeFile(options.file, options.force === true, say, options.json === true);
+  }
   const session = await openSession({ server: options.server, network: options.network });
   const crypt = await loadCrypto();
   const keys = shareKeysOf(crypt, session.code);
@@ -103,5 +121,44 @@ export async function publicCode(options: PublicCodeOptions = {}): Promise<numbe
   say(`the same public code, on this machine or any other.`);
   say(``);
   say(`  ${BINARY_NAME} public-code --publish`);
+  return 0;
+}
+
+/**
+ * `nmts public-code --save [file]` — this account's public code file (NCF-3 §5.7).
+ *
+ * ⛔ NOTHING IN IT IS SECRET and nothing is asked of the server: the identity is derived from the
+ *    NMTS key on this machine, exactly the bytes `--publish` would put on the server. Whoever holds
+ *    the file can seal a handover to this account without looking the code up — which is the point:
+ *    that lookup is the one thing that tells NMTS who is sending to whom.
+ */
+async function savePublicCodeFile(
+  file: string | undefined,
+  force: boolean,
+  say: (line: string) => void,
+  json: boolean,
+): Promise<number> {
+  const { code } = await requireAccountCode();
+  const crypt = await loadCrypto();
+  const keys = shareKeysOf(crypt, code);
+  const out = resolve(file === undefined || file === "" ? publicCodeFileName(keys.display) : file);
+  try {
+    writeFileSync(out, publicCodeFileText(keys), { flag: force ? "w" : "wx" });
+  } catch {
+    throw new NmtsError(`Could not write ${out}.`, {
+      exitCode: 4,
+      nextStep: "If it already exists, name another file or replace it with --force.",
+    });
+  } finally {
+    keys.wipe();
+  }
+  if (json) {
+    say(JSON.stringify({ code: keys.display, out }));
+    return 0;
+  }
+  say(`public code file  ${out}`);
+  say(`                  for public code ${keys.display}`);
+  say(``);
+  say(`Whoever has this file can hand files over to you without asking NMTS.`);
   return 0;
 }

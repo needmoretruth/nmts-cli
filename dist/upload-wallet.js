@@ -20,6 +20,7 @@
 //    reach them.
 import { fromBase64Url, toBase64Url } from "./bytes.js";
 import { NmtsError } from "./errors.js";
+import { refuseOtherSealing, runIdField } from "./upload-run.js";
 import { readReservationBytes, readReservationRecord, writeReservation } from "./upload-store.js";
 import { UploadError } from "./upload-wire.js";
 function why(error) {
@@ -64,6 +65,8 @@ async function buyAndPushPartWithWallet(ctx, input) {
                 "records to start over. Nothing was sent.",
         });
     }
+    // ⛔ A record another sealing of this file wrote is refused, not resumed (`upload-run.ts`).
+    refuseOtherSealing(existing, input);
     // ── already certified: nothing left to sign or send ──
     if (existing?.certifyTxDigest !== undefined) {
         onStep?.({ step: "resuming", ledgerId: 0, state: "certified" });
@@ -95,6 +98,7 @@ async function buyAndPushPartWithWallet(ctx, input) {
     }
     const record = {
         attempt: existing?.attempt ?? 0,
+        ...runIdField(existing, input.runId),
         paidFrom: "wallet",
         blobId: meta.blobId,
         nonceB64: toBase64Url(meta.nonce),

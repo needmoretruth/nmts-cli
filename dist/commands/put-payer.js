@@ -7,6 +7,8 @@
 // ⚠ They moved out of `put.ts` on 2026-09-16 (`--wallet` joined them and that file has a ceiling).
 //   `put.ts` re-exports them, so `push.ts` and the tests spell the same path they always did.
 import { NmtsError } from "../errors.js";
+import { HEAVY_COPY } from "../heavy-copy.js";
+import { DEFAULT_STORAGE_TIER, parseStorageTier } from "../shared/lib/storage-tier.js";
 /** Who pays, or a refusal for a payer this tool does not know. */
 export function payerOf(pay) {
     if (pay === undefined || pay === "credits")
@@ -50,4 +52,26 @@ export function refuseWalletOnlyOptions(options) {
             nextStep: `Nothing was sent. A credit-paid upload sends no gift, so there is no address to trust.`,
         });
     }
+}
+/**
+ * Which tier this upload goes to — the same reader the browser and the SDK use — and a refusal for
+ * every option that means nothing on that tier. Decided before a file is measured.
+ */
+export function tierOf(options) {
+    let tier;
+    try {
+        tier = options.tier === undefined ? DEFAULT_STORAGE_TIER : parseStorageTier(options.tier);
+    }
+    catch (error) {
+        throw new NmtsError(error instanceof Error ? error.message : String(error), { exitCode: 2 });
+    }
+    if (tier === "standard") {
+        if (options.pay === "evm")
+            throw new NmtsError(HEAVY_COPY.evmNeedsHeavy, { exitCode: 2 });
+        for (const [flag, value] of [["--copies", options.copies], ["--providers", options.providers], ["--evm-wallet", options.evmWallet], ["--days", options.days]]) {
+            if (value !== undefined)
+                throw new NmtsError(HEAVY_COPY.heavyOnlyFlag(flag), { exitCode: 2 });
+        }
+    }
+    return tier;
 }

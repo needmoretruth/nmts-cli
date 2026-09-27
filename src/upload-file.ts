@@ -19,15 +19,16 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { fromBase64Url } from "./bytes.ts";
 import { AAD, type CryptoGlue } from "./crypto.ts";
-import { NmtsError } from "./errors.ts";
 import { fileSecrets, sealPart } from "./seal.ts";
-import { planParts } from "./shared/lib/upload/part-plan.ts";
+import type { PartRange } from "./shared/lib/upload/part-plan.ts";
+import { planFor } from "./upload-price.ts";
 import {
   paddedPlaintextLen,
   type PaddingRule,
 } from "./shared/lib/crypto/size-padding.ts";
 import { NCF3_SHAPE } from "./seal.ts";
 import { buyAndPushPart, entryOf } from "./upload.ts";
+import { confirmParts, dropLeftovers, oneUploadAtATime, runIdFor } from "./upload-run.ts";
 import { commitItem } from "./upload-steps.ts";
 import {
   finishReservationKey,
@@ -120,12 +121,8 @@ export type FileUploadStep =
  */
 export async function uploadFile(input: FileUploadInput): Promise<UploadResult> {
   const { dataKey, source, onStep } = input;
-  if (source.size <= 0) {
-    throw new NmtsError("An empty file cannot be uploaded.", {
-      nextStep: "The storage network has nothing to store and would refuse the reservation.",
-    });
-  }
-  const plan = planParts(source.size, input.partSize);
+  // ⚠ An empty file is one part that carries nothing — `planFor` says why it is a file at all.
+  const plan = planFor(source.size, input.partSize);
   onStep?.({ step: "planning", parts: plan.length, partSize: input.partSize });
 
   // ── pass one: the reservation key and the content hash, from a single read ──
@@ -134,20 +131,36 @@ export async function uploadFile(input: FileUploadInput): Promise<UploadResult> 
   const contentDigest = await hashWhole(source, keyHash);
   const fileKey = finishReservationKey(keyHash, input.name, input.destination);
 
-  // ⛔ ALREADY COMMITTED STOPS HERE, BEFORE ANY PART IS TOUCHED. A file that got as far as
-  //    `POST /v1/items` exists and is paid for; all that can still be missing is the account's own
-  //    list. Asking the server about every part again would be a round trip per part to learn
-  //    something the record already says.
-  const committed = await readItemRecord(fileKey);
-  if (committed?.itemId !== undefined) {
-    const entry = await recordedEntry(fileKey, plan.length, source.size);
-    if (entry !== null) {
-      return { itemId: committed.itemId, resumed: true, ledgerIds: [], fileKey, parts: plan.length, entry };
-    }
-  }
+  // ⛔ FROM HERE TO THE COMMIT, ONE RUN OF THIS FILE AT A TIME in this process (`upload-run.ts`).
+  return oneUploadAtATime(fileKey, async () => {
+    await dropLeftovers(fileKey, plan.length);
+    const runId = await runIdFor(fileKey, plan.length);
 
+    // ⛔ ALREADY COMMITTED STOPS HERE, BEFORE ANY PART IS TOUCHED. A file that got as far as
+    //    `POST /v1/items` exists and is paid for; all that can still be missing is the account's own
+    //    list. Asking the server about every part again would be a round trip per part to learn
+    //    something the record already says. ⚠ Only THIS upload's commit: a record naming another run
+    //    is what an earlier upload of the same file left, and its item is not these bytes.
+    const committed = await readItemRecord(fileKey);
+    if (committed?.itemId !== undefined && (committed.runId === undefined || committed.runId === runId)) {
+      const entry = await recordedEntry(fileKey, plan.length, source.size);
+      if (entry !== null) {
+        return { itemId: committed.itemId, resumed: true, ledgerIds: [], fileKey, parts: plan.length, entry };
+      }
+    }
+    return uploadParts(input, { fileKey, runId, plan, contentDigest });
+  });
+}
+
+/** Seal, buy and push every part not yet bought, then commit them as one file. */
+async function uploadParts(
+  input: FileUploadInput,
+  run: { fileKey: string; runId: string; plan: readonly PartRange[]; contentDigest: Uint8Array },
+): Promise<UploadResult> {
+  const { source, onStep } = input;
+  const { fileKey, runId, plan } = run;
   // ── the file's secrets: from the record if one exists, otherwise made now ──
-  const secrets = await openSecrets(input, fileKey, plan.length, contentDigest);
+  const secrets = await openSecrets(input, fileKey, plan.length, run.contentDigest);
   try {
     const entry = {
       name: input.name,
@@ -181,6 +194,7 @@ export async function uploadFile(input: FileUploadInput): Promise<UploadResult> 
         await (input.buy ?? buyAndPushPart)({
           api: input.api,
           protocol: input.protocol,
+          runId,
           key,
           sealed,
           relayUrl: input.relayUrl,
@@ -195,9 +209,11 @@ export async function uploadFile(input: FileUploadInput): Promise<UploadResult> 
         }),
       );
     }
+    await confirmParts(fileKey, paid, entry);
     const itemId = await commitItem(
       {
         api: input.api,
+        runId,
         epochs: input.epochs,
         currentEpoch: input.currentEpoch,
         entry,
@@ -277,11 +293,35 @@ async function sealPartOf(
     parts,
     bytes: sealFrom,
   });
-  return sealPart(input.crypt, dek, padded(input.source.read(range.offset, range.length), range.length, sealFrom), {
-    index: range.partIndex,
-    total: parts,
-    plaintextLen: sealFrom,
-  });
+  const placement = { index: range.partIndex, total: parts, plaintextLen: sealFrom };
+  if (sealFrom === 0) return sealNothing(input.crypt, dek, placement);
+  return sealPart(input.crypt, dek, padded(input.source.read(range.offset, range.length), range.length, sealFrom), placement);
+}
+
+/**
+ * The one part of an empty file that nothing pads: a header and one empty final chunk (NCF-3 §4.1).
+ *
+ * ⚠ HERE ONLY BECAUSE `sealPart` REFUSES A ZERO LENGTH, from before an empty file could be stored.
+ *   The engine seals it as it seals every stream — this opens a session, adds nothing and finishes —
+ *   and once `sealPart` takes zero this can go. It is reached only when the account stores exact
+ *   sizes: every other rule rounds an empty file up to the room its one credit already bought.
+ */
+function sealNothing(
+  crypt: CryptoGlue,
+  dek: Uint8Array,
+  placement: { index: number; total: number; plaintextLen: number },
+): Uint8Array {
+  const sealer = new crypt.StreamEncryptor(dek, 0, placement.index, placement.total);
+  try {
+    const header = sealer.header();
+    const end = sealer.finish();
+    const out = new Uint8Array(header.length + end.length);
+    out.set(header, 0);
+    out.set(end, header.length);
+    return out;
+  } finally {
+    sealer.free();
+  }
 }
 
 /**
@@ -291,7 +331,7 @@ async function sealPartOf(
  *    authenticated but not encrypted, so padding added after sealing would leave the real length
  *    legible in the header of a public object — which is the exact thing this is for.
  */
-async function* padded(
+export async function* padded(
   chunks: AsyncIterable<Uint8Array>,
   real: number,
   sealFrom: number,

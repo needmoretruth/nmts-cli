@@ -88,9 +88,9 @@ export function businessPublicKey(privateKey) {
 /**
  * The bytes a business signature covers.
  *
- * `path` is the request path as it is sent, with no query string: no Platform door takes one, and
- * a signature that did not cover a parameter the server then read would be a signature over half
- * the request.
+ * `path` is the request target exactly as it is sent — the path AND its query string,
+ * `/p1/users?after=…&limit=…`, neither dropped nor put in order. A signature that did not cover a
+ * parameter the server then read would be a signature over half the request.
  *
  * ⚠ THE NONCE IS SIGNED AS THE TEXT THAT TRAVELS, base64url, on its own line after the moment —
  *   so the sender and the receiver agree about the field without either re-encoding it.

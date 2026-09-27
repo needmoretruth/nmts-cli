@@ -17,14 +17,17 @@
 //   real is not restated at all, because `shared/lib/crypto/size-padding.ts` is a byte-for-byte
 //   copy of the browser's own file and a gate compares them.
 import { NmtsError } from "./errors.js";
+import { filecoinForm, usesFilecoin } from "./recovery-map-part.js";
 /** The newest NRM version this writer knows how to emit. */
-export const NRM_VERSION_LATEST = 4;
+export const NRM_VERSION_LATEST = 5;
 /** The first NRM version in which every part carries `part_index`. */
 export const NRM_VERSION_WITH_PART_INDEX = 2;
 /** The first NRM version in which a quilt placement may be `{ identifier }` alone. */
 export const NRM_VERSION_WITH_OWN_QUILT = 3;
 /** The first NRM version in which a part may carry `padded_len`. */
 export const NRM_VERSION_WITH_PADDING = 4;
+/** The first NRM version in which a part may be on Filecoin (`network`, `chain`, `copies`). */
+export const NRM_VERSION_WITH_FILECOIN = 5;
 /** Practical ceiling from RECOVERY-MANIFEST.md §1 — beyond this the format needs chunk framing. */
 export const MANIFEST_ITEM_SOFT_CAP = 100_000;
 /** Which form a placement is. One narrowing point, so "exactly one of the two" is decided here. */
@@ -62,6 +65,10 @@ export class RecoveryListProblem extends NmtsError {
  *    understood every byte of it.
  */
 export function minimumVersion(items) {
+    // A list holding a Heavy (Filecoin) part is v5: a v4 reader would ask a Walrus aggregator for
+    // the piece and be told "not found", the same answer as an expired blob.
+    if (items.some((it) => it.parts.some(usesFilecoin)))
+        return NRM_VERSION_WITH_FILECOIN;
     if (items.some((it) => it.parts.some((p) => p.padded_len !== undefined))) {
         return NRM_VERSION_WITH_PADDING;
     }
@@ -144,6 +151,16 @@ export function buildRecoveryListDoc(input) {
                     part.sui_object_id = p.sui_object_id;
                 if (p.network)
                     part.network = p.network;
+                // NRM-5: the reader refuses the WHOLE document over one bad Filecoin part, so the writer
+                // refuses to emit it instead of handing somebody a list that opens nothing.
+                const filecoin = filecoinForm(p, it.quilt !== undefined);
+                if (filecoin.kind === "refused") {
+                    throw new RecoveryListProblem(`item ${it.id}: the part at position ${i} ${filecoin.why}`);
+                }
+                if (filecoin.kind === "filecoin") {
+                    part.chain = filecoin.chain;
+                    part.copies = filecoin.copies;
+                }
                 return part;
             }),
         };

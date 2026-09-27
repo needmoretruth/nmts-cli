@@ -100,6 +100,9 @@ function isReservation(value) {
         if (typeof Reflect.get(value, name) !== "number")
             return false;
     }
+    const runId = Reflect.get(value, "runId");
+    if (runId !== undefined && typeof runId !== "string")
+        return false;
     const parent = Reflect.get(value, "parentId");
     return parent === null || typeof parent === "string";
 }
@@ -200,6 +203,9 @@ function isItemRecord(value) {
     if (typeof value !== "object" || value === null)
         return false;
     if (typeof Reflect.get(value, "attempt") !== "number")
+        return false;
+    const runId = Reflect.get(value, "runId");
+    if (runId !== undefined && typeof runId !== "string")
         return false;
     const id = Reflect.get(value, "itemId");
     return id === undefined || typeof id === "string";

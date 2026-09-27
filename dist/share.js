@@ -70,7 +70,7 @@ export function sealShare(crypt, input) {
         });
     }
     // ⛔ SEALED FIRST, AND THESE EXACT BYTES ARE WHAT GETS SENT. See the module note.
-    const nameCt = crypt.envelope_seal(input.dek, encoder.encode(AAD.shareName), encoder.encode(encodeSharedFileInfo({ name: input.name, size: input.size })));
+    const nameCt = crypt.envelope_seal(input.dek, encoder.encode(AAD.shareName), encoder.encode(input.nameDocument ?? encodeSharedFileInfo({ name: input.name, size: input.size })));
     const digestCt = crypt.envelope_seal(input.dek, encoder.encode(AAD.shareContentHash), input.digest);
     if (digestCt.length !== DIGEST_ENVELOPE_LEN) {
         throw new NmtsError(`A sealed content hash came out ${digestCt.length} bytes.`);

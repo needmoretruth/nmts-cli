@@ -121,3 +121,25 @@ export declare function request(base: string, path: string, options: RequestOpti
     as: "bytes";
 }): Promise<Uint8Array>;
 export declare function request(base: string, path: string, options?: RequestOptions): Promise<unknown>;
+/**
+ * A bearer that is asked for at the moment of each request instead of being fixed when a client is
+ * made: what a delegation token that runs out needs, the way an AWS credential provider is asked.
+ * It may answer at once or after its own round trip; this module keeps no copy of what it answers.
+ */
+export type BearerSource = () => string | Promise<string>;
+/**
+ * Stand a source in for a bearer everywhere one is passed as text.
+ *
+ * ⛔ A STAND-IN RATHER THAN A SECOND PARAMETER ON EVERY FUNCTION. The credential travels as a
+ *    string through every verb of this package — the file list, the upload, the download, the
+ *    trash — and each of them hands it to `request` in the end. Resolving the stand-in HERE, per
+ *    attempt, is what makes every one of those requests carry a token that is current when it
+ *    leaves, including the ones an upload makes after it has already spent.
+ *
+ * ⚠ `release` forgets the source; a request that still carries the stand-in afterwards is refused
+ *   by name rather than sent without a credential.
+ */
+export declare function bearerSource(source: BearerSource): {
+    bearer: string;
+    release(): void;
+};

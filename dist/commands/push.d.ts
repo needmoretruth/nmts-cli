@@ -1,5 +1,7 @@
 import { openSession } from "../session.ts";
-export interface PushOptions {
+import { type HeavyFlags } from "./put-payer.ts";
+import { filesUnderDirectory, localTree, splitAlready, type PlannedFile } from "./push-tree.ts";
+export interface PushOptions extends HeavyFlags {
     server?: string | undefined;
     network?: string | undefined;
     /** Where the tree goes in the drive. The top of the drive when absent. */
@@ -35,18 +37,7 @@ export interface PushOptions {
      */
     send?: (one: PlannedFile, parentId: string | null) => Promise<string>;
 }
-/** One local file, and where it goes in the drive. */
-export interface PlannedFile {
-    /** Absolute path on this machine. */
-    local: string;
-    /** Folder path inside the drive. */
-    folder: string;
-    name: string;
-    size: number;
-}
 export declare function push(target: string | undefined, options?: PushOptions): Promise<number>;
 /** The folder id for a drive path, made if it is not there yet. Remembered for the next file. */
 export declare function folderFor(session: Awaited<ReturnType<typeof openSession>>, known: Map<string, string | null>, folder: string): Promise<string | null>;
-export { walk as filesUnderDirectory };
-/** Every file under a local directory, with the drive folder each one belongs in. */
-declare function walk(dir: string, driveFolder: string, hidden: boolean): PlannedFile[];
+export { filesUnderDirectory, localTree, splitAlready, type PlannedFile };

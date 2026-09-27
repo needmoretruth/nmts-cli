@@ -6,82 +6,113 @@
 //    with a stub for the one thing that costs money, and neither is testable through a command that
 //    starts by opening a session.
 //
-// ⛔ ONE DIRECTORY PER RUN, 0700, AND EVERY PIECE 0600. The pieces are somebody's plaintext; left
+// ⛔ ONE STORE PER GATEWAY, KEYED BY BUCKET, AND NEVER BOUND TO THE DRIVE AN UPLOAD BEGAN UNDER.
+//    A gateway in front of many accounts rebuilds a bucket's drive whenever it asks again whose the
+//    bucket is — with a fresh delegation token, or for a different user. The pieces must outlive
+//    that, and the file they make must be stored through the drive the bucket has NOW: bound to the
+//    first one, every finish after its token expired was refused, and a bucket handed to another
+//    user stored that user's uploads in the first user's account. So a drive asks for a `view` of
+//    the store (`multipart-view.ts`), handing it its own `store` and `owner`, and an upload
+//    remembers which account it began under: asked about by any other, it is gone, and its pieces
+//    with it.
+//
+// ⛔ ONE DIRECTORY PER UPLOAD, 0700, AND EVERY PIECE 0600. The pieces are somebody's plaintext; left
 //    in a shared temporary directory under a predictable name they would be readable by every other
 //    account on the machine, for as long as the upload takes.
-import { createHash, randomUUID } from "node:crypto";
-import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, rm, stat } from "node:fs/promises";
+//
+// ⛔ ONLY SUCCESS AND ABORT REMOVE THE PIECES. A finish that fails — the store refused, the network
+//    dropped — leaves every piece where it was, so the client's retry of the same finish has
+//    something to finish. Removing them on failure turned one dropped connection into re-sending
+//    the whole file. What was neither finished nor aborted goes once nobody has touched it for
+//    `UPLOAD_LIFETIME_MS` — counted from the last piece or attempt, not from when it began, so a
+//    slow upload of a large file is not taken away while it is still arriving.
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
-import { Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import { NmtsError } from "../errors.js";
-export function createStaging(root, store) {
+import { MAX_UPLOADS_PER_BUCKET } from "./drive-limits.js";
+import { sweepRoot, touch, uploadDirName } from "./multipart-sweep.js";
+import { bucketView } from "./multipart-view.js";
+/** How long an upload nobody has touched is kept. S3 leaves this to a lifecycle rule. */
+export const UPLOAD_LIFETIME_MS = 24 * 60 * 60 * 1000;
+/** How long a finished upload is remembered, so a finish sent twice is answered the same twice. */
+export const FINISHED_MEMORY_MS = 60 * 60 * 1000;
+/** How often a gateway's own store sweeps its directory, and marks the uploads it is working on. */
+export const SWEEP_EVERY_MS = 60 * 60 * 1000;
+export function createStagingStore(root, options = {}) {
+    const clock = options.clock ?? Date.now;
     const inFlight = new Map();
-    const dirOf = (uploadId) => join(root, uploadId);
-    const openUpload = (uploadId) => {
-        const upload = inFlight.get(uploadId);
-        if (upload === undefined)
-            throw new NmtsError("No upload is in progress with that id.");
-        return upload;
+    const finished = new Map();
+    const dirOf = (uploadId) => join(root, uploadDirName(uploadId));
+    const busy = (upload) => upload.finishing !== null || upload.arriving > 0;
+    const drop = async (uploadId, upload) => {
+        if (inFlight.get(uploadId) === upload)
+            inFlight.delete(uploadId);
+        if (upload.finishing === null)
+            await rm(dirOf(uploadId), { recursive: true, force: true });
     };
-    return {
-        async begin(key) {
-            const uploadId = randomUUID();
-            await mkdir(dirOf(uploadId), { recursive: true, mode: 0o700 });
-            inFlight.set(uploadId, { key, parts: new Set() });
-            return uploadId;
-        },
-        // ⛔ EACH PIECE IS ITS OWN FILE NAMED BY ITS NUMBER, and nothing is appended: a real client
-        //    sends them concurrently and out of order (measured from rclone: 1, 3, 2).
-        async part(uploadId, partNumber, body, size, expectedSha256) {
-            const upload = openUpload(uploadId);
-            const path = join(dirOf(uploadId), String(partNumber));
-            const digest = createHash("sha256");
-            const hashing = new Transform({
-                transform(chunk, _encoding, next) {
-                    digest.update(chunk);
-                    next(null, chunk);
-                },
-            });
-            await pipeline(body, hashing, createWriteStream(path, { mode: 0o600 }));
-            const written = (await stat(path)).size;
-            // ⛔ WHAT THE CLIENT SIGNED FOR IS WHAT MUST HAVE ARRIVED. A piece that changed on the way is
-            //    the one failure a backup cannot notice later.
-            if (expectedSha256 !== null && digest.digest("hex") !== expectedSha256) {
-                await rm(path, { force: true });
-                throw new NmtsError("That part's bytes do not hash to what the request declared.");
-            }
-            if (written !== size) {
-                await rm(path, { force: true });
-                throw new NmtsError(`The part said ${size} bytes and ${written} arrived.`);
-            }
-            upload.parts.add(partNumber);
-            return `"${partNumber.toString(16).padStart(32, "0")}-1"`;
-        },
-        async complete(uploadId) {
-            const upload = openUpload(uploadId);
-            const numbers = [...upload.parts].sort((a, b) => a - b);
-            if (numbers.length === 0)
-                throw new NmtsError("That upload has no parts to finish.");
-            const whole = join(dirOf(uploadId), "whole");
-            const out = createWriteStream(whole, { mode: 0o600 });
+    const sweepMemory = async () => {
+        const now = clock();
+        for (const [uploadId, done] of finished) {
+            if (now - done.at > FINISHED_MEMORY_MS)
+                finished.delete(uploadId);
+        }
+        for (const [uploadId, upload] of inFlight) {
+            if (busy(upload) || now - upload.lastActivity <= UPLOAD_LIFETIME_MS)
+                continue;
+            await drop(uploadId, upload);
+        }
+    };
+    const book = {
+        inFlight,
+        finished,
+        clock,
+        maxPerBucket: options.maxUploadsPerBucket ?? MAX_UPLOADS_PER_BUCKET,
+        dirOf,
+        drop,
+        sweepMemory,
+    };
+    let sweeping = null;
+    const sweep = () => {
+        sweeping ??= (async () => {
             try {
-                for (const number of numbers) {
-                    await pipeline(createReadStream(join(dirOf(uploadId), String(number))), out, { end: false });
+                await sweepMemory();
+                // ⚠ What this process is working on is marked first, so another process sharing the
+                //   directory never finds it a day old.
+                for (const [uploadId, upload] of inFlight) {
+                    if (busy(upload))
+                        await touch(dirOf(uploadId), Date.now());
                 }
-                await new Promise((resolve) => out.end(resolve));
-                await store(upload.key, whole);
+                await sweepRoot(root, clock(), UPLOAD_LIFETIME_MS, (uploadId) => inFlight.has(uploadId));
             }
             finally {
-                inFlight.delete(uploadId);
-                await rm(dirOf(uploadId), { recursive: true, force: true });
+                sweeping = null;
             }
-            return `"${uploadId.replace(/-/g, "").slice(0, 32)}-${numbers.length}"`;
-        },
-        async abort(uploadId) {
-            inFlight.delete(uploadId);
-            await rm(dirOf(uploadId), { recursive: true, force: true });
+        })();
+        return sweeping;
+    };
+    // ⚠ A TIMER ONLY WHEN ASKED FOR, AND ONE THAT DOES NOT KEEP A PROCESS ALIVE: a gateway asks, a
+    //   test driving the staging directly does not.
+    let timer = null;
+    if (options.sweepEveryMs !== undefined) {
+        void sweep().catch(() => undefined);
+        timer = setInterval(() => void sweep().catch(() => undefined), options.sweepEveryMs);
+        timer.unref();
+    }
+    return {
+        view: (bucket, account) => bucketView(book, bucket, account),
+        sweep,
+        async close() {
+            if (timer !== null)
+                clearInterval(timer);
+            timer = null;
+            const running = [...inFlight.values()].map((upload) => upload.finishing).filter((f) => f !== null);
+            await Promise.allSettled([...running, ...(sweeping === null ? [] : [sweeping])]);
         },
     };
+}
+/**
+ * A staging for one bucket whose account never changes, storing through `store`: what a caller that
+ * builds its drive once needs, and nothing more.
+ */
+export function createStaging(root, store, clock = Date.now) {
+    return createStagingStore(root, { clock }).view("", { store });
 }

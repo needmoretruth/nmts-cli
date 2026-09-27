@@ -1,3 +1,4 @@
+import type { StorageTier } from "../shared/lib/storage-tier.ts";
 export interface LsOptions {
     server?: string | undefined;
     network?: string | undefined;
@@ -18,6 +19,10 @@ export interface LsOptions {
     sort?: string | undefined;
     /** Reverse whichever order is in effect. */
     desc?: boolean;
+    /** Add the tier each file is stored on — one more read of the server per file (`list-tier.ts`). */
+    long?: boolean;
+    /** ⚠ A SEAM, NOT AN OPTION: where the tiers are read from. */
+    readTiers?: (ids: readonly string[]) => Promise<Map<string, StorageTier | null>>;
     write?: (line: string) => void;
     /** The instant the trash countdown is measured against. Passed in so one listing means one moment. */
     now?: number;

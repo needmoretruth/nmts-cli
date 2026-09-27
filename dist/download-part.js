@@ -3,6 +3,9 @@ import { NCF3_SHAPE } from "./seal.js";
 import { isRecord } from "./guards.js";
 import { readBlob, readQuiltPatch } from "./walrus.js";
 import { NETWORK_WHEN_UNRECORDED, networkName } from "./shared/lib/storage-network.js";
+import { reachFetch } from "./reach.js";
+import { FILECOIN_CHAIN_FOR_NETWORK } from "./shared/lib/filecoin/providers.js";
+import { readCopies } from "./shared/lib/heavy/order-wire.js";
 /** `storage_kind` in the server's part rows. */
 const DEDICATED_BLOB = 0;
 const QUILT_PATCH = 1;
@@ -34,6 +37,11 @@ export function asParts(value) {
             view.network = p["network"];
         if (typeof p["patch_id"] === "string")
             view.patch_id = p["patch_id"];
+        // ⚠ Checked field by field (`readCopies`); a list that does not read is left out, and the read
+        //   below then says it has no copy to ask rather than asking a half-read address.
+        const copies = p["copies"] === undefined ? null : readCopies(p["copies"]);
+        if (copies !== null)
+            view.copies = copies;
         out.push(view);
     }
     return { size, parts: out };
@@ -47,6 +55,8 @@ export function asParts(value) {
  */
 export async function fetchPart(part, chain, read) {
     const where = networkName(part.network ?? NETWORK_WHEN_UNRECORDED);
+    if (where === "filecoin" && (chain === "testnet" || chain === "mainnet"))
+        return readHeavyPart(part, chain, read);
     if (where !== "walrus") {
         throw new NmtsError(`Part ${part.part_index} is stored on ${where ?? `an unknown network (${part.network})`}, which this version cannot read.`, { nextStep: "Nothing was written. Open the file in a browser, which may know that network." });
     }
@@ -56,6 +66,33 @@ export async function fetchPart(part, chain, read) {
     return part.storage_kind === QUILT_PATCH && part.patch_id !== undefined
         ? readQuiltPatch(chain, part.patch_id, read ?? {})
         : readBlob(chain, part.blob_id, read ?? {});
+}
+/**
+ * One NMTS Heavy part, from the first of its copies that serves it (`shared/lib/heavy/download.ts`,
+ * the browser's own reader).
+ *
+ * ⛔ ANY https COMPANY, NOT ONLY THE LISTED ONES. The list exists because a browser page may only
+ *    talk to hosts its security policy names; this program has no such policy, and somebody who paid
+ *    from their own EVM wallet may have picked a company the list does not name. The bytes are
+ *    judged by the decryption, as every part's are, so the company is not trusted either way.
+ */
+async function readHeavyPart(part, chain, read) {
+    const { fetchHeavyPart } = await import("./shared/lib/heavy/download.js");
+    const range = read?.range;
+    const response = await fetchHeavyPart({
+        pieceCid: part.blob_id,
+        copies: part.copies ?? [],
+        chain: FILECOIN_CHAIN_FOR_NETWORK[chain],
+        allowUnlisted: true,
+        fetchImpl: reachFetch,
+        ...(range === undefined ? {} : { range }),
+        ...(read?.signal === undefined ? {} : { signal: read.signal }),
+    });
+    const body = new Uint8Array(await response.arrayBuffer());
+    if (range === undefined)
+        return body;
+    // A 206 holds exactly the asked-for bytes; a company that ignored `Range` sent the part from zero.
+    return body.length === range.end - range.start ? body : body.subarray(range.start, range.end);
 }
 /**
  * Open ONE part and pass its contribution on, a chunk at a time. Returns how much of the file it
@@ -70,17 +107,27 @@ export async function fetchPart(part, chain, read) {
  *
  * ⛔ `finish()` IS WHAT CATCHES A PART CUT SHORT. Every chunk that arrived authenticates; only the
  *    end-of-stream check knows the rest is missing. Skipping it would accept a truncated part.
+ *    ⚠ The one caller that skips it is a RANGE that asked for the part's first chunks only
+ *    (`prefix`): it wants no byte past them, and every byte it keeps is authenticated.
  *
  * ⛔ THE ENGINE-SIDE SESSION IS FREED ON EVERY PATH OUT, including a failure: it holds the file
  *    key until it is, and a download that failed is exactly when nobody comes back to tidy up.
  */
-export async function openPart(crypt, dek, part, sealed, isLast, remaining, emit) {
-    const refuse = () => new NmtsError(`Part ${part.part_index} did not decrypt.`, {
-        nextStep: "The bytes that arrived are not the bytes this account sealed. Nothing was written. " +
-            "Try again — a different aggregator may hold the right ones.",
-    });
+export async function openPart(crypt, dek, part, sealed, position, remaining, emit, prefix = false) {
+    const isLast = position.index === position.total - 1;
+    const refuse = refusal(part);
     if (sealed.length < NCF3_SHAPE.headerLen)
         throw refuse();
+    // ⛔ POSITIONAL, AS NCF-3 §4.1 REQUIRES. The header names its own place (`part_index` of
+    //    `part_total`, bytes 8..16) and every chunk authenticates that header — so a stream fetched in
+    //    a place it does not claim still decrypts, and only this comparison notices. A reordered or
+    //    substituted list of pieces would otherwise be stitched together in the wrong order.
+    const header = new DataView(sealed.buffer, sealed.byteOffset, NCF3_SHAPE.headerLen);
+    const claimedIndex = header.getUint32(8, true);
+    const claimedTotal = header.getUint32(12, true);
+    if (claimedIndex !== position.index || claimedTotal !== position.total) {
+        throw new NmtsError(`Part ${part.part_index} says it is part ${claimedIndex + 1} of ${claimedTotal}, but it was listed as part ${position.index + 1} of ${position.total}.`, { nextStep: "Nothing was written. The list of stored pieces does not match what was sealed." });
+    }
     // ⚠ Constructed on the header alone, which is parsed and checked inside the engine, so a blob
     //   that is not an NCF-3 stream at all fails here rather than as a strange length later.
     let opener;
@@ -131,7 +178,8 @@ export async function openPart(crypt, dek, part, sealed, isLast, remaining, emit
             left -= take;
         }
         try {
-            opener.finish();
+            if (!prefix)
+                opener.finish();
         }
         catch {
             throw refuse();
@@ -141,4 +189,45 @@ export async function openPart(crypt, dek, part, sealed, isLast, remaining, emit
         opener.free();
     }
     return taken;
+}
+function refusal(part) {
+    return () => new NmtsError(`Part ${part.part_index} did not decrypt.`, {
+        nextStep: "The bytes that arrived are not the bytes that were sealed. Nothing was written. " +
+            "Try again — a different aggregator may hold the right ones.",
+    });
+}
+/**
+ * Read a part's 72-byte header, and refuse it unless it is THIS file's part at THIS position.
+ *
+ * ⛔ THE ENGINE CHECKS THE KEY COMMITMENT FIRST. It covers every field read below, so a length or a
+ *    position that passes here was sealed under this file's key — a range that leaves the parts
+ *    before it out works out where it starts from these numbers, and a lie in them would put
+ *    authentic bytes at the wrong place in the answer.
+ *
+ * ⛔ THE POSITION IS THE ONE THE CALLER IS READING INTO, never the part's own claim: every part of a
+ *    file is sealed under one key, so a part served in another's place passes the commitment and is
+ *    caught only by comparing where it says it is with where it is being used.
+ */
+export function checkedHeader(crypt, dek, part, header, position) {
+    const refuse = refusal(part);
+    if (header.length < NCF3_SHAPE.headerLen)
+        throw refuse();
+    const bytes = header.subarray(0, NCF3_SHAPE.headerLen);
+    try {
+        new crypt.StreamDecryptor(dek, bytes).free();
+    }
+    catch {
+        throw refuse();
+    }
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const log2 = view.getUint8(5);
+    const declared = view.getBigUint64(16, true);
+    if (view.getUint32(8, true) !== position.index || view.getUint32(12, true) !== position.total) {
+        throw new NmtsError(`Part ${part.part_index} was served in the wrong place in the file.`, {
+            nextStep: "The stored parts do not agree with the file this list describes. Nothing was written.",
+        });
+    }
+    if (declared > BigInt(Number.MAX_SAFE_INTEGER) || log2 > 40)
+        throw refuse();
+    return { declared: Number(declared), chunkSize: 2 ** log2 };
 }

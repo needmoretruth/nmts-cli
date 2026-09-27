@@ -318,6 +318,34 @@ test("the same list served twice is not mistaken for a fork", async () => {
   });
 });
 
+test("--long adds the tier each file is stored on, and `?` where it could not be read", async () => {
+  await withSandbox("ls-long", async () => {
+    const code = await generateCode();
+    process.env[CODE_ENV_VAR] = code;
+    process.env[API_KEY_ENV_VAR] = KEY;
+    await serveList(code, [entry({ id: "a", name: "a.txt" }), entry({ id: "b", name: "b.txt" }), entry({ id: "c", name: "c.txt" })], 1);
+    const asked: string[] = [];
+    const readTiers = async (ids: readonly string[]) => {
+      asked.push(...ids);
+      return new Map([["a", "standard" as const], ["b", "heavy" as const], ["c", null]]);
+    };
+    const out = collect();
+    await ls({ server: BASE, network: "testnet", long: true, readTiers, write: out.write });
+    assert.deepEqual([...asked].sort(), ["a", "b", "c"]);
+    assert.match(out.lines.find((l) => l.startsWith("a.txt")) ?? "", /\bstandard\b/);
+    assert.match(out.lines.find((l) => l.startsWith("b.txt")) ?? "", /\bheavy\b/);
+    assert.match(out.lines.find((l) => l.startsWith("c.txt")) ?? "", /\s\?\s*$/);
+
+    const json = collect();
+    await ls({ server: BASE, network: "testnet", long: true, json: true, readTiers, write: json.write });
+    const tiers = JSON.parse(json.lines[0] ?? "{}").entries.map((e: { tier: unknown }) => e.tier);
+    assert.deepEqual(tiers, ["standard", "heavy", null]);
+
+    const plain = collect();
+    await ls({ server: BASE, network: "testnet", readTiers: async () => assert.fail("a plain ls must not read tiers"), write: plain.write });
+  });
+});
+
 // ── A video's preview picture, and `--media` ─────────────────────────
 test("a video's preview picture is part of the video, not a line of its own", async () => {
   await withSandbox("ls-preview", async () => {

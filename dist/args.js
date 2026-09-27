@@ -55,6 +55,11 @@ const VALUE_OPTIONS = {
     //    this tool already recommends for every other secret (`NMTS_ACCOUNT_CODE_FILE`).
     "--sui-key-file": "suiKeyFile",
     "--from": "from",
+    // NMTS Heavy: which tier, and the self-paid path's knobs (developer mode).
+    "--tier": "tier",
+    "--copies": "copies",
+    "--providers": "providers",
+    "--evm-wallet": "evmWallet",
     "--account": "account",
     "--app": "app",
 };
@@ -114,6 +119,7 @@ const FLAG_OPTIONS = {
     "--remove": "remove",
     "--accept-extremes": "acceptExtremes",
     "--trust-server-tip-address": "trustServerTipAddress",
+    "--long": "long",
 };
 // ⛔ Derived from the tables, not written again. A hand-kept list is how an option ends up tested
 //    for one property and accepted with another. ⚠ Every option that carries a value is in here,
@@ -152,7 +158,7 @@ const FLAG_DEFAULTS = {
     help: false, version: false, json: false, all: false, force: false, dryRun: false, thumbnail: false, releaseStorage: false,
     yes: false, publish: false, plain: false, env: false, status: false,
     desc: false, hidden: false, reveal: false, phrase: false, print: false, qr: false, board: false,
-    save: false, acceptExtremes: false, remove: false, noWait: false, trustServerTipAddress: false,
+    save: false, acceptExtremes: false, remove: false, noWait: false, trustServerTipAddress: false, long: false,
 };
 export function parseArgs(argv) {
     const parsed = { command: null, operands: [], ...FLAG_DEFAULTS };

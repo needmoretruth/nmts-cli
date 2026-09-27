@@ -222,7 +222,7 @@ test("⛔ a part on a storage network this version cannot read is refused before
     const plaintext = new Uint8Array(100).fill(6);
     await serve(code, "w.bin", await sealFile(code, [plaintext]), plaintext.length);
     const body = partsBody as { parts: { network: number }[] };
-    body.parts[0]!.network = 1; // another storage network — no reader here
+    body.parts[0]!.network = 2; // not a storage network this version knows — 0 is Walrus, 1 is Filecoin
     const out = join(dir, "w.bin");
     const failure = await get("w.bin", { server: BASE, network: "testnet", out, write: collect().write }).then(
       () => null,

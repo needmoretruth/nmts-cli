@@ -223,6 +223,14 @@ export interface CryptoGlue {
      *    would look like the account's money had vanished.
      */
     wallet_seed_for(walletRoot: Uint8Array, index: number): Uint8Array;
+    /**
+     * The secp256k1 private key (32 bytes) of EVM wallet `index`, from the same wallet root
+     * (NCF-3 §1.9) — the key that pays Filecoin itself for NMTS Heavy on the self-paid path.
+     *
+     * ⛔ KEY MATERIAL, LIKE `wallet_seed_for`. The address is computed from it on this side
+     *    (`heavy-evm.ts`); the key is wiped by whoever asked for it.
+     */
+    evm_key_for(walletRoot: Uint8Array, index: number): Uint8Array;
 }
 export declare function isCryptoGlue(value: unknown): value is CryptoGlue;
 /** Which of the required functions this object does not have. Empty means it is the engine. */

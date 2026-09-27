@@ -198,6 +198,21 @@ export function envelope_open(key: Uint8Array, aad: Uint8Array, envelope: Uint8A
 export function envelope_seal(key: Uint8Array, aad: Uint8Array, plaintext: Uint8Array): Uint8Array;
 
 /**
+ * The secp256k1 private key (32 bytes, big-endian) of EVM wallet number `index` from the 32-byte
+ * `wallet_root` (NCF-3 §1.9) — the key that pays for NMTS Heavy on Filecoin when a person pays
+ * from their own EVM wallet.
+ *
+ * ⛔ Like `wallet_seed_for`, this hands back key material. It is called in-process by the crypto
+ * worker and by the command-line tool; no page-facing RPC returns it.
+ *
+ * ⚠ The ADDRESS is deliberately not exported. Computing it needs the curve's point arithmetic,
+ * which added 63 KB to a package every visitor downloads (measured 2026-09-24: 539,169 → 602,131
+ * bytes; the key alone is 545,338) for a value no browser screen shows. The command-line tool and
+ * the recovery tool compute the address themselves.
+ */
+export function evm_key_for(wallet_root: Uint8Array, index: number): Uint8Array;
+
+/**
  * A fresh random 32-byte file DEK (WebCrypto-backed).
  */
 export function generate_dek(): Uint8Array;
@@ -533,7 +548,6 @@ export interface InitOutput {
     readonly streamencryptor_push: (a: number, b: number, c: number) => [number, number, number, number];
     readonly streamencryptor_resumeFromHeader: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly verify_part_set: (a: number, b: number) => [number, number];
-    readonly wallet_seed_for: (a: number, b: number, c: number) => [number, number, number, number];
     readonly opener_locator: (a: number, b: number) => [number, number, number, number];
     readonly opener_message: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly opener_open: (a: number, b: number, c: number, d: number) => [number, number, number, number];
@@ -546,7 +560,9 @@ export interface InitOutput {
     readonly account_code_generate: () => [number, number];
     readonly account_code_parse: (a: number, b: number) => [number, number, number, number];
     readonly account_code_phrase: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly evm_key_for: (a: number, b: number, c: number) => [number, number, number, number];
     readonly voucher_hash_from_input: (a: number, b: number) => [number, number];
+    readonly wallet_seed_for: (a: number, b: number, c: number) => [number, number, number, number];
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;

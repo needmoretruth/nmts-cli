@@ -27,15 +27,15 @@ import { paddingRuleOf, readFileList } from "../manifest.js";
 import { resolveNetwork } from "../network.js";
 import { BINARY_NAME } from "../product.js";
 import { resolveServer } from "../server.js";
-import { clearItemRecord, clearReservation } from "../upload-store.js";
+import { forgetUpload } from "../upload-run.js";
 import { createUploadApi } from "../upload-api.js";
-import { partKeysOf, uploadFile } from "../upload-file.js";
+import { uploadFile } from "../upload-file.js";
 import { fileSource } from "../upload-file-node.js";
 import { CREDIT_BYTES, creditsFor, partSizeFor, planAndPrice, UPLOAD_EPOCHS } from "../upload-price.js";
 import { measureLocal } from "../upload-price-node.js";
 import { createBlobProtocol, readCurrentEpoch } from "../walrus-write.js";
 /** Who pays, and the options that lose their meaning under that answer — the rule is in `put-payer.ts`; this is its one road. */
-import { payerOf, refuseWalletOnlyOptions } from "./put-payer.js";
+import { payerOf, refuseWalletOnlyOptions, tierOf } from "./put-payer.js";
 export { payerOf, refuseWalletOnlyOptions };
 /**
  * The folder id `--to` names, or null for the root. Refuses rather than guessing.
@@ -69,6 +69,9 @@ export function folderIdFor(wanted, entries) {
     return folder.id;
 }
 export async function put(target, options = {}) {
+    // NMTS Heavy is its own road (`put-heavy.ts`), taken before the preview picture: Heavy refuses one.
+    if (tierOf(options) === "heavy")
+        return (await import("./put-heavy.js")).putHeavy(target, options);
     if (options.thumbnail === true || options.thumbnailFile !== undefined) {
         return (await import("./put-thumbnail.js")).putWithThumbnail(target, options, put);
     }
@@ -267,10 +270,8 @@ export async function put(target, options = {}) {
     options.onStored?.(result.itemId, added.name);
     // ⛔ ONLY NOW, AND EVERY PART. Until the entry is in the list the file is paid for and invisible,
     //    and the records are the only thing that lets a second run finish the job without spending
-    //    again. Clearing the file-level one first would leave a run able to commit a second time.
-    await clearItemRecord(result.fileKey);
-    for (const record of partKeysOf(result.fileKey, result.parts))
-        await clearReservation(record);
+    //    again. The order they are forgotten in is `forgetUpload`'s.
+    await forgetUpload(result.fileKey, result.parts);
     // ⛔ THE DISPLACED FILE IS TOLD TO THE SERVER ONLY NOW, and only after the new one is in the
     //    list. Until this line the person still had the file they started with.
     // ⚠ A failure here leaves it hidden in this account's trash while the server still counts it as

@@ -66,6 +66,14 @@ export interface ParsedArgs {
   epochs?: string;
   /** `put`/`push`: who pays for the storage — `credits` (the default) or `wallet`. */
   pay?: string;
+  /** `put`/`push`: `standard` (the default) or `heavy` — NMTS Standard on Walrus, NMTS Heavy on Filecoin. */
+  tier?: string;
+  /** `put`/`push --tier heavy --pay evm`: copies, 1..12; the storage companies by id; which EVM wallet. */
+  copies?: string;
+  providers?: string;
+  evmWallet?: string;
+  /** `ls`: the long listing — adds the tier each file is stored on (one more read of the server). */
+  long: boolean;
   /** `put --pay wallet`: `fit`, `whole`, or a held storage resource's object id. */
   storage?: string;
   /**

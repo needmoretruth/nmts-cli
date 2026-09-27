@@ -41,7 +41,6 @@ export const streamencryptor_new: (a: number, b: number, c: number, d: number, e
 export const streamencryptor_push: (a: number, b: number, c: number) => [number, number, number, number];
 export const streamencryptor_resumeFromHeader: (a: number, b: number, c: number, d: number) => [number, number, number];
 export const verify_part_set: (a: number, b: number) => [number, number];
-export const wallet_seed_for: (a: number, b: number, c: number) => [number, number, number, number];
 export const opener_locator: (a: number, b: number) => [number, number, number, number];
 export const opener_message: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
 export const opener_open: (a: number, b: number, c: number, d: number) => [number, number, number, number];
@@ -54,7 +53,9 @@ export const account_code_display: (a: number, b: number) => [number, number, nu
 export const account_code_generate: () => [number, number];
 export const account_code_parse: (a: number, b: number) => [number, number, number, number];
 export const account_code_phrase: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const evm_key_for: (a: number, b: number, c: number) => [number, number, number, number];
 export const voucher_hash_from_input: (a: number, b: number) => [number, number];
+export const wallet_seed_for: (a: number, b: number, c: number) => [number, number, number, number];
 export const __wbindgen_exn_store: (a: number) => void;
 export const __externref_table_alloc: () => number;
 export const __wbindgen_externrefs: WebAssembly.Table;

@@ -156,6 +156,7 @@ async function attempt<T extends RebuildRow>(
   try {
     return await open(row);
   } catch {
+    // Every way the reader throws means the bytes did not arrive, which is `unreadable`.
     return { ok: false, reason: "unreadable" };
   }
 }

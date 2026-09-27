@@ -13,8 +13,8 @@
 //    exists so somebody can prove an address is theirs — all the hall of fame asks for.
 //
 // ⛔ IT IS REACHED FROM `commands/extend.ts`, `commands/wallet-send.ts`, `commands/wallet-donate.ts`,
-//    `commands/wallet-swap.ts` and `upload-wallet.ts` (the wallet rail `commands/put-wallet.ts`
-//    drives), each after the price, the fee and the balances have been read and printed, and (a
+//    `commands/wallet-swap.ts`, `upload-wallet.ts` (the wallet rail `commands/put-wallet.ts`
+//    drives) and `commands/heavy-run.ts` (an NMTS Heavy order's one WAL payment), each after the price, the fee and the balances have been read and printed, and (a
 //    gift excepted) after `requireWalletGrant(…)`. Nothing else imports it, and it is loaded lazily
 //    so that a run which does not spend never even brings the code into memory.
 //

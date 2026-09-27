@@ -31,6 +31,7 @@ import { fromBase64Url, utf8 } from "./bytes.js";
 import { request } from "./api.js";
 import { AAD, DERIVED, loadCrypto } from "./crypto.js";
 import { asParts, fetchPart, openPart } from "./download-part.js";
+import { collectWindow, windowOf } from "./download-range.js";
 import { NmtsError } from "./errors.js";
 /**
  * Fetch, decrypt and verify one file.
@@ -60,7 +61,21 @@ export async function fetchWithKey(input) {
     const crypt = await loadCrypto();
     const dek = input.dek;
     const expected = input.expected;
+    // ⚠ A sink that keeps only a window of the file is read from the part the window starts in
+    //   (`download-range.ts`); every other sink takes the whole-file path below, unchanged.
+    const window = windowOf(input.sink);
+    if (window !== null) {
+        return collectWindow(crypt, ordered, dek, expected, input.size, input.chain, input.read, input.sink, window);
+    }
     return collect(crypt, ordered, dek, expected, input.size, input.chain, input.read, input.sink);
+}
+/**
+ * Fetch, decrypt and verify a file whose key is open AND whose pieces are already known — a
+ * handover file carries them sealed, so the NMTS server is asked nothing at all.
+ */
+export async function fetchKnownParts(input) {
+    const crypt = await loadCrypto();
+    return collect(crypt, input.parts, input.dek, input.expected, input.size, input.chain, input.read, input.sink);
 }
 export async function fetchFile(input) {
     const crypt = await loadCrypto();
@@ -127,14 +142,14 @@ async function collect(crypt, ordered, dek, expected, size, chain, read, sink) {
             if (part === undefined)
                 continue;
             const sealed = await fetchPart(part, chain, read);
-            remaining -= await openPart(crypt, dek, part, sealed, i === ordered.length - 1, remaining, async (body) => {
+            remaining -= await openPart(crypt, dek, part, sealed, { index: i, total: ordered.length }, remaining, async (body) => {
                 hasher.update(body);
                 await sink.write(body);
             });
         }
         if (remaining !== 0) {
-            throw new NmtsError(`The stored parts are ${remaining} bytes short of the file this list describes.`, {
-                nextStep: "Nothing was written. Open the account in a browser and compare before uploading anything again.",
+            throw new NmtsError(`The stored parts are ${remaining} bytes short of the file's recorded length.`, {
+                nextStep: "Nothing was written. The stored bytes and the recorded length describe different files.",
             });
         }
         if (expected !== null) {
@@ -142,7 +157,7 @@ async function collect(crypt, ordered, dek, expected, size, chain, read, sink) {
             const same = expected.length === got.length && expected.every((b, i) => b === got[i]);
             expected.fill(0);
             if (!same) {
-                throw new NmtsError("The file came back whole but does not match the hash this account recorded for it.", {
+                throw new NmtsError("The file came back whole but does not match the hash recorded for it.", {
                     nextStep: "Nothing was written. Every part decrypted, so this is not a wrong key — the bytes " +
                         "themselves are not the ones that were uploaded.",
                 });

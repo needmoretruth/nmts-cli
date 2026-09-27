@@ -265,6 +265,14 @@ export interface CryptoGlue {
    *    would look like the account's money had vanished.
    */
   wallet_seed_for(walletRoot: Uint8Array, index: number): Uint8Array;
+  /**
+   * The secp256k1 private key (32 bytes) of EVM wallet `index`, from the same wallet root
+   * (NCF-3 §1.9) — the key that pays Filecoin itself for NMTS Heavy on the self-paid path.
+   *
+   * ⛔ KEY MATERIAL, LIKE `wallet_seed_for`. The address is computed from it on this side
+   *    (`heavy-evm.ts`); the key is wiped by whoever asked for it.
+   */
+  evm_key_for(walletRoot: Uint8Array, index: number): Uint8Array;
 }
 
 const REQUIRED: readonly (keyof CryptoGlue)[] = [
@@ -300,6 +308,9 @@ const REQUIRED: readonly (keyof CryptoGlue)[] = [
   // "this function is missing" said at load time is a different day's problem from
   // `undefined is not a function` in the middle of deriving somebody's second account.
   "derive_ai_account_code",
+  // The EVM wallets (NCF-3 §1.9), required for the same reason: `put --tier heavy --pay evm` and
+  // `heavy wallet` cannot run on a build without it.
+  "evm_key_for",
 ];
 
 export function isCryptoGlue(value: unknown): value is CryptoGlue {

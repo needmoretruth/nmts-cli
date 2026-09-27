@@ -10,8 +10,8 @@
 import { strict as assert } from "node:assert";
 import { createHash } from "node:crypto";
 import { createServer, type Server } from "node:http";
-import { readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
 
 import { API_KEY_ENV_VAR, CODE_ENV_VAR, testConfigDir } from "../src/credentials.ts";
@@ -94,7 +94,7 @@ async function sandbox(name: string, body: (recipientCode: string) => Promise<vo
 }
 
 /** A share of one real file, as sender and server would produce it. */
-async function shareFrom(recipientCode: string) {
+async function shareFrom(recipientCode: string, name = "shared.txt") {
   const crypt = await loadCrypto();
   const sender = shareKeysOf(crypt, await generateCode());
   const recipient = shareKeysOf(crypt, recipientCode);
@@ -112,7 +112,7 @@ async function shareFrom(recipientCode: string) {
     recipientAddress: recipient.address,
     dek,
     itemId: ITEM_ID,
-    name: "shared.txt",
+    name,
     size: REAL.length,
     digest,
   });
@@ -158,6 +158,38 @@ test("⛔ a received file is trimmed to the length the SENDER sealed, not the se
       assert.ok(lines.join("\n").includes(made.senderDisplay), "the sender is named");
     } finally {
       server.close();
+    }
+  });
+});
+
+test("⛔ without --out a received file lands in the current directory, whatever name the sender sealed", async () => {
+  await sandbox("share-receive-names", async (code) => {
+    const here = join(testConfigDir("share-receive-names"), "here");
+    mkdirSync(here, { recursive: true });
+    const cwd = process.cwd();
+    process.chdir(here);
+    try {
+      const { receive } = await import("../src/commands/receive.ts");
+      for (const [name, lands] of [
+        ["../escaped.txt", "escaped.txt"],
+        [join(dirname(here), "absolute.txt"), "absolute.txt"],
+      ]) {
+        if (name === undefined || lands === undefined) continue;
+        const made = await shareFrom(code, name);
+        const state = { received: { shares: [made.row], total: 1 }, parts: made.parts, sealed: made.sealed, calls: [] as string[] };
+        const server = await serve(state);
+        process.env[SERVER_ENV_VAR] = server.base;
+        process.env[AGGREGATOR_ENV_VAR] = server.base;
+        try {
+          assert.equal(await receive(SHARE_ID, { write: () => undefined }), 0);
+          assert.deepEqual(Array.from(new Uint8Array(readFileSync(join(here, lands)))), Array.from(REAL));
+          assert.equal(existsSync(join(dirname(here), lands)), false, `${name} was written outside the current directory`);
+        } finally {
+          server.close();
+        }
+      }
+    } finally {
+      process.chdir(cwd);
     }
   });
 });

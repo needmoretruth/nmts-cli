@@ -51,6 +51,7 @@ export function decodeSharedFileInfo(sealed) {
         parsed = JSON.parse(sealed);
     }
     catch {
+        // See above: text that is not JSON is the name itself.
         return { name: sealed };
     }
     if (typeof parsed !== "object" || parsed === null)

@@ -22,6 +22,7 @@
 import { fromBase64Url, toBase64Url } from "./bytes.ts";
 import { NmtsError } from "./errors.ts";
 import type { Network } from "./network.ts";
+import { refuseOtherSealing, runIdField } from "./upload-run.ts";
 import { readReservationBytes, readReservationRecord, writeReservation, type Reservation } from "./upload-store.ts";
 import type { PartQuote, StorageChoice } from "./upload-wallet-plan.ts";
 import { UploadError, type BlobMeta, type Certificate, type PaidPart, type UploadInput } from "./upload-wire.ts";
@@ -108,6 +109,9 @@ async function buyAndPushPartWithWallet(ctx: WalletRailContext, input: UploadInp
     });
   }
 
+  // ⛔ A record another sealing of this file wrote is refused, not resumed (`upload-run.ts`).
+  refuseOtherSealing(existing, input);
+
   // ── already certified: nothing left to sign or send ──
   if (existing?.certifyTxDigest !== undefined) {
     onStep?.({ step: "resuming", ledgerId: 0, state: "certified" });
@@ -140,6 +144,7 @@ async function buyAndPushPartWithWallet(ctx: WalletRailContext, input: UploadInp
   }
   const record: Reservation = {
     attempt: existing?.attempt ?? 0,
+    ...runIdField(existing, input.runId),
     paidFrom: "wallet",
     blobId: meta.blobId,
     nonceB64: toBase64Url(meta.nonce),

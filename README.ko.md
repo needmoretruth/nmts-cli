@@ -50,7 +50,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.45.0    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.46.0    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -182,11 +182,13 @@ NMTS 키는 한 번에 전부입니다. 그것을 가진 프로그램은 모든 
 | `nmts trial` | 이번 주 무료 크레딧이 얼마나 남았는지. `trial apply`가 신청합니다 |
 | `nmts create` | 새 계정을 만들고 NMTS 키를 한 번 찍습니다. 다시 찍을 수 있는 것은 없습니다. 이 기기에 확인된 API 키가 없으면 NMTS 키를 여기서 만들고 주소 하나를 찍은 뒤, 사람이 그 주소를 열어 그 NMTS 키를 입력하고 사람 확인을 통과할 때까지 기다립니다 — 그 순간 계정이 생깁니다. `--no-wait`는 주소만 찍고 멈춥니다 |
 | `nmts verify` | 이 계정의 한도를 여는 사람 확인을 부탁합니다. 계정 주인만 할 수 있습니다 — 그 브라우저에서 이 계정에 로그인돼 있거나, 거기서 NMTS 키를 입력합니다 |
-| `nmts public-code` | 다른 계정이 파일을 보내는 코드. `--publish`가 받을 수 있게 합니다 |
+| `nmts public-code` | 다른 계정이 파일을 보내는 코드. `--publish`가 받을 수 있게 합니다. `--save [파일]`은 공개 코드 파일을 씁니다 |
 | `nmts share <path> <address>` | 파일 하나를 다른 계정에 줍니다 — **거둬도 이미 받아 간 사본은 못 되돌립니다**. `nmts unlock share`로 열기 전에는 잠겨 있고, 공유마다 멈춰서 `--yes`가 이 파일 하나에 답합니다 |
 | `nmts shares` | 이 계정에 공유된 것. `--sent <경로>`는 파일 하나가 누구에게 갔는지 |
 | `nmts receive <id>` | 누군가 이 계정에 공유한 파일 하나를 다운로드합니다 |
 | `nmts unshare <id>` | 보낸 공유를 거두거나, 받은 공유를 지웁니다 |
+| `nmts handover make <path> --to <공개 코드 \| 공개 코드 파일>` | 한 계정에게 건넬 건네기 파일을 쓰고, 직접 전합니다 — **되돌릴 수 없고**, NMTS에는 기록이 남지 않습니다. `share`처럼 잠겨 있습니다 |
+| `nmts handover open <file>` | 건네기 파일에 든 파일을 다운로드합니다. NMTS 키만 있으면 되고 API 키는 필요 없으며, NMTS 서버에 아무것도 묻지 않습니다 |
 | `nmts rebuild` | 목록이 없는 계정에서, 서버의 줄로 파일 목록을 다시 짓습니다 |
 | `nmts rollback` | 파일 목록의 이전 버전을 되돌립니다 — 사람이 하는 일 |
 | `nmts listfile` | 이 기계가 가진 암호화된 파일 목록을 파일로 씁니다 |
@@ -462,7 +464,8 @@ $ nmts s3
 ```
 
 - 버킷은 `drive` 하나. 키는 앞 슬래시를 뺀 파일 경로입니다. 폴더는 빈 것까지 common prefix로
-  돌아옵니다.
+  돌아오고, 구분자 없는 목록에서는 0바이트 `folder/` 표시로도 돌아옵니다. 바이트 없이 `folder/`를
+  `PUT`하면 그 폴더가 생깁니다. 빈 파일도 다른 파일처럼 저장됩니다.
 - 자격은 명령이 시작될 때 만들어지고, 어디에도 저장되지 않으며, 명령과 함께 죽습니다.
 - 127.0.0.1에만 귀를 기울이고, 바꾸는 옵션은 없습니다.
 - 시작할 때 한 번 묻습니다(이것을 거친 업로드는 크레딧을 씁니다). 스크립트는 `--yes`로 답합니다. 삭제는

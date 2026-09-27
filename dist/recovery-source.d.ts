@@ -1,3 +1,4 @@
+import type { HeavyCopy } from "./shared/lib/api/types-heavy.ts";
 /** `file_parts.storage_kind` for a quilt patch. 0 is a dedicated blob. */
 export declare const STORAGE_QUILT = 1;
 /** One stored piece of a file, as the server describes it. */
@@ -11,6 +12,8 @@ export interface SourcePart {
     /** What the part OCCUPIES: the sealed stream, header and tags included. */
     sealed_len: number;
     sui_object_id?: string;
+    /** Network 1 (NMTS Heavy): the companies keeping a whole copy, as the server recorded them. */
+    copies?: HeavyCopy[];
     /**
      * What this part's stored header DECLARES — the plaintext length behind `sealed_len`.
      *

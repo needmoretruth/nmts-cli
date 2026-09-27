@@ -246,9 +246,23 @@ export async function sealFile(
   const contentHashCt = b64(seal(dataKey, utf8.encode("nmts/v3/content-hash"), new Uint8Array(hasher.digest())));
   dataKey.fill(0);
 
+  // ⛔ EACH PIECE NAMES ITS OWN PLACE (NCF-3 §4.1): part i of n in its header, as an upload seals
+  //    it. A reader checks the place, so a helper that sealed every piece as "part 0 of 1" would
+  //    make files no product ever makes. A single piece is part 0 of 1, which `encrypt_all` writes.
+  // The constructor is the engine's own class; it is looked up by name like every other export.
+  const Encryptor = glue["StreamEncryptor"] as new (dek: Uint8Array, len: number, index: number, total: number) => {
+    header(): Uint8Array;
+    push(data: Uint8Array): Uint8Array;
+    finish(): Uint8Array;
+  };
+  const placed = (piece: Uint8Array, i: number): Uint8Array => {
+    if (pieces.length === 1) return encrypt(dek, piece);
+    const enc = new Encryptor(dek, piece.length, i, pieces.length);
+    return new Uint8Array(Buffer.concat([enc.header(), enc.push(piece), enc.finish()]));
+  };
   const parts = pieces.map((piece, i) => ({
     blobId: `test-blob-${i}-${piece.length}`,
-    sealed: encrypt(dek, piece),
+    sealed: placed(piece, i),
   }));
   dek.fill(0);
   return { dekWrapped, contentHashCt, parts };

@@ -27,6 +27,7 @@ import { readFileList } from "../manifest.js";
 import { openSession } from "../session.js";
 import { daysLeftInTrash, TRASH_RETENTION_DAYS } from "../trash-sweep.js";
 import { humanSize } from "../units.js";
+import { tierLabel, tiersOf } from "../list-tier.js";
 /**
  * How much of a trashed entry's thirty days is left, in the words beside its row.
  *
@@ -119,6 +120,11 @@ export async function ls(options = {}) {
         ...(e.pinned === true ? { pinned: true } : {}),
     }));
     const rows = sort === null ? byPath(mapped, dir) : orderRows(mapped, sort, dir);
+    const fileIds = options.long === true ? rows.filter((r) => r.kind !== KIND_FOLDER).map((r) => r.id) : [];
+    const tiers = options.long === true
+        ? await (options.readTiers ?? ((ids) => tiersOf(session.server, session.apiKey, ids)))(fileIds)
+        : null;
+    const tierOfRow = (row) => (row.kind === KIND_FOLDER ? "" : tierLabel(tiers?.get(row.id) ?? null));
     if (options.json) {
         say(JSON.stringify({
             state: "present",
@@ -141,6 +147,7 @@ export async function ls(options = {}) {
                 trashed: row.trashed,
                 trashedAt: row.trashedAt,
                 marks: row.marks,
+                ...(tiers === null ? {} : { tier: row.kind === KIND_FOLDER ? null : (tiers.get(row.id) ?? null) }),
             })),
         }));
         return 0;
@@ -162,7 +169,8 @@ export async function ls(options = {}) {
             const mark = row.trashed
                 ? `  [trash${row.trashedAt === null ? "" : `, ${trashWindow(row.trashedAt, now)}`}]`
                 : "";
-            say(`${row.path.padEnd(width)}  ${size.padStart(9)}${mark}${markSuffix(row.marks)}`);
+            const tier = tiers === null ? "" : `  ${tierOfRow(row).padEnd(8)}`;
+            say(`${row.path.padEnd(width)}  ${size.padStart(9)}${tier}${mark}${markSuffix(row.marks)}`);
         }
         say(``);
         const files = rows.filter((r) => r.kind !== KIND_FOLDER).length;

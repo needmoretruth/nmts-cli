@@ -108,15 +108,35 @@ export type UploadStep = {
  *    advice. After it, the credits are gone and the storage exists; the honest advice is that the
  *    same command will FINISH it rather than buy it again, and that saying otherwise would send
  *    somebody to spend twice.
+ *
+ * ⛔ AND A REFUSAL KEEPS WHAT THE SERVER SAID ABOUT ITSELF. A program deciding whether to top up,
+ *    wait or give up reads `code`, `status` and `retryAfter`; the sentence is for a person, and a
+ *    program that matched on it would break the day it was reworded.
  */
 export declare class UploadError extends NmtsError {
     readonly phase: UploadPhase;
     readonly paid: boolean;
+    /**
+     * The server's own code when the server refused, exactly as `ServerError.code` carries it — or
+     * `WALLET_SHORT` when the paying wallet was known to be short before anything was signed.
+     * Absent for every other failure.
+     */
+    readonly code?: string | undefined;
+    /** The HTTP status the server answered with. Absent when no answer came back. */
+    readonly status?: number | undefined;
+    /** Seconds to wait before asking again, from the server's `Retry-After`; null when it named none. */
+    readonly retryAfter?: number | null | undefined;
     constructor(input: {
         phase: UploadPhase;
         message: string;
         paid: boolean;
         nextStep?: string | null;
+        /** 1 unless this refusal has an exit code of its own. */
+        exitCode?: number;
+        /** What this refusal is known by, when it is not the server's to name. */
+        code?: string;
+        /** The failure this one wraps. A server refusal's code, status and wait are carried over. */
+        from?: unknown;
     });
 }
 /**
@@ -130,6 +150,11 @@ export declare class UploadError extends NmtsError {
  */
 export interface CommitInput {
     api: UploadApi;
+    /**
+     * This upload's run id (`newRunId` in `upload-store.ts`): what every NEW record is written with,
+     * and what makes this upload's idempotency keys its own rather than the last upload's.
+     */
+    runId: string;
     /** Storage term in storage-network epochs. */
     epochs: number;
     /** The current storage-network epoch, or null when it could not be read. */

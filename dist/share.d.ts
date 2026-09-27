@@ -51,6 +51,11 @@ export declare function sealShare(crypt: CryptoGlue, input: {
     size: number;
     /** The file's whole-plaintext digest, opened from the account's own sealed copy. */
     digest: Uint8Array;
+    /**
+     * The name document to seal in place of the share's own — a handover's, which also binds its
+     * parts list and network (NCF-3 §5.6). A built-in share never passes one.
+     */
+    nameDocument?: string;
 }): SharePayload;
 /** One row of what somebody shared with this account, as the server describes it. */
 export interface ReceivedRow {

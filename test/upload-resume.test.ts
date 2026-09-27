@@ -10,7 +10,9 @@ import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 
+import { UPLOAD_CONFLICT } from "../src/upload-run.ts";
 import { readReservation } from "../src/upload-store.ts";
+import { UploadError } from "../src/upload-wire.ts";
 import {
   apiThat,
   BLOB_OF_SEALED,
@@ -85,13 +87,18 @@ test("⛔ a second run does not overwrite the recorded key with its own", async 
       ),
     );
 
-    // A second run arrives with a freshly wrapped key — what re-sealing produces.
+    // A second run arrives with a freshly wrapped key — what re-sealing produces. It is another
+    // sealing of the file, so it is refused rather than let near the record (`upload-run.ts`).
     const second = apiThat();
     const input = inputFor(second.api, protocolThat(), "resume-entry");
-    await uploadOnePart({
-      ...input,
-      entry: { ...input.entry, dekWrapped: "AAAA-a-different-wrapped-key", contentHashCt: "AAAA-different" },
-    });
+    await assert.rejects(
+      uploadOnePart({
+        ...input,
+        entry: { ...input.entry, dekWrapped: "AAAA-a-different-wrapped-key", contentHashCt: "AAAA-different" },
+      }),
+      (error: unknown) => error instanceof UploadError && error.code === UPLOAD_CONFLICT,
+    );
+    assert.deepEqual([second.calls.reserve, second.calls.uploaded], [0, 0]);
 
     const record = (await readReservation("resume-entry"))?.record;
     assert.equal(

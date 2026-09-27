@@ -116,6 +116,11 @@ export function sealShare(
     size: number;
     /** The file's whole-plaintext digest, opened from the account's own sealed copy. */
     digest: Uint8Array;
+    /**
+     * The name document to seal in place of the share's own — a handover's, which also binds its
+     * parts list and network (NCF-3 §5.6). A built-in share never passes one.
+     */
+    nameDocument?: string;
   },
 ): SharePayload {
   if (input.digest.length !== 32) {
@@ -129,7 +134,7 @@ export function sealShare(
   const nameCt = crypt.envelope_seal(
     input.dek,
     encoder.encode(AAD.shareName),
-    encoder.encode(encodeSharedFileInfo({ name: input.name, size: input.size })),
+    encoder.encode(input.nameDocument ?? encodeSharedFileInfo({ name: input.name, size: input.size })),
   );
   const digestCt = crypt.envelope_seal(input.dek, encoder.encode(AAD.shareContentHash), input.digest);
   if (digestCt.length !== DIGEST_ENVELOPE_LEN) {

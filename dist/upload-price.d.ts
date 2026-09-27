@@ -28,6 +28,16 @@ export declare function creditsFor(sealedBytes: number, epochs?: number): number
  */
 export declare function partSizeFor(chosen: string | number | undefined): number;
 /**
+ * Where the cuts fall — and for an EMPTY file, one part that carries nothing.
+ *
+ * ⛔ AN EMPTY FILE IS A FILE, NOT A MISTAKE. S3 clients make them routinely, and NCF-3 seals zero
+ *    bytes as one empty final chunk: 88 sealed bytes, which the server reserves and commits and every
+ *    reader opens like any other part. `planParts` is a byte-for-byte copy shared with the browser
+ *    and refuses a zero length, so the one extra case is said here, in the one place both the price
+ *    and the sealing read the plan from.
+ */
+export declare function planFor(size: number, partSize: number): PartRange[];
+/**
  * The plan, and what it will cost — one function so the price and the sealing cannot disagree.
  *
  * ⛔ ONLY THE LAST PART IS ROUNDED UP. The earlier ones are exactly the part size, which is what

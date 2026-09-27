@@ -89,6 +89,21 @@ test("HEAD answers with the size and the tag, and no body", async () => {
   assert.equal(res.headers.get("content-length"), String(CONTENT.length));
   // ⛔ The tag must not look like an MD5, or clients check downloads against it and call them broken.
   assert.match(res.headers.get("etag") ?? "", /-1"$/);
+  assert.equal(res.headers.get("accept-ranges"), "bytes");
+  assert.equal(res.headers.get("content-type"), "text/plain; charset=utf-8");
+});
+
+test("the tag a listing answers is the tag HEAD answers", async () => {
+  const listed = await (await call("GET", "/drive?list-type=2&prefix=readme")).text();
+  const tag = /<ETag>([^<]+)<\/ETag>/.exec(listed)?.[1]?.replace(/&quot;/g, '"');
+  assert.equal(tag, (await call("HEAD", "/drive/readme.txt")).headers.get("etag"));
+});
+
+test("a range of a file is 206 with exactly those bytes", async () => {
+  const signed = sign("GET", "/drive/readme.txt", HOST, CREDENTIAL, new Date());
+  const res = await fetch(signed.url, { headers: { ...signed.headers, range: "bytes=4-8" } });
+  assert.equal(res.status, 206);
+  assert.equal(await res.text(), CONTENT.subarray(4, 9).toString());
 });
 
 test("GET hands over the file's bytes", async () => {

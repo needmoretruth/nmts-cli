@@ -153,14 +153,21 @@ export interface Reservation {
   /**
    * How many reservations this file has needed. Part of the idempotency key.
    *
-   * ⛔ WITHOUT IT, A FAILED RESERVATION BRICKS THIS FILE FOREVER. The idempotency key is derived
-   *    from a key that is a pure function of (account, bytes, destination), and the server replays
-   *    a reservation row under its key WHATEVER STATE IT IS IN — including `failed`, which can
-   *    never become storage. So every later attempt would be handed the same dead row, be told to
-   *    start over, start over into the same dead row, and this account could never upload this
-   *    file again unless a byte of it changed. Counting up is what "start over" actually means.
+   * ⛔ WITHOUT IT, A FAILED RESERVATION BRICKS THIS UPLOAD. A resume asks under the key this
+   *    record names, and the server replays a reservation row under its key WHATEVER STATE IT IS
+   *    IN — including `failed`, which can never become storage. So every later attempt would be
+   *    handed the same dead row, be told to start over, and start over into the same dead row.
+   *    Counting up is what "start over" actually means.
    */
   attempt: number;
+  /**
+   * Which UPLOAD of this file wrote the record — `newRunId` in `upload-run.ts` says why it exists.
+   * Part of the idempotency key.
+   *
+   * ⚠ ABSENT ON A RECORD AN EARLIER VERSION WROTE, and then the key is the one that version used:
+   *   the reservation it may already have paid for is filed under that key and nowhere else.
+   */
+  runId?: string;
   /** Present once the server answered: the reservation row. */
   ledgerId?: number;
   /** Present once registered: the transaction the relay checks its tip in. */
@@ -206,6 +213,8 @@ function isReservation(value: unknown): value is Reservation {
   for (const name of ["epochs", "sealedLen", "plaintextLen", "partPlaintextLen", "partIndex", "partTotal", "attempt"]) {
     if (typeof Reflect.get(value, name) !== "number") return false;
   }
+  const runId: unknown = Reflect.get(value, "runId");
+  if (runId !== undefined && typeof runId !== "string") return false;
   const parent: unknown = Reflect.get(value, "parentId");
   return parent === null || typeof parent === "string";
 }
@@ -321,6 +330,8 @@ export interface ItemRecord {
    * storage twice says nothing about how many times the file was committed.
    */
   attempt: number;
+  /** The upload that attempted the commit. Absent on a record an earlier version wrote. */
+  runId?: string;
 }
 
 function itemKey(fileKey: string): string {
@@ -330,6 +341,8 @@ function itemKey(fileKey: string): string {
 function isItemRecord(value: unknown): value is ItemRecord {
   if (typeof value !== "object" || value === null) return false;
   if (typeof Reflect.get(value, "attempt") !== "number") return false;
+  const runId: unknown = Reflect.get(value, "runId");
+  if (runId !== undefined && typeof runId !== "string") return false;
   const id: unknown = Reflect.get(value, "itemId");
   return id === undefined || typeof id === "string";
 }

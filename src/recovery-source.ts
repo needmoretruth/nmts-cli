@@ -22,6 +22,8 @@ import { request } from "./api.ts";
 import { NmtsError } from "./errors.ts";
 import { isRecord } from "./guards.ts";
 import { plaintextLenFromSealed } from "./seal.ts";
+import type { HeavyCopy } from "./shared/lib/api/types-heavy.ts";
+import { readCopies } from "./shared/lib/heavy/order-wire.ts";
 
 /** `file_parts.storage_kind` for a quilt patch. 0 is a dedicated blob. */
 export const STORAGE_QUILT = 1;
@@ -37,6 +39,8 @@ export interface SourcePart {
   /** What the part OCCUPIES: the sealed stream, header and tags included. */
   sealed_len: number;
   sui_object_id?: string;
+  /** Network 1 (NMTS Heavy): the companies keeping a whole copy, as the server recorded them. */
+  copies?: HeavyCopy[];
   /**
    * What this part's stored header DECLARES — the plaintext length behind `sealed_len`.
    *
@@ -106,6 +110,13 @@ function partOf(value: unknown, itemId: string): SourcePart {
   if (patch !== undefined) part.patch_id = patch;
   const object = optionalStr(value, "sui_object_id");
   if (object !== undefined) part.sui_object_id = object;
+  // ⛔ A LIST THAT DOES NOT READ IS A REFUSAL, NOT A SKIP: a Heavy part written without its copies
+  //    would be refused by every reader, and one written with half of them is a file half-covered.
+  if (value["copies"] !== undefined) {
+    const copies = readCopies(value["copies"]);
+    if (copies === null) throw unreadable(`the copies of a stored part of file ${itemId}`);
+    part.copies = copies;
+  }
   return part;
 }
 

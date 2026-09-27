@@ -29,6 +29,9 @@ export declare const AAD: {
     readonly shareName: "nmts/v3/share-name";
     /** Seals the shared file's plaintext digest for the recipient, under the same file key. */
     readonly shareContentHash: "nmts/v3/share-content-hash";
+    /** Seals a handover file's list of stored pieces under the file's own key (NCF-3 §5.6), so a file
+     *  that is intercepted does not even say where the ciphertext is. */
+    readonly handoverParts: "nmts/v3/handover-parts";
     /** Seals the RECOVERY LIST — where every file's bytes are (NRM §1). ⛔ The old spelling of the
      *  artefact's name is frozen INTO the separator: every list ever sealed is bound to these bytes. */
     readonly recoveryMap: "nmts/v3/recovery-map";

@@ -59,6 +59,7 @@ export { partKeysOf, uploadFile } from "./upload-file.js";
 export { createUploadApi } from "./upload-api.js";
 export { CREDIT_BYTES, creditsFor, partSizeFor, planAndPrice, UPLOAD_EPOCHS } from "./upload-price.js";
 export { clearItemRecord, clearReservation } from "./upload-store.js";
+export { forgetUpload } from "./upload-run.js";
 export { UploadError } from "./upload-wire.js";
 export { DEFAULT_PART_BYTES } from "./seal.js";
 export { createBlobProtocol, readCurrentEpoch } from "./walrus-write.js";
@@ -87,5 +88,15 @@ export { activeWalletOf, walletCountOf, WALLET_INDEX_LIMIT } from "./shared/lib/
 export { classify } from "./shared/lib/drive/preview-classify.js";
 export { discoverWallets, WALLET_SCAN_GAP } from "./shared/lib/wallet/discover.js";
 export { hasHistory } from "./wallet-list-chain.js";
+// NMTS Heavy: the tier word every interface reads, an upload paid through an order (credits, or WAL
+// once stored), and developer mode's self-paid road from the key's own EVM wallet (NCF-3 §1.9).
+// ⚠ The Synapse SDK behind the self-paid road is loaded only when that road runs.
+export { DEFAULT_STORAGE_TIER, isStorageTier, networkForTier, parseStorageTier, STORAGE_TIERS, tierForNetwork } from "./shared/lib/storage-tier.js";
+export { heavyCredits, heavyOrderPut, planHeavyFile } from "./heavy-upload.js";
+export { copiesOf, heavySelfPut, providersOf, selfPayChain, SELF_PAY_DEFAULT_COPIES, SELF_PAY_MAX_COPIES } from "./heavy-self-pay.js";
+export { heavyWalletPut } from "./heavy-wallet-pay.js";
+export { evmAccountFor, evmAddressFor, evmAddressOf, evmIndexOf, evmKeyOf, hexKey } from "./heavy-evm.js";
+export { HeavyOrderError } from "./shared/lib/heavy/order-runner.js";
+export { HEAVY_COPY } from "./heavy-copy.js";
 // What this package is.
 export { HOME_URL, PRODUCT_NAME, SOURCE_URL, SUPPORT_EMAIL, VERSION } from "./product.js";

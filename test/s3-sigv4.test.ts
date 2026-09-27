@@ -12,7 +12,17 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
-import { verifySignature, canonicalQuery, amzDateToMs, type IncomingRequest } from "../src/s3/sigv4.ts";
+import {
+  STREAMING_PAYLOAD,
+  STREAMING_PAYLOAD_TRAILER,
+  STREAMING_UNSIGNED_PAYLOAD_TRAILER,
+  UNSIGNED_PAYLOAD,
+  verifySignature,
+  canonicalQuery,
+  amzDateToMs,
+  type IncomingRequest,
+} from "../src/s3/sigv4.ts";
+import { signingKeyFor, signPlain } from "./s3-sign.ts";
 
 /** Not a secret: it never opened anything. The recording server refused every request it signed. */
 const CREDENTIAL = {
@@ -116,4 +126,69 @@ test("the query string is canonicalised the way AWS orders it", () => {
   // ⚠ The four JavaScript leaves alone and AWS does not.
   assert.equal(canonicalQuery("prefix=a(b)"), "prefix=a%28b%29");
   assert.equal(canonicalQuery(""), "");
+});
+
+// ⛔ THE DOCUMENTED SEED. AWS's own example of a chunk-signed upload, with the signature AWS
+//    published for it: every chunk signature in `s3-body.test.ts` chains from this value, so the
+//    header half of that example is checked here, by the path a real request takes.
+test("the AWS documentation's chunk-signed request verifies to its documented seed signature", () => {
+  const request: IncomingRequest = {
+    method: "PUT",
+    url: "/examplebucket/chunkObject.txt",
+    headers: {
+      host: "s3.amazonaws.com",
+      "x-amz-date": "20130524T000000Z",
+      "x-amz-storage-class": "REDUCED_REDUNDANCY",
+      authorization:
+        "AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request," + // nmts-secret-scan: allow the AWS documentation's example key
+        "SignedHeaders=content-encoding;content-length;host;x-amz-content-sha256;x-amz-date;" +
+        "x-amz-decoded-content-length;x-amz-storage-class," +
+        "Signature=4f232c4386841ef735655705268965c44a0e4690baa4adea153f7db9fa80a0a9",
+      "x-amz-content-sha256": STREAMING_PAYLOAD,
+      "content-encoding": "aws-chunked",
+      "x-amz-decoded-content-length": "66560",
+      "content-length": "66824",
+    },
+  };
+  const secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+  const verdict = verifySignature(
+    request,
+    { accessKeyId: "AKIAIOSFODNN7EXAMPLE", secretAccessKey: secret }, // nmts-secret-scan: allow the AWS documentation's example key
+    Date.UTC(2013, 4, 24, 0, 0, 30),
+  );
+  if (!verdict.ok) assert.fail(`${verdict.code}: ${verdict.message}`);
+  assert.equal(verdict.payloadHash, STREAMING_PAYLOAD);
+  assert.equal(verdict.signing.seedSignature, "4f232c4386841ef735655705268965c44a0e4690baa4adea153f7db9fa80a0a9");
+  assert.equal(verdict.signing.scope, "20130524/us-east-1/s3/aws4_request");
+  assert.equal(verdict.signing.stamp, "20130524T000000Z");
+  assert.ok(verdict.signing.key.equals(signingKeyFor(secret, "20130524")));
+});
+
+test("⛔ a payload hash S3 does not allow is refused even when it is signed", () => {
+  const when = new Date("2026-09-24T02:00:00Z");
+  const now = when.getTime() + 1_000;
+  const body = Buffer.from("x");
+  const refused = ["A".repeat(64), "a".repeat(63), "STREAMING-AWS4-ECDSA-P256-SHA256-PAYLOAD", "unsigned-payload", ""];
+  for (const declared of refused) {
+    const signed = signPlain("PUT", "/drive/a.txt", "127.0.0.1:9000", CREDENTIAL, when, body, declared);
+    const verdict = verifySignature({ method: "PUT", url: "/drive/a.txt", headers: signed.headers }, CREDENTIAL, now);
+    assert.equal(verdict.ok ? "ok" : verdict.code, "InvalidArgument", JSON.stringify(declared));
+  }
+  const allowed = [
+    "b".repeat(64),
+    UNSIGNED_PAYLOAD,
+    STREAMING_PAYLOAD,
+    STREAMING_PAYLOAD_TRAILER,
+    STREAMING_UNSIGNED_PAYLOAD_TRAILER,
+  ];
+  for (const declared of allowed) {
+    const signed = signPlain("PUT", "/drive/a.txt", "127.0.0.1:9000", CREDENTIAL, when, body, declared);
+    const verdict = verifySignature({ method: "PUT", url: "/drive/a.txt", headers: signed.headers }, CREDENTIAL, now);
+    assert.equal(verdict.ok ? verdict.payloadHash : verdict.code, declared);
+  }
+});
+
+test("⛔ a query with a broken percent escape is refused, not thrown", () => {
+  const verdict = verifySignature(altered({ url: "/drive?prefix=%E0%A4%A" }), CREDENTIAL, SIGNED_AT + 1_000);
+  assert.equal(verdict.ok ? "ok" : verdict.code, "InvalidURI");
 });

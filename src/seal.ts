@@ -176,7 +176,7 @@ export async function sealPart(
   dek: Uint8Array,
   chunks: AsyncIterable<Uint8Array>,
   placement: { index: number; total: number; plaintextLen: number },
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const { index, total, plaintextLen } = placement;
   if (plaintextLen <= 0) {
     throw new NmtsError("An empty part cannot be sealed.", {
@@ -211,7 +211,7 @@ export async function sealPart(
   }
 }
 
-function concat(pieces: readonly Uint8Array[]): Uint8Array {
+function concat(pieces: readonly Uint8Array[]): Uint8Array<ArrayBuffer> {
   let total = 0;
   for (const piece of pieces) total += piece.length;
   const out = new Uint8Array(total);

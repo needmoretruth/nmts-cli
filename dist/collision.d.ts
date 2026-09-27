@@ -1,6 +1,16 @@
 import { type Autonomy } from "./autonomy.ts";
 /** What to do with a name that is already in use. Mirrors the browser's two buttons. */
 export type OnCollision = "rename" | "overwrite";
+/** What a program passed in its own call, for that one upload. Taken as given — see the header. */
+export interface ProgramChoice {
+    readonly choice: OnCollision;
+    readonly by: "program";
+}
+/**
+ * What one upload was told about a taken name: a bare word from a command line or a tool call,
+ * which is held to the modes, or a program's own choice, which is not.
+ */
+export type CollisionAsk = OnCollision | ProgramChoice;
 export declare const COLLISION_CHOICES: readonly OnCollision[];
 /** What each choice does, in the words the tool prints. One line each. */
 export declare const COLLISION_MEANS: Readonly<Record<OnCollision, string>>;
@@ -35,8 +45,9 @@ export interface Decision {
      * `setting` — what a person answered at setup, or the default when nobody has.
      * `asked-for` — an agent asked for this run to overwrite, and a mode allows it.
      * `agent-refused` — an agent asked to overwrite while no mode is on, so it renames instead.
+     * `program` — a program's own call said which, and that is the answer.
      */
-    readonly by: "setting" | "asked-for" | "agent-refused";
+    readonly by: "setting" | "asked-for" | "agent-refused" | "program";
 }
 /**
  * What to do with this collision, and what settled it.
@@ -51,10 +62,16 @@ export interface Decision {
  *
  * ⛔ THE OVERRIDE IS ONE-WAY. A mode can let `overwrite` through; nothing here turns a `rename`
  *    into an `overwrite`.
+ *
+ * ⛔ A PROGRAM'S CHOICE IS ANSWERED BEFORE ANY OF THAT, and only a `ProgramChoice` is one. A bare
+ *    `"overwrite"` is a command line's, whoever hands it in.
  */
 export declare function decide(
-/** What this run asked for, if anything. `undefined` means "use what this machine is set to". */
-askedFor?: OnCollision, setting?: OnCollision, mode?: Autonomy): Promise<Decision>;
+/**
+ * What this run asked for, if anything. `undefined` — or `null`, which is how untyped code and
+ * JSON say "nothing" — means "use what this machine is set to".
+ */
+askedFor?: CollisionAsk | null, setting?: OnCollision, mode?: Autonomy): Promise<Decision>;
 /** How the two answers are numbered where setup asks. Kept here so the question and the reading agree. */
 export declare const ANSWER_NUMBER: Readonly<Record<OnCollision, string>>;
 /**

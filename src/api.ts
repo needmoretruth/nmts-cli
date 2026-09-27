@@ -182,9 +182,64 @@ export async function request(base: string, path: string, options: RequestOption
   });
 }
 
+/**
+ * A bearer that is asked for at the moment of each request instead of being fixed when a client is
+ * made: what a delegation token that runs out needs, the way an AWS credential provider is asked.
+ * It may answer at once or after its own round trip; this module keeps no copy of what it answers.
+ */
+export type BearerSource = () => string | Promise<string>;
+
+/** What a stand-in handed out by `bearerSource` starts with. Not a secret, and never sent. */
+const SOURCE_MARK = "nmts-bearer-source:";
+const sources = new Map<string, BearerSource>();
+let issued = 0;
+
+/**
+ * Stand a source in for a bearer everywhere one is passed as text.
+ *
+ * ⛔ A STAND-IN RATHER THAN A SECOND PARAMETER ON EVERY FUNCTION. The credential travels as a
+ *    string through every verb of this package — the file list, the upload, the download, the
+ *    trash — and each of them hands it to `request` in the end. Resolving the stand-in HERE, per
+ *    attempt, is what makes every one of those requests carry a token that is current when it
+ *    leaves, including the ones an upload makes after it has already spent.
+ *
+ * ⚠ `release` forgets the source; a request that still carries the stand-in afterwards is refused
+ *   by name rather than sent without a credential.
+ */
+export function bearerSource(source: BearerSource): { bearer: string; release(): void } {
+  issued += 1;
+  const bearer = `${SOURCE_MARK}${issued}`;
+  sources.set(bearer, source);
+  return { bearer, release: () => void sources.delete(bearer) };
+}
+
+/** The bearer one attempt sends: the text it was given, or what its source answers now. */
+async function bearerFor(token: string | undefined): Promise<string | undefined> {
+  if (token === undefined || !token.startsWith(SOURCE_MARK)) return token;
+  const source = sources.get(token);
+  const refuse = (why: string): NmtsError =>
+    new NmtsError(why, {
+      exitCode: 3,
+      nextStep: "Nothing was sent. The function passed as `delegation` has to answer the current token.",
+    });
+  if (source === undefined) throw refuse("This client's delegation source was released, so there is no token to send.");
+  let answered: unknown;
+  try {
+    answered = await source();
+  } catch (error) {
+    // ⛔ The source's own words, which are the caller's; never a token, because none was answered.
+    throw refuse(`The delegation source failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (typeof answered !== "string" || answered.trim() === "") throw refuse("The delegation source answered no token.");
+  return answered.trim();
+}
+
 /** One attempt. `request` above decides whether there may be another. */
 async function once(base: string, path: string, options: RequestOptions): Promise<unknown> {
-  const { method = "GET", body, token, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
+  const { method = "GET", body, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
+  // ⚠ Asked BEFORE the deadline starts, so a source with a round trip of its own does not spend the
+  //   request's time.
+  const token = await bearerFor(options.token);
 
   const controller = new AbortController();
   const deadline = setTimeout(() => controller.abort(), timeoutMs);

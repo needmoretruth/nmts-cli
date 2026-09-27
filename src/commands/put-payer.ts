@@ -8,6 +8,8 @@
 //   `put.ts` re-exports them, so `push.ts` and the tests spell the same path they always did.
 
 import { NmtsError } from "../errors.ts";
+import { HEAVY_COPY } from "../heavy-copy.ts";
+import { DEFAULT_STORAGE_TIER, parseStorageTier, type StorageTier } from "../shared/lib/storage-tier.ts";
 
 /** Who pays, or a refusal for a payer this tool does not know. */
 export function payerOf(pay: string | undefined): "credits" | "wallet" {
@@ -60,4 +62,38 @@ export function refuseWalletOnlyOptions(options: {
       },
     );
   }
+}
+
+/** What NMTS Heavy adds to an upload command line: the tier, and the self-paid knobs. */
+export interface HeavyFlags {
+  /** `--tier standard|heavy`. Absent = standard. */
+  tier?: string | undefined;
+  /** `--tier heavy --pay evm`: how many copies, 1..12 (default 2). */
+  copies?: string | undefined;
+  /** `--tier heavy --pay evm`: which storage companies, by id, comma-separated. */
+  providers?: string | undefined;
+  /** `--tier heavy --pay evm`: which of this key's EVM wallets pays. Absent = 0. */
+  evmWallet?: string | undefined;
+  /** `--tier heavy --pay wallet`: how many days to keep it, 1..365 (default 28). */
+  days?: string | undefined;
+}
+
+/**
+ * Which tier this upload goes to — the same reader the browser and the SDK use — and a refusal for
+ * every option that means nothing on that tier. Decided before a file is measured.
+ */
+export function tierOf(options: HeavyFlags & { pay?: string | undefined }): StorageTier {
+  let tier: StorageTier;
+  try {
+    tier = options.tier === undefined ? DEFAULT_STORAGE_TIER : parseStorageTier(options.tier);
+  } catch (error) {
+    throw new NmtsError(error instanceof Error ? error.message : String(error), { exitCode: 2 });
+  }
+  if (tier === "standard") {
+    if (options.pay === "evm") throw new NmtsError(HEAVY_COPY.evmNeedsHeavy, { exitCode: 2 });
+    for (const [flag, value] of [["--copies", options.copies], ["--providers", options.providers], ["--evm-wallet", options.evmWallet], ["--days", options.days]] as const) {
+      if (value !== undefined) throw new NmtsError(HEAVY_COPY.heavyOnlyFlag(flag), { exitCode: 2 });
+    }
+  }
+  return tier;
 }

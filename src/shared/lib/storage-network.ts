@@ -18,9 +18,9 @@
 //     with none of our code beside it. A magic number in that document is a trap; a word is not.
 // This mirrors the existing `kind` field, which is `1` in the file list and `"file"` in the map.
 //
-// ⚠ NOT A TIER MAPPING. 「NMTS Fast」/「NMTS Heavy」 are product names for what the person buys;
-// these are the networks underneath. The screen keeps its own mapping (components/drive/
-// StorageTier.tsx) so a rename of either never silently redefines the other.
+// ⚠ NOT A TIER MAPPING. "NMTS Standard" and "NMTS Heavy" are product names for what the person
+// picks; these are the networks underneath. The one mapping between the two lives in
+// `storage-tier.ts`, so a rename of either never silently redefines the other.
 //
 // FAILURE MODES: none at runtime — pure functions over constants. An UNKNOWN code answers `null`
 // rather than falling back to Walrus: a wrong network recorded in a recovery map is unfixable
@@ -28,7 +28,7 @@
 
 /** Network codes, as stored. Fixed forever once a row carries one. */
 export const NETWORK_WALRUS = 0;
-/** Filecoin — product tier 「NMTS Heavy」. Reserved; no upload path exists yet. */
+/** Filecoin — what the "NMTS Heavy" tier stores on (whole copies kept by storage companies). */
 export const NETWORK_FILECOIN = 1;
 /** Arweave — reserved and deliberately last: it cannot be deleted, ever (BACKLOG §2.2). */
 export const NETWORK_ARWEAVE = 2;
@@ -66,8 +66,8 @@ export function networkCode(name: string): number | null {
 /**
  * What an ABSENT network field means: Walrus.
  *
- * This is a fact, not a fallback. No other network has ever had an upload path, so every part,
- * entry and map written before the field existed is on Walrus by construction. Stated as a named
- * constant so the reasoning sits next to every use of it rather than being re-derived.
+ * This is a fact, not a fallback. No other network had an upload path until well after the field
+ * existed, so every part, entry and map written without it is on Walrus by construction. Stated as
+ * a named constant so the reasoning sits next to every use of it rather than being re-derived.
  */
 export const NETWORK_WHEN_UNRECORDED = NETWORK_WALRUS;

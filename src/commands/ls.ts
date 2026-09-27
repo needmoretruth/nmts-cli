@@ -28,6 +28,8 @@ import { readFileList } from "../manifest.ts";
 import { openSession } from "../session.ts";
 import { daysLeftInTrash, TRASH_RETENTION_DAYS } from "../trash-sweep.ts";
 import { humanSize } from "../units.ts";
+import { tierLabel, tiersOf } from "../list-tier.ts";
+import type { StorageTier } from "../shared/lib/storage-tier.ts";
 
 export interface LsOptions {
   server?: string | undefined;
@@ -49,6 +51,10 @@ export interface LsOptions {
   sort?: string | undefined;
   /** Reverse whichever order is in effect. */
   desc?: boolean;
+  /** Add the tier each file is stored on — one more read of the server per file (`list-tier.ts`). */
+  long?: boolean;
+  /** ⚠ A SEAM, NOT AN OPTION: where the tiers are read from. */
+  readTiers?: (ids: readonly string[]) => Promise<Map<string, StorageTier | null>>;
   write?: (line: string) => void;
   /** The instant the trash countdown is measured against. Passed in so one listing means one moment. */
   now?: number;
@@ -168,6 +174,12 @@ export async function ls(options: LsOptions = {}): Promise<number> {
     ...(e.pinned === true ? { pinned: true } : {}),
   }));
   const rows = sort === null ? byPath(mapped, dir) : orderRows(mapped, sort, dir);
+  const fileIds = options.long === true ? rows.filter((r) => r.kind !== KIND_FOLDER).map((r) => r.id) : [];
+  const tiers =
+    options.long === true
+      ? await (options.readTiers ?? ((ids) => tiersOf(session.server, session.apiKey, ids)))(fileIds)
+      : null;
+  const tierOfRow = (row: Row): string => (row.kind === KIND_FOLDER ? "" : tierLabel(tiers?.get(row.id) ?? null));
 
   if (options.json) {
     say(
@@ -192,6 +204,7 @@ export async function ls(options: LsOptions = {}): Promise<number> {
           trashed: row.trashed,
           trashedAt: row.trashedAt,
           marks: row.marks,
+          ...(tiers === null ? {} : { tier: row.kind === KIND_FOLDER ? null : (tiers.get(row.id) ?? null) }),
         })),
       }),
     );
@@ -215,7 +228,8 @@ export async function ls(options: LsOptions = {}): Promise<number> {
       const mark = row.trashed
         ? `  [trash${row.trashedAt === null ? "" : `, ${trashWindow(row.trashedAt, now)}`}]`
         : "";
-      say(`${row.path.padEnd(width)}  ${size.padStart(9)}${mark}${markSuffix(row.marks)}`);
+      const tier = tiers === null ? "" : `  ${tierOfRow(row).padEnd(8)}`;
+      say(`${row.path.padEnd(width)}  ${size.padStart(9)}${tier}${mark}${markSuffix(row.marks)}`);
     }
     say(``);
     const files = rows.filter((r) => r.kind !== KIND_FOLDER).length;

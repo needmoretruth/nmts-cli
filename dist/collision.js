@@ -23,6 +23,12 @@
 // ⚠ WHAT THIS CANNOT DO is tell an agent from a person. Nothing on a command line can. What it can
 //   do is make the destructive answer require a setting that was turned on deliberately, and say
 //   which setting decided.
+//
+// ⛔ A PROGRAM'S OWN CALL IS NOT A COMMAND LINE. `put(file, { onCollision })` in a library is
+//    written into a program by whoever wrote the program, and calling it is that program's
+//    decision — the same way calling it is the agreement to spend. It arrives here as a
+//    `ProgramChoice`, which nothing that reads a command line or a tool call can produce: those
+//    parse into a bare word and stay held to the modes.
 import { currentMode } from "./autonomy.js";
 import { fromUtf8, utf8 } from "./bytes.js";
 import { NmtsError } from "./errors.js";
@@ -104,13 +110,25 @@ export async function forgetChoice() {
  *
  * ⛔ THE OVERRIDE IS ONE-WAY. A mode can let `overwrite` through; nothing here turns a `rename`
  *    into an `overwrite`.
+ *
+ * ⛔ A PROGRAM'S CHOICE IS ANSWERED BEFORE ANY OF THAT, and only a `ProgramChoice` is one. A bare
+ *    `"overwrite"` is a command line's, whoever hands it in.
  */
 export async function decide(
-/** What this run asked for, if anything. `undefined` means "use what this machine is set to". */
+/**
+ * What this run asked for, if anything. `undefined` — or `null`, which is how untyped code and
+ * JSON say "nothing" — means "use what this machine is set to".
+ */
 askedFor, setting, mode) {
-    if (askedFor === undefined)
+    // ⛔ NULL IS CHECKED BEFORE `typeof … === "object"`, which is also true of null: read as a
+    //    program's choice it threw on `.choice` instead of answering.
+    if (askedFor === undefined || askedFor === null)
         return { choice: setting ?? (await currentChoice()), by: "setting" };
-    if (askedFor === "rename")
+    // ⚠ Only the exact word overwrites, as at the setup question: a value from untyped code that is
+    //   neither word is the answer that destroys nothing.
+    if (typeof askedFor === "object")
+        return { choice: askedFor.choice === "overwrite" ? "overwrite" : "rename", by: "program" };
+    if (askedFor !== "overwrite")
         return { choice: "rename", by: "asked-for" };
     if ((mode ?? (await currentMode())) === "default")
         return { choice: "rename", by: "agent-refused" };

@@ -109,7 +109,7 @@ export declare function sealPart(crypt: CryptoGlue, dek: Uint8Array, chunks: Asy
     index: number;
     total: number;
     plaintextLen: number;
-}): Promise<Uint8Array>;
+}): Promise<Uint8Array<ArrayBuffer>>;
 /**
  * Seal a whole file held in memory, as one part.
  *

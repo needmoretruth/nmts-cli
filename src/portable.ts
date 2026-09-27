@@ -118,6 +118,7 @@ export type { FileUploadInput, FileUploadStep, PlaintextSource } from "./upload-
 export { createUploadApi } from "./upload-api.ts";
 export { CREDIT_BYTES, creditsFor, partSizeFor, planAndPrice, UPLOAD_EPOCHS } from "./upload-price.ts";
 export { clearItemRecord, clearReservation } from "./upload-store.ts";
+export { forgetUpload } from "./upload-run.ts";
 export { UploadError } from "./upload-wire.ts";
 export type { BlobProtocol, UploadApi, UploadResult, UploadStep } from "./upload-wire.ts";
 export type { PaddingRule } from "./shared/lib/crypto/size-padding.ts";
@@ -167,6 +168,24 @@ export { classify } from "./shared/lib/drive/preview-classify.ts";
 export { discoverWallets, WALLET_SCAN_GAP } from "./shared/lib/wallet/discover.ts";
 export type { WalletProbe, WalletScan } from "./shared/lib/wallet/discover.ts";
 export { hasHistory } from "./wallet-list-chain.ts";
+
+// NMTS Heavy: the tier word every interface reads, an upload paid through an order (credits, or WAL
+// once stored), and developer mode's self-paid road from the key's own EVM wallet (NCF-3 §1.9).
+// ⚠ The Synapse SDK behind the self-paid road is loaded only when that road runs.
+export { DEFAULT_STORAGE_TIER, isStorageTier, networkForTier, parseStorageTier, STORAGE_TIERS, tierForNetwork } from "./shared/lib/storage-tier.ts";
+export type { StorageTier } from "./shared/lib/storage-tier.ts";
+export { heavyCredits, heavyOrderPut, planHeavyFile } from "./heavy-upload.ts";
+export type { HeavyCommitted, HeavyFile, HeavyOrderContext, HeavyOrderOutcome, HeavyPlanPart } from "./heavy-upload.ts";
+export { copiesOf, heavySelfPut, providersOf, selfPayChain, SELF_PAY_DEFAULT_COPIES, SELF_PAY_MAX_COPIES } from "./heavy-self-pay.ts";
+export type { SelfPayContext, SelfPayProgress, SelfPaySynapse } from "./heavy-self-pay.ts";
+export { heavyWalletPut } from "./heavy-wallet-pay.ts";
+export type { HeavyWalletInput, HeavyWalletQuote } from "./heavy-wallet-pay.ts";
+export { evmAccountFor, evmAddressFor, evmAddressOf, evmIndexOf, evmKeyOf, hexKey } from "./heavy-evm.ts";
+/** The EVM account a caller holds, for Heavy paid from its own Filecoin wallet. */
+export type { LocalAccount as EvmAccount } from "viem";
+export { HeavyOrderError } from "./shared/lib/heavy/order-runner.ts";
+export type { HeavyPayment, HeavyProgress } from "./shared/lib/heavy/order-runner.ts";
+export { HEAVY_COPY } from "./heavy-copy.ts";
 
 // What this package is.
 export { HOME_URL, PRODUCT_NAME, SOURCE_URL, SUPPORT_EMAIL, VERSION } from "./product.ts";

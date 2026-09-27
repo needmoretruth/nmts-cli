@@ -14,7 +14,8 @@
 //
 // ⛔ "REFUSE" MEANS THE UPLOAD, NOT THE REQUEST. Identical content is answered 200 with nothing
 //    sent and nothing charged, because from the client's side the statement "that file is at that
-//    key" is true. Only DIFFERENT content is a conflict.
+//    key" is true. Only DIFFERENT content is a conflict — and only on a drive that does not replace
+//    files (`overwrite: "refuse"`, the default); one that does sends the old file to the trash.
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { AAD, DERIVED, loadCrypto } from "../crypto.js";
@@ -81,7 +82,10 @@ export async function recordedHash(accountCode, contentHashCt) {
  *   and pays nothing for this.
  */
 export async function verdictForKey(entries, key, accountCode, path) {
-    const standing = objectsOf(entries).find((o) => o.key === key);
+    return verdictFor(objectsOf(entries).find((o) => o.key === key), accountCode, path);
+}
+/** The same question, for the file already found at the key (or nothing). */
+export async function verdictFor(standing, accountCode, path) {
     if (standing === undefined)
         return "free";
     return compare(await recordedHash(accountCode, standing.entry.contentHashCt), await hashOfFile(path));
@@ -107,7 +111,12 @@ export function compare(recorded, arriving) {
  *    file that changed and for a file this drive cannot compare, and the two need different things
  *    from the person reading the log.
  */
-export function refusalFor(verdict, key) {
+export function refusalFor(verdict, key, standing = key) {
+    if (verdict === "spelling") {
+        return new KeyConflict(`A file is already at ${standing}, which is ${key} with its accents written the other way ` +
+            "(composed or decomposed Unicode). This drive treats the two as one name and does not replace " +
+            "files. Use the spelling the listing shows, or delete that file first.");
+    }
     return new KeyConflict(verdict === "differs"
         ? `A different file is already at ${key}, and this drive does not replace files. Delete it ` +
             "first — a delete puts it in the trash, where it stays recoverable for thirty days."

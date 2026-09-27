@@ -64,6 +64,9 @@ export const ACTS = {
   // below, under the tiers they belong to.
   "ai-account": { tier: "none" },
   "public-code": { tier: "none" },
+  // Opening a handover file someone passed on: it reads the file, fetches from Walrus and writes
+  // one file here. `handover.make`, which gives a file away, is under `high` beside `share`.
+  handover: { tier: "none" },
   wallet: { tier: "none" },
   get: { tier: "none" },
   pull: { tier: "none" },
@@ -148,11 +151,25 @@ export const ACTS = {
   rebuild: { tier: "medium", what: "Build a file list from the server's rows and write it as this account's list." },
   // ── high: locked until a person unlocks, asked on every run ──
   share: { tier: "high", lock: "share", what: "Give another account this file.", asksItself: true },
+  // ⛔ THE SAME ACT AS `share`, behind the same unlock — it gives another account this file — and it
+  //    cannot be taken back at all, because no row exists to delete.
+  "handover.make": {
+    tier: "high",
+    lock: "share",
+    what: "Give another account this file in a handover file. It cannot be taken back.",
+    asksItself: true,
+  },
   "login.plain": { tier: "high", lock: "unsafe-code-storage", what: "Store the NMTS key in the clear.", standing: true },
   "login.env": { tier: "high", lock: "plain-env", what: "Print the NMTS key for an environment variable.", standing: true },
   extend: { tier: "high", lock: "wallet", what: "Sign a transaction that spends WAL from the wallet.", standing: true },
   "put.wallet": { tier: "high", lock: "wallet", what: "Sign a transaction that spends WAL and SUI from the wallet.", standing: true },
   "push.wallet": { tier: "high", lock: "wallet", what: "Sign transactions that spend WAL and SUI from the wallet.", standing: true },
+  // ⛔ NMTS HEAVY'S SELF-PAID ROAD (developer mode) SITS BESIDE THE WALLET ROADS: it signs Filecoin
+  //    transactions from this key's EVM wallet and spends that wallet's deposit, under the same lock.
+  "put.evm": { tier: "high", lock: "wallet", what: "Sign Filecoin storage payments in USDFC from the EVM wallet this key derives.", standing: true },
+  "push.evm": { tier: "high", lock: "wallet", what: "Sign Filecoin storage payments in USDFC from the EVM wallet this key derives.", standing: true },
+  heavy: { tier: "none" },
+  "heavy.fund": { tier: "high", lock: "wallet", what: "Deposit USDFC from the EVM wallet this key derives into Filecoin Pay.", asksItself: true },
   "wallet.send": { tier: "high", lock: "wallet", what: "Send coins out of the wallet.", asksItself: true },
   "wallet.swap": { tier: "high", lock: "wallet", what: "Swap one coin for the other on a public venue.", asksItself: true },
   "devices.sign-out": { tier: "high", lock: "sign-out", what: "Sign a device out of this account.", asksItself: true },
@@ -226,9 +243,11 @@ export function actOf(args: ParsedArgs): ActId | null {
       if (sub === "use") return "wallet.use";
       return sub === "send" ? "wallet.send" : sub === "swap" ? "wallet.swap" : sub === "donate" ? "wallet.donate" : "wallet";
     case "put":
-      return args.pay === "wallet" ? "put.wallet" : "put";
+      return args.pay === "wallet" ? "put.wallet" : args.pay === "evm" ? "put.evm" : "put";
     case "push":
-      return args.pay === "wallet" ? "push.wallet" : "push";
+      return args.pay === "wallet" ? "push.wallet" : args.pay === "evm" ? "push.evm" : "push";
+    case "heavy":
+      return sub === "fund" ? "heavy.fund" : "heavy";
     case "key":
       return sub === "new" ? "key.new" : sub === "revoke" ? "key.revoke" : "key";
     case "ai-account":
@@ -243,6 +262,8 @@ export function actOf(args: ParsedArgs): ActId | null {
       return args.dismiss !== undefined ? "losses.dismiss" : "losses";
     case "public-code":
       return args.publish ? "public-code.publish" : "public-code";
+    case "handover":
+      return sub === "make" ? "handover.make" : "handover";
     case "support":
       return sub === "send" || sub === "reply" ? "support.send" : "support";
     case "platform":
