@@ -27,6 +27,7 @@ import { AGGREGATOR_ENV_VAR } from "../src/walrus.ts";
 import { shareKeysOf } from "../src/share.ts";
 import { shareKeysAt } from "../src/share-codes.ts";
 import { encodeManifest, type ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
+import { publicCodeFileName } from "../src/shared/lib/share/handover-format.ts";
 import { assertModeWhereEnforced, generateCode, grantConsents, sealFile, sealFileList } from "./helpers.ts";
 
 const ITEM_ID = "3f2b1a90-0000-4000-8000-000000000001";
@@ -185,7 +186,9 @@ test("a handover made to a public code file opens for its recipient with no API 
     process.env[CODE_ENV_VAR] = recipient;
     assert.equal(await publicCode({ ...net, ...quiet, save: true }), 0);
     const recipientKeys = shareKeysOf(crypt, recipient);
-    const codeFile = join(dir, `nmts-public-code-${recipientKeys.display}.nmtscode`);
+    // The name is built the way the command builds it — a code whose display carries a character a
+    // file name drops (such as "_") failed here on some runs when the test spelt the name itself.
+    const codeFile = join(dir, publicCodeFileName(recipientKeys.display));
     recipientKeys.wipe();
     assert.ok(existsSync(codeFile), "the public code file was not written under its default name");
     await refusedWith(publicCode({ ...quiet, save: true, publish: true }), /one at a time/);

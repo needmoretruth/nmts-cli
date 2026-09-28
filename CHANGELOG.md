@@ -3,6 +3,12 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.48.1 — 2026-09-28
+
+- 0.48.0 was tagged but never reached npm: one test named the public code file by hand and failed
+  whenever a random code held a character a file name drops. The test now builds the name the way
+  the command does. 0.48.1 carries 0.48.0's changes below.
+
 ## 0.48.0 — 2026-09-28
 
 - **Every public link in one list.** `nmts links` prints every link of yours that still opens a
