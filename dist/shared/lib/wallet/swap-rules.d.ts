@@ -1,5 +1,32 @@
-/** Which way the trade runs. Every screen and every command uses these two words only. */
-export type SwapDirection = "SUI_TO_WAL" | "WAL_TO_SUI";
+/** The three coins a swap moves between. Every screen and every command uses these three words. */
+export type SwapCoin = "SUI" | "WAL" | "USDC";
+/** The order the coins are offered in. Not a ranking. */
+export declare const SWAP_COINS: readonly SwapCoin[];
+/** Decimals per coin, from each coin's on-chain metadata: SUI and WAL keep 9, USDC keeps 6. */
+export declare const COIN_DECIMALS: Readonly<Record<SwapCoin, number>>;
+/** Which way the trade runs: any of the three coins into either of the other two. */
+export type SwapDirection = "SUI_TO_WAL" | "WAL_TO_SUI" | "SUI_TO_USDC" | "USDC_TO_SUI" | "WAL_TO_USDC" | "USDC_TO_WAL";
+/** All six directions. */
+export declare const SWAP_DIRECTIONS: readonly SwapDirection[];
+/** The coin that goes in and the coin that comes out. */
+export declare function directionCoins(direction: SwapDirection): {
+    in: SwapCoin;
+    out: SwapCoin;
+};
+/** The direction from one coin to another, or null when the two are the same coin. */
+export declare function directionOf(inCoin: SwapCoin, outCoin: SwapCoin): SwapDirection | null;
+/**
+ * A coin type written out in one shape: the address lower-case and padded to 64 hex digits, the
+ * module and struct names untouched (Move names are case-sensitive). Null when it is not
+ * `<address>::<module>::<name>`.
+ */
+export declare function normalizeCoinType(coinType: string): string | null;
+/**
+ * Which of the three coins a full coin type is, or null. ⛔ THE WHOLE TYPE DECIDES, package address
+ * included — never the symbol. Anyone can publish a coin called "USDC"; only Circle's package
+ * address makes it USDC. `types` is the network's own table of the three exact types.
+ */
+export declare function swapCoinOfType(coinType: string, types: Readonly<Record<SwapCoin, string>>): SwapCoin | null;
 /** Where the trade runs, on mainnet. */
 export type SwapVenue = "deepbook" | "bluefin";
 /**
@@ -58,13 +85,18 @@ export declare function feeBand(budgetMist: bigint, estimateMist: bigint | null)
 export declare function priceDeviationBps(impliedRate: number, marketRate: number): number | null;
 /** Beyond this distance from the market rate a quote is an extreme (3%). */
 export declare const DEVIATION_WARN_BPS = 300;
-/** Output per unit of input, as a number for the market comparison. Null when either side is 0. */
-export declare function impliedRate(outUnits: bigint, amountInUnits: bigint): number | null;
 /**
- * The market rate in the DIRECTION'S OWN unit — WAL per SUI going one way, SUI per WAL the other —
- * so the two sides of the ratio are never swapped. Null unless both prices are positive numbers.
+ * Output per unit of input in WHOLE COINS, as a number for the market comparison and for reading.
+ * The decimals default to 9 (SUI and WAL); a USDC side passes 6, or one USDC reads as a thousandth
+ * of a coin. Null when either side is 0.
  */
-export declare function marketRate(direction: SwapDirection, suiUsd: number | null | undefined, walUsd: number | null | undefined): number | null;
+export declare function impliedRate(outUnits: bigint, amountInUnits: bigint, outDecimals?: number, inDecimals?: number): number | null;
+/**
+ * The market rate in the DIRECTION'S OWN unit — coins out per coin in, e.g. WAL per SUI going one
+ * way and SUI per WAL the other — so the two sides of the ratio are never swapped. Null unless both
+ * coins of the direction have a positive price; a missing USDC price is "unknown", not 1.
+ */
+export declare function marketRate(direction: SwapDirection, suiUsd: number | null | undefined, walUsd: number | null | undefined, usdcUsd?: number | null): number | null;
 /**
  * The most SUI a swap may take in: balance minus the gas budget the person set, never negative.
  * Not a fixed reserve — the person chose the budget, so that exact figure is what is kept back.
@@ -96,10 +128,16 @@ export interface DeepbookQuoteRow {
 }
 /**
  * The three values a DeepBook quote returns are always (base side, quote side, DEEP needed); which
- * of the first two is "received" and which is "left over" depends on the direction. Base = WAL,
- * quote = SUI on the WAL_SUI book.
+ * of the first two is "received" and which is "left over" depends on which side goes in. Selling
+ * base (the pool's first coin) receives quote and leaves base over; buying base does the opposite.
  */
-export declare function deepbookRowFrom(direction: SwapDirection, base: bigint, quote: bigint): DeepbookQuoteRow;
+export declare function deepbookRowFrom(sellsBase: boolean, base: bigint, quote: bigint): DeepbookQuoteRow;
+/**
+ * The fee rate of two pools traded one after the other, in bps with two decimals: the second fee
+ * is charged on what the first left, so 1 − (1 − a)(1 − b), not a + b. Null when either is null —
+ * an unmeasured leg makes the whole route unmeasured, never "that leg was free".
+ */
+export declare function combineFeeBps(first: number | null, second: number | null): number | null;
 /**
  * DeepBook's EFFECTIVE fee rate, measured — there is no constant to read. The same amount is
  * quoted in two modes: fee taken from the input coin (the mode used, needs no DEEP) and fee paid in

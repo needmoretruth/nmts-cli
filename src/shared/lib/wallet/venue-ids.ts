@@ -51,12 +51,51 @@ export const BLUEFIN_WAL_SUI_POOLS: Readonly<Record<"mainnet" | "testnet", strin
   mainnet: "0xe60bc7ade245b9f35b49686dfab0a18e5ca9176d49bef1b90f60d67d06315ff0",
 };
 
+// ── USDC, and the four pools that trade it. Same rule: values only; null = none there.
+
+/**
+ * Circle's native USDC on Sui, per network: 6 decimals, symbol USDC (read with
+ * `suix_getCoinMetadata` on both chains). ⛔ A coin is USDC only when its WHOLE type equals this
+ * string. Anyone can publish a coin whose symbol is "USDC"; the package address is the proof.
+ */
+export const USDC_COIN_TYPES: Readonly<Record<"mainnet" | "testnet", string>> = {
+  testnet: "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
+  mainnet: "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
+};
+
+/** DeepBook's SUI_USDC order book (base = SUI, quote = USDC). Its on-chain type is `Pool<SUI, USDC>`. */
+export const DEEPBOOK_SUI_USDC_POOLS: Readonly<Record<"mainnet" | "testnet", string | null>> = {
+  testnet: null,
+  mainnet: "0xe05dafb5133bcffb8d59f4e12465dc0e9faeaa05e3e342a08fe135800e3e4407",
+};
+
+/** DeepBook's WAL_USDC order book (base = WAL, quote = USDC). Its on-chain type is `Pool<WAL, USDC>`. */
+export const DEEPBOOK_WAL_USDC_POOLS: Readonly<Record<"mainnet" | "testnet", string | null>> = {
+  testnet: null,
+  mainnet: "0x56a1c985c1f1123181d6b881714793689321ba24301b3585eec427436eb1c76d",
+};
+
+/**
+ * Bluefin's SUI/USDC pool, `Pool<SUI, USDC>` (coin_a = SUI, coin_b = USDC). Pinned by address: the
+ * deepest of the 51 same-pair pools Bluefin's `PoolCreated` events listed on 2026-09-28.
+ */
+export const BLUEFIN_SUI_USDC_POOLS: Readonly<Record<"mainnet" | "testnet", string | null>> = {
+  testnet: null,
+  mainnet: "0x15dbcac854b1fc68fc9467dbd9ab34270447aabd8cc0e04a5864d95ccb86b74a",
+};
+
+/** Bluefin's WAL/USDC pool, `Pool<WAL, USDC>` (coin_a = WAL, coin_b = USDC). The deeper of two, 2026-09-28. */
+export const BLUEFIN_WAL_USDC_POOLS: Readonly<Record<"mainnet" | "testnet", string | null>> = {
+  testnet: null,
+  mainnet: "0xbcc6909d2e85c06cf9cbfe5b292da36f5bfa0f314806474bbf6a0bf9744d37ce",
+};
+
 /**
  * Bluefin's sqrt-price limits, ONE STEP INSIDE the protocol's tick range (`tick_math.move`). The
  * range ends themselves abort a swap (1009) while the quote function accepts them, so a swap built
  * on the ends shows a good quote and fails on chain. Measured on mainnet, both directions,
- * 2026-08-03. WAL→SUI passes the minimum, SUI→WAL the maximum; the minimum-out argument is what
- * protects the person, not this.
+ * 2026-08-03. A swap that puts coin_a in (a2b) passes the minimum, one that puts coin_b in the
+ * maximum; the minimum-out argument is what protects the person, not this.
  */
 export const BLUEFIN_MIN_SQRT_PRICE = 4295048016n + 1n;
 export const BLUEFIN_MAX_SQRT_PRICE = 79226673515401279992447579055n - 1n;

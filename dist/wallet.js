@@ -165,9 +165,17 @@ async function readSui(reader) {
     }
 }
 async function readWal(reader, walType) {
+    return readCoinOfType(reader, walType, "WAL");
+}
+/**
+ * One coin's balance, counted by its EXACT type — a coin with the same symbol and another package is
+ * not in the sum. The zero case is confirmed as for WAL: a chain that does not know the type answers
+ * 0 too, and that zero would mean nothing.
+ */
+export async function readCoinOfType(reader, coinType, name) {
     let total;
     try {
-        total = await reader.totalOf(walType);
+        total = await reader.totalOf(coinType);
     }
     catch (error) {
         return { read: false, why: reasonOf(error) };
@@ -176,11 +184,11 @@ async function readWal(reader, walType) {
     if (total > 0n)
         return { read: true, baseUnits: total };
     try {
-        if (await reader.knowsCoinType(walType))
+        if (await reader.knowsCoinType(coinType))
             return { read: true, baseUnits: total };
         return {
             read: false,
-            why: "this chain does not know the WAL coin type this version of the tool was built with, so a zero balance here would mean nothing",
+            why: `this chain does not know the ${name} coin type this version of the tool was built with, so a zero balance here would mean nothing`,
         };
     }
     catch (error) {

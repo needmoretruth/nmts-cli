@@ -6,13 +6,13 @@
     "url": "https://github.com/needmoretruth/nmts-cli",
     "source": "github"
   },
-  "version": "0.48.1",
+  "version": "0.49.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@needmoretruth/nmts-cli",
-      "version": "0.48.1",
+      "version": "0.49.0",
       "transport": {
         "type": "stdio"
       },

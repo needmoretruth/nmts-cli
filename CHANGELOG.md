@@ -3,6 +3,17 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.49.0 — 2026-09-28
+
+- `nmts wallet swap` now trades SUI, WAL and USDC in all six directions:
+  `nmts wallet swap <SUI|WAL|USDC> <amount|max> --to <SUI|WAL|USDC> --venue deepbook|bluefin`.
+  USDC means Circle's native USDC on Sui, matched by its full coin type. A coin that only shares the
+  name is refused.
+- On DeepBook, WAL↔SUI is quoted both directly and through USDC in one transaction. The route that
+  pays more is the one that gets signed.
+- An agent grant with a spending cap refuses swaps that spend USDC, because the cap counts only SUI
+  and WAL.
+
 ## 0.48.1 — 2026-09-28
 
 - 0.48.0 was tagged but never reached npm: one test named the public code file by hand and failed

@@ -123,6 +123,12 @@ export interface ChainReader {
  */
 export declare function readBalances(reader: ChainReader, walType: string): Promise<WalletBalances>;
 /**
+ * One coin's balance, counted by its EXACT type — a coin with the same symbol and another package is
+ * not in the sum. The zero case is confirmed as for WAL: a chain that does not know the type answers
+ * 0 too, and that zero would mean nothing.
+ */
+export declare function readCoinOfType(reader: ChainReader, coinType: string, name: string): Promise<CoinBalance>;
+/**
  * Base units as a person reads them — the exact value, never rounded.
  *
  * ⛔ NOT `toFixed`, NOT A SHORTENED FORM. A wallet holding 0.000000004 SUI is not holding "0.00",

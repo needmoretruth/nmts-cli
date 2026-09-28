@@ -1,14 +1,82 @@
-// The rules of an in-app swap between SUI and WAL — the slippage a person may set, the minimum a
-// quote turns into, the gas-budget bands, the market cross-check, the venue fee arithmetic and the
-// extremes gate. ⚠ PUBLISHED — copied byte-for-byte into the `nmts` command-line package; keep
-// comments self-contained English.
+// The rules of an in-app swap among SUI, WAL and USDC — the six directions, the coin-type match,
+// the slippage a person may set, the minimum a quote turns into, the gas-budget bands, the market
+// cross-check, the venue fee arithmetic and the extremes gate. The pools and routes are next door
+// in `swap-routes.ts`.
+// ⚠ PUBLISHED — copied byte-for-byte into the `nmts` command-line package; keep comments
+// self-contained English.
 //
 // CONTRACT: every function is pure — no I/O, no side effects, no network, no dates. Slippage is in
-//   bps (1 bps = 0.01%) and is a number because a person picks it; amounts are base units
-//   (1e9 = one coin) and are bigint because money is never a float.
+//   bps (1 bps = 0.01%) and is a number because a person picks it; amounts are base units (1e9 =
+//   one SUI or one WAL, 1e6 = one USDC) and are bigint because money is never a float.
 // NON-CUSTODIAL: these helpers only DECIDE the numbers a person's own wallet then signs. NMTS is
 //   not a party to the trade and takes nothing from it: no fee argument, no NMTS address.
 import { GAS_BUDGET_MIN_MIST } from "./send-rules.js";
+/** The order the coins are offered in. Not a ranking. */
+export const SWAP_COINS = ["SUI", "WAL", "USDC"];
+/** Decimals per coin, from each coin's on-chain metadata: SUI and WAL keep 9, USDC keeps 6. */
+export const COIN_DECIMALS = { SUI: 9, WAL: 9, USDC: 6 };
+const DIRECTION_COINS = {
+    SUI_TO_WAL: { in: "SUI", out: "WAL" },
+    WAL_TO_SUI: { in: "WAL", out: "SUI" },
+    SUI_TO_USDC: { in: "SUI", out: "USDC" },
+    USDC_TO_SUI: { in: "USDC", out: "SUI" },
+    WAL_TO_USDC: { in: "WAL", out: "USDC" },
+    USDC_TO_WAL: { in: "USDC", out: "WAL" },
+};
+/** All six directions. */
+export const SWAP_DIRECTIONS = [
+    "SUI_TO_WAL",
+    "WAL_TO_SUI",
+    "SUI_TO_USDC",
+    "USDC_TO_SUI",
+    "WAL_TO_USDC",
+    "USDC_TO_WAL",
+];
+/** The coin that goes in and the coin that comes out. */
+export function directionCoins(direction) {
+    return DIRECTION_COINS[direction];
+}
+/** The direction from one coin to another, or null when the two are the same coin. */
+export function directionOf(inCoin, outCoin) {
+    for (const direction of SWAP_DIRECTIONS) {
+        const coins = DIRECTION_COINS[direction];
+        if (coins.in === inCoin && coins.out === outCoin)
+            return direction;
+    }
+    return null;
+}
+/**
+ * A coin type written out in one shape: the address lower-case and padded to 64 hex digits, the
+ * module and struct names untouched (Move names are case-sensitive). Null when it is not
+ * `<address>::<module>::<name>`.
+ */
+export function normalizeCoinType(coinType) {
+    const parts = coinType.trim().split("::");
+    if (parts.length !== 3)
+        return null;
+    const [address, module, name] = parts;
+    if (address === undefined || module === undefined || name === undefined)
+        return null;
+    const hex = address.toLowerCase().replace(/^0x/, "");
+    if (!/^[0-9a-f]{1,64}$/.test(hex) || !/^\w+$/.test(module) || !/^\w+$/.test(name))
+        return null;
+    return `0x${hex.padStart(64, "0")}::${module}::${name}`;
+}
+/**
+ * Which of the three coins a full coin type is, or null. ⛔ THE WHOLE TYPE DECIDES, package address
+ * included — never the symbol. Anyone can publish a coin called "USDC"; only Circle's package
+ * address makes it USDC. `types` is the network's own table of the three exact types.
+ */
+export function swapCoinOfType(coinType, types) {
+    const wanted = normalizeCoinType(coinType);
+    if (wanted === null)
+        return null;
+    for (const coin of SWAP_COINS) {
+        if (normalizeCoinType(types[coin]) === wanted)
+            return coin;
+    }
+    return null;
+}
 /**
  * The order the two venues are listed in. NOT a ranking: neither is a default and nobody
  * recommends one — at some amounts one pays more, at others the other. The order is fixed only so
@@ -97,23 +165,32 @@ export function priceDeviationBps(impliedRate, marketRate) {
 }
 /** Beyond this distance from the market rate a quote is an extreme (3%). */
 export const DEVIATION_WARN_BPS = 300;
-/** Output per unit of input, as a number for the market comparison. Null when either side is 0. */
-export function impliedRate(outUnits, amountInUnits) {
+/**
+ * Output per unit of input in WHOLE COINS, as a number for the market comparison and for reading.
+ * The decimals default to 9 (SUI and WAL); a USDC side passes 6, or one USDC reads as a thousandth
+ * of a coin. Null when either side is 0.
+ */
+export function impliedRate(outUnits, amountInUnits, outDecimals = 9, inDecimals = 9) {
     if (amountInUnits <= 0n || outUnits <= 0n)
         return null;
-    const r = Number(outUnits) / Number(amountInUnits);
+    const r = (Number(outUnits) / 10 ** outDecimals) / (Number(amountInUnits) / 10 ** inDecimals);
     return Number.isFinite(r) && r > 0 ? r : null;
 }
 /**
- * The market rate in the DIRECTION'S OWN unit — WAL per SUI going one way, SUI per WAL the other —
- * so the two sides of the ratio are never swapped. Null unless both prices are positive numbers.
+ * The market rate in the DIRECTION'S OWN unit — coins out per coin in, e.g. WAL per SUI going one
+ * way and SUI per WAL the other — so the two sides of the ratio are never swapped. Null unless both
+ * coins of the direction have a positive price; a missing USDC price is "unknown", not 1.
  */
-export function marketRate(direction, suiUsd, walUsd) {
-    if (suiUsd == null || walUsd == null || suiUsd <= 0 || walUsd <= 0)
+export function marketRate(direction, suiUsd, walUsd, usdcUsd) {
+    const usd = { SUI: suiUsd, WAL: walUsd, USDC: usdcUsd };
+    const { in: inCoin, out: outCoin } = DIRECTION_COINS[direction];
+    const inUsd = usd[inCoin];
+    const outUsd = usd[outCoin];
+    if (inUsd == null || outUsd == null || inUsd <= 0 || outUsd <= 0)
         return null;
-    if (!Number.isFinite(suiUsd) || !Number.isFinite(walUsd))
+    if (!Number.isFinite(inUsd) || !Number.isFinite(outUsd))
         return null;
-    return direction === "SUI_TO_WAL" ? suiUsd / walUsd : walUsd / suiUsd;
+    return inUsd / outUsd;
 }
 /**
  * The most SUI a swap may take in: balance minus the gas budget the person set, never negative.
@@ -162,13 +239,24 @@ export function feeRateBpsOf(feeUnits, amountInUnits) {
 }
 /**
  * The three values a DeepBook quote returns are always (base side, quote side, DEEP needed); which
- * of the first two is "received" and which is "left over" depends on the direction. Base = WAL,
- * quote = SUI on the WAL_SUI book.
+ * of the first two is "received" and which is "left over" depends on which side goes in. Selling
+ * base (the pool's first coin) receives quote and leaves base over; buying base does the opposite.
  */
-export function deepbookRowFrom(direction, base, quote) {
-    return direction === "SUI_TO_WAL"
-        ? { outUnits: base, leftoverInUnits: quote }
-        : { outUnits: quote, leftoverInUnits: base };
+export function deepbookRowFrom(sellsBase, base, quote) {
+    return sellsBase
+        ? { outUnits: quote, leftoverInUnits: base }
+        : { outUnits: base, leftoverInUnits: quote };
+}
+/**
+ * The fee rate of two pools traded one after the other, in bps with two decimals: the second fee
+ * is charged on what the first left, so 1 − (1 − a)(1 − b), not a + b. Null when either is null —
+ * an unmeasured leg makes the whole route unmeasured, never "that leg was free".
+ */
+export function combineFeeBps(first, second) {
+    if (first === null || second === null)
+        return null;
+    const combined = first + second - (first * second) / 10_000;
+    return Math.round(combined * 100) / 100;
 }
 /**
  * DeepBook's EFFECTIVE fee rate, measured — there is no constant to read. The same amount is

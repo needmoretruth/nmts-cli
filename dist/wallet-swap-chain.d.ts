@@ -1,16 +1,20 @@
 import { Transaction } from "@mysten/sui/transactions";
 import type { Network } from "./network.ts";
-import type { SwapDirection, SwapVenue } from "./shared/lib/wallet/swap-rules.ts";
-import { type WalletBalances } from "./wallet.ts";
-import { type VenueQuote } from "./wallet-swap-quote.ts";
+import { type SwapRoute } from "./shared/lib/wallet/swap-routes.ts";
+import { type SwapDirection, type SwapVenue } from "./shared/lib/wallet/swap-rules.ts";
+import { type CoinBalance, type WalletBalances } from "./wallet.ts";
+import { type VenuePools, type VenueQuote } from "./wallet-swap-quote.ts";
 /** Where a swap runs: one of the two mainnet venues, or the official testnet facility. */
 export type SwapRail = SwapVenue | "exchange";
 /** Bluefin's addresses: the package PINNED in this release, confirmed on chain before it is used. */
 export interface BluefinBinding {
     packageId: string;
     globalConfigId: string;
-    poolId: string;
+    /** `Pool<WAL, SUI>` · `Pool<SUI, USDC>` · `Pool<WAL, USDC>`, all pinned; null = none on that network. */
+    pools: VenuePools;
 }
+/** Bluefin's pinned pools on a network. */
+export declare function bluefinPools(network: Network): VenuePools;
 /** The testnet facility: its object, the package its type names, and its rate (WAL per SUI, as a fraction). */
 export interface ExchangeFacility {
     objectId: string;
@@ -26,6 +30,8 @@ export interface SwapShape {
     minOutUnits: bigint;
     /** A gas ceiling, or undefined to let the SDK set one from its own dry run. */
     gasBudgetMist?: bigint | undefined;
+    /** The route the quote answered with (DeepBook WAL ↔ SUI may go through USDC). Absent = direct. */
+    route?: SwapRoute | undefined;
     /** Present exactly when `venue` is bluefin: the signature uses the package the quote used. */
     bluefin?: BluefinBinding | undefined;
     /** Present exactly when `venue` is exchange. */
@@ -40,6 +46,8 @@ export declare function swapTransaction(input: SwapShape & {
 /** What `commands/wallet-swap.ts` reads before it prints a review. */
 export interface SwapReads {
     readWallet(address: string): Promise<WalletBalances>;
+    /** The USDC balance, counted by Circle's exact coin type only. Read only when USDC is in the trade. */
+    readUsdc(address: string): Promise<CoinBalance>;
     /** Bluefin's pinned package, version-checked. Throws when the chain refuses that package. */
     resolveBluefin(): Promise<BluefinBinding>;
     /** The testnet facility and its rate. Throws off testnet, or when the object cannot be read. */

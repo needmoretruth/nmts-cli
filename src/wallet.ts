@@ -221,19 +221,28 @@ async function readSui(reader: ChainReader): Promise<CoinBalance> {
 }
 
 async function readWal(reader: ChainReader, walType: string): Promise<CoinBalance> {
+  return readCoinOfType(reader, walType, "WAL");
+}
+
+/**
+ * One coin's balance, counted by its EXACT type — a coin with the same symbol and another package is
+ * not in the sum. The zero case is confirmed as for WAL: a chain that does not know the type answers
+ * 0 too, and that zero would mean nothing.
+ */
+export async function readCoinOfType(reader: ChainReader, coinType: string, name: string): Promise<CoinBalance> {
   let total: bigint;
   try {
-    total = await reader.totalOf(walType);
+    total = await reader.totalOf(coinType);
   } catch (error) {
     return { read: false, why: reasonOf(error) };
   }
   // A positive balance is its own proof that the coin type is real; only zero is ambiguous.
   if (total > 0n) return { read: true, baseUnits: total };
   try {
-    if (await reader.knowsCoinType(walType)) return { read: true, baseUnits: total };
+    if (await reader.knowsCoinType(coinType)) return { read: true, baseUnits: total };
     return {
       read: false,
-      why: "this chain does not know the WAL coin type this version of the tool was built with, so a zero balance here would mean nothing",
+      why: `this chain does not know the ${name} coin type this version of the tool was built with, so a zero balance here would mean nothing`,
     };
   } catch (error) {
     // ⛔ A FAILED CHECK IS NOT A CONFIRMED ZERO. Reporting the zero anyway would be reporting a

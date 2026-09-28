@@ -6,38 +6,52 @@
 // ⛔ ONE BUILDER FOR THE FEE AND THE SIGNATURE. `estimateFee` and `wallet-sign.ts` both call
 //    `swapTransaction`, so the fee printed is the fee of the transaction that is then signed.
 //
-// ⛔ THE SHAPES ARE THE BROWSER'S, CALL FOR CALL. DeepBook: `pool::swap_exact_quote_for_base` (SUI→WAL)
-//    or `swap_exact_base_for_quote` (WAL→SUI) with an EMPTY DEEP coin so the fee comes off the input
-//    coin, and all THREE outputs (base, quote, DEEP) sent back to the signer — Move cannot drop a
-//    coin, so a forgotten one aborts the whole transaction. Bluefin: `gateway::swap_assets`, which
-//    sends its outputs to the sender itself; type arguments always in pool order [WAL, SUI], the
-//    direction carried by the `a2b` flag, and a sqrt-price limit one step inside the tick range
-//    (the exact end aborts). Testnet: the official Walrus facility `wal_exchange::exchange_all_for_wal`,
-//    SUI→WAL only, whose package is read off the Exchange object's own type. The ids come from
-//    `shared/lib/wallet/venue-ids.ts`, copied byte-for-byte from the browser.
+// ⛔ THE SHAPES ARE THE BROWSER'S, CALL FOR CALL. DeepBook: `pool::swap_exact_base_for_quote` when the
+//    coin going in is the pool's first coin (base), `swap_exact_quote_for_base` when it is the second,
+//    with an EMPTY DEEP coin so the fee comes off the input coin, and all THREE outputs (base, quote,
+//    DEEP) sent back to the signer — Move cannot drop a coin, so a forgotten one aborts the whole
+//    transaction. Through USDC (WAL ↔ SUI only), the first pool's USDC coin goes straight into the
+//    second pool in the same transaction, the minimum is put on the last pool, and the first pool's
+//    leftover comes back too. Bluefin: `gateway::swap_assets`, which sends its outputs to the sender
+//    itself; type arguments always in pool order (first coin = coin_a), the direction carried by the
+//    `a2b` flag, and a sqrt-price limit one step inside the tick range (the exact end aborts). Testnet:
+//    the official Walrus facility `wal_exchange::exchange_all_for_wal`, SUI→WAL only, whose package is
+//    read off the Exchange object's own type. The ids come from `shared/lib/wallet/venue-ids.ts`,
+//    copied byte-for-byte from the browser.
 //
 // ⛔ OUR SHARE IS ZERO. No NMTS address, no fee argument, no output of ours in any of the three.
 
-import { coinWithBalance, Transaction } from "@mysten/sui/transactions";
+import { coinWithBalance, Transaction, type TransactionObjectArgument } from "@mysten/sui/transactions";
 import { TESTNET_WALRUS_PACKAGE_CONFIG } from "@mysten/walrus";
 
 import { walrusClient, netGasFee } from "./extend-chain.ts";
 import { isRecord } from "./guards.ts";
 import type { Network } from "./network.ts";
-import type { SwapDirection, SwapVenue } from "./shared/lib/wallet/swap-rules.ts";
+import { hopFor, routeHops, type SwapRoute } from "./shared/lib/wallet/swap-routes.ts";
+import { directionCoins, type SwapCoin, type SwapDirection, type SwapVenue } from "./shared/lib/wallet/swap-rules.ts";
 import {
   BLUEFIN_GLOBAL_CONFIG_IDS,
   BLUEFIN_MAX_SQRT_PRICE,
   BLUEFIN_MIN_SQRT_PRICE,
   BLUEFIN_PACKAGE_IDS,
+  BLUEFIN_SUI_USDC_POOLS,
   BLUEFIN_WAL_SUI_POOLS,
+  BLUEFIN_WAL_USDC_POOLS,
   DEEP_COIN_TYPES,
   DEEPBOOK_PACKAGE_IDS,
-  DEEPBOOK_WAL_SUI_POOLS,
 } from "./shared/lib/wallet/venue-ids.ts";
-import { readBalances, SUI_COIN_TYPE, walCoinType, type WalletBalances } from "./wallet.ts";
+import { readBalances, readCoinOfType, type CoinBalance, type WalletBalances } from "./wallet.ts";
 import { chainReader } from "./wallet-chain.ts";
-import { quoteVenue, QUOTE_SENDER, type VenueQuote } from "./wallet-swap-quote.ts";
+import {
+  deepbookPools,
+  pairTypes,
+  poolIdOf,
+  quoteVenue,
+  QUOTE_SENDER,
+  swapCoinTypes,
+  type VenuePools,
+  type VenueQuote,
+} from "./wallet-swap-quote.ts";
 
 /** Where a swap runs: one of the two mainnet venues, or the official testnet facility. */
 export type SwapRail = SwapVenue | "exchange";
@@ -46,7 +60,17 @@ export type SwapRail = SwapVenue | "exchange";
 export interface BluefinBinding {
   packageId: string;
   globalConfigId: string;
-  poolId: string;
+  /** `Pool<WAL, SUI>` · `Pool<SUI, USDC>` · `Pool<WAL, USDC>`, all pinned; null = none on that network. */
+  pools: VenuePools;
+}
+
+/** Bluefin's pinned pools on a network. */
+export function bluefinPools(network: Network): VenuePools {
+  return {
+    WAL_SUI: BLUEFIN_WAL_SUI_POOLS[network],
+    SUI_USDC: BLUEFIN_SUI_USDC_POOLS[network],
+    WAL_USDC: BLUEFIN_WAL_USDC_POOLS[network],
+  };
 }
 
 /** The testnet facility: its object, the package its type names, and its rate (WAL per SUI, as a fraction). */
@@ -65,6 +89,8 @@ export interface SwapShape {
   minOutUnits: bigint;
   /** A gas ceiling, or undefined to let the SDK set one from its own dry run. */
   gasBudgetMist?: bigint | undefined;
+  /** The route the quote answered with (DeepBook WAL ↔ SUI may go through USDC). Absent = direct. */
+  route?: SwapRoute | undefined;
   /** Present exactly when `venue` is bluefin: the signature uses the package the quote used. */
   bluefin?: BluefinBinding | undefined;
   /** Present exactly when `venue` is exchange. */
@@ -79,34 +105,58 @@ export function railsFor(network: Network): readonly SwapRail[] {
 export function swapTransaction(input: SwapShape & { network: Network; sender: string }): Transaction {
   const tx = new Transaction();
   tx.setSender(input.sender);
-  const walType = walCoinType(input.network);
-  const a2b = input.direction === "WAL_TO_SUI";
-  const coinIn = a2b
-    ? tx.add(coinWithBalance({ balance: input.amountInUnits, type: walType }))
-    : tx.splitCoins(tx.gas, [input.amountInUnits])[0];
+  const types = swapCoinTypes(input.network);
+  const { in: coinFrom, out: coinTo } = directionCoins(input.direction);
+  // SUI comes off the gas coin; WAL and USDC are gathered from the wallet by their EXACT types.
+  const coinOf = (coin: SwapCoin): TransactionObjectArgument =>
+    coin === "SUI"
+      ? tx.splitCoins(tx.gas, [input.amountInUnits])[0]
+      : tx.add(coinWithBalance({ balance: input.amountInUnits, type: types[coin] }));
 
   if (input.venue === "deepbook") {
-    const deepIn = tx.moveCall({ target: "0x2::coin::zero", typeArguments: [DEEP_COIN_TYPES[input.network]] });
-    const swapped = tx.moveCall({
-      target: `${DEEPBOOK_PACKAGE_IDS[input.network]}::pool::${a2b ? "swap_exact_base_for_quote" : "swap_exact_quote_for_base"}`,
-      typeArguments: [walType, SUI_COIN_TYPE],
-      arguments: [tx.object(DEEPBOOK_WAL_SUI_POOLS[input.network]), coinIn, deepIn, tx.pure.u64(input.minOutUnits), tx.object.clock()],
+    const route = input.route ?? "direct";
+    const hops = routeHops(input.direction, route);
+    if (hops === null || hops.length === 0) throw new Error(`DeepBook has no ${route} route for ${input.direction}.`);
+    const pools = deepbookPools(input.network);
+    let coin = coinOf(coinFrom);
+    let deep: TransactionObjectArgument = tx.moveCall({ target: "0x2::coin::zero", typeArguments: [DEEP_COIN_TYPES[input.network]] });
+    const back: TransactionObjectArgument[] = [];
+    hops.forEach((hop, i) => {
+      const last = i === hops.length - 1;
+      const swapped = tx.moveCall({
+        target: `${DEEPBOOK_PACKAGE_IDS[input.network]}::pool::${hop.sellsFirst ? "swap_exact_base_for_quote" : "swap_exact_quote_for_base"}`,
+        typeArguments: pairTypes(input.network, hop.pair),
+        arguments: [tx.object(poolIdOf(pools, hop.pair, "deepbook")), coin, deep, tx.pure.u64(last ? input.minOutUnits : 0n), tx.object.clock()],
+      });
+      // The result is indexed, and an index is typed as possibly absent; nothing below can build a
+      // transfer of fewer than the three outputs.
+      const [baseCoin, quoteCoin, deepCoin] = [swapped[0], swapped[1], swapped[2]];
+      if (baseCoin === undefined || quoteCoin === undefined || deepCoin === undefined) {
+        throw new Error("DeepBook's swap did not yield its three outputs.");
+      }
+      if (last) {
+        back.push(baseCoin, quoteCoin, deepCoin);
+      } else {
+        // The first pool's leftover goes home; what it bought feeds the next pool, with its empty DEEP.
+        back.push(hop.sellsFirst ? baseCoin : quoteCoin);
+        coin = hop.sellsFirst ? quoteCoin : baseCoin;
+        deep = deepCoin;
+      }
     });
-    // All three outputs — base, quote, DEEP — go back to the signer. The result is indexed, and an
-    // index is typed as possibly absent; nothing below can build a transfer of fewer than three.
-    const outputs = [swapped[0], swapped[1], swapped[2]].filter((coin) => coin !== undefined);
-    if (outputs.length !== 3) throw new Error("DeepBook's swap did not yield its three outputs.");
-    tx.transferObjects(outputs, input.sender);
+    tx.transferObjects(back, input.sender);
   } else if (input.venue === "bluefin") {
     if (input.bluefin === undefined) throw new Error("A Bluefin swap needs its resolved package first.");
-    const coinZero = tx.moveCall({ target: "0x2::coin::zero", typeArguments: [a2b ? SUI_COIN_TYPE : walType] });
+    const hop = hopFor(coinFrom, coinTo);
+    const a2b = hop.sellsFirst;
+    const coinIn = coinOf(coinFrom);
+    const coinZero = tx.moveCall({ target: "0x2::coin::zero", typeArguments: [types[coinTo]] });
     tx.moveCall({
       target: `${input.bluefin.packageId}::gateway::swap_assets`,
-      typeArguments: [walType, SUI_COIN_TYPE],
+      typeArguments: pairTypes(input.network, hop.pair),
       arguments: [
         tx.object.clock(),
         tx.object(input.bluefin.globalConfigId),
-        tx.object(input.bluefin.poolId),
+        tx.object(poolIdOf(input.bluefin.pools, hop.pair, "bluefin")),
         a2b ? coinIn : coinZero,
         a2b ? coinZero : coinIn,
         tx.pure.bool(a2b),
@@ -118,7 +168,8 @@ export function swapTransaction(input: SwapShape & { network: Network; sender: s
     });
   } else {
     if (input.exchange === undefined) throw new Error("The testnet exchange needs its object first.");
-    if (a2b) throw new Error("The testnet facility only turns SUI into WAL.");
+    if (input.direction !== "SUI_TO_WAL") throw new Error("The testnet facility only turns SUI into WAL.");
+    const coinIn = coinOf("SUI");
     const walOut = tx.moveCall({
       target: `${input.exchange.packageId}::wal_exchange::exchange_all_for_wal`,
       arguments: [tx.object(input.exchange.objectId), coinIn],
@@ -132,6 +183,8 @@ export function swapTransaction(input: SwapShape & { network: Network; sender: s
 /** What `commands/wallet-swap.ts` reads before it prints a review. */
 export interface SwapReads {
   readWallet(address: string): Promise<WalletBalances>;
+  /** The USDC balance, counted by Circle's exact coin type only. Read only when USDC is in the trade. */
+  readUsdc(address: string): Promise<CoinBalance>;
   /** Bluefin's pinned package, version-checked. Throws when the chain refuses that package. */
   resolveBluefin(): Promise<BluefinBinding>;
   /** The testnet facility and its rate. Throws off testnet, or when the object cannot be read. */
@@ -201,7 +254,10 @@ export function swapReads(network: Network): SwapReads {
 
   return {
     async readWallet(address) {
-      return readBalances(chainReader(network, address), walCoinType(network));
+      return readBalances(chainReader(network, address), swapCoinTypes(network).WAL);
+    },
+    async readUsdc(address) {
+      return readCoinOfType(chainReader(network, address), swapCoinTypes(network).USDC, "USDC");
     },
     async resolveBluefin() {
       // Memoised for the run, and a failure is not memoised: one refusal must not become "no Bluefin".
@@ -209,11 +265,10 @@ export function swapReads(network: Network): SwapReads {
       const pending = (async (): Promise<BluefinBinding> => {
         const packageId = BLUEFIN_PACKAGE_IDS[network];
         const globalConfigId = BLUEFIN_GLOBAL_CONFIG_IDS[network];
-        const poolId = BLUEFIN_WAL_SUI_POOLS[network];
-        if (packageId === null || globalConfigId === null || poolId === null) {
+        if (packageId === null || globalConfigId === null || BLUEFIN_WAL_SUI_POOLS[network] === null) {
           throw new Error(`This tool knows no Bluefin WAL/SUI pool on ${network}.`);
         }
-        return checkedBluefinBinding({ packageId, globalConfigId, poolId }, client);
+        return checkedBluefinBinding({ packageId, globalConfigId, pools: bluefinPools(network) }, client);
       })();
       bluefin = pending;
       pending.catch(() => {
