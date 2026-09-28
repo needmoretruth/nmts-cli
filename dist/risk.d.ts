@@ -65,6 +65,9 @@ export declare const ACTS: {
     readonly link: {
         readonly tier: "none";
     };
+    readonly links: {
+        readonly tier: "none";
+    };
     readonly wallet: {
         readonly tier: "none";
     };
@@ -188,6 +191,14 @@ export declare const ACTS: {
     readonly "link.revoke": {
         readonly tier: "low";
         readonly what: "Cut a public link.";
+    };
+    readonly "links.revoke": {
+        readonly tier: "low";
+        readonly what: "Cut a public link.";
+    };
+    readonly "links.revoke-all": {
+        readonly tier: "low";
+        readonly what: "Cut every public link this account holds.";
     };
     readonly tip: {
         readonly tier: "none";

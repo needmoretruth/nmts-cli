@@ -34,6 +34,17 @@ export function resetLinks(): void {
 /** A token of the real shape (16 bytes, base64url), different per row. */
 const tokenOf = (n: number): string => `LinkToken${String(n).padStart(4, "0")}AbCdEfGhI`;
 
+/** A live row as the account-wide list answers it. */
+const ownedView = (r: LinkRow): Record<string, unknown> => ({
+  link_id: r.id,
+  item_id: r.body["item_id"],
+  owner_secret: r.body["owner_secret"],
+  disclosed_name: r.body["disclosed_name"],
+  created_at: "2026-09-26T00:00:00Z",
+  ...(r.body["expires_at"] === undefined ? {} : { expires_at: r.body["expires_at"] }),
+  downloads: 0,
+});
+
 /** Answer the request if it is one of the link doors; say whether it was. */
 export function serveLinks(method: string, url: string, req: IncomingMessage, res: ServerResponse): boolean {
   if (!url.startsWith("/v1/share-links")) return false;
@@ -55,6 +66,17 @@ export function serveLinks(method: string, url: string, req: IncomingMessage, re
       linkState.rows.push(row);
       json(201, { link_id: row.id, created_at: "2026-09-26T00:00:00Z", expires_at: row.body["expires_at"] ?? null });
     });
+    return true;
+  }
+  // The account-wide doors: every live link, and the cut of all of them in one request.
+  if (method === "GET" && url === "/v1/share-links/live") {
+    json(200, { links: linkState.rows.filter((r) => !r.cut).map((r) => ownedView(r)).reverse() });
+    return true;
+  }
+  if (method === "DELETE" && url === "/v1/share-links") {
+    const live = linkState.rows.filter((r) => !r.cut);
+    for (const r of live) r.cut = true;
+    json(200, { cut: live.length });
     return true;
   }
   if (method === "GET" && url.startsWith("/v1/share-links?")) {

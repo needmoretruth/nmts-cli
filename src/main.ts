@@ -105,10 +105,8 @@ export async function run(argv: readonly string[]): Promise<number> {
         sort: args.sort, desc: args.desc, long: args.long, media: args.media,
       });
     }
-    case "usage": {
-      const { usage } = await import("./commands/usage.ts");
-      return await usage({ server: args.server, network: args.network, json: args.json });
-    }
+    case "usage":
+      return await (await import("./commands/usage.ts")).usage({ server: args.server, network: args.network, json: args.json });
     case "balance": {
       const { balance } = await import("./commands/balance.ts");
       return await balance({ server: args.server, network: args.network, json: args.json });
@@ -302,6 +300,7 @@ export async function run(argv: readonly string[]): Promise<number> {
     case "shares":
     case "unshare":
     case "link":
+    case "links":
     case "receive": {
       const { runShare } = await import("./commands/share-dispatch.ts");
       return await runShare(args.command, args);

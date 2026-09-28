@@ -3,6 +3,14 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.48.0 — 2026-09-28
+
+- **Every public link in one list.** `nmts links` prints every link of yours that still opens a
+  file, newest first, with the file's path, download count and end date (`--json` for programs).
+  `nmts links revoke <id>` cuts one and `nmts links revoke-all` cuts them all in one request;
+  copies already downloaded stay with whoever has them. The SDK has `allLinks()` and
+  `revokeAllLinks()`.
+
 ## 0.47.0 — 2026-09-27
 
 - **Public links.** `nmts link make <path>` makes a link to one file that anyone can open without

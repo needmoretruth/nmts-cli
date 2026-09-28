@@ -1,4 +1,4 @@
-// The share verbs (share · shares · unshare · receive · link), dispatched here rather than in `main.ts`.
+// The share verbs (share · shares · unshare · receive · link · links), dispatched here rather than in `main.ts`.
 //
 // ⛔ WHY A SECOND SWITCH. `main.ts` is measured (`check:size`) and had no room for `nmts support`;
 //    this block shares a file and an option shape, so it moved as one piece with its comments.
@@ -55,6 +55,10 @@ export async function runShare(command: string, args: ParsedArgs): Promise<numbe
       force: args.force,
       json: args.json,
     });
+    }
+  case "links": {
+    const { links } = await import("./links.ts");
+    return await links(args.operands[0], args.operands[1], { server: args.server, network: args.network, json: args.json });
     }
     default:
       throw new Error(`not a share verb: ${command}`);

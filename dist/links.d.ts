@@ -18,6 +18,8 @@ export interface MadeLink {
 }
 export interface ListedLink {
     id: string;
+    /** The server's id for the file the link opens. */
+    itemId: string;
     /** The whole link again, or null when it is cut (or its sealed secret did not open). */
     link: string | null;
     showsName: boolean;
@@ -36,6 +38,13 @@ export declare function makeLink(account: LinkAccount, entry: ManifestEntry, opt
 }): Promise<MadeLink>;
 /** Every link the account made to one file, newest first, cut ones included. */
 export declare function listLinks(account: LinkAccount, itemId: string): Promise<ListedLink[]>;
+/**
+ * Every LIVE link the account holds, across all its files, newest first. Each names its file by
+ * `itemId`; the file's name is in the account's own sealed list, which the server cannot read.
+ */
+export declare function listLiveLinks(account: LinkAccount): Promise<ListedLink[]>;
+/** Cut every live link the account holds, in one request: all or none. Returns how many were cut. */
+export declare function revokeAllLinks(account: LinkAccount): Promise<number>;
 /** Cut one of the account's links. Cutting one that is already cut is not an error. */
 export declare function revokeLink(account: LinkAccount, id: string): Promise<void>;
 export interface OpenedLinkFile {

@@ -99,10 +99,8 @@ export async function run(argv) {
                 sort: args.sort, desc: args.desc, long: args.long, media: args.media,
             });
         }
-        case "usage": {
-            const { usage } = await import("./commands/usage.js");
-            return await usage({ server: args.server, network: args.network, json: args.json });
-        }
+        case "usage":
+            return await (await import("./commands/usage.js")).usage({ server: args.server, network: args.network, json: args.json });
         case "balance": {
             const { balance } = await import("./commands/balance.js");
             return await balance({ server: args.server, network: args.network, json: args.json });
@@ -296,6 +294,7 @@ export async function run(argv) {
         case "shares":
         case "unshare":
         case "link":
+        case "links":
         case "receive": {
             const { runShare } = await import("./commands/share-dispatch.js");
             return await runShare(args.command, args);

@@ -82,7 +82,7 @@ export { AGGREGATOR_ENV_VAR, readBlob, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./
 //    caller said first, then the environment, then the network's own.
 export { relayHost, storageNodesThrough, suiRpcHosts } from "./walrus.js";
 // Public links (NCF-3 §5.8): make, list, cut, and open without an account — `nmts link`'s four.
-export { listLinks, makeLink, openLink, revokeLink } from "./links.js";
+export { listLinks, listLiveLinks, makeLink, openLink, revokeAllLinks, revokeLink } from "./links.js";
 // The wallet the NMTS key derives: reading it, and signing with it.
 export { coinAmount, readBalances, walCoinType, walletAddress } from "./wallet.js";
 export { chainReader } from "./wallet-chain.js";

@@ -1,7 +1,7 @@
 # nmts link — public links to one file
 
-Commands: link
-Tiers: link=none · link.make=high(share) · link.revoke=low
+Commands: link, links
+Tiers: link=none · link.make=high(share) · link.revoke=low · links=none · links.revoke=low · links.revoke-all=low
 
 `link make <path>` makes a public link to one file of your drive and prints it:
 `https://nmts.me/l/<token>#<secret>`. Anyone with the link can open this file. Cutting the link stops
@@ -25,3 +25,10 @@ and checks the whole file against the hash the owner sealed; a file that does no
 written. Without `--out` the file is saved in the current directory under the name the owner
 showed, reduced to its last segment, or `nmts-link-<token>` when the name was hidden; `--force`
 replaces a file that is already there. A cut, expired or unknown link is refused.
+
+`links` prints every live public link this account holds, across all its files, newest first: the
+id, the file's path (read from this account's own file list; the server has file ids, not names),
+when it was made, how many times it was downloaded, when it expires if it does, and the whole link.
+`links revoke <id>` cuts one, as `link revoke` does. `links revoke-all` cuts every live link in one
+request — all or none — and prints how many were cut; asking again cuts none. Copies already
+downloaded stay with whoever has them.

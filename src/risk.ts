@@ -71,6 +71,8 @@ export const ACTS = {
   // Listing this file's public links, and opening somebody's link (no account). `link.make` is under
   // `high` beside `share`; `link.revoke` is under `low` beside `unshare`.
   link: { tier: "none" },
+  // Listing every live link the account holds. Its two cuts are under `low` beside `link.revoke`.
+  links: { tier: "none" },
   wallet: { tier: "none" },
   get: { tier: "none" },
   pull: { tier: "none" },
@@ -116,6 +118,8 @@ export const ACTS = {
   restore: { tier: "low", what: "Bring these back out of the trash." },
   unshare: { tier: "low", what: "Withdraw this share. Whoever had it cannot download it again." },
   "link.revoke": { tier: "low", what: "Cut a public link." },
+  "links.revoke": { tier: "low", what: "Cut a public link." },
+  "links.revoke-all": { tier: "low", what: "Cut every public link this account holds." },
   tip: { tier: "none" },
   "tip.set": { tier: "none" },
   "on-collision.set": { tier: "low", what: "Change what an upload does when its name is already taken." },
@@ -291,6 +295,8 @@ export function actOf(args: ParsedArgs): ActId | null {
       return sub === "make" ? "handover.make" : "handover";
     case "link":
       return sub === "make" ? "link.make" : sub === "revoke" ? "link.revoke" : "link";
+    case "links":
+      return sub === "revoke" ? "links.revoke" : sub === "revoke-all" ? "links.revoke-all" : "links";
     case "support":
       return sub === "send" || sub === "reply" ? "support.send" : "support";
     case "platform":

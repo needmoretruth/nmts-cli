@@ -57,7 +57,7 @@ export type { PlaintextSink } from "./download-sink.ts";
 export { AGGREGATOR_ENV_VAR, readBlob, RELAY_ENV_VAR, SUI_RPC_ENV_VAR } from "./walrus.ts";
 export { relayHost, storageNodesThrough, suiRpcHosts } from "./walrus.ts";
 export type { ReadOptions } from "./walrus.ts";
-export { listLinks, makeLink, openLink, revokeLink } from "./links.ts";
+export { listLinks, listLiveLinks, makeLink, openLink, revokeAllLinks, revokeLink } from "./links.ts";
 export type { LinkAccount, ListedLink, MadeLink, OpenedLinkFile } from "./links.ts";
 export { coinAmount, readBalances, walCoinType, walletAddress } from "./wallet.ts";
 export type { ChainReader, CoinBalance, WalletBalances } from "./wallet.ts";

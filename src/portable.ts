@@ -178,7 +178,7 @@ export { relayHost, storageNodesThrough, suiRpcHosts } from "./walrus.ts";
 export type { ReadOptions } from "./walrus.ts";
 
 // Public links (NCF-3 §5.8): make, list, cut, and open without an account — `nmts link`'s four.
-export { listLinks, makeLink, openLink, revokeLink } from "./links.ts";
+export { listLinks, listLiveLinks, makeLink, openLink, revokeAllLinks, revokeLink } from "./links.ts";
 export type { LinkAccount, ListedLink, MadeLink, OpenedLinkFile } from "./links.ts";
 
 // The wallet the NMTS key derives: reading it, and signing with it.

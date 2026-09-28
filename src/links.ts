@@ -50,6 +50,8 @@ export interface MadeLink {
 
 export interface ListedLink {
   id: string;
+  /** The server's id for the file the link opens. */
+  itemId: string;
   /** The whole link again, or null when it is cut (or its sealed secret did not open). */
   link: string | null;
   showsName: boolean;
@@ -134,6 +136,27 @@ export async function listLinks(account: LinkAccount, itemId: string): Promise<L
   const answer = await request(account.server, `/v1/share-links?item_id=${encodeURIComponent(itemId)}`, {
     token: account.bearer,
   });
+  return listedFrom(account, answer);
+}
+
+/**
+ * Every LIVE link the account holds, across all its files, newest first. Each names its file by
+ * `itemId`; the file's name is in the account's own sealed list, which the server cannot read.
+ */
+export async function listLiveLinks(account: LinkAccount): Promise<ListedLink[]> {
+  return listedFrom(account, await request(account.server, "/v1/share-links/live", { token: account.bearer }));
+}
+
+/** Cut every live link the account holds, in one request: all or none. Returns how many were cut. */
+export async function revokeAllLinks(account: LinkAccount): Promise<number> {
+  const answer = await request(account.server, "/v1/share-links", { method: "DELETE", token: account.bearer });
+  const cut = isRecord(answer) ? answer["cut"] : null;
+  if (typeof cut !== "number") throw new NmtsError("The server's answer did not say how many links were cut.");
+  return cut;
+}
+
+/** A list answer's rows, each with its whole link rebuilt from the owner's sealed copy of `S`. */
+async function listedFrom(account: LinkAccount, answer: unknown): Promise<ListedLink[]> {
   const rows = isRecord(answer) ? answer["links"] : null;
   if (!Array.isArray(rows)) throw new NmtsError("The server listed the links in a shape this version cannot read.");
   const crypt = await loadCrypto();
@@ -156,6 +179,7 @@ export async function listLinks(account: LinkAccount, itemId: string): Promise<L
       }
       return {
         id,
+        itemId: text(row["item_id"]) ?? "",
         link,
         showsName: row["disclosed_name"] === true,
         createdAt: text(row["created_at"]) ?? "",

@@ -131,6 +131,8 @@ export function helpText(version) {
         `  link make <path>      Make a public link to a file`,
         `  link list <path>      List a file's public links`,
         `  link revoke <id>      Cut a public link`,
+        `  links                 List every live public link this account holds, with each file's path`,
+        `  links revoke-all      Cut every live public link at once`,
         `  link open <link>      Download and decrypt a file from a public link, without logging in`,
         `  env                   What this machine is, and what it means for the NMTS key`,
         `  unlock [name]         What this machine has unlocked; \`unlock <name>\` opens one — a person,`,
