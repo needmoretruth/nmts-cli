@@ -3,6 +3,13 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.49.1 — 2026-09-29
+
+- `nmts put --tier heavy --pay evm` recorded a file's end date without the 30-day lockup the storage
+  companies are owed, so a 28-day payment was written as ending the moment it was stored and every
+  longer term came out 30 days short. The end date now counts the lockup after the deposit's runway.
+  Files already stored this way keep the storage they paid for; only the recorded date was short.
+
 ## 0.49.0 — 2026-09-28
 
 - `nmts wallet swap` now trades SUI, WAL and USDC in all six directions:

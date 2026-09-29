@@ -78,15 +78,16 @@ export async function synapseSelfPay(account, chain) {
 /** Filecoin epochs in 30 days — the lockup a storage company is always owed. */
 const EPOCHS_PER_MONTH = 86400n;
 /**
- * The epoch the deposit reaches at the rate the account pays after this upload.
+ * The epoch the deposit pays through after this upload: the SDK's runway — what the deposit holds
+ * BEYOND the lockup — and then the 30-day lockup the storage companies are owed. Counting only the
+ * runway wrote a 28-day payment as ending in the epoch it was committed (mainnet, 2026-09-28).
  *
  * ⚠ A RATE OF ZERO HAS NO END (the SDK answers the largest uint256). That only happens when no
- *   piece is being paid for, which after a successful upload it is; the 30-day lockup is written
- *   then, because it is what the storage company is owed whatever the deposit does.
+ *   piece is being paid for; the lockup alone is written then.
  */
 export function expiryFrom(runway) {
-    const end = runway.runwayInEpochs > 2n ** 40n ? runway.epoch + EPOCHS_PER_MONTH : runway.epoch + runway.runwayInEpochs;
-    return Number(end);
+    const funded = runway.runwayInEpochs > 2n ** 40n ? 0n : runway.runwayInEpochs;
+    return Number(runway.epoch + funded + EPOCHS_PER_MONTH);
 }
 /** Upload these files from the key's own EVM wallet and commit each one. The caller writes the list. */
 export async function heavySelfPut(ctx, files) {

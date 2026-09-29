@@ -73,11 +73,12 @@ export interface SelfPaySynapse {
 /** The real one: the Synapse SDK, over this account on this chain. */
 export declare function synapseSelfPay(account: Account, chain: FilecoinChain): Promise<SelfPaySynapse>;
 /**
- * The epoch the deposit reaches at the rate the account pays after this upload.
+ * The epoch the deposit pays through after this upload: the SDK's runway — what the deposit holds
+ * BEYOND the lockup — and then the 30-day lockup the storage companies are owed. Counting only the
+ * runway wrote a 28-day payment as ending in the epoch it was committed (mainnet, 2026-09-28).
  *
  * ⚠ A RATE OF ZERO HAS NO END (the SDK answers the largest uint256). That only happens when no
- *   piece is being paid for, which after a successful upload it is; the 30-day lockup is written
- *   then, because it is what the storage company is owed whatever the deposit does.
+ *   piece is being paid for; the lockup alone is written then.
  */
 export declare function expiryFrom(runway: {
     epoch: bigint;

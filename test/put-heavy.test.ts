@@ -11,7 +11,7 @@ import { parseArgs } from "../src/args.ts";
 import { loadCrypto } from "../src/crypto.ts";
 import { NmtsError } from "../src/errors.ts";
 import type { commitHeavyItem } from "../src/heavy-api.ts";
-import { heavySelfPut, selfPayChain, type SelfPaySynapse } from "../src/heavy-self-pay.ts";
+import { expiryFrom, heavySelfPut, selfPayChain, type SelfPaySynapse } from "../src/heavy-self-pay.ts";
 import { heavyCredits, heavyOrderPut, planHeavyFile, type HeavyFile } from "../src/heavy-upload.ts";
 import { heavyWalletPut } from "../src/heavy-wallet-pay.ts";
 import { heavyPayerOf, refuseHeavyClashes } from "../src/commands/heavy-run.ts";
@@ -227,9 +227,17 @@ test("Heavy from the key's own EVM wallet: no order, the copies the SDK kept, pa
   assert.equal(commits[0]?.paidBy, account.address);
   const part = commits[0]?.parts[0];
   assert.equal(part?.owner_kind, 0);
-  assert.equal(part?.expiry_epoch, 3_086_400);
+  // runway 86,400 beyond the lockup + the 30-day lockup itself
+  assert.equal(part?.expiry_epoch, 3_172_800);
   assert.deepEqual(part?.copies, [{ provider_id: "4", data_set_id: "11", piece_id: "2", retrieval_url: COPIES[0]?.retrieval_url }]);
-  assert.equal(done.expiryEpoch, 3_086_400);
+  assert.equal(done.expiryEpoch, 3_172_800);
+});
+
+test("a self-paid Heavy file's end counts the 30-day lockup after the runway", () => {
+  // 28 days deposit exactly the lockup: the SDK's runway is 0 and the file still has 30 days.
+  assert.equal(expiryFrom({ epoch: 6_410_285n, runwayInEpochs: 0n }), 6_410_285 + 86_400);
+  // No rate at all (the SDK's largest uint256): the lockup alone.
+  assert.equal(expiryFrom({ epoch: 100n, runwayInEpochs: 2n ** 256n - 1n }), 100 + 86_400);
 });
 
 test("every Heavy refusal the server answers with has a next step", () => {
