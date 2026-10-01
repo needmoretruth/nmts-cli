@@ -13,7 +13,7 @@ import { identityOf } from "../src/account.ts";
 import { create } from "../src/commands/create.ts";
 import { credentialsPath, testConfigDir, writeCredentials } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
-import { generateCode } from "./helpers.ts";
+import { generateCode, grantConsents } from "./helpers.ts";
 
 /** ⛔ Assembled rather than written out, so nothing here reads as a credential to a scanner. */
 const PASS = ["nmtsp", "P".repeat(43)].join("_");
@@ -72,6 +72,9 @@ async function withPass(name: string, body: (lines: string[]) => Promise<void>):
   const before = NAMES.map((n) => [n, process.env[n]] as const);
   rmSync(dir, { recursive: true, force: true });
   process.env["NMTS_CONFIG_DIR"] = dir;
+  // Windows keeps no file modes, so storing the key unsealed asks first there; the person's yes is given
+  // up front, as a person at that machine would.
+  grantConsents(dir, "unsafe-code-storage");
   process.env["NMTS_AGENT_PASS"] = PASS;
   delete process.env["NMTS_PASSPHRASE"];
   delete process.env["NMTS_API_KEY"];
@@ -110,7 +113,7 @@ test("⛔ the pass makes the account the kept key derives, and an API key lands 
     assert.equal(minted?.["account_id"], identity.accountId);
     assert.equal(minted?.["scopes"], 7);
     assert.equal(stored["apiKey"], KEY);
-    assert.equal(statSync(credentialsPath()).mode & 0o777, 0o600);
+    if (process.platform !== "win32") assert.equal(statSync(credentialsPath()).mode & 0o777, 0o600);
 
     const text = lines.join("\n");
     assert.match(text, /nmts trial apply/);
