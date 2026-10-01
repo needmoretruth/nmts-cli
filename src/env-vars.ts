@@ -30,3 +30,10 @@ export const RELAY_ENV_VAR = "NMTS_RELAY";
 
 /** Ask a different Sui JSON-RPC node the shard-count question. */
 export const SUI_RPC_ENV_VAR = "NMTS_SUI_RPC";
+
+/**
+ * The one-time pass a person took on nmts.me/ai for their agent (D19g ⑥). `nmts create` spends it.
+ *
+ * ⛔ AN ENVIRONMENT VARIABLE AND NEVER AN OPTION: `args.ts` holds that no secret is one.
+ */
+export const AGENT_PASS_ENV_VAR = "NMTS_AGENT_PASS";

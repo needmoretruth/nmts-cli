@@ -15,3 +15,12 @@ one" — and without them it is refused. With `--json` the NMTS key does not go 
 `--out <file>` is required and the JSON carries the path. A new account starts with no credits,
 and the free trial runs its own human check on every application. It stores nothing on this
 machine and switches nothing over.
+
+With a one-time pass in `NMTS_AGENT_PASS` it needs no key and no browser. A person takes the pass
+at nmts.me/ai by passing the human check there, and accepts the Terms and the Privacy Policy for
+the account it makes. The pass makes one account, once, within sixty minutes. The new NMTS key is
+kept in this tool's own file — sealed under `NMTS_PASSPHRASE` when that is set, otherwise in the
+clear at mode 600 — and an API key with read, write and spend is made and kept beside it. The
+account starts with its human check live, so `nmts trial apply` works at once. It refuses, before
+spending the pass, when this machine already keeps an NMTS key; set `NMTS_CONFIG_DIR` to a new
+folder for the new account. The pass is never an option on the command line.

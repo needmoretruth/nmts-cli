@@ -43,6 +43,7 @@ import { rmSync } from "node:fs";
 
 import { request, ServerError } from "../api.ts";
 import { readCredentialsFile, resolveApiKey } from "../credentials.ts";
+import { AGENT_PASS_ENV_VAR } from "../env-vars.ts";
 import { NmtsError } from "../errors.ts";
 import { isRecord } from "../guards.ts";
 import { humanCheck } from "../human-check.ts";
@@ -90,6 +91,10 @@ interface InForce {
 
 export async function create(options: CreateOptions = {}): Promise<number> {
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));
+  // ⛔ A PASS IN THE ENVIRONMENT IS A THIRD PATH, and it is taken before the other two look at
+  //    anything: a person already did their part on nmts.me/ai (`create-pass.ts`).
+  const pass = process.env[AGENT_PASS_ENV_VAR]?.trim() ?? "";
+  if (pass !== "") return await throughPass(pass, options);
   const held = resolveApiKey();
   const stored = readCredentialsFile();
   const server = resolveServer(options.server ?? stored?.server);
@@ -190,6 +195,27 @@ export async function create(options: CreateOptions = {}): Promise<number> {
     sayWalletAttached(say, await attachWalletToNewAccount({ server, code, wallet: options.wallet }));
   }
   return 0;
+}
+
+/** The pass path. ⚠ `--out` and `--wallet` belong to the other two and are refused, not dropped. */
+async function throughPass(pass: string, options: CreateOptions): Promise<number> {
+  if (options.out !== undefined || options.wallet !== undefined || options.noWait === true) {
+    throw new NmtsError(`--out, --wallet and --no-wait do not go with ${AGENT_PASS_ENV_VAR}.`, {
+      exitCode: 2,
+      nextStep: `Nothing was created. With a pass the NMTS key is kept in this tool's own file.`,
+    });
+  }
+  const server = resolveServer(options.server);
+  const { createWithPass } = await import("./create-pass.ts");
+  return await createWithPass({
+    server,
+    network: resolveNetwork(server, options.network),
+    pass,
+    json: options.json === true,
+    acceptTerms: options.acceptTerms,
+    acceptPrivacy: options.acceptPrivacy,
+    write: options.write,
+  });
 }
 
 /** What documents this server is enforcing, read from the one route a key may ask. */

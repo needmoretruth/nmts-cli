@@ -3,6 +3,13 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.50.0 — 2026-10-01
+
+- `nmts create` can spend a one-time pass taken from the environment variable `NMTS_AGENT_PASS`. It
+  makes the NMTS key on this machine, registers the account with the pass in place of the browser
+  step, makes an API key (read, write, spend) and stores both in the credentials file. A pass works
+  once and for an hour. If this machine already keeps a key, `create` refuses before spending the pass.
+
 ## 0.49.1 — 2026-09-29
 
 - `nmts put --tier heavy --pay evm` recorded a file's end date without the 30-day lockup the storage
