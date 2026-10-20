@@ -36,6 +36,7 @@ import { Transaction, TransactionDataBuilder } from "@mysten/sui/transactions";
 import { fromBase64 } from "@mysten/sui/utils";
 import { NmtsError } from "./errors.js";
 import { walrusClient } from "./extend-chain.js";
+import { freshWalrus } from "./walrus-fresh.js";
 import { isRecord } from "./guards.js";
 import { isTransient, keepTrying } from "./net-retry.js";
 import { storageOpTransaction } from "./storage-control-chain.js";
@@ -176,8 +177,9 @@ export function externalExtendSigner(payer) {
         const tx = new Transaction();
         // The sender goes first: the fragments below pick this address's WAL when they resolve.
         tx.setSender(payer.address);
+        const fresh = freshWalrus(client);
         for (const blobObjectId of unique)
-            tx.add(client.walrus.extendBlob({ blobObjectId, epochs }));
+            tx.add(fresh.extendBlob({ blobObjectId, epochs }));
         const result = await signAndSubmit(client, payer, {
             network,
             bytes: await tx.build({ client }),

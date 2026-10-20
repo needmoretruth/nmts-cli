@@ -261,7 +261,7 @@ export async function walletPut(
       storage:
         storage.kind === "buy"
           ? storage
-          : { kind: "reuse", objectId: storage.objectId, cutToBytes: storage.cutToBytes, writeFrost: storage.writeFrost },
+          : { kind: "reuse", objectId: storage.objectId, cutToBytes: storage.cutToBytes },
     }),
   ]);
   const budget = uploadBudget({ address, purse, feeMist, quotes, storage });

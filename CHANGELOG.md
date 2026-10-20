@@ -3,6 +3,13 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.50.1 — 2026-10-20
+
+- `nmts put` paying from your wallet into a storage resource the wallet already holds carried the
+  write price it read when the upload was reviewed, and paid exactly that at signing. If Walrus
+  storage nodes changed the price in between, the chain refused the registration before anything was
+  charged. The price is now read when the transaction is signed.
+
 ## 0.50.0 — 2026-10-01
 
 - `nmts create` can spend a one-time pass taken from the environment variable `NMTS_AGENT_PASS`. It

@@ -51,7 +51,8 @@ export type StorageChoice =
 /** One part as the register transaction needs it. */
 export interface RegisterShape {
   epochs: number;
-  storage: { kind: "buy" } | { kind: "reuse"; objectId: string; cutToBytes: number | null; writeFrost: bigint };
+  /** ⚠ No write cost here: the register transaction reads it at signing (`registerTransaction`). */
+  storage: { kind: "buy" } | { kind: "reuse"; objectId: string; cutToBytes: number | null };
   part: { sealedLen: number; blobId: string; rootHash: Uint8Array; nonce: Uint8Array; blobDigest: Uint8Array };
 }
 

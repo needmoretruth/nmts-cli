@@ -28,6 +28,7 @@ import { reachFetch } from "./reach.js";
 import { readOwnedStorage, readStorageType } from "./shared/lib/storage-control/chain.js";
 import { registerIntoStorage, splitStorageToFit } from "./shared/lib/storage-control/reuse.js";
 import { storageNodesThrough } from "./walrus.js";
+import { freshWalrus } from "./walrus-fresh.js";
 import { suiRpcTransport } from "./sui-rpc.js";
 import { readBalances, walCoinType } from "./wallet.js";
 import { chainReader } from "./wallet-chain.js";
@@ -62,14 +63,20 @@ export function payingClient(network, relayUrl) {
  *
  * ⛔ SENDER FIRST. `coinWithBalance` and the SDK's own coin selection pick WAL and SUI from the
  *    sender's address when the fragments resolve; without it the build fails late.
+ *
+ * ⛔ EVERY PRICE IS READ HERE, ON FRESH STATE — the held resource's write cost included. It used to
+ *    arrive from the review's quote, and the register transaction pays EXACTLY what it is given:
+ *    a price vote landing between the review and the signature (a long seal, a resumed upload) made
+ *    the chain abort the registration in `destroy_zero` or `split` instead of charging the new price.
  */
 export async function registerTransaction(client, network, input) {
     const tx = new Transaction();
     tx.setSender(input.sender);
     const { part } = input;
-    tx.add(client.walrus.sendUploadRelayTip({ size: part.sealedLen, blobDigest: part.blobDigest, nonce: part.nonce }));
+    const fresh = freshWalrus(client);
+    tx.add(fresh.sendUploadRelayTip({ size: part.sealedLen, blobDigest: part.blobDigest, nonce: part.nonce }));
     if (input.storage.kind === "buy") {
-        const blob = tx.add(client.walrus.registerBlob({
+        const blob = tx.add(fresh.registerBlob({
             size: part.sealedLen,
             epochs: input.epochs,
             blobId: part.blobId,
@@ -79,7 +86,11 @@ export async function registerTransaction(client, network, input) {
         tx.transferObjects([blob], input.sender);
         return tx;
     }
-    const walrusPackageId = (await client.walrus.systemObject()).package_id;
+    const [system, { writeCost }] = await Promise.all([
+        fresh.systemObject(),
+        fresh.storageCost(part.sealedLen, input.epochs),
+    ]);
+    const walrusPackageId = system.package_id;
     if (input.storage.cutToBytes !== null) {
         splitStorageToFit({
             walrusPackageId,
@@ -96,7 +107,7 @@ export async function registerTransaction(client, network, input) {
         blobIdAsInt: blobIdToInt(part.blobId),
         rootHash: part.rootHash,
         rawBytes: part.sealedLen,
-        writeCost: input.storage.writeFrost,
+        writeCost,
         deletable: true,
         owner: input.sender,
     }, tx);
@@ -104,7 +115,7 @@ export async function registerTransaction(client, network, input) {
 }
 /** The certify transaction of ONE part, from the certificate the relay handed back. */
 export function certifyTransaction(client, input) {
-    return client.walrus.certifyBlobTransaction({
+    return freshWalrus(client).certifyBlobTransaction({
         blobId: input.blobId,
         blobObjectId: input.blobObjectId,
         deletable: true,
@@ -176,10 +187,11 @@ export function walletUploadReads(network, relayUrl) {
     return {
         readWindow: () => extendReads(network).readWindow(),
         async quoteParts(sealedLens, epochs) {
+            const fresh = freshWalrus(client);
             return Promise.all(sealedLens.map(async (sealedLen) => {
                 const [cost, tip] = await Promise.all([
-                    client.walrus.storageCost(sealedLen, epochs),
-                    client.walrus.calculateUploadRelayTip({ size: sealedLen }),
+                    fresh.storageCost(sealedLen, epochs),
+                    fresh.calculateUploadRelayTip({ size: sealedLen }),
                 ]);
                 return { sealedLen, storageFrost: cost.storageCost, writeFrost: cost.writeCost, tipMist: BigInt(tip) };
             }));

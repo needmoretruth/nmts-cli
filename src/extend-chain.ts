@@ -25,6 +25,7 @@ import type { BlobLease, ExtendReads, ExtendWindow } from "./extend-plan.ts";
 import { isRecord } from "./guards.ts";
 import { epochStartedMs } from "./walrus-write.ts";
 import { storageNodesThrough } from "./walrus.ts";
+import { freshWalrus } from "./walrus-fresh.ts";
 import { suiRpcTransport } from "./sui-rpc.ts";
 import { readBalances, walCoinType, type WalletBalances } from "./wallet.ts";
 import { chainReader } from "./wallet-chain.ts";
@@ -147,9 +148,8 @@ export function extendReads(network: string): ExtendReads {
      */
     async quote(leases: readonly BlobLease[], epochs: number): Promise<bigint> {
       if (epochs <= 0 || leases.length === 0) return 0n;
-      const costs = await Promise.all(
-        leases.map((lease) => client.walrus.storageCost(lease.size, epochs)),
-      );
+      const fresh = freshWalrus(client);
+      const costs = await Promise.all(leases.map((lease) => fresh.storageCost(lease.size, epochs)));
       return costs.reduce((sum, cost) => sum + BigInt(cost.storageCost), 0n);
     },
     async readWallet(address: string): Promise<WalletBalances> {
@@ -163,8 +163,9 @@ export function extendReads(network: string): ExtendReads {
       try {
         const tx = new Transaction();
         tx.setSender(sender);
+        const fresh = freshWalrus(client);
         for (const blobObjectId of [...new Set(objectIds)]) {
-          tx.add(client.walrus.extendBlob({ blobObjectId, epochs }));
+          tx.add(fresh.extendBlob({ blobObjectId, epochs }));
         }
         const bytes = await tx.build({ client });
         const { effects } = await client.dryRunTransactionBlock({ transactionBlock: bytes });

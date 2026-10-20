@@ -38,6 +38,7 @@ import { DERIVED, loadCrypto } from "./crypto.ts";
 import { NmtsError } from "./errors.ts";
 import type { SignExtension } from "./extend-plan.ts";
 import { walrusClient } from "./extend-chain.ts";
+import { freshWalrus } from "./walrus-fresh.ts";
 import { transferTransaction, type TransferShape } from "./wallet-send-chain.ts";
 import { storageOpTransaction, type StorageOpShape } from "./storage-control-chain.ts";
 import { swapTransaction, type SwapShape } from "./wallet-swap-chain.ts";
@@ -150,8 +151,9 @@ export const signExtension: SignExtension = async ({ network, code, wallet, obje
   // The sender must be set before the fragments resolve: paying with the SDK's default coin
   // selection picks the WAL coins from the sender's own address.
   tx.setSender(keypair.toSuiAddress());
+  const fresh = freshWalrus(client);
   for (const blobObjectId of unique) {
-    tx.add(client.walrus.extendBlob({ blobObjectId, epochs }));
+    tx.add(fresh.extendBlob({ blobObjectId, epochs }));
   }
 
   const result = await client.signAndExecuteTransaction({

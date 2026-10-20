@@ -27,6 +27,11 @@ export declare function payingClient(network: Network, relayUrl: string): Paying
  *
  * ⛔ SENDER FIRST. `coinWithBalance` and the SDK's own coin selection pick WAL and SUI from the
  *    sender's address when the fragments resolve; without it the build fails late.
+ *
+ * ⛔ EVERY PRICE IS READ HERE, ON FRESH STATE — the held resource's write cost included. It used to
+ *    arrive from the review's quote, and the register transaction pays EXACTLY what it is given:
+ *    a price vote landing between the review and the signature (a long seal, a resumed upload) made
+ *    the chain abort the registration in `destroy_zero` or `split` instead of charging the new price.
  */
 export declare function registerTransaction(client: PayingClient, network: Network, input: RegisterShape & {
     sender: string;
