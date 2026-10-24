@@ -57,14 +57,11 @@ export interface SwapReads {
     /** The fee in MIST measured by dry-running this exact swap, or null when it could not be. */
     estimateFee(shape: SwapShape, sender: string): Promise<bigint | null>;
 }
-/** All this path uses of an RPC: one devInspect and its `error`. Narrow on purpose — the type itself
+/** All this path uses of a node: one simulation and its `error`. Narrow on purpose — the type itself
  *  has no place for a chain-supplied ADDRESS to enter, and a test can hand it a fake. */
 export interface BluefinVersionRpc {
-    devInspectTransactionBlock(input: {
-        sender: string;
-        transactionBlock: Transaction;
-    }): Promise<{
-        error?: string | null;
+    inspect(transaction: Transaction, sender: string): Promise<{
+        error: string | null;
     }>;
 }
 /** The pinned addresses, returned only once the chain confirms the pinned package still verifies.

@@ -42,8 +42,8 @@ import { freshWalrus } from "./walrus-fresh.ts";
 import { transferTransaction, type TransferShape } from "./wallet-send-chain.ts";
 import { storageOpTransaction, type StorageOpShape } from "./storage-control-chain.ts";
 import { swapTransaction, type SwapShape } from "./wallet-swap-chain.ts";
-import { isRecord } from "./guards.ts";
 import type { Network } from "./network.ts";
+import { signAndRun } from "./sui-execute.ts";
 import {
   certifyTransaction,
   createdBlob,
@@ -156,22 +156,14 @@ export const signExtension: SignExtension = async ({ network, code, wallet, obje
     tx.add(fresh.extendBlob({ blobObjectId, epochs }));
   }
 
-  const result = await client.signAndExecuteTransaction({
-    transaction: tx,
-    signer: keypair,
-    options: { showEffects: true },
-  });
+  const result = await signAndRun(client, tx, keypair);
 
   // ⛔ A DIGEST IS NOT A SUCCESS. A transaction that was executed and FAILED still has one, and the
   //    gas for it is still gone; recording it as an extension would move the drive's expiry date
-  //    over storage nobody bought. The status is asked for above and read here.
-  const effects: unknown = result.effects;
-  const status: unknown = isRecord(effects) ? effects["status"] : undefined;
-  const outcome: unknown = isRecord(status) ? status["status"] : undefined;
-  if (outcome === "failure") {
-    const why: unknown = isRecord(status) ? status["error"] : undefined;
+  //    over storage nobody bought. `signAndRun` reads the status; a refusal is said here.
+  if (result.refused !== null) {
     throw new NmtsError(
-      `The storage network refused the extension: ${typeof why === "string" ? why : "no reason was given"}.`,
+      `The storage network refused the extension: ${result.refused}.`,
       {
         exitCode: 1,
         nextStep:
@@ -181,12 +173,7 @@ export const signExtension: SignExtension = async ({ network, code, wallet, obje
       },
     );
   }
-  // ⛔ SUCCESS IS ALREADY KNOWN — the effects above said so. This wait is for what happens NEXT:
-  //    the server is told the digest, `nmts wallet` is run, the browser's activity list opens —
-  //    and a full node that has not indexed the transaction yet answers those as if nothing
-  //    happened. Waiting until it is readable is what the browser's signers do. A wait that times
-  //    out changes nothing about what was signed, so it is not an error of this extension.
-  await client.waitForTransaction({ digest: result.digest }).catch(() => undefined);
+  // The wait until a node can read it back already happened inside `signAndRun`.
   return result.digest;
 };
 
@@ -203,18 +190,10 @@ export const signTransfer: SignTransfer = async ({ network, code, wallet, shape 
   const client = walrusClient(network);
   const keypair = await keypairFor(code, wallet);
   const tx = transferTransaction({ ...shape, sender: keypair.toSuiAddress() });
-  const result = await client.signAndExecuteTransaction({
-    transaction: tx,
-    signer: keypair,
-    options: { showEffects: true },
-  });
-  const effects: unknown = result.effects;
-  const status: unknown = isRecord(effects) ? effects["status"] : undefined;
-  const outcome: unknown = isRecord(status) ? status["status"] : undefined;
-  if (outcome === "failure") {
-    const why: unknown = isRecord(status) ? status["error"] : undefined;
+  const result = await signAndRun(client, tx, keypair);
+  if (result.refused !== null) {
     throw new NmtsError(
-      `The chain refused the transfer: ${typeof why === "string" ? why : "no reason was given"}.`,
+      `The chain refused the transfer: ${result.refused}.`,
       {
         exitCode: 1,
         nextStep:
@@ -223,7 +202,6 @@ export const signTransfer: SignTransfer = async ({ network, code, wallet, shape 
       },
     );
   }
-  await client.waitForTransaction({ digest: result.digest }).catch(() => undefined);
   return result.digest;
 };
 
@@ -259,12 +237,8 @@ export const signSwap: SignSwap = async ({ network, code, wallet, shape }) => {
   const client = walrusClient(network);
   const keypair = await keypairFor(code, wallet);
   const tx = swapTransaction({ ...shape, network, sender: keypair.toSuiAddress() });
-  const result = await client.signAndExecuteTransaction({
-    transaction: tx,
-    signer: keypair,
-    options: { showEffects: true },
-  });
-  const refused = refusedBecause(result);
+  const result = await signAndRun(client, tx, keypair);
+  const refused = result.refused;
   if (refused !== null) {
     throw new NmtsError(`The chain refused the swap: ${refused}.`, {
       exitCode: 1,
@@ -274,18 +248,8 @@ export const signSwap: SignSwap = async ({ network, code, wallet, shape }) => {
         `or a balance that moved. \`nmts wallet\` shows both balances now.`,
     });
   }
-  await client.waitForTransaction({ digest: result.digest }).catch(() => undefined);
   return result.digest;
 };
-
-/** What a refused execution said, or null when the effects say it went through. */
-function refusedBecause(result: unknown): string | null {
-  const effects: unknown = isRecord(result) ? result["effects"] : undefined;
-  const status: unknown = isRecord(effects) ? effects["status"] : undefined;
-  if (!isRecord(status) || status["status"] !== "failure") return null;
-  const why: unknown = status["error"];
-  return typeof why === "string" ? why : "no reason was given";
-}
 
 /**
  * Register ONE part's blob, signed by the account's own wallet: the relay's tip, then the storage
@@ -303,12 +267,8 @@ export const signBlobRegister: SignBlobRegister = async ({ network, code, wallet
   const client = payingClient(network, relayUrl);
   const keypair = await keypairFor(code, wallet);
   const tx = await registerTransaction(client, network, { ...shape, sender: keypair.toSuiAddress() });
-  const result = await client.signAndExecuteTransaction({
-    transaction: tx,
-    signer: keypair,
-    options: { showEffects: true, showObjectChanges: true },
-  });
-  const refused = refusedBecause(result);
+  const result = await signAndRun(client, tx, keypair);
+  const refused = result.refused;
   if (refused !== null) {
     throw new NmtsError(`The storage network refused the registration: ${refused}.`, {
       exitCode: 1,
@@ -318,8 +278,7 @@ export const signBlobRegister: SignBlobRegister = async ({ network, code, wallet
         `resource too small for the part once encoded.`,
     });
   }
-  await client.waitForTransaction({ digest: result.digest }).catch(() => undefined);
-  const blob = await createdBlob(client, result.objectChanges);
+  const blob = await createdBlob(client, result.created);
   return { digest: result.digest, ...blob };
 };
 
@@ -329,12 +288,8 @@ export const signBlobCertify: SignBlobCertify = async ({ network, code, wallet, 
   const keypair = await keypairFor(code, wallet);
   const tx = certifyTransaction(client, shape);
   tx.setSender(keypair.toSuiAddress());
-  const result = await client.signAndExecuteTransaction({
-    transaction: tx,
-    signer: keypair,
-    options: { showEffects: true },
-  });
-  const refused = refusedBecause(result);
+  const result = await signAndRun(client, tx, keypair);
+  const refused = result.refused;
   if (refused !== null) {
     throw new NmtsError(`The storage network refused the certification: ${refused}.`, {
       exitCode: 1,
@@ -343,7 +298,6 @@ export const signBlobCertify: SignBlobCertify = async ({ network, code, wallet, 
         `its fee was spent. Running the same command again certifies again and buys nothing.`,
     });
   }
-  await client.waitForTransaction({ digest: result.digest }).catch(() => undefined);
   return result.digest;
 };
 
@@ -362,16 +316,12 @@ export const signStorageOp: SignStorageOp = async ({ network, code, wallet, shap
   // that can reshape or hand it over.
   const keypair = await keypairFor(code, wallet);
   const tx = storageOpTransaction(shape, { walrusPackageId, sender: keypair.toSuiAddress() });
-  const result = await client.signAndExecuteTransaction({ transaction: tx, signer: keypair, options: { showEffects: true } });
-  const effects: unknown = result.effects;
-  const status: unknown = isRecord(effects) ? effects["status"] : undefined;
-  if (isRecord(status) && status["status"] === "failure") {
-    const why: unknown = status["error"];
-    throw new NmtsError(`The chain refused it: ${typeof why === "string" ? why : "no reason was given"}.`, {
+  const result = await signAndRun(client, tx, keypair);
+  if (result.refused !== null) {
+    throw new NmtsError(`The chain refused it: ${result.refused}.`, {
       exitCode: 1,
       nextStep: "Nothing changed on the resource. The transaction fee was spent.",
     });
   }
-  await client.waitForTransaction({ digest: result.digest }).catch(() => undefined);
   return result.digest;
 };

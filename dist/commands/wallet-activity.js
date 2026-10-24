@@ -1,6 +1,7 @@
 // `nmts wallet activity` — the recent transactions of the wallet this NMTS key derives.
 //
-// ⛔ IT READS. The chain is asked twice (sent, received — the RPC filter has no OR), the rows are
+// ⛔ IT READS. The chain is asked once (every transaction that moved this address — the gRPC index's
+//    `affectedAddress`, since the JSON-RPC that needed two questions was retired), the rows are
 //    named by the SAME judgement the browser uses (`shared/lib/wallet/activity.ts`, copied
 //    byte-for-byte), and nothing here signs or spends.
 //
@@ -22,8 +23,8 @@ import { resolveServer } from "../server.js";
 import { mergeActivity, toActivityRow, } from "../shared/lib/wallet/activity.js";
 import { BLUEFIN_PACKAGE_IDS, DEEPBOOK_PACKAGE_IDS } from "../shared/lib/wallet/venue-ids.js";
 import { coinAmount, walCoinType, walletAddress } from "../wallet.js";
-/** How many to ask for in each direction, and how many to print after the merge. */
-export const FETCH_PER_DIRECTION = 25;
+/** How many to ask for, and how many to print after the merge. */
+export const FETCH = 25;
 export const SHOW = 20;
 /** What the judgement compares against on this network. Donation and pool addresses: unknown here. */
 export function activityContext(network, address) {
@@ -61,20 +62,30 @@ export async function walletActivity(options = {}) {
         });
     }
     const ctx = activityContext(network, address);
-    const rows = mergeActivity([fetched.sent.map((tx) => toActivityRow(tx, ctx)), fetched.received.map((tx) => toActivityRow(tx, ctx))], SHOW);
+    const rows = mergeActivity([fetched.transactions.map((tx) => toActivityRow(tx, ctx))], SHOW);
+    const complete = fetched.complete !== false;
     if (options.json) {
-        say(JSON.stringify({ address, network, shown: rows.length, rows: rows.map(asJson) }));
+        say(JSON.stringify({ address, network, shown: rows.length, complete, rows: rows.map(asJson) }));
         return 0;
     }
     say(`Address  ${address}`);
     say(`Network  ${network}`);
     say(``);
-    if (rows.length === 0) {
+    // ⛔ "No transaction" is said only of a history read to the end; a short read says it is short.
+    if (rows.length === 0 && complete) {
         say(`  The chain answered and lists no transaction for this wallet.`);
+    }
+    else if (rows.length === 0) {
+        say(`  No transaction in the last few weeks, and the older history could not be read just now.`);
     }
     else {
         for (const row of rows)
             say(`  ${inWords(row)}`);
+    }
+    if (rows.length > 0 && !complete) {
+        say(``);
+        say(`  The older history could not be read just now: transactions from more than a few weeks`);
+        say(`  ago may be missing. Run this again to retry.`);
     }
     say(``);
     say(`  The newest ${SHOW} at most; the chain link on each line shows the rest. A name is put only`);

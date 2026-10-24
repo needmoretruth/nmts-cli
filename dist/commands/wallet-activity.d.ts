@@ -1,12 +1,16 @@
 import { type Network } from "../network.ts";
-import { type ActivityContext, type RpcTransaction } from "../shared/lib/wallet/activity.ts";
-/** How many to ask for in each direction, and how many to print after the merge. */
-export declare const FETCH_PER_DIRECTION = 25;
+import { type ActivityContext, type ChainTransaction } from "../shared/lib/wallet/activity.ts";
+/** How many to ask for, and how many to print after the merge. */
+export declare const FETCH = 25;
 export declare const SHOW = 20;
-/** The two lists the chain answers with. */
+/** The list the chain answers with, newest first. */
 export interface ActivityFetch {
-    sent: readonly RpcTransaction[];
-    received: readonly RpcTransaction[];
+    transactions: readonly ChainTransaction[];
+    /**
+     * False when the history could not be read to the end — the node keeps a few weeks and the older
+     * part comes from Sui's GraphQL service, which may not answer. Absent counts as true.
+     */
+    complete?: boolean;
 }
 export interface WalletActivityOptions {
     server?: string | undefined;

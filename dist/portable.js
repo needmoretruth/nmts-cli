@@ -32,6 +32,8 @@ export { setZstdCodec, zstdCodec, zstdContentSize } from "./shared/lib/drive/zst
 export { NmtsError, NotLoggedInError, renderError } from "./errors.js";
 // The server: one request function, and what a refusal looks like.
 export { request, ServerError, DEFAULT_TIMEOUT_MS } from "./api.js";
+// Which program sends those requests (`x-nmts-client`) — the SDK says so on the way in.
+export { CLIENT_HEADER, clientHeaderValue, identifyClient } from "./client-id.js";
 export { DEFAULT_SERVER, SERVER_ENV_VAR, resolveServer } from "./server.js";
 export { NETWORKS, NETWORK_ENV_VAR, resolveNetwork } from "./network.js";
 // The account: what a code derives, and the engine that derives it.

@@ -41,10 +41,10 @@ export interface ActivityContext {
     /** The network name the explorer link is built for: `"mainnet"` or `"testnet"`. */
     network: string;
 }
-export interface RpcMoveCall {
-    package?: string;
-    module?: string;
-    function?: string;
+export interface ChainMoveCall {
+    package?: string | undefined;
+    module?: string | undefined;
+    function?: string | undefined;
 }
 /**
  * One command of a programmable transaction.
@@ -54,59 +54,52 @@ export interface RpcMoveCall {
  *   ("no properties in common" — weak-type detection). The index signature says "any other field
  *   is fine".
  */
-export interface RpcCommand {
-    MoveCall?: RpcMoveCall;
+export interface ChainCommand {
+    MoveCall?: ChainMoveCall | null | undefined;
     [other: string]: unknown;
 }
 /**
- * What can sit in a command slot — usually the shape above, but sometimes A BARE STRING (the
- * command list of an end-of-epoch transaction carries name-only entries). Our wallet transactions
- * never contain one, but the receiving type includes that branch, so it is accepted — and skipped.
+ * One transaction input — `{ Object: { SharedObject | ImmOrOwnedObject | Receiving: { objectId } } }`,
+ * `{ UnresolvedObject: { objectId } }`, or a pure value that carries no object. Read with checks
+ * rather than declared, for the same weak-type reason.
  */
-export type RpcCommandEntry = RpcCommand | string;
-/** One transaction input. The index signature is needed for the same reason (pure-value inputs have no `objectId`). */
-export interface RpcInput {
-    objectId?: string;
-    [other: string]: unknown;
+export type ChainInput = Readonly<Record<string, unknown>>;
+export interface ChainBalanceChange {
+    address?: string | undefined;
+    coinType?: string | undefined;
+    amount?: string | undefined;
 }
-export interface RpcBalanceChange {
-    owner?: unknown;
-    coinType?: string;
-    amount?: string;
-}
-export interface RpcTransaction {
-    digest?: string;
-    timestampMs?: string | number | null;
-    balanceChanges?: readonly RpcBalanceChange[] | null;
-    effects?: {
-        status?: {
-            status?: string;
-        };
-    } | null;
+export interface ChainTransaction {
+    digest?: string | undefined;
+    timestampMs?: string | number | null | undefined;
+    status?: {
+        success?: boolean | undefined;
+    } | null | undefined;
+    balanceChanges?: readonly ChainBalanceChange[] | null | undefined;
     transaction?: {
-        data?: {
-            sender?: string;
-            gasData?: {
-                owner?: string;
-            };
-            transaction?: {
-                /** `ProgrammableTransaction` and the like. Not read, but it MUST be declared — for the same
-                 *  reason as the index signatures: without it other kinds (`ChangeEpoch`) fail the type check. */
-                kind?: string;
-                inputs?: readonly RpcInput[];
-                transactions?: readonly RpcCommandEntry[];
-            };
-        };
-    } | null;
+        sender?: string | null | undefined;
+        gasData?: {
+            owner?: string | null | undefined;
+        } | undefined;
+        inputs?: readonly ChainInput[] | undefined;
+        commands?: readonly ChainCommand[] | undefined;
+    } | null | undefined;
 }
 /**
  * Put an address into one shape before comparing.
  *
  * ⚠ A Sui address can be written zero-padded or not (`0x2` and `0x000…02` are the same one). The
- *   RPC's form and the one in our configuration can differ, and then THE SAME ADDRESS COMPARES AS
+ *   chain's form and the one in our configuration can differ, and then THE SAME ADDRESS COMPARES AS
  *   DIFFERENT — a gift would fall through to "send". So both are padded to 32 bytes first.
  */
 export declare function normalizeAddress(raw: string): string;
+/**
+ * A coin type with its package address padded — `0x2::sui::SUI` and `0x000…02::sui::SUI` are one type.
+ *
+ * ⛔ The gRPC and GraphQL nodes write the long form, where JSON-RPC wrote the short one for SUI; a
+ *    comparison against the short form alone would stop naming SUI anywhere in the list.
+ */
+export declare function normalizeCoinType(raw: string): string;
 /**
  * One transaction → one row for a screen or a terminal.
  *
@@ -116,7 +109,7 @@ export declare function normalizeAddress(raw: string): string;
  *    here goes down; donation comes before send because a more specific truth beats a less
  *    specific one.
  */
-export declare function toActivityRow(tx: RpcTransaction, ctx: ActivityContext): ActivityRow;
+export declare function toActivityRow(tx: ChainTransaction, ctx: ActivityContext): ActivityRow;
 /**
  * Where a person can look the transaction up themselves.
  *
@@ -128,11 +121,12 @@ export declare function toActivityRow(tx: RpcTransaction, ctx: ActivityContext):
  */
 export declare function explorerTxUrl(digest: string, network: string): string;
 /**
- * The two lists (sent, received) folded into one.
+ * Lists of rows folded into one — newest first, each digest once, at most `limit`.
  *
- * ⛔ THE RPC FILTER HAS NO OR — `FromAddress` and `ToAddress` cannot be asked for together, so
- *    they are asked for twice and merged here. A transaction can appear on both sides, so
- *    DUPLICATES ARE REMOVED BY DIGEST.
+ * ⭐ Since 2026-10-21 the chain is asked ONE question per page ("every transaction that moved this
+ *    address's state" — the gRPC `affectedAddress` filter), where the retired JSON-RPC could only ask
+ *    "sent" and "received" separately and this function merged the two. It still takes several lists,
+ *    because a caller may page, and DUPLICATES ARE STILL REMOVED BY DIGEST.
  * ⚠ Rows with no time go LAST — treating a missing time as 0 would float "1970" to the top.
  */
 export declare function mergeActivity(groups: readonly (readonly ActivityRow[])[], limit: number): ActivityRow[];

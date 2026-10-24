@@ -16,6 +16,7 @@
 import { Transaction } from "@mysten/sui/transactions";
 import { walrusClient, netGasFee } from "./extend-chain.js";
 import { splitStorageToFit } from "./shared/lib/storage-control/reuse.js";
+import { dryRun } from "./shared/lib/wallet/chain-calls.js";
 /** The transaction one shape is, for `sender`. */
 export function storageOpTransaction(shape, input) {
     const tx = new Transaction();
@@ -59,11 +60,11 @@ export function storageOpsReads(network) {
             try {
                 const walrusPackageId = await this.walrusPackageId();
                 const bytes = await storageOpTransaction(shape, { walrusPackageId, sender }).build({ client });
-                const { effects } = await client.dryRunTransactionBlock({ transactionBlock: bytes });
-                if (effects.status.status !== "success") {
-                    return { feeMist: null, refusal: effects.status.error ?? "the chain gave no reason" };
+                const { status, gasUsed } = await dryRun(client, bytes);
+                if (!status.success) {
+                    return { feeMist: null, refusal: status.error?.message || "the chain gave no reason" };
                 }
-                return { feeMist: netGasFee(effects.gasUsed), refusal: null };
+                return { feeMist: netGasFee(gasUsed), refusal: null };
             }
             catch (error) {
                 // ⚠ A refusal at ASSEMBLY (a wrong argument, an object that is not this wallet's) is an

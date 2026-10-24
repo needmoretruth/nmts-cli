@@ -7,7 +7,7 @@
 
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
+import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { walrus, TESTNET_WALRUS_PACKAGE_CONFIG } from "@mysten/walrus";
 
 /** Shard count of the live testnet, supplied so the encode needs no chain read. */
@@ -27,9 +27,9 @@ function client(): ReturnType<typeof makeClient> {
 const UNREACHABLE_RPC = "http://127.0.0.1:1";
 
 function makeClient() {
-  return new SuiJsonRpcClient({
+  return new SuiGrpcClient({
     network: "testnet",
-    url: UNREACHABLE_RPC,
+    baseUrl: UNREACHABLE_RPC,
   }).$extend(walrus({ packageConfig: TESTNET_WALRUS_PACKAGE_CONFIG }));
 }
 

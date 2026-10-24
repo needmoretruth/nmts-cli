@@ -33,6 +33,7 @@ import { existsSync, mkdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { identityOf } from "../account.ts";
+import { identifyClient } from "../client-id.ts";
 import { requireAccountCode } from "../code-access.ts";
 import { API_KEY_ENV_VAR, CODE_ENV_VAR, readCredentialsFile, resolveApiKey } from "../credentials.ts";
 import { NmtsError } from "../errors.ts";
@@ -120,6 +121,8 @@ export function mcpToolSchemas(): { name: string; inputSchema: Record<string, un
 }
 
 export async function mcp(options: McpOptions = {}): Promise<number> {
+  // Every request from here on is the MCP server's, before the first one leaves (`client-id.ts`).
+  identifyClient("mcp");
   const note = options.note ?? ((line: string) => process.stderr.write(`${line}\n`));
   // ⛔ NO PROMPT FROM HERE. stdin is the protocol; see `OpenOptions.allowPrompt`.
   //

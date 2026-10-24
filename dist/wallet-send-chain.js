@@ -10,6 +10,7 @@
 //    same two things.
 import { coinWithBalance, Transaction } from "@mysten/sui/transactions";
 import { walrusClient, netGasFee } from "./extend-chain.js";
+import { dryRun } from "./shared/lib/wallet/chain-calls.js";
 import { readBalances, walCoinType } from "./wallet.js";
 import { chainReader } from "./wallet-chain.js";
 export function transferTransaction(input) {
@@ -36,10 +37,10 @@ export function sendReads(network) {
         async estimateFee(shape, sender) {
             try {
                 const bytes = await transferTransaction({ ...shape, sender }).build({ client });
-                const { effects } = await client.dryRunTransactionBlock({ transactionBlock: bytes });
-                if (effects.status.status !== "success")
+                const { status, gasUsed } = await dryRun(client, bytes);
+                if (!status.success)
                     return null;
-                return netGasFee(effects.gasUsed);
+                return netGasFee(gasUsed);
             }
             catch {
                 return null;

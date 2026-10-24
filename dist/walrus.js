@@ -46,24 +46,24 @@ export const RELAY_HOSTS = {
     mainnet: ["https://upload-relay.mainnet.walrus.space"],
 };
 /**
- * Sui JSON-RPC endpoints per network — public mirrors, because the official full nodes retired
- * JSON-RPC on both networks (browser measurements 2026-07-29 testnet, 2026-08-03 mainnet).
+ * Sui node endpoints per network, spoken to over gRPC-web (`sui-rpc.ts`), first-that-answers.
  *
- * ⛔ READ-ONLY, AND NOT TRUSTED WITH ANYTHING. This tool asks one question here: how many shards
- *    the storage network currently has, which the erasure coding needs. A wrong answer produces a
- *    blob id the storage network refuses, so it fails loudly at the relay rather than quietly
- *    storing something unreadable. No key is ever sent to one of these, and nothing is signed.
+ * ⛔ READ-MOSTLY, AND NOT TRUSTED WITH ANYTHING SECRET. Most commands ask one question here — how
+ *    many shards the storage network has, which the erasure coding needs; the wallet commands also
+ *    read balances and submit transactions the person signed on this machine. No key is ever sent to
+ *    one of these. A wrong shard count produces a blob id the storage network refuses, so it fails
+ *    loudly at the relay rather than quietly storing something unreadable.
  *
- * ⭐ 2026-09-01 — a LIST per network, two operators, first-that-answers. It used to be one host,
- *    and the testnet one was measured dead that morning: `rpc-testnet.suiscan.xyz` completes the
- *    TCP handshake in 31 ms and then sends nothing for 12 seconds, three times running. It had
- *    been that way for eleven days, so every `nmts` command that needed the shard count on testnet
- *    simply stopped. Each host below answered `sui_getChainIdentifier` with the right value the
- *    same morning, 8/8 on a burst.
+ * ⭐ 2026-10-21 — THE SAME LIST AS THE BROWSER'S, AND A NEW ONE. Sui removed JSON-RPC from its node
+ *    software in October 2026; the JSON-RPC mirrors this table held were dead (testnet) or about to be
+ *    (mainnet). Every host below answered chain id, a balance, an object and the gas price over
+ *    gRPC-web that morning. Two operators per network — Suiscan and Mysten Labs — in the browser's
+ *    order (`web/src/lib/walrus/network-hosts.ts` says why mainnet keeps Suiscan first). A test
+ *    and `deploy/check-walrus-hosts.mjs` hold this table to the browser's.
  */
 export const SUI_RPC_HOSTS = {
-    testnet: ["https://sui-testnet-rpc.publicnode.com", "https://testnet.suiet.app"],
-    mainnet: ["https://rpc-mainnet.suiscan.xyz", "https://sui-rpc.publicnode.com"],
+    testnet: ["https://fullnode.testnet.sui.io", "https://rpc-testnet.suiscan.xyz"],
+    mainnet: ["https://rpc-mainnet.suiscan.xyz", "https://fullnode.mainnet.sui.io"],
 };
 /** How long one host gets before the next is tried. A read that stalls is a read that failed. */
 export const READ_TIMEOUT_MS = 60_000;
@@ -91,7 +91,7 @@ export function relayHost(network) {
     return known;
 }
 /**
- * Every Sui JSON-RPC node this run may ask, in order: the caller's list if it named one, then the
+ * Every Sui node this run may ask (it must answer gRPC-web), in order: the caller's list if it named one, then the
  * environment's, then the network's.
  *
  * ⛔ Naming nodes REPLACES the list rather than adding to it — the same rule the aggregator

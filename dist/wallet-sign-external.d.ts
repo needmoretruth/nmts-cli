@@ -1,4 +1,5 @@
 import type { SignExtension } from "./extend-plan.ts";
+import { EXECUTE_INCLUDE, type ChainAnswer, type Executed } from "./sui-execute.ts";
 import { type KeepTryingOptions } from "./net-retry.ts";
 import type { SignBlobCertify, SignBlobRegister, SignStorageOp } from "./wallet-sign-seams.ts";
 /** What a wallet answers once it has signed: the bytes it signed, and the signature over them. */
@@ -25,38 +26,30 @@ export interface ExternalPayer {
         chain: string;
     }): Promise<SignedTransaction>;
 }
-/** What the chain says about one submitted transaction. */
-export interface SubmittedTransaction {
-    digest: string;
-    effects?: unknown;
-    objectChanges?: unknown;
-}
+/** What the chain says about one submitted transaction (`sui-execute.ts` reads it). */
+export type SubmittedTransaction = Executed;
 /**
- * Just the three calls a submitted transaction needs.
+ * Just the three calls a submitted transaction needs, in the SDK's core API.
  *
  * ⚠ NARROW ON PURPOSE: a test hands in a client that answers from a table, and every real client
  *   fits it. Asking the node the plain question is also why the wallet is only ever asked to SIGN —
  *   a wallet's own "sign and execute" would answer a digest and leave the judging to nobody.
  */
 export interface SubmitClient {
-    executeTransactionBlock(input: {
-        transactionBlock: Uint8Array;
-        signature: string | string[];
-        options: {
-            showEffects: true;
-            showObjectChanges: true;
-        };
-    }): Promise<SubmittedTransaction>;
-    getTransactionBlock(input: {
-        digest: string;
-        options: {
-            showEffects: true;
-            showObjectChanges: true;
-        };
-    }): Promise<SubmittedTransaction>;
-    waitForTransaction(input: {
-        digest: string;
-    }): Promise<unknown>;
+    core: {
+        executeTransaction(input: {
+            transaction: Uint8Array;
+            signatures: string[];
+            include: typeof EXECUTE_INCLUDE;
+        }): Promise<ChainAnswer>;
+        getTransaction(input: {
+            digest: string;
+            include: typeof EXECUTE_INCLUDE;
+        }): Promise<ChainAnswer>;
+        waitForTransaction(input: {
+            digest: string;
+        }): Promise<unknown>;
+    };
 }
 /** What a caller is told when one of these transactions does not go through. */
 export interface ExternalRefusals {

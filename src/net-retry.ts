@@ -90,6 +90,18 @@ export async function keepTrying<T>(step: () => Promise<T>, options: KeepTryingO
 export function isTransient(error: unknown, status?: number): boolean {
   if (typeof status === "number") return status === 408 || status === 429 || status >= 500;
   if (!(error instanceof Error)) return false;
+  // ⭐ 2026-10-21 — THE CHAIN IS gRPC NOW, and a gRPC error names what happened as a status word
+  //    (`RpcError.code`). Only two of them mean "nobody answered": UNAVAILABLE and RESOURCE_EXHAUSTED
+  //    (what a 503 and a 429 become). Every other status — NOT_FOUND, INVALID_ARGUMENT, a refused
+  //    transaction — is the node ANSWERING. The failover `fetch` throws a last host's 5xx as
+  //    "<host> → HTTP <n>", and the transport keeps that sentence as the message, so the number is
+  //    read back out of it.
+  if (error.name === "RpcError") {
+    const code: unknown = Reflect.get(error, "code");
+    if (code === "UNAVAILABLE" || code === "RESOURCE_EXHAUSTED") return true;
+  }
+  const http = /→ HTTP (\d{3})\b/.exec(error.message);
+  if (http?.[1] !== undefined) return isTransient(null, Number(http[1]));
   // ⛔ A DEADLINE THAT FIRED IS NOT A BLIP. The request already had its thirty seconds; asking
   //    again usually spends thirty more and ends the same way, and the deadline exists precisely so
   //    that an agent loop is not left waiting. What comes back here as true is a connection that

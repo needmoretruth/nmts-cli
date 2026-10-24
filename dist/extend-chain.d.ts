@@ -1,4 +1,3 @@
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import type { BlobLease, ExtendReads } from "./extend-plan.ts";
 /** How long one chain question gets. A read that stalls is a read that failed. */
 export declare const EXTEND_READ_TIMEOUT_MS = 20000;
@@ -12,14 +11,13 @@ export declare const EXTEND_READ_TIMEOUT_MS = 20000;
 export declare function walrusClient(network: string): ReturnType<typeof build>;
 declare function build(network: string): import("@mysten/sui/client").ClientWithExtensions<{
     walrus: import("@mysten/walrus").WalrusClient;
-}, SuiJsonRpcClient>;
+}, import("@mysten/sui/grpc").SuiGrpcClient>;
 /**
  * One blob's lease, read from the Blob object itself.
  *
- * ⛔ NARROWED FROM `unknown`, NOT FROM THE SDK'S TYPE. `MoveStruct` is a three-way union whose
- *    members do not all carry an index signature, so reading a field off it means asserting — and
- *    an assertion compiles whether or not the check above it is right. What matters is the shape
- *    on the wire, and the predicate in `guards.ts` is what carries that narrowing.
+ * ⛔ NARROWED FROM `unknown`. The node renders the Move struct as JSON (gRPC and GraphQL alike —
+ *    measured on mainnet 2026-10-21: `size` a string, `storage.end_epoch` a number), and nothing about
+ *    that rendering is promised by a type the compiler could check, so every field is read with a test.
  */
 export declare function readBlobLease(client: ReturnType<typeof build>, objectId: string): Promise<BlobLease>;
 /**

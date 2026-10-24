@@ -228,7 +228,7 @@ test("on testnet the rail is the official facility: SUI→WAL only, no venue, no
 // ── Which package a person signs into (2026-09-07) ───────────────────────────────────────────
 //
 // ⛔ Until this date the binding was RESOLVED from Bluefin's UpgradeCap over a public mirror RPC and
-//    the chain-supplied id was preferred over the pinned one, with a devInspect from the SAME server
+//    the chain-supplied id was preferred over the pinned one, with a simulation from the SAME server
 //    as its only validation. One lying mirror was therefore enough to have a person sign
 //    `gateway::swap_assets` into the attacker's package with their own coin as the argument. These two
 //    tests hold the rule that replaced it: the pinned id is the only one, and the version check can
@@ -252,8 +252,8 @@ function fakeRpc(options: { refuses: boolean }) {
   return {
     asked,
     getObject: async () => ({ data: { type: "0x2::package::UpgradeCap", content: { fields: { package: RPC_PACKAGE } } } }),
-    devInspectTransactionBlock: async (input: { sender: string; transactionBlock: Transaction }) => {
-      const command = input.transactionBlock.getData().commands[0];
+    inspect: async (transaction: Transaction) => {
+      const command = transaction.getData().commands[0];
       if (command?.$kind !== "MoveCall") throw new Error("the version check was not a Move call");
       asked.push(`${command.MoveCall.package}::${command.MoveCall.module}::${command.MoveCall.function}`);
       return { error: options.refuses ? "MoveAbort(config::verify_version) 1001" : null };

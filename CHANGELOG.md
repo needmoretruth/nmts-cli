@@ -3,6 +3,27 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.52.0 — 2026-10-24
+
+- `nmts` talks to Sui over gRPC-web instead of JSON-RPC, which Sui retired in October 2026. The
+  JSON-RPC nodes were gone on testnet by 21 October and on mainnet by 24 October, so every command
+  that reads or writes the chain had stopped working. Each
+  network now has two nodes, Suiscan and Mysten Labs, and the second is asked when the first does
+  not answer. A node you name in `NMTS_SUI_RPC` (or the SDK's `suiRpc`) must answer gRPC-web.
+- `nmts wallet list` and `nmts wallet activity` ask one question per wallet where they asked two
+  (sent and received). A gRPC node keeps only the last few weeks of transactions, so history older
+  than that is read from Sui's GraphQL service. Before this, a wallet funded months ago and idle
+  since would have been listed as never used. If you named your own node, the GraphQL service is
+  not asked: `wallet list` then stops at a wallet it could not finish reading instead of calling it
+  unused, and `wallet activity` shows only what that node keeps.
+- `nmts wallet activity` says when it could not read the older history, instead of printing "lists
+  no transaction" for a wallet that was only quiet lately. `--json` carries `complete: false` then.
+
+## 0.51.0 — 2026-10-21
+
+- Every request now tells the NMTS server whether it came from the CLI or its MCP server, so the
+  public stats page can count use by client. The server keeps the count and nothing else.
+
 ## 0.50.1 — 2026-10-20
 
 - `nmts put` paying from your wallet into a storage resource the wallet already holds carried the

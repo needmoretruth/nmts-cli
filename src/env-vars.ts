@@ -28,7 +28,7 @@ export const AGGREGATOR_ENV_VAR = "NMTS_AGGREGATOR";
  */
 export const RELAY_ENV_VAR = "NMTS_RELAY";
 
-/** Ask a different Sui JSON-RPC node the shard-count question. */
+/** Ask a different Sui node (one that answers gRPC-web) the chain questions. */
 export const SUI_RPC_ENV_VAR = "NMTS_SUI_RPC";
 
 /**

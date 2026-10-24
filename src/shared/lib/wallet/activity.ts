@@ -89,15 +89,20 @@ export interface ActivityContext {
   network: string;
 }
 
-// ── The shape we READ out of an RPC response, and nothing more ───────────────────────────────
-// ⛔ The SDK's own types are not used here: a test building one response by hand would have to
+// ── The shape we READ out of a transaction result, and nothing more ──────────────────────────
+// ⛔ The SDK's own types are not used here: a test building one transaction by hand would have to
 //    fill in every field nobody reads. What is written below is the list of fields that ARE read,
-//    which is also its documentation, and the SDK's response fits it structurally (no assertion).
+//    which is also its documentation, and the SDK's result fits it structurally (no assertion).
+//
+// ⭐ SINCE 2026-10-21 IT IS THE CORE API'S SHAPE (`SuiClientTypes.Transaction` with `transaction` and
+//    `balanceChanges` included) — what gRPC and GraphQL both return. The retired JSON-RPC shape
+//    nested the same facts differently (`transaction.data.transaction.transactions`, balance owners as
+//    `{ AddressOwner }`, status as a word); the judgement below did not change, only where it reads.
 
-export interface RpcMoveCall {
-  package?: string;
-  module?: string;
-  function?: string;
+export interface ChainMoveCall {
+  package?: string | undefined;
+  module?: string | undefined;
+  function?: string | undefined;
 }
 
 /**
@@ -108,61 +113,43 @@ export interface RpcMoveCall {
  *   ("no properties in common" — weak-type detection). The index signature says "any other field
  *   is fine".
  */
-export interface RpcCommand {
-  MoveCall?: RpcMoveCall;
+export interface ChainCommand {
+  MoveCall?: ChainMoveCall | null | undefined;
   [other: string]: unknown;
 }
 
 /**
- * What can sit in a command slot — usually the shape above, but sometimes A BARE STRING (the
- * command list of an end-of-epoch transaction carries name-only entries). Our wallet transactions
- * never contain one, but the receiving type includes that branch, so it is accepted — and skipped.
+ * One transaction input — `{ Object: { SharedObject | ImmOrOwnedObject | Receiving: { objectId } } }`,
+ * `{ UnresolvedObject: { objectId } }`, or a pure value that carries no object. Read with checks
+ * rather than declared, for the same weak-type reason.
  */
-export type RpcCommandEntry = RpcCommand | string;
+export type ChainInput = Readonly<Record<string, unknown>>;
 
-/** One transaction input. The index signature is needed for the same reason (pure-value inputs have no `objectId`). */
-export interface RpcInput {
-  objectId?: string;
-  [other: string]: unknown;
+export interface ChainBalanceChange {
+  address?: string | undefined;
+  coinType?: string | undefined;
+  amount?: string | undefined;
 }
 
-export interface RpcBalanceChange {
-  owner?: unknown;
-  coinType?: string;
-  amount?: string;
-}
-
-export interface RpcTransaction {
-  digest?: string;
-  timestampMs?: string | number | null;
-  balanceChanges?: readonly RpcBalanceChange[] | null;
-  effects?: { status?: { status?: string } } | null;
+// ⚠ Every optional field also admits `undefined` written out: the SDK's parsed transaction carries
+//   fields that are present but undefined, and the command-line package compiles with
+//   `exactOptionalPropertyTypes`, under which `sender?: string` would refuse them.
+export interface ChainTransaction {
+  digest?: string | undefined;
+  timestampMs?: string | number | null | undefined;
+  status?: { success?: boolean | undefined } | null | undefined;
+  balanceChanges?: readonly ChainBalanceChange[] | null | undefined;
   transaction?: {
-    data?: {
-      sender?: string;
-      gasData?: { owner?: string };
-      transaction?: {
-        /** `ProgrammableTransaction` and the like. Not read, but it MUST be declared — for the same
-         *  reason as the index signatures: without it other kinds (`ChangeEpoch`) fail the type check. */
-        kind?: string;
-        inputs?: readonly RpcInput[];
-        transactions?: readonly RpcCommandEntry[];
-      };
-    };
-  } | null;
+    sender?: string | null | undefined;
+    gasData?: { owner?: string | null | undefined } | undefined;
+    inputs?: readonly ChainInput[] | undefined;
+    commands?: readonly ChainCommand[] | undefined;
+  } | null | undefined;
 }
 
 // ── Small readers ─────────────────────────────────────────────────────────────────────────────
 
-/** The address out of `{ AddressOwner: "0x…" }`. Other owner shapes (shared, immutable) have none → `null`. */
-function ownerAddress(owner: unknown): string | null {
-  if (typeof owner !== "object" || owner === null) return null;
-  if (!("AddressOwner" in owner)) return null;
-  const value = owner.AddressOwner;
-  return typeof value === "string" ? value : null;
-}
-
-/** The RPC gives the time as a string. Unreadable ⇒ `null`, NEVER an invented number. */
+/** The chain gives the time as a number (or, from some nodes, a string). Unreadable ⇒ `null`, NEVER an invented number. */
 function readTimestamp(raw: string | number | null | undefined): number | null {
   if (raw === null || raw === undefined) return null;
   const value = typeof raw === "number" ? raw : Number.parseInt(raw, 10);
@@ -173,7 +160,7 @@ function readTimestamp(raw: string | number | null | undefined): number | null {
  * Put an address into one shape before comparing.
  *
  * ⚠ A Sui address can be written zero-padded or not (`0x2` and `0x000…02` are the same one). The
- *   RPC's form and the one in our configuration can differ, and then THE SAME ADDRESS COMPARES AS
+ *   chain's form and the one in our configuration can differ, and then THE SAME ADDRESS COMPARES AS
  *   DIFFERENT — a gift would fall through to "send". So both are padded to 32 bytes first.
  */
 export function normalizeAddress(raw: string): string {
@@ -182,22 +169,50 @@ export function normalizeAddress(raw: string): string {
   return `0x${body.padStart(64, "0")}`;
 }
 
+/**
+ * A coin type with its package address padded — `0x2::sui::SUI` and `0x000…02::sui::SUI` are one type.
+ *
+ * ⛔ The gRPC and GraphQL nodes write the long form, where JSON-RPC wrote the short one for SUI; a
+ *    comparison against the short form alone would stop naming SUI anywhere in the list.
+ */
+export function normalizeCoinType(raw: string): string {
+  const [address, ...rest] = raw.split("::");
+  return rest.length === 0 || address === undefined ? raw : [normalizeAddress(address), ...rest].join("::");
+}
+
 /** Every Move call (empty for a pure transfer). */
-function moveCalls(tx: RpcTransaction): RpcMoveCall[] {
-  const commands = tx.transaction?.data?.transaction?.transactions ?? [];
-  const calls: RpcMoveCall[] = [];
-  for (const command of commands) {
-    if (typeof command === "string") continue;
-    if (command.MoveCall !== undefined) calls.push(command.MoveCall);
+function moveCalls(tx: ChainTransaction): ChainMoveCall[] {
+  const calls: ChainMoveCall[] = [];
+  for (const command of tx.transaction?.commands ?? []) {
+    if (command.MoveCall !== undefined && command.MoveCall !== null) calls.push(command.MoveCall);
   }
   return calls;
 }
 
+/** `{ objectId }` → the id, anything else → null. */
+function objectIdOf(value: unknown): string | null {
+  return typeof value === "object" && value !== null && "objectId" in value && typeof value.objectId === "string"
+    ? value.objectId
+    : null;
+}
+
+/** The `objectId` one level down a tagged value — `{ $kind, SharedObject: { objectId } }` → the id. */
+function idInside(value: unknown): string | null {
+  if (typeof value !== "object" || value === null) return null;
+  for (const inner of Object.values(value)) {
+    const id = objectIdOf(inner);
+    if (id !== null) return id;
+  }
+  return null;
+}
+
 /** Every object id among the inputs, zero-padded. */
-function inputObjectIds(tx: RpcTransaction): Set<string> {
+function inputObjectIds(tx: ChainTransaction): Set<string> {
   const ids = new Set<string>();
-  for (const input of tx.transaction?.data?.transaction?.inputs ?? []) {
-    if (typeof input.objectId === "string") ids.add(normalizeAddress(input.objectId));
+  for (const input of tx.transaction?.inputs ?? []) {
+    // A resolved object input is one level deeper than an unresolved one.
+    const id = idInside(input.Object) ?? objectIdOf(input.UnresolvedObject);
+    if (id !== null) ids.add(normalizeAddress(id));
   }
   return ids;
 }
@@ -238,11 +253,11 @@ const WALRUS_FUNCTION_KIND: Readonly<Record<string, ActivityKind>> = {
  *    here goes down; donation comes before send because a more specific truth beats a less
  *    specific one.
  */
-export function toActivityRow(tx: RpcTransaction, ctx: ActivityContext): ActivityRow {
+export function toActivityRow(tx: ChainTransaction, ctx: ActivityContext): ActivityRow {
   const me = normalizeAddress(ctx.address);
   const digest = typeof tx.digest === "string" ? tx.digest : "";
-  const sender = normalizeAddress(tx.transaction?.data?.sender ?? "");
-  const gasOwnerRaw = tx.transaction?.data?.gasData?.owner;
+  const sender = normalizeAddress(tx.transaction?.sender ?? "");
+  const gasOwnerRaw = tx.transaction?.gasData?.owner;
   const gasOwner = typeof gasOwnerRaw === "string" ? normalizeAddress(gasOwnerRaw) : sender;
   const pool = ctx.poolAddress === "" ? null : normalizeAddress(ctx.poolAddress);
   const gasPayer: GasPayer =
@@ -250,17 +265,20 @@ export function toActivityRow(tx: RpcTransaction, ctx: ActivityContext): Activit
 
   const changes: ActivityChange[] = [];
   let donationGain = false;
+  const wal = normalizeCoinType(ctx.walCoinType);
+  const sui = normalizeCoinType("0x2::sui::SUI");
   for (const change of tx.balanceChanges ?? []) {
-    const owner = ownerAddress(change.owner);
-    if (owner === null) continue;
-    const normalized = normalizeAddress(owner);
+    // A change whose owner is not an address (an object, a shared balance) has no `address` string.
+    if (typeof change.address !== "string") continue;
+    const normalized = normalizeAddress(change.address);
     const amount = change.amount === undefined ? 0n : amountOf(change.amount);
     // An entry whose figure we cannot read is skipped; the rest of the transaction is still a row.
     if (amount === null) continue;
     if (normalized === me) {
       const coinType = change.coinType ?? "";
+      const named = normalizeCoinType(coinType);
       changes.push({
-        coin: coinType === ctx.walCoinType ? "WAL" : coinType === "0x2::sui::SUI" ? "SUI" : null,
+        coin: named === wal ? "WAL" : named === sui ? "SUI" : null,
         coinType,
         amount,
       });
@@ -303,7 +321,7 @@ export function toActivityRow(tx: RpcTransaction, ctx: ActivityContext): Activit
   return {
     digest,
     atMs: readTimestamp(tx.timestampMs),
-    failed: (tx.effects?.status?.status ?? "success") !== "success",
+    failed: tx.status?.success === false,
     gasPayer,
     kind,
     changes,
@@ -325,11 +343,12 @@ export function explorerTxUrl(digest: string, network: string): string {
 }
 
 /**
- * The two lists (sent, received) folded into one.
+ * Lists of rows folded into one — newest first, each digest once, at most `limit`.
  *
- * ⛔ THE RPC FILTER HAS NO OR — `FromAddress` and `ToAddress` cannot be asked for together, so
- *    they are asked for twice and merged here. A transaction can appear on both sides, so
- *    DUPLICATES ARE REMOVED BY DIGEST.
+ * ⭐ Since 2026-10-21 the chain is asked ONE question per page ("every transaction that moved this
+ *    address's state" — the gRPC `affectedAddress` filter), where the retired JSON-RPC could only ask
+ *    "sent" and "received" separately and this function merged the two. It still takes several lists,
+ *    because a caller may page, and DUPLICATES ARE STILL REMOVED BY DIGEST.
  * ⚠ Rows with no time go LAST — treating a missing time as 0 would float "1970" to the top.
  */
 export function mergeActivity(

@@ -20,21 +20,28 @@
 //   product has stepped on more than once.
 
 /**
- * The slice of a Sui RPC client this file uses. Structural on purpose: the browser hands in its
- * Walrus-extended client and the command-line tool its plain JSON-RPC client, and neither has to
- * be named here.
+ * The slice of a Sui client this file uses — its core API (`client.core`), which the gRPC and GraphQL
+ * clients both carry. Structural on purpose: the browser hands in its Walrus-extended client and the
+ * command-line tool its plain one, and neither has to be named here.
+ *
+ * ⛔ 2026-10-21 — this used to be JSON-RPC's `getObject` / `getOwnedObjects`, which Sui retired. The
+ *    core API answers the same two questions; the object's fields now come as the node's JSON
+ *    rendering of the struct (`json`), with no `content.fields` wrapper.
  */
 export interface StorageChainReader {
-  getObject(input: {
-    id: string;
-    options: { showType: true };
-  }): Promise<{ data?: { type?: string | null } | null }>;
-  getOwnedObjects(input: {
-    owner: string;
-    filter: { StructType: string };
-    options: { showContent: true };
-    cursor?: string;
-  }): Promise<{ data?: readonly unknown[] | null; hasNextPage?: boolean; nextCursor?: string | null }>;
+  core: {
+    getObject(input: { objectId: string }): Promise<{ object: { type: string } }>;
+    listOwnedObjects(input: {
+      owner: string;
+      type: string;
+      include: { json: true };
+      cursor?: string | null;
+    }): Promise<{
+      objects: readonly unknown[];
+      hasNextPage: boolean;
+      cursor: string | null;
+    }>;
+  };
 }
 
 /** One storage resource — the chain's `Storage { id, start_epoch, end_epoch, storage_size }` as is. */
@@ -52,30 +59,26 @@ export interface StorageResource {
 /**
  * This network's storage-resource type name, derived from the system object.
  *
- * ⛔ `showType` only — the content is not needed, and asking for it returns a large answer.
+ * ⛔ The type only — the content is not needed, and asking for it returns a large answer.
  */
 export async function readStorageType(
   client: StorageChainReader,
   systemObjectId: string,
 ): Promise<string> {
-  const res = await client.getObject({ id: systemObjectId, options: { showType: true } });
-  const type = res.data?.type;
+  const { object } = await client.core.getObject({ objectId: systemObjectId });
+  const type: unknown = object.type;
   if (typeof type !== "string" || !type.includes("::")) {
     throw new Error("The storage network's system object did not say its type.");
   }
   return `${type.split("::")[0]}::storage_resource::Storage`;
 }
 
-/** One object response as a storage resource. A different shape gives null — it quietly leaves the list. */
+/** One listed object as a storage resource. A different shape gives null — it quietly leaves the list. */
 export function toStorageResource(node: unknown): StorageResource | null {
   if (typeof node !== "object" || node === null) return null;
-  const data: unknown = Reflect.get(node, "data");
-  if (typeof data !== "object" || data === null) return null;
-  const objectId: unknown = Reflect.get(data, "objectId");
-  const content: unknown = Reflect.get(data, "content");
-  if (typeof objectId !== "string" || typeof content !== "object" || content === null) return null;
-  const fields: unknown = Reflect.get(content, "fields");
-  if (typeof fields !== "object" || fields === null) return null;
+  const objectId: unknown = Reflect.get(node, "objectId");
+  const fields: unknown = Reflect.get(node, "json");
+  if (typeof objectId !== "string" || typeof fields !== "object" || fields === null) return null;
   const start = Number(Reflect.get(fields, "start_epoch"));
   const end = Number(Reflect.get(fields, "end_epoch"));
   const size = Number(Reflect.get(fields, "storage_size"));
@@ -98,18 +101,18 @@ export async function readOwnedStorage(
   const out: StorageResource[] = [];
   let cursor: string | null = null;
   for (let page = 0; page < maxPages; page += 1) {
-    const res = await client.getOwnedObjects({
+    const res = await client.core.listOwnedObjects({
       owner,
-      filter: { StructType: storageType },
-      options: { showContent: true },
-      ...(cursor === null ? {} : { cursor }),
+      type: storageType,
+      include: { json: true },
+      cursor,
     });
-    for (const node of res.data ?? []) {
+    for (const node of res.objects) {
       const one = toStorageResource(node);
       if (one !== null) out.push(one);
     }
-    if (res.hasNextPage !== true || typeof res.nextCursor !== "string") return out;
-    cursor = res.nextCursor;
+    if (!res.hasNextPage || res.cursor === null) return out;
+    cursor = res.cursor;
   }
   // ⛔ Hitting the page ceiling is SAID. Cutting quietly would make the screen claim "this is all".
   throw new Error("Too many storage resources to read in one go.");

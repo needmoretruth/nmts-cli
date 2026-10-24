@@ -8,7 +8,7 @@ export interface Reach {
      */
     relay?: string | undefined;
     /**
-     * The Sui JSON-RPC endpoints to ask, in order, instead of the network's own.
+     * The Sui nodes to ask (over gRPC-web), in order, instead of the network's own.
      *
      * ⛔ IT REPLACES THE LIST rather than adding to it — somebody who names a node is saying *those*,
      *    and quietly reaching a public mirror as well would send their traffic somewhere they did

@@ -37,20 +37,12 @@ import { fromBase64 } from "@mysten/sui/utils";
 import { NmtsError } from "./errors.js";
 import { walrusClient } from "./extend-chain.js";
 import { freshWalrus } from "./walrus-fresh.js";
-import { isRecord } from "./guards.js";
+import { EXECUTE_INCLUDE, readAnswer } from "./sui-execute.js";
 import { isTransient, keepTrying } from "./net-retry.js";
 import { storageOpTransaction } from "./storage-control-chain.js";
 import { certifyTransaction, createdBlob, payingClient, registerTransaction } from "./upload-wallet-chain.js";
 function why(error) {
     return error instanceof Error ? error.message : String(error);
-}
-/** What a refused execution said, or null when the effects say it went through. */
-function refusedBecause(result) {
-    const status = isRecord(result.effects) ? result.effects["status"] : undefined;
-    if (!isRecord(status) || status["status"] !== "failure")
-        return null;
-    const reason = status["error"];
-    return typeof reason === "string" ? reason : "no reason was given";
 }
 /** `sui:mainnet` or `sui:testnet` — what a wallet is told the transaction is for. */
 function chainOf(network) {
@@ -77,28 +69,31 @@ export async function signAndSubmit(client, payer, input) {
     }
     const signed = typeof answered.bytes === "string" ? fromBase64(answered.bytes) : answered.bytes;
     const digest = TransactionDataBuilder.getDigestFromBytes(signed);
-    const options = { showEffects: true, showObjectChanges: true };
     let sent = false;
-    const result = await keepTrying(async () => {
+    const answer = await keepTrying(async () => {
         if (sent) {
             // The attempt before this one may have reached the chain and lost only its reply. An
             // unknown digest and a node that did not answer look the same here, and both mean "send
             // the same bytes again" — which is safe precisely because they are the same bytes.
-            const seen = await client.getTransactionBlock({ digest, options }).catch(() => null);
+            const seen = await client.core.getTransaction({ digest, include: EXECUTE_INCLUDE }).catch(() => null);
             if (seen !== null)
                 return seen;
         }
         sent = true;
-        return client.executeTransactionBlock({ transactionBlock: signed, signature: answered.signature, options });
+        return client.core.executeTransaction({
+            transaction: signed,
+            signatures: [answered.signature],
+            include: EXECUTE_INCLUDE,
+        });
     }, { ...input.retry, retryable: isTransient });
+    const result = readAnswer(answer);
     // ⛔ SUCCESS IS ALREADY DECIDED BY THE EFFECTS BELOW. This wait is for what happens NEXT — the
     //    relay being told the digest, the blob object being read back — because a node that has not
     //    indexed the transaction yet answers those as if nothing had happened. A wait that times out
     //    changes nothing about what was signed, so it is not a failure of this transaction.
-    await client.waitForTransaction({ digest: result.digest }).catch(() => undefined);
-    const refused = refusedBecause(result);
-    if (refused !== null) {
-        throw new NmtsError(`${input.refusals.refused.what}: ${refused}.`, {
+    await client.core.waitForTransaction({ digest: result.digest }).catch(() => undefined);
+    if (result.refused !== null) {
+        throw new NmtsError(`${input.refusals.refused.what}: ${result.refused}.`, {
             exitCode: 1,
             nextStep: input.refusals.refused.nextStep,
         });
@@ -133,7 +128,7 @@ export function externalBlobSigners(payer) {
                 },
             });
             // The blob object is found by its type in what the transaction created, not by position.
-            return { digest: result.digest, ...(await createdBlob(client, result.objectChanges)) };
+            return { digest: result.digest, ...(await createdBlob(client, result.created)) };
         },
         certify: async ({ network, relayUrl, blobId, blobObjectId, certificate }) => {
             const client = payingClient(network, relayUrl);

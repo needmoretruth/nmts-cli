@@ -13,6 +13,7 @@ import { coinWithBalance, Transaction } from "@mysten/sui/transactions";
 
 import { walrusClient, netGasFee } from "./extend-chain.ts";
 import type { Network } from "./network.ts";
+import { dryRun } from "./shared/lib/wallet/chain-calls.ts";
 import type { SendCoin } from "./shared/lib/wallet/send-rules.ts";
 import { readBalances, walCoinType, type WalletBalances } from "./wallet.ts";
 import { chainReader } from "./wallet-chain.ts";
@@ -58,9 +59,9 @@ export function sendReads(network: Network): SendReads {
     async estimateFee(shape, sender) {
       try {
         const bytes = await transferTransaction({ ...shape, sender }).build({ client });
-        const { effects } = await client.dryRunTransactionBlock({ transactionBlock: bytes });
-        if (effects.status.status !== "success") return null;
-        return netGasFee(effects.gasUsed);
+        const { status, gasUsed } = await dryRun(client, bytes);
+        if (!status.success) return null;
+        return netGasFee(gasUsed);
       } catch {
         return null;
       }

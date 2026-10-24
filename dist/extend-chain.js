@@ -15,15 +15,15 @@
 // ⛔ AND NOTHING IS DEFAULTED TO ZERO. A lease that cannot be read, a shape the Move struct does
 //    not have, a price the system object will not give — each throws with its reason. A cost of
 //    zero on a screen that asks for money is the one wrong answer nobody would question.
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
+import { ObjectError } from "@mysten/sui/client";
 import { walrus } from "@mysten/walrus";
 import { NmtsError } from "./errors.js";
 import { epochClock } from "./expiry.js";
-import { isRecord } from "./guards.js";
+import { dryRun, objectFields } from "./shared/lib/wallet/chain-calls.js";
 import { epochStartedMs } from "./walrus-write.js";
 import { storageNodesThrough } from "./walrus.js";
 import { freshWalrus } from "./walrus-fresh.js";
-import { suiRpcTransport } from "./sui-rpc.js";
+import { suiClient } from "./sui-rpc.js";
 import { readBalances, walCoinType } from "./wallet.js";
 import { chainReader } from "./wallet-chain.js";
 import { Transaction } from "@mysten/sui/transactions";
@@ -40,10 +40,7 @@ export function walrusClient(network) {
     return build(network);
 }
 function build(network) {
-    return new SuiJsonRpcClient({
-        network: network === "mainnet" ? "mainnet" : "testnet",
-        transport: suiRpcTransport(network),
-    }).$extend(walrus(storageNodesThrough()));
+    return suiClient(network === "mainnet" ? "mainnet" : "testnet").$extend(walrus(storageNodesThrough()));
 }
 /** A number off the wire, whether it arrived as a number or as one of Sui's 64-bit strings. */
 function numberOf(value) {
@@ -57,30 +54,32 @@ function numberOf(value) {
 /**
  * One blob's lease, read from the Blob object itself.
  *
- * ⛔ NARROWED FROM `unknown`, NOT FROM THE SDK'S TYPE. `MoveStruct` is a three-way union whose
- *    members do not all carry an index signature, so reading a field off it means asserting — and
- *    an assertion compiles whether or not the check above it is right. What matters is the shape
- *    on the wire, and the predicate in `guards.ts` is what carries that narrowing.
+ * ⛔ NARROWED FROM `unknown`. The node renders the Move struct as JSON (gRPC and GraphQL alike —
+ *    measured on mainnet 2026-10-21: `size` a string, `storage.end_epoch` a number), and nothing about
+ *    that rendering is promised by a type the compiler could check, so every field is read with a test.
  */
 export async function readBlobLease(client, objectId) {
-    const response = await client.getObject({
-        id: objectId,
-        options: { showContent: true },
-    });
-    const data = isRecord(response) ? response["data"] : undefined;
-    const content = isRecord(data) ? data["content"] : undefined;
-    if (!isRecord(content) || content["dataType"] !== "moveObject") {
+    let fields;
+    try {
+        fields = await objectFields(client, objectId);
+    }
+    catch (error) {
+        // Only the node's own "no such object" is said as one; a node that did not answer is thrown
+        // as itself, because "deleted" and "unreachable" ask the person to do different things.
+        if (!(error instanceof ObjectError))
+            throw error;
+        fields = null;
+    }
+    if (fields === null) {
         throw new NmtsError(`The storage object ${objectId} could not be read from the chain.`, {
             exitCode: 1,
             nextStep: "Nothing was signed and nothing was charged. The blob may already have been deleted, or " +
                 "this tool may be pointed at the wrong network — `nmts env` says which one it is using.",
         });
     }
-    const fields = content["fields"];
-    const storage = isRecord(fields) ? fields["storage"] : undefined;
-    const storageFields = isRecord(storage) ? storage["fields"] : undefined;
-    const size = numberOf(isRecord(fields) ? fields["size"] : undefined);
-    const endEpoch = numberOf(isRecord(storageFields) ? storageFields["end_epoch"] : undefined);
+    const storage = fields["storage"];
+    const size = numberOf(fields["size"]);
+    const endEpoch = numberOf(typeof storage === "object" && storage !== null && "end_epoch" in storage ? storage.end_epoch : undefined);
     if (size === null || endEpoch === null) {
         // ⛔ A shape change in the Move struct surfaces HERE, not as a wrong price downstream.
         throw new NmtsError(`The storage object ${objectId} is not shaped the way this version reads.`, {
@@ -155,10 +154,10 @@ export function extendReads(network) {
                     tx.add(fresh.extendBlob({ blobObjectId, epochs }));
                 }
                 const bytes = await tx.build({ client });
-                const { effects } = await client.dryRunTransactionBlock({ transactionBlock: bytes });
-                if (effects.status.status !== "success")
+                const { status, gasUsed } = await dryRun(client, bytes);
+                if (!status.success)
                     return null;
-                return netGasFee(effects.gasUsed);
+                return netGasFee(gasUsed);
             }
             catch {
                 // Not a number, and not zero: "could not measure" is a different fact from "free".

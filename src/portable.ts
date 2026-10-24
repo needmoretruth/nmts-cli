@@ -42,6 +42,9 @@ export { NmtsError, NotLoggedInError, renderError } from "./errors.ts";
 // The server: one request function, and what a refusal looks like.
 export { request, ServerError, DEFAULT_TIMEOUT_MS } from "./api.ts";
 export type { RequestOptions, ServerRefusal } from "./api.ts";
+// Which program sends those requests (`x-nmts-client`) — the SDK says so on the way in.
+export { CLIENT_HEADER, clientHeaderValue, identifyClient } from "./client-id.ts";
+export type { ClientKind } from "./client-id.ts";
 export { DEFAULT_SERVER, SERVER_ENV_VAR, resolveServer } from "./server.ts";
 export { NETWORKS, NETWORK_ENV_VAR, resolveNetwork } from "./network.ts";
 export type { Network } from "./network.ts";

@@ -10,8 +10,8 @@
 //    address holds, and whether a coin type exists. A balance is public data — anybody can ask the
 //    same question about the same address — so nothing about this run leaves that was not already
 //    published by the chain itself.
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
-import { suiRpcTransport } from "./sui-rpc.js";
+import { RpcError } from "@mysten/sui/grpc";
+import { suiClient } from "./sui-rpc.js";
 /**
  * How long one balance question gets.
  *
@@ -31,25 +31,31 @@ export const BALANCE_TIMEOUT_MS = 20_000;
 export function chainReader(network, address) {
     // The network name reaches the SDK as well as the URL, which is what keeps a mirror pointed at
     // the wrong chain from being discovered later, as an answer that quietly made no sense.
-    const client = new SuiJsonRpcClient({ network, transport: suiRpcTransport(network) });
+    const client = suiClient(network);
     return {
         async totalOf(coinType) {
-            const { totalBalance } = await client.getBalance({
+            const { balance } = await client.core.getBalance({
                 owner: address,
                 coinType,
                 signal: AbortSignal.timeout(BALANCE_TIMEOUT_MS),
             });
-            return baseUnitsOf(totalBalance);
+            return baseUnitsOf(balance.balance);
         },
         async knowsCoinType(coinType) {
-            // Null is the answer for a type that does not exist — measured against the public mainnet
-            // node this tool reads from, 2026-08-24, which is also where the balance-of-a-made-up-coin
-            // measurement in `wallet.ts` comes from.
-            const metadata = await client.getCoinMetadata({
-                coinType,
-                signal: AbortSignal.timeout(BALANCE_TIMEOUT_MS),
-            });
-            return metadata !== null;
+            // ⛔ ASKED RAW, NOT THROUGH `client.core.getCoinMetadata`: that helper answers `null` for ANY
+            //    failure, a timeout included, and then "the node did not answer" would print as "this
+            //    chain does not know the coin". The node's own answer for a type that does not exist is the
+            //    status NOT_FOUND (measured on both networks' four hosts, 2026-10-21); every other failure
+            //    is thrown, which the caller reports as "could not be confirmed".
+            try {
+                const { response } = await client.stateService.getCoinInfo({ coinType }, { abort: AbortSignal.timeout(BALANCE_TIMEOUT_MS) });
+                return response.metadata !== undefined;
+            }
+            catch (error) {
+                if (error instanceof RpcError && error.code === "NOT_FOUND")
+                    return false;
+                throw error;
+            }
         },
     };
 }

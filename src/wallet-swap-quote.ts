@@ -1,6 +1,7 @@
 // A venue's answer, read from the chain: how much comes out now, what stays unused, and the fee the
-// quote's own numbers say the venue charges. ⛔ EVERYTHING HERE IS A READ — `devInspect`, no gas,
-// no key, no signature, and a zero address as the nominal sender so a quote needs no funded wallet.
+// quote's own numbers say the venue charges. ⛔ EVERYTHING HERE IS A READ — a simulation with checks
+// off (what JSON-RPC called a devInspect), no gas, no key, no signature, and a zero address as the
+// nominal sender so a quote needs no funded wallet.
 //
 // ⛔ THE ARITHMETIC IS THE BROWSER'S, copied byte-for-byte (`shared/lib/wallet/swap-rules.ts`); this
 //    file only asks the chain and hands the answers to it. DeepBook's fee has no constant: it is
@@ -22,6 +23,7 @@ import { Transaction } from "@mysten/sui/transactions";
 
 import type { walrusClient } from "./extend-chain.ts";
 import type { Network } from "./network.ts";
+import { inspect, u64FromLe } from "./shared/lib/wallet/chain-calls.ts";
 import {
   hopFor,
   PAIR_COINS,
@@ -111,11 +113,6 @@ export function routesWithPools(venue: SwapVenue, direction: SwapDirection, pool
 }
 
 type Client = ReturnType<typeof walrusClient>;
-type ReturnValue = [number[], string];
-
-function readU64(value: ReturnValue): bigint {
-  return BigInt(bcs.U64.parse(Uint8Array.from(value[0])));
-}
 
 /**
  * The FRONT of Bluefin's `SwapResult`, in the order its `pool.move` declares them. BCS reads from
@@ -155,12 +152,11 @@ async function quoteBluefin(
       tx.pure.u128(a2b ? BLUEFIN_MIN_SQRT_PRICE : BLUEFIN_MAX_SQRT_PRICE),
     ],
   });
-  const res = await client.devInspectTransactionBlock({ sender: QUOTE_SENDER, transactionBlock: tx });
-  if (res.error) throw new Error(`the Bluefin quote was refused on chain: ${res.error}`);
-  const returned = res.results?.[0]?.returnValues;
-  const first = returned?.[0];
+  const res = await inspect(client, tx, QUOTE_SENDER);
+  if (res.error !== null) throw new Error(`the Bluefin quote was refused on chain: ${res.error}`);
+  const first = res.results[0]?.returnValues[0];
   if (first === undefined) throw new Error("the Bluefin quote came back with no value");
-  const result = BluefinSwapResultPrefix.parse(Uint8Array.from(first[0]));
+  const result = BluefinSwapResultPrefix.parse(first);
   if (result.a2b !== a2b || result.by_amount_in !== true || BigInt(result.amount_specified) !== amountInUnits) {
     throw new Error("the Bluefin quote did not echo the question it was asked");
   }
@@ -204,20 +200,21 @@ async function quoteDeepbookHop(
   };
   // Both modes in ONE inspection so they see the same book. If the DEEP-mode call is refused, the
   // quote is asked again alone: what comes out matters more than what the fee was.
-  let res = await client.devInspectTransactionBlock({ sender: QUOTE_SENDER, transactionBlock: build(true) });
+  let res = await inspect(client, build(true), QUOTE_SENDER);
   let deepModeAnswered = true;
-  if (res.error) {
+  if (res.error !== null) {
     deepModeAnswered = false;
-    res = await client.devInspectTransactionBlock({ sender: QUOTE_SENDER, transactionBlock: build(false) });
+    res = await inspect(client, build(false), QUOTE_SENDER);
   }
-  if (res.error) throw new Error(`the DeepBook quote was refused on chain: ${res.error}`);
-  const rowOf = (values: readonly ReturnValue[] | undefined) =>
+  if (res.error !== null) throw new Error(`the DeepBook quote was refused on chain: ${res.error}`);
+  // A u64 is exactly eight bytes; any other length is a shape this tool does not read (`u64FromLe` throws).
+  const rowOf = (values: readonly Uint8Array[] | undefined) =>
     values !== undefined && values.length >= 3 && values[0] !== undefined && values[1] !== undefined
-      ? deepbookRowFrom(hop.sellsFirst, readU64(values[0]), readU64(values[1]))
+      ? deepbookRowFrom(hop.sellsFirst, u64FromLe(values[0]), u64FromLe(values[1]))
       : null;
-  const inputMode = rowOf(res.results?.[0]?.returnValues);
+  const inputMode = rowOf(res.results[0]?.returnValues);
   if (inputMode === null) throw new Error("the DeepBook quote came back in a shape this tool does not read");
-  const deepMode = deepModeAnswered ? rowOf(res.results?.[1]?.returnValues) : null;
+  const deepMode = deepModeAnswered ? rowOf(res.results[1]?.returnValues) : null;
   return {
     outUnits: inputMode.outUnits,
     leftoverInUnits: inputMode.leftoverInUnits,

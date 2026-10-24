@@ -9,7 +9,6 @@
 //    locally and hands over the bytes. The one thing it must get right is telling the relay WHICH
 //    transaction paid — see the note on `sendTip` below, which is not what its name suggests.
 
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { walrus } from "@mysten/walrus";
 import { toBase64Url } from "./bytes.ts";
 import { epochClock, type EpochClock } from "./expiry.ts";
@@ -21,7 +20,7 @@ import type { BlobMeta, BlobProtocol, Certificate } from "./upload-wire.ts";
 import { countingFetch } from "./progress.ts";
 import { reachFetch } from "./reach.ts";
 import { relayHost, storageNodesThrough } from "./walrus.ts";
-import { suiRpcTransport } from "./sui-rpc.ts";
+import { suiClient } from "./sui-rpc.ts";
 
 /**
  * How long the relay gets for one blob PUT, sized to the body.
@@ -56,12 +55,9 @@ function extend(
   bodyBytes: number,
   onSent?: (sent: number, total: number) => void,
 ) {
-  const base = new SuiJsonRpcClient({
-    // ⛔ The network name reaches the SDK as well as the URL. A mirror pointed at the wrong chain
-    //    would otherwise be discovered as a blob the storage nodes refuse, after the money moved.
-    network: network === "mainnet" ? "mainnet" : "testnet",
-    transport: suiRpcTransport(network),
-  });
+  // ⛔ The network name reaches the SDK as well as the URL. A node pointed at the wrong chain
+  //    would otherwise be discovered as a blob the storage nodes refuse, after the money moved.
+  const base = suiClient(network === "mainnet" ? "mainnet" : "testnet");
   return base.$extend(
     walrus({
       ...storageNodesThrough(),
@@ -154,10 +150,7 @@ export function createBlobProtocol(
  */
 export async function readCurrentEpoch(network: string): Promise<number | null> {
   try {
-    const base = new SuiJsonRpcClient({
-      network: network === "mainnet" ? "mainnet" : "testnet",
-      transport: suiRpcTransport(network),
-    }).$extend(walrus(storageNodesThrough()));
+    const base = suiClient(network === "mainnet" ? "mainnet" : "testnet").$extend(walrus(storageNodesThrough()));
     // The epoch lives on the COMMITTEE, not beside it: the system state describes capacity and
     // the deny lists as well, and only the committee is stamped with which epoch it serves.
     const state = await base.walrus.systemState();
@@ -185,10 +178,7 @@ export async function readCurrentEpoch(network: string): Promise<number | null> 
  */
 export async function readEpochWindow(network: string): Promise<EpochClock | null> {
   try {
-    const base = new SuiJsonRpcClient({
-      network: network === "mainnet" ? "mainnet" : "testnet",
-      transport: suiRpcTransport(network),
-    }).$extend(walrus(storageNodesThrough()));
+    const base = suiClient(network === "mainnet" ? "mainnet" : "testnet").$extend(walrus(storageNodesThrough()));
     const [system, staking] = await Promise.all([base.walrus.systemState(), base.walrus.stakingState()]);
     // Both numbers can arrive as strings — Sui reports 64-bit values that way — so they are
     // converted here and the constructor below refuses whatever did not survive it.

@@ -1,21 +1,20 @@
 // The live read behind `nmts wallet list`'s walk: has this address ever been in a transaction?
 //
-// ⛔ READ ONLY, and one question in each direction. The RPC filter has no OR, so "from" and "to"
-//    are asked separately — a wallet that only ever RECEIVED is in use too, and a walk that asked
-//    about balances alone would report a wallet somebody emptied as one that does not exist.
+// ⛔ READ ONLY, and ONE question since 2026-10-21. The retired JSON-RPC filter had no OR, so "from"
+//    and "to" were asked separately; the gRPC ledger index answers "every transaction that moved this
+//    address" in one (`shared/lib/wallet/address-history.ts`, the browser's copy). A wallet that only
+//    ever RECEIVED is in use too, and a walk that asked about balances alone would report a wallet
+//    somebody emptied as one that does not exist.
 //
 // ⚠ ONE transaction is enough to answer, so one is what is asked for. This runs once per wallet
-//   the walk looks at, which is why it asks for as little as the chain will sell.
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
-import { suiRpcTransport } from "./sui-rpc.js";
-/** How long the two questions get together. A read that stalls is a read that failed. */
+//   the walk looks at, which is why it asks for as little as the chain will sell. A scan the node
+//   stopped short of the end throws instead of answering "no" — the walk then says it could not read.
+// ⛔ A node keeps only weeks of history, so "nothing lately" is followed by one question to Sui's
+//   GraphQL service before it may become "never used" (`deeperHistory`).
+import { hasAddressHistory } from "./shared/lib/wallet/address-history.js";
+import { deeperHistory, suiClient } from "./sui-rpc.js";
+/** How long the question gets. A read that stalls is a read that failed. */
 export const HISTORY_TIMEOUT_MS = 20_000;
 export async function hasHistory(network, address) {
-    const client = new SuiJsonRpcClient({ network, transport: suiRpcTransport(network) });
-    const signal = AbortSignal.timeout(HISTORY_TIMEOUT_MS);
-    const sent = await client.queryTransactionBlocks({ filter: { FromAddress: address }, limit: 1, signal });
-    if (sent.data.length > 0)
-        return true;
-    const received = await client.queryTransactionBlocks({ filter: { ToAddress: address }, limit: 1, signal });
-    return received.data.length > 0;
+    return hasAddressHistory(suiClient(network), address, AbortSignal.timeout(HISTORY_TIMEOUT_MS), deeperHistory(network));
 }

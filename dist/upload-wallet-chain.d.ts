@@ -1,6 +1,6 @@
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { Transaction } from "@mysten/sui/transactions";
 import type { Network } from "./network.ts";
+import type { Executed } from "./sui-execute.ts";
 import type { RegisterShape, WalletUploadReads } from "./upload-wallet-plan.ts";
 import type { Certificate } from "./upload-wire.ts";
 /**
@@ -18,7 +18,7 @@ export declare function packageConfig(network: Network): {
 };
 declare function build(network: Network, relayUrl: string): import("@mysten/sui/client").ClientWithExtensions<{
     walrus: import("@mysten/walrus").WalrusClient;
-}, SuiJsonRpcClient>;
+}, import("@mysten/sui/grpc").SuiGrpcClient>;
 export type PayingClient = ReturnType<typeof build>;
 /** A Walrus client bound to ONE relay, able to pay that relay's tip. */
 export declare function payingClient(network: Network, relayUrl: string): PayingClient;
@@ -48,7 +48,7 @@ export declare function certifyTransaction(client: PayingClient, input: {
  * ⛔ THE OBJECT IS FOUND BY ITS TYPE, not by position: the transaction also creates the leftover
  *    resource on a cut, and on a purchase the storage object is created and consumed inside it.
  */
-export declare function createdBlob(client: PayingClient, objectChanges: unknown): Promise<{
+export declare function createdBlob(client: PayingClient, created: Executed["created"]): Promise<{
     blobObjectId: string;
     endEpoch: number;
 }>;

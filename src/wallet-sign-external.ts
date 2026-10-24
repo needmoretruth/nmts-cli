@@ -40,7 +40,7 @@ import { NmtsError } from "./errors.ts";
 import type { SignExtension } from "./extend-plan.ts";
 import { walrusClient } from "./extend-chain.ts";
 import { freshWalrus } from "./walrus-fresh.ts";
-import { isRecord } from "./guards.ts";
+import { EXECUTE_INCLUDE, readAnswer, type ChainAnswer, type Executed } from "./sui-execute.ts";
 import { isTransient, keepTrying, type KeepTryingOptions } from "./net-retry.ts";
 import { storageOpTransaction } from "./storage-control-chain.ts";
 import { certifyTransaction, createdBlob, payingClient, registerTransaction } from "./upload-wallet-chain.ts";
@@ -69,31 +69,26 @@ export interface ExternalPayer {
   signTransaction(input: { bytes: Uint8Array; chain: string }): Promise<SignedTransaction>;
 }
 
-/** What the chain says about one submitted transaction. */
-export interface SubmittedTransaction {
-  digest: string;
-  effects?: unknown;
-  objectChanges?: unknown;
-}
+/** What the chain says about one submitted transaction (`sui-execute.ts` reads it). */
+export type SubmittedTransaction = Executed;
 
 /**
- * Just the three calls a submitted transaction needs.
+ * Just the three calls a submitted transaction needs, in the SDK's core API.
  *
  * ⚠ NARROW ON PURPOSE: a test hands in a client that answers from a table, and every real client
  *   fits it. Asking the node the plain question is also why the wallet is only ever asked to SIGN —
  *   a wallet's own "sign and execute" would answer a digest and leave the judging to nobody.
  */
 export interface SubmitClient {
-  executeTransactionBlock(input: {
-    transactionBlock: Uint8Array;
-    signature: string | string[];
-    options: { showEffects: true; showObjectChanges: true };
-  }): Promise<SubmittedTransaction>;
-  getTransactionBlock(input: {
-    digest: string;
-    options: { showEffects: true; showObjectChanges: true };
-  }): Promise<SubmittedTransaction>;
-  waitForTransaction(input: { digest: string }): Promise<unknown>;
+  core: {
+    executeTransaction(input: {
+      transaction: Uint8Array;
+      signatures: string[];
+      include: typeof EXECUTE_INCLUDE;
+    }): Promise<ChainAnswer>;
+    getTransaction(input: { digest: string; include: typeof EXECUTE_INCLUDE }): Promise<ChainAnswer>;
+    waitForTransaction(input: { digest: string }): Promise<unknown>;
+  };
 }
 
 /** What a caller is told when one of these transactions does not go through. */
@@ -106,14 +101,6 @@ export interface ExternalRefusals {
 
 function why(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-/** What a refused execution said, or null when the effects say it went through. */
-function refusedBecause(result: SubmittedTransaction): string | null {
-  const status: unknown = isRecord(result.effects) ? result.effects["status"] : undefined;
-  if (!isRecord(status) || status["status"] !== "failure") return null;
-  const reason: unknown = status["error"];
-  return typeof reason === "string" ? reason : "no reason was given";
 }
 
 /** `sui:mainnet` or `sui:testnet` — what a wallet is told the transaction is for. */
@@ -157,30 +144,33 @@ export async function signAndSubmit(
   }
   const signed = typeof answered.bytes === "string" ? fromBase64(answered.bytes) : answered.bytes;
   const digest = TransactionDataBuilder.getDigestFromBytes(signed);
-  const options = { showEffects: true, showObjectChanges: true } as const;
   let sent = false;
-  const result = await keepTrying(
+  const answer = await keepTrying(
     async () => {
       if (sent) {
         // The attempt before this one may have reached the chain and lost only its reply. An
         // unknown digest and a node that did not answer look the same here, and both mean "send
         // the same bytes again" — which is safe precisely because they are the same bytes.
-        const seen = await client.getTransactionBlock({ digest, options }).catch(() => null);
+        const seen = await client.core.getTransaction({ digest, include: EXECUTE_INCLUDE }).catch(() => null);
         if (seen !== null) return seen;
       }
       sent = true;
-      return client.executeTransactionBlock({ transactionBlock: signed, signature: answered.signature, options });
+      return client.core.executeTransaction({
+        transaction: signed,
+        signatures: [answered.signature],
+        include: EXECUTE_INCLUDE,
+      });
     },
     { ...input.retry, retryable: isTransient },
   );
+  const result = readAnswer(answer);
   // ⛔ SUCCESS IS ALREADY DECIDED BY THE EFFECTS BELOW. This wait is for what happens NEXT — the
   //    relay being told the digest, the blob object being read back — because a node that has not
   //    indexed the transaction yet answers those as if nothing had happened. A wait that times out
   //    changes nothing about what was signed, so it is not a failure of this transaction.
-  await client.waitForTransaction({ digest: result.digest }).catch(() => undefined);
-  const refused = refusedBecause(result);
-  if (refused !== null) {
-    throw new NmtsError(`${input.refusals.refused.what}: ${refused}.`, {
+  await client.core.waitForTransaction({ digest: result.digest }).catch(() => undefined);
+  if (result.refused !== null) {
+    throw new NmtsError(`${input.refusals.refused.what}: ${result.refused}.`, {
       exitCode: 1,
       nextStep: input.refusals.refused.nextStep,
     });
@@ -220,7 +210,7 @@ export function externalBlobSigners(payer: ExternalPayer): {
         },
       });
       // The blob object is found by its type in what the transaction created, not by position.
-      return { digest: result.digest, ...(await createdBlob(client, result.objectChanges)) };
+      return { digest: result.digest, ...(await createdBlob(client, result.created)) };
     },
     certify: async ({ network, relayUrl, blobId, blobObjectId, certificate }) => {
       const client = payingClient(network, relayUrl);

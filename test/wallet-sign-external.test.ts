@@ -19,12 +19,8 @@ import { toBase64 } from "@mysten/sui/utils";
 import { TransactionDataBuilder } from "@mysten/sui/transactions";
 
 import { NmtsError } from "../src/errors.ts";
-import {
-  signAndSubmit,
-  type ExternalPayer,
-  type SubmitClient,
-  type SubmittedTransaction,
-} from "../src/wallet-sign-external.ts";
+import type { AnsweredTransaction, ChainAnswer } from "../src/sui-execute.ts";
+import { signAndSubmit, type ExternalPayer, type SubmitClient } from "../src/wallet-sign-external.ts";
 
 /** Bytes that stand for a built transaction. Nothing here parses them; the digest is their hash. */
 const BYTES = new Uint8Array([9, 8, 7, 6, 5, 4, 3, 2, 1, 0]);
@@ -52,34 +48,48 @@ function payerThat(over: { signature?: string; bytes?: Uint8Array | string; fail
 
 interface Submission {
   transactionBlock: Uint8Array;
-  signature: string | string[];
+  signature: string | undefined;
+}
+
+/** The core API's answer for a transaction that went through, or one that executed and failed. */
+function answerFor(digest: string, failure: string | undefined): ChainAnswer {
+  const tx: AnsweredTransaction = {
+    digest,
+    status: failure === undefined ? { success: true, error: null } : { success: false, error: { message: failure } },
+    effects: { changedObjects: [] },
+    objectTypes: {},
+  };
+  return failure === undefined ? { Transaction: tx } : { FailedTransaction: tx };
 }
 
 /** A node that answers from a table, and remembers every submission. */
 function clientThat(
-  over: { effects?: unknown; throwOnFirstSubmit?: string; knowsDigest?: boolean } = {},
+  over: { failure?: string; throwOnFirstSubmit?: string; knowsDigest?: boolean } = {},
 ): SubmitClient & { sent: Submission[]; lookedUp: string[]; waited: string[] } {
   const sent: Submission[] = [];
   const lookedUp: string[] = [];
   const waited: string[] = [];
-  const effects = over.effects ?? { status: { status: "success" } };
   return {
     sent,
     lookedUp,
     waited,
-    async executeTransactionBlock({ transactionBlock, signature }): Promise<SubmittedTransaction> {
-      sent.push({ transactionBlock, signature });
-      if (over.throwOnFirstSubmit !== undefined && sent.length === 1) throw new Error(over.throwOnFirstSubmit);
-      return { digest: TransactionDataBuilder.getDigestFromBytes(transactionBlock), effects, objectChanges: [] };
-    },
-    async getTransactionBlock({ digest }): Promise<SubmittedTransaction> {
-      lookedUp.push(digest);
-      if (over.knowsDigest !== true) throw new Error("no such transaction");
-      return { digest, effects, objectChanges: [] };
-    },
-    async waitForTransaction({ digest }) {
-      waited.push(digest);
-      return undefined;
+    core: {
+      async executeTransaction({ transaction, signatures }) {
+        // One signer, one signature: anything else would be a different transaction's authority.
+        assert.equal(signatures.length, 1, "a wallet's single signature was not sent as exactly one");
+        sent.push({ transactionBlock: transaction, signature: signatures[0] });
+        if (over.throwOnFirstSubmit !== undefined && sent.length === 1) throw new Error(over.throwOnFirstSubmit);
+        return answerFor(TransactionDataBuilder.getDigestFromBytes(transaction), over.failure);
+      },
+      async getTransaction({ digest }) {
+        lookedUp.push(digest);
+        if (over.knowsDigest !== true) throw new Error("no such transaction");
+        return answerFor(digest, over.failure);
+      },
+      async waitForTransaction({ digest }) {
+        waited.push(digest);
+        return undefined;
+      },
     },
   };
 }
@@ -144,7 +154,7 @@ test("⛔ a wallet that declines is WALLET_REFUSED, and nothing was submitted", 
 });
 
 test("⛔ a transaction that executed and FAILED is a refusal, not a digest", async () => {
-  const client = clientThat({ effects: { status: { status: "failure", error: "InsufficientCoinBalance" } } });
+  const client = clientThat({ failure: "InsufficientCoinBalance" });
   const failure = await signAndSubmit(client, payerThat(), {
     network: "mainnet",
     bytes: BYTES,

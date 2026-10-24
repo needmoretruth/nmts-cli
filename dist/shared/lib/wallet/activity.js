@@ -33,16 +33,7 @@
 //    `ActivityContext`, so the same file serves the browser (which reads its build's network) and
 //    the command-line tool (which resolves the network at run time) without a fork.
 // ── Small readers ─────────────────────────────────────────────────────────────────────────────
-/** The address out of `{ AddressOwner: "0x…" }`. Other owner shapes (shared, immutable) have none → `null`. */
-function ownerAddress(owner) {
-    if (typeof owner !== "object" || owner === null)
-        return null;
-    if (!("AddressOwner" in owner))
-        return null;
-    const value = owner.AddressOwner;
-    return typeof value === "string" ? value : null;
-}
-/** The RPC gives the time as a string. Unreadable ⇒ `null`, NEVER an invented number. */
+/** The chain gives the time as a number (or, from some nodes, a string). Unreadable ⇒ `null`, NEVER an invented number. */
 function readTimestamp(raw) {
     if (raw === null || raw === undefined)
         return null;
@@ -53,7 +44,7 @@ function readTimestamp(raw) {
  * Put an address into one shape before comparing.
  *
  * ⚠ A Sui address can be written zero-padded or not (`0x2` and `0x000…02` are the same one). The
- *   RPC's form and the one in our configuration can differ, and then THE SAME ADDRESS COMPARES AS
+ *   chain's form and the one in our configuration can differ, and then THE SAME ADDRESS COMPARES AS
  *   DIFFERENT — a gift would fall through to "send". So both are padded to 32 bytes first.
  */
 export function normalizeAddress(raw) {
@@ -62,24 +53,50 @@ export function normalizeAddress(raw) {
         return raw.trim().toLowerCase();
     return `0x${body.padStart(64, "0")}`;
 }
+/**
+ * A coin type with its package address padded — `0x2::sui::SUI` and `0x000…02::sui::SUI` are one type.
+ *
+ * ⛔ The gRPC and GraphQL nodes write the long form, where JSON-RPC wrote the short one for SUI; a
+ *    comparison against the short form alone would stop naming SUI anywhere in the list.
+ */
+export function normalizeCoinType(raw) {
+    const [address, ...rest] = raw.split("::");
+    return rest.length === 0 || address === undefined ? raw : [normalizeAddress(address), ...rest].join("::");
+}
 /** Every Move call (empty for a pure transfer). */
 function moveCalls(tx) {
-    const commands = tx.transaction?.data?.transaction?.transactions ?? [];
     const calls = [];
-    for (const command of commands) {
-        if (typeof command === "string")
-            continue;
-        if (command.MoveCall !== undefined)
+    for (const command of tx.transaction?.commands ?? []) {
+        if (command.MoveCall !== undefined && command.MoveCall !== null)
             calls.push(command.MoveCall);
     }
     return calls;
 }
+/** `{ objectId }` → the id, anything else → null. */
+function objectIdOf(value) {
+    return typeof value === "object" && value !== null && "objectId" in value && typeof value.objectId === "string"
+        ? value.objectId
+        : null;
+}
+/** The `objectId` one level down a tagged value — `{ $kind, SharedObject: { objectId } }` → the id. */
+function idInside(value) {
+    if (typeof value !== "object" || value === null)
+        return null;
+    for (const inner of Object.values(value)) {
+        const id = objectIdOf(inner);
+        if (id !== null)
+            return id;
+    }
+    return null;
+}
 /** Every object id among the inputs, zero-padded. */
 function inputObjectIds(tx) {
     const ids = new Set();
-    for (const input of tx.transaction?.data?.transaction?.inputs ?? []) {
-        if (typeof input.objectId === "string")
-            ids.add(normalizeAddress(input.objectId));
+    for (const input of tx.transaction?.inputs ?? []) {
+        // A resolved object input is one level deeper than an unresolved one.
+        const id = idInside(input.Object) ?? objectIdOf(input.UnresolvedObject);
+        if (id !== null)
+            ids.add(normalizeAddress(id));
     }
     return ids;
 }
@@ -121,26 +138,29 @@ const WALRUS_FUNCTION_KIND = {
 export function toActivityRow(tx, ctx) {
     const me = normalizeAddress(ctx.address);
     const digest = typeof tx.digest === "string" ? tx.digest : "";
-    const sender = normalizeAddress(tx.transaction?.data?.sender ?? "");
-    const gasOwnerRaw = tx.transaction?.data?.gasData?.owner;
+    const sender = normalizeAddress(tx.transaction?.sender ?? "");
+    const gasOwnerRaw = tx.transaction?.gasData?.owner;
     const gasOwner = typeof gasOwnerRaw === "string" ? normalizeAddress(gasOwnerRaw) : sender;
     const pool = ctx.poolAddress === "" ? null : normalizeAddress(ctx.poolAddress);
     const gasPayer = gasOwner === sender ? "self" : pool !== null && gasOwner === pool ? "pool" : "other";
     const changes = [];
     let donationGain = false;
+    const wal = normalizeCoinType(ctx.walCoinType);
+    const sui = normalizeCoinType("0x2::sui::SUI");
     for (const change of tx.balanceChanges ?? []) {
-        const owner = ownerAddress(change.owner);
-        if (owner === null)
+        // A change whose owner is not an address (an object, a shared balance) has no `address` string.
+        if (typeof change.address !== "string")
             continue;
-        const normalized = normalizeAddress(owner);
+        const normalized = normalizeAddress(change.address);
         const amount = change.amount === undefined ? 0n : amountOf(change.amount);
         // An entry whose figure we cannot read is skipped; the rest of the transaction is still a row.
         if (amount === null)
             continue;
         if (normalized === me) {
             const coinType = change.coinType ?? "";
+            const named = normalizeCoinType(coinType);
             changes.push({
-                coin: coinType === ctx.walCoinType ? "WAL" : coinType === "0x2::sui::SUI" ? "SUI" : null,
+                coin: named === wal ? "WAL" : named === sui ? "SUI" : null,
                 coinType,
                 amount,
             });
@@ -181,7 +201,7 @@ export function toActivityRow(tx, ctx) {
     return {
         digest,
         atMs: readTimestamp(tx.timestampMs),
-        failed: (tx.effects?.status?.status ?? "success") !== "success",
+        failed: tx.status?.success === false,
         gasPayer,
         kind,
         changes,
@@ -201,11 +221,12 @@ export function explorerTxUrl(digest, network) {
     return `https://suiscan.xyz/${network}/tx/${digest}`;
 }
 /**
- * The two lists (sent, received) folded into one.
+ * Lists of rows folded into one — newest first, each digest once, at most `limit`.
  *
- * ⛔ THE RPC FILTER HAS NO OR — `FromAddress` and `ToAddress` cannot be asked for together, so
- *    they are asked for twice and merged here. A transaction can appear on both sides, so
- *    DUPLICATES ARE REMOVED BY DIGEST.
+ * ⭐ Since 2026-10-21 the chain is asked ONE question per page ("every transaction that moved this
+ *    address's state" — the gRPC `affectedAddress` filter), where the retired JSON-RPC could only ask
+ *    "sent" and "received" separately and this function merged the two. It still takes several lists,
+ *    because a caller may page, and DUPLICATES ARE STILL REMOVED BY DIGEST.
  * ⚠ Rows with no time go LAST — treating a missing time as 0 would float "1970" to the top.
  */
 export function mergeActivity(groups, limit) {

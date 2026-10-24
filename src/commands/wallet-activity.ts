@@ -1,6 +1,7 @@
 // `nmts wallet activity` — the recent transactions of the wallet this NMTS key derives.
 //
-// ⛔ IT READS. The chain is asked twice (sent, received — the RPC filter has no OR), the rows are
+// ⛔ IT READS. The chain is asked once (every transaction that moved this address — the gRPC index's
+//    `affectedAddress`, since the JSON-RPC that needed two questions was retired), the rows are
 //    named by the SAME judgement the browser uses (`shared/lib/wallet/activity.ts`, copied
 //    byte-for-byte), and nothing here signs or spends.
 //
@@ -26,19 +27,23 @@ import {
   toActivityRow,
   type ActivityContext,
   type ActivityRow,
-  type RpcTransaction,
+  type ChainTransaction,
 } from "../shared/lib/wallet/activity.ts";
 import { BLUEFIN_PACKAGE_IDS, DEEPBOOK_PACKAGE_IDS } from "../shared/lib/wallet/venue-ids.ts";
 import { coinAmount, walCoinType, walletAddress } from "../wallet.ts";
 
-/** How many to ask for in each direction, and how many to print after the merge. */
-export const FETCH_PER_DIRECTION = 25;
+/** How many to ask for, and how many to print after the merge. */
+export const FETCH = 25;
 export const SHOW = 20;
 
-/** The two lists the chain answers with. */
+/** The list the chain answers with, newest first. */
 export interface ActivityFetch {
-  sent: readonly RpcTransaction[];
-  received: readonly RpcTransaction[];
+  transactions: readonly ChainTransaction[];
+  /**
+   * False when the history could not be read to the end — the node keeps a few weeks and the older
+   * part comes from Sui's GraphQL service, which may not answer. Absent counts as true.
+   */
+  complete?: boolean;
 }
 
 export interface WalletActivityOptions {
@@ -94,22 +99,28 @@ export async function walletActivity(options: WalletActivityOptions = {}): Promi
     });
   }
   const ctx = activityContext(network, address);
-  const rows = mergeActivity(
-    [fetched.sent.map((tx) => toActivityRow(tx, ctx)), fetched.received.map((tx) => toActivityRow(tx, ctx))],
-    SHOW,
-  );
+  const rows = mergeActivity([fetched.transactions.map((tx) => toActivityRow(tx, ctx))], SHOW);
+  const complete = fetched.complete !== false;
 
   if (options.json) {
-    say(JSON.stringify({ address, network, shown: rows.length, rows: rows.map(asJson) }));
+    say(JSON.stringify({ address, network, shown: rows.length, complete, rows: rows.map(asJson) }));
     return 0;
   }
   say(`Address  ${address}`);
   say(`Network  ${network}`);
   say(``);
-  if (rows.length === 0) {
+  // ⛔ "No transaction" is said only of a history read to the end; a short read says it is short.
+  if (rows.length === 0 && complete) {
     say(`  The chain answered and lists no transaction for this wallet.`);
+  } else if (rows.length === 0) {
+    say(`  No transaction in the last few weeks, and the older history could not be read just now.`);
   } else {
     for (const row of rows) say(`  ${inWords(row)}`);
+  }
+  if (rows.length > 0 && !complete) {
+    say(``);
+    say(`  The older history could not be read just now: transactions from more than a few weeks`);
+    say(`  ago may be missing. Run this again to retry.`);
   }
   say(``);
   say(`  The newest ${SHOW} at most; the chain link on each line shows the rest. A name is put only`);

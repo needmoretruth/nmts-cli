@@ -11,6 +11,7 @@
 //
 // ⛔ THE TOKEN IS NEVER IN A MESSAGE, A URL OR A LOG. It goes in one header and nowhere else.
 import { adviseFor } from "./api-advice.js";
+import { CLIENT_HEADER, clientHeaderValue } from "./client-id.js";
 import { NmtsError } from "./errors.js";
 import { isTransient, keepTrying } from "./net-retry.js";
 import { reachFetch } from "./reach.js";
@@ -150,6 +151,8 @@ async function once(base, path, options) {
     //    which sees headers and never a body — which is why the proof is a header and not a field.
     if (options.accountProof !== undefined)
         headers["x-nmts-account-proof"] = options.accountProof;
+    // Which program this is, for the public use-by-client counts (`client-id.ts`). Not a credential.
+    headers[CLIENT_HEADER] = clientHeaderValue();
     let response;
     try {
         // ⛔ Built conditionally rather than passing `body: undefined`: with exactOptionalPropertyTypes

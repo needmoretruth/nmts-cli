@@ -27,6 +27,7 @@ import { TESTNET_WALRUS_PACKAGE_CONFIG } from "@mysten/walrus";
 import { walrusClient, netGasFee } from "./extend-chain.ts";
 import { isRecord } from "./guards.ts";
 import type { Network } from "./network.ts";
+import { dryRun, inspect } from "./shared/lib/wallet/chain-calls.ts";
 import { hopFor, routeHops, type SwapRoute } from "./shared/lib/wallet/swap-routes.ts";
 import { directionCoins, type SwapCoin, type SwapDirection, type SwapVenue } from "./shared/lib/wallet/swap-rules.ts";
 import {
@@ -195,16 +196,15 @@ export interface SwapReads {
   estimateFee(shape: SwapShape, sender: string): Promise<bigint | null>;
 }
 
-/** `fields.<name>` of a Move object's content, as a string, or null when the shape differs. */
-function fieldOf(content: unknown, name: string): unknown {
-  const fields: unknown = isRecord(content) ? content["fields"] : undefined;
-  return isRecord(fields) ? fields[name] : undefined;
+/** `<name>` of a Move object's JSON rendering (nested structs are plain objects), or undefined. */
+function fieldOf(json: unknown, name: string): unknown {
+  return isRecord(json) ? json[name] : undefined;
 }
 
 // ⛔ THE PACKAGE IS PINNED, AND AN RPC CANNOT CHANGE IT (2026-09-07; until then this read Bluefin's
 //    UpgradeCap on chain and preferred whatever it named over the pinned id). The node we read is an
-//    unauthenticated public mirror, and the SAME server that would answer "the live package is X" also
-//    answers the devInspect that was supposed to validate X — so one lying mirror could have had a
+//    unauthenticated public node, and the SAME server that would answer "the live package is X" also
+//    answers the simulation that was supposed to validate X — so one lying mirror could have had a
 //    person sign `gateway::swap_assets` into ITS package, with their own coin as the argument, past the
 //    minimum-out and past the pinned pool and config ids, which mean nothing once the code is theirs.
 //    The rule this leaves: AN RPC ANSWER NEVER CHOOSES THE CODE A PERSON SIGNS INTO. A Bluefin upgrade
@@ -219,20 +219,20 @@ function fieldOf(content: unknown, name: string): unknown {
 //    — there is no second address to fall back to, and a lying mirror can at worst make Bluefin
 //    unavailable, which costs nobody a coin.
 
-/** All this path uses of an RPC: one devInspect and its `error`. Narrow on purpose — the type itself
+/** All this path uses of a node: one simulation and its `error`. Narrow on purpose — the type itself
  *  has no place for a chain-supplied ADDRESS to enter, and a test can hand it a fake. */
 export interface BluefinVersionRpc {
-  devInspectTransactionBlock(input: { sender: string; transactionBlock: Transaction }): Promise<{ error?: string | null }>;
+  inspect(transaction: Transaction, sender: string): Promise<{ error: string | null }>;
 }
 
-/** Does the chain still accept this package? `config::verify_version` under devInspect: no signature,
+/** Does the chain still accept this package? `config::verify_version` in a simulation: no signature,
  *  no gas. False when the chain refuses AND when the RPC cannot answer — both mean "no Bluefin". */
 async function versionPasses(rpc: BluefinVersionRpc, packageId: string, globalConfigId: string): Promise<boolean> {
   try {
     const tx = new Transaction();
     tx.moveCall({ target: `${packageId}::config::verify_version`, arguments: [tx.object(globalConfigId)] });
-    const res = await rpc.devInspectTransactionBlock({ sender: QUOTE_SENDER, transactionBlock: tx });
-    return !res.error;
+    const res = await rpc.inspect(tx, QUOTE_SENDER);
+    return res.error === null;
   } catch {
     return false;
   }
@@ -268,7 +268,10 @@ export function swapReads(network: Network): SwapReads {
         if (packageId === null || globalConfigId === null || BLUEFIN_WAL_SUI_POOLS[network] === null) {
           throw new Error(`This tool knows no Bluefin WAL/SUI pool on ${network}.`);
         }
-        return checkedBluefinBinding({ packageId, globalConfigId, pools: bluefinPools(network) }, client);
+        return checkedBluefinBinding(
+          { packageId, globalConfigId, pools: bluefinPools(network) },
+          { inspect: (transaction, sender) => inspect(client, transaction, sender) },
+        );
       })();
       bluefin = pending;
       pending.catch(() => {
@@ -280,12 +283,12 @@ export function swapReads(network: Network): SwapReads {
       if (network !== "testnet") throw new Error("The built-in SUI→WAL exchange is a testnet-only facility.");
       const objectId = TESTNET_WALRUS_PACKAGE_CONFIG.exchangeIds[0];
       if (objectId === undefined) throw new Error("This build names no testnet exchange object.");
-      const obj = await client.getObject({ id: objectId, options: { showContent: true, showType: true } });
-      const type = obj.data?.type;
-      if (typeof type !== "string" || !type.includes("::wal_exchange::Exchange")) {
-        throw new Error(`Object ${objectId} is not a wal_exchange Exchange (type ${type ?? "unknown"}).`);
+      const { object } = await client.core.getObject({ objectId, include: { json: true } });
+      const type = object.type;
+      if (!type.includes("::wal_exchange::Exchange")) {
+        throw new Error(`Object ${objectId} is not a wal_exchange Exchange (type ${type}).`);
       }
-      const rate = fieldOf(obj.data?.content, "rate");
+      const rate = fieldOf(object.json, "rate");
       const wal = fieldOf(rate, "wal");
       const sui = fieldOf(rate, "sui");
       if (typeof wal !== "string" || typeof sui !== "string" || !/^\d+$/.test(wal) || !/^\d+$/.test(sui) || BigInt(sui) === 0n) {
@@ -299,9 +302,9 @@ export function swapReads(network: Network): SwapReads {
     async estimateFee(shape, sender) {
       try {
         const bytes = await swapTransaction({ ...shape, network, sender }).build({ client });
-        const { effects } = await client.dryRunTransactionBlock({ transactionBlock: bytes });
-        if (effects.status.status !== "success") return null;
-        return netGasFee(effects.gasUsed);
+        const { status, gasUsed } = await dryRun(client, bytes);
+        if (!status.success) return null;
+        return netGasFee(gasUsed);
       } catch {
         return null;
       }

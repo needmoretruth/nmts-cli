@@ -4,17 +4,16 @@
 //    comes from the same window read `nmts extend` prices with; when that read fails the list is
 //    still printed, without the "usable now" judgement, rather than not at all.
 
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { MAINNET_WALRUS_PACKAGE_CONFIG, TESTNET_WALRUS_PACKAGE_CONFIG } from "@mysten/walrus";
 
 import type { StorageRead } from "./storage-control/list.ts";
 import { extendReads } from "./extend-chain.ts";
 import type { Network } from "./network.ts";
 import { readOwnedStorage, readStorageType } from "./shared/lib/storage-control/chain.ts";
-import { suiRpcTransport } from "./sui-rpc.ts";
+import { suiClient } from "./sui-rpc.ts";
 
 export async function readWalletStorage(network: Network, address: string): Promise<StorageRead> {
-  const client = new SuiJsonRpcClient({ network, transport: suiRpcTransport(network) });
+  const client = suiClient(network);
   const walrus = network === "mainnet" ? MAINNET_WALRUS_PACKAGE_CONFIG : TESTNET_WALRUS_PACKAGE_CONFIG;
   const [type, window] = await Promise.all([
     readStorageType(client, walrus.systemObjectId),

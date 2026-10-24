@@ -14,12 +14,10 @@
 // ⛔ THE ENCODED SIZE IS THE CHAIN'S ARITHMETIC, NOT A COPY. Registration checks
 //    `encoded_size <= storage_size` with `walrus::encoding::encoded_blob_length`, and the SDK keeps
 //    its own copy unexported. Cutting a held resource to fit needs that exact number, so it is
-//    asked of the chain itself, in a dev-inspect that costs nothing — a copy kept here would be
+//    asked of the chain itself, in a simulation that costs nothing — a copy kept here would be
 //    wrong the day the protocol changed it, and the way that surfaces is a refused registration
 //    after the split was signed.
 
-import { bcs } from "@mysten/sui/bcs";
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { Transaction } from "@mysten/sui/transactions";
 import {
   blobIdFromInt,
@@ -36,9 +34,11 @@ import type { Network } from "./network.ts";
 import { reachFetch } from "./reach.ts";
 import { readOwnedStorage, readStorageType, type StorageResource } from "./shared/lib/storage-control/chain.ts";
 import { registerIntoStorage, splitStorageToFit } from "./shared/lib/storage-control/reuse.ts";
+import { dryRun, inspect, u64FromLe } from "./shared/lib/wallet/chain-calls.ts";
 import { storageNodesThrough } from "./walrus.ts";
 import { freshWalrus } from "./walrus-fresh.ts";
-import { suiRpcTransport } from "./sui-rpc.ts";
+import type { Executed } from "./sui-execute.ts";
+import { suiClient } from "./sui-rpc.ts";
 import type { PartQuote, RegisterShape, WalletUploadReads } from "./upload-wallet-plan.ts";
 import type { Certificate } from "./upload-wire.ts";
 import { readBalances, walCoinType } from "./wallet.ts";
@@ -63,7 +63,7 @@ export function packageConfig(network: Network): { systemObjectId: string } {
 }
 
 function build(network: Network, relayUrl: string) {
-  return new SuiJsonRpcClient({ network, transport: suiRpcTransport(network) }).$extend(
+  return suiClient(network).$extend(
     walrus({
       ...storageNodesThrough(),
       uploadRelay: { host: relayUrl, sendTip: { max: RELAY_TIP_CEILING_MIST[network] }, fetch: reachFetch },
@@ -171,20 +171,10 @@ export function certifyTransaction(
  */
 export async function createdBlob(
   client: PayingClient,
-  objectChanges: unknown,
+  created: Executed["created"],
 ): Promise<{ blobObjectId: string; endEpoch: number }> {
-  const created = Array.isArray(objectChanges)
-    ? objectChanges.find(
-        (change: unknown) =>
-          typeof change === "object" &&
-          change !== null &&
-          Reflect.get(change, "type") === "created" &&
-          typeof Reflect.get(change, "objectType") === "string" &&
-          String(Reflect.get(change, "objectType")).endsWith("::blob::Blob"),
-      )
-    : undefined;
-  const id: unknown = created === undefined ? undefined : Reflect.get(created, "objectId");
-  if (typeof id !== "string") {
+  const id = created.find((object) => object.type?.endsWith("::blob::Blob") === true)?.objectId;
+  if (id === undefined) {
     throw new NmtsError("The registration executed but the chain did not list the blob object it created.", {
       exitCode: 1,
       nextStep: "The storage is bought. Running the same command again does not pay again: it reads the record and continues.",
@@ -205,15 +195,15 @@ export async function encodedLength(client: PayingClient, sender: string, sealed
     // 1 = RS2, the encoding every registration in this tool names (`reuse.ts`).
     arguments: [tx.pure.u64(sealedLen), tx.pure.u8(1), tx.pure.u16(state.committee.n_shards)],
   });
-  const result = await client.devInspectTransactionBlock({ sender, transactionBlock: tx });
-  const value = result.results?.[0]?.returnValues?.[0]?.[0];
-  if (value === undefined) {
+  const result = await inspect(client, tx, sender);
+  const value = result.error === null ? result.results[0]?.returnValues[0] : undefined;
+  if (value === undefined || value.length !== 8) {
     throw new NmtsError("The chain did not say how large this part is once encoded.", {
       exitCode: 1,
       nextStep: "Nothing was signed. A held resource cannot be cut to fit without that number; buy new storage instead, or try again.",
     });
   }
-  return Number(bcs.u64().parse(Uint8Array.from(value)));
+  return Number(u64FromLe(value));
 }
 
 /** A part shaped like a real one, for measuring the fee of a registration before anything is sealed. */
@@ -251,9 +241,9 @@ export function walletUploadReads(network: Network, relayUrl: string): WalletUpl
       try {
         const tx = await registerTransaction(client, network, { sender, epochs, storage, part: placeholderPart(sealedLen) });
         const bytes = await tx.build({ client });
-        const { effects } = await client.dryRunTransactionBlock({ transactionBlock: bytes });
-        if (effects.status.status !== "success") return null;
-        return netGasFee(effects.gasUsed);
+        const { status, gasUsed } = await dryRun(client, bytes);
+        if (!status.success) return null;
+        return netGasFee(gasUsed);
       } catch {
         return null;
       }

@@ -24,6 +24,7 @@ import { coinWithBalance, Transaction } from "@mysten/sui/transactions";
 import { TESTNET_WALRUS_PACKAGE_CONFIG } from "@mysten/walrus";
 import { walrusClient, netGasFee } from "./extend-chain.js";
 import { isRecord } from "./guards.js";
+import { dryRun, inspect } from "./shared/lib/wallet/chain-calls.js";
 import { hopFor, routeHops } from "./shared/lib/wallet/swap-routes.js";
 import { directionCoins } from "./shared/lib/wallet/swap-rules.js";
 import { BLUEFIN_GLOBAL_CONFIG_IDS, BLUEFIN_MAX_SQRT_PRICE, BLUEFIN_MIN_SQRT_PRICE, BLUEFIN_PACKAGE_IDS, BLUEFIN_SUI_USDC_POOLS, BLUEFIN_WAL_SUI_POOLS, BLUEFIN_WAL_USDC_POOLS, DEEP_COIN_TYPES, DEEPBOOK_PACKAGE_IDS, } from "./shared/lib/wallet/venue-ids.js";
@@ -125,19 +126,18 @@ export function swapTransaction(input) {
         tx.setGasBudget(input.gasBudgetMist);
     return tx;
 }
-/** `fields.<name>` of a Move object's content, as a string, or null when the shape differs. */
-function fieldOf(content, name) {
-    const fields = isRecord(content) ? content["fields"] : undefined;
-    return isRecord(fields) ? fields[name] : undefined;
+/** `<name>` of a Move object's JSON rendering (nested structs are plain objects), or undefined. */
+function fieldOf(json, name) {
+    return isRecord(json) ? json[name] : undefined;
 }
-/** Does the chain still accept this package? `config::verify_version` under devInspect: no signature,
+/** Does the chain still accept this package? `config::verify_version` in a simulation: no signature,
  *  no gas. False when the chain refuses AND when the RPC cannot answer — both mean "no Bluefin". */
 async function versionPasses(rpc, packageId, globalConfigId) {
     try {
         const tx = new Transaction();
         tx.moveCall({ target: `${packageId}::config::verify_version`, arguments: [tx.object(globalConfigId)] });
-        const res = await rpc.devInspectTransactionBlock({ sender: QUOTE_SENDER, transactionBlock: tx });
-        return !res.error;
+        const res = await rpc.inspect(tx, QUOTE_SENDER);
+        return res.error === null;
     }
     catch {
         return false;
@@ -172,7 +172,7 @@ export function swapReads(network) {
                 if (packageId === null || globalConfigId === null || BLUEFIN_WAL_SUI_POOLS[network] === null) {
                     throw new Error(`This tool knows no Bluefin WAL/SUI pool on ${network}.`);
                 }
-                return checkedBluefinBinding({ packageId, globalConfigId, pools: bluefinPools(network) }, client);
+                return checkedBluefinBinding({ packageId, globalConfigId, pools: bluefinPools(network) }, { inspect: (transaction, sender) => inspect(client, transaction, sender) });
             })();
             bluefin = pending;
             pending.catch(() => {
@@ -187,12 +187,12 @@ export function swapReads(network) {
             const objectId = TESTNET_WALRUS_PACKAGE_CONFIG.exchangeIds[0];
             if (objectId === undefined)
                 throw new Error("This build names no testnet exchange object.");
-            const obj = await client.getObject({ id: objectId, options: { showContent: true, showType: true } });
-            const type = obj.data?.type;
-            if (typeof type !== "string" || !type.includes("::wal_exchange::Exchange")) {
-                throw new Error(`Object ${objectId} is not a wal_exchange Exchange (type ${type ?? "unknown"}).`);
+            const { object } = await client.core.getObject({ objectId, include: { json: true } });
+            const type = object.type;
+            if (!type.includes("::wal_exchange::Exchange")) {
+                throw new Error(`Object ${objectId} is not a wal_exchange Exchange (type ${type}).`);
             }
-            const rate = fieldOf(obj.data?.content, "rate");
+            const rate = fieldOf(object.json, "rate");
             const wal = fieldOf(rate, "wal");
             const sui = fieldOf(rate, "sui");
             if (typeof wal !== "string" || typeof sui !== "string" || !/^\d+$/.test(wal) || !/^\d+$/.test(sui) || BigInt(sui) === 0n) {
@@ -206,10 +206,10 @@ export function swapReads(network) {
         async estimateFee(shape, sender) {
             try {
                 const bytes = await swapTransaction({ ...shape, network, sender }).build({ client });
-                const { effects } = await client.dryRunTransactionBlock({ transactionBlock: bytes });
-                if (effects.status.status !== "success")
+                const { status, gasUsed } = await dryRun(client, bytes);
+                if (!status.success)
                     return null;
-                return netGasFee(effects.gasUsed);
+                return netGasFee(gasUsed);
             }
             catch {
                 return null;

@@ -20,6 +20,7 @@ import { walrusClient, netGasFee } from "./extend-chain.ts";
 import type { Network } from "./network.ts";
 import type { StorageRead } from "./storage-control/list.ts";
 import { splitStorageToFit } from "./shared/lib/storage-control/reuse.ts";
+import { dryRun } from "./shared/lib/wallet/chain-calls.ts";
 
 export type StorageOpShape =
   | { kind: "splitSize"; objectId: string; keepBytes: number }
@@ -90,11 +91,11 @@ export function storageOpsReads(network: Network): StorageOpsReads {
       try {
         const walrusPackageId = await this.walrusPackageId();
         const bytes = await storageOpTransaction(shape, { walrusPackageId, sender }).build({ client });
-        const { effects } = await client.dryRunTransactionBlock({ transactionBlock: bytes });
-        if (effects.status.status !== "success") {
-          return { feeMist: null, refusal: effects.status.error ?? "the chain gave no reason" };
+        const { status, gasUsed } = await dryRun(client, bytes);
+        if (!status.success) {
+          return { feeMist: null, refusal: status.error?.message || "the chain gave no reason" };
         }
-        return { feeMist: netGasFee(effects.gasUsed), refusal: null };
+        return { feeMist: netGasFee(gasUsed), refusal: null };
       } catch (error) {
         // ⚠ A refusal at ASSEMBLY (a wrong argument, an object that is not this wallet's) is an
         //   answer the person needs; a node that did not answer is not, and is said as unmeasured.

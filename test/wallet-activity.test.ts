@@ -1,5 +1,5 @@
-// `nmts wallet activity` — the list is the browser's judgement over the chain's two answers, and
-// an unanswered chain is never an empty list.
+// `nmts wallet activity` — the list is the browser's judgement over the chain's answer, and an
+// unanswered chain is never an empty list.
 
 import { strict as assert } from "node:assert";
 import { rmSync } from "node:fs";
@@ -8,7 +8,7 @@ import { test } from "node:test";
 import { activityContext, walletActivity, type ActivityFetch } from "../src/commands/wallet-activity.ts";
 import { CODE_ENV_VAR, testConfigDir } from "../src/credentials.ts";
 import { NmtsError } from "../src/errors.ts";
-import type { RpcTransaction } from "../src/shared/lib/wallet/activity.ts";
+import type { ChainTransaction } from "../src/shared/lib/wallet/activity.ts";
 import { walletAddress } from "../src/wallet.ts";
 import { generateCode, grantConsents } from "./helpers.ts";
 
@@ -46,39 +46,38 @@ const DIGEST_RECEIVE = "9rEcEiVe" + "b".repeat(36);
 /** An extension signed by `me`, and a transfer in from somebody else. */
 function twoTransactions(me: string): ActivityFetch {
   const ctx = activityContext("testnet", me);
-  const extend: RpcTransaction = {
+  // The shape the SDK's gRPC parser gives (`parseGrpcTransactionResponse`): the time as a number,
+  // status as `{ success }`, a balance change's `address`, and inputs/commands under `transaction`.
+  const extend: ChainTransaction = {
     digest: DIGEST_EXTEND,
-    timestampMs: "1788566400000",
-    effects: { status: { status: "success" } },
-    balanceChanges: [{ owner: { AddressOwner: me }, coinType: ctx.walCoinType, amount: "-1250000000" }],
+    timestampMs: 1788566400000,
+    status: { success: true },
+    balanceChanges: [{ address: me, coinType: ctx.walCoinType, amount: "-1250000000" }],
     transaction: {
-      data: {
-        sender: me,
-        gasData: { owner: me },
-        transaction: {
-          kind: "ProgrammableTransaction",
-          inputs: [{ objectId: ctx.walrusSystemObjectId }],
-          transactions: [{ MoveCall: { package: "0x1", module: "system", function: "extend_blob" } }],
-        },
-      },
+      sender: me,
+      gasData: { owner: me },
+      inputs: [
+        { $kind: "Object", Object: { $kind: "SharedObject", SharedObject: { objectId: ctx.walrusSystemObjectId } } },
+      ],
+      commands: [{ $kind: "MoveCall", MoveCall: { package: "0x1", module: "system", function: "extend_blob" } }],
     },
   };
-  const receive: RpcTransaction = {
+  const receive: ChainTransaction = {
     digest: DIGEST_RECEIVE,
-    timestampMs: "1788652800000",
-    effects: { status: { status: "success" } },
+    timestampMs: 1788652800000,
+    status: { success: true },
     balanceChanges: [
-      { owner: { AddressOwner: OTHER }, coinType: "0x2::sui::SUI", amount: "-500000000" },
-      { owner: { AddressOwner: me }, coinType: "0x2::sui::SUI", amount: "500000000" },
+      { address: OTHER, coinType: "0x2::sui::SUI", amount: "-500000000" },
+      { address: me, coinType: "0x2::sui::SUI", amount: "500000000" },
     ],
-    transaction: { data: { sender: OTHER, transaction: { kind: "ProgrammableTransaction", inputs: [], transactions: [] } } },
+    transaction: { sender: OTHER, gasData: { owner: OTHER }, inputs: [], commands: [] },
   };
-  // The same extension appears on both sides (the chain lists it under `From` and `To`), so the
-  // merge must not print it twice.
-  return { sent: [extend], received: [receive, extend] };
+  // A node may list the same transaction twice across pages (a cursor that moved under a new
+  // checkpoint), so the merge must not print it twice.
+  return { transactions: [receive, extend, extend] };
 }
 
-test("the rows carry the browser's names, newest first, without a duplicate for a transaction seen from both sides", async () => {
+test("the rows carry the browser's names, newest first, without a duplicate for a transaction listed twice", async () => {
   await withAccount("wallet-activity-rows", async (code) => {
     const me = await walletAddress(code);
     const out = collect();
@@ -142,5 +141,45 @@ test("⛔ a chain that did not answer is a refusal with a cause, never an empty 
     assert.match(String(failure.nextStep), /not the same as there being none/);
     assert.match(String(failure.nextStep), /the node timed out/);
     assert.doesNotMatch(out.lines.join("\n"), /lists no transaction/);
+  });
+});
+
+test("⛔ a history read only to the node's window never says the wallet has no transaction", async () => {
+  await withAccount("wallet-activity-partial", async (code) => {
+    const me = await walletAddress(code);
+    const empty = collect();
+    assert.equal(
+      await walletActivity({
+        network: "testnet",
+        write: empty.write,
+        queryChain: async () => ({ transactions: [], complete: false }),
+      }),
+      0,
+    );
+    const emptyText = empty.lines.join("\n");
+    assert.doesNotMatch(emptyText, /lists no transaction/);
+    assert.match(emptyText, /older history could not be read/);
+
+    const some = collect();
+    assert.equal(
+      await walletActivity({
+        network: "testnet",
+        write: some.write,
+        queryChain: async () => ({ ...twoTransactions(me), complete: false }),
+      }),
+      0,
+    );
+    assert.match(some.lines.join("\n"), /more than a few weeks\s+ago may be missing/);
+
+    const json = collect();
+    await walletActivity({
+      network: "testnet",
+      json: true,
+      write: json.write,
+      queryChain: async () => ({ transactions: [], complete: false }),
+    });
+    const parsed: unknown = JSON.parse(json.lines.join(""));
+    assert.ok(typeof parsed === "object" && parsed !== null);
+    assert.equal(Reflect.get(parsed, "complete"), false);
   });
 });

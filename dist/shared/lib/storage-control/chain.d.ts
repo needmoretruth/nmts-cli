@@ -1,33 +1,34 @@
 /**
- * The slice of a Sui RPC client this file uses. Structural on purpose: the browser hands in its
- * Walrus-extended client and the command-line tool its plain JSON-RPC client, and neither has to
- * be named here.
+ * The slice of a Sui client this file uses — its core API (`client.core`), which the gRPC and GraphQL
+ * clients both carry. Structural on purpose: the browser hands in its Walrus-extended client and the
+ * command-line tool its plain one, and neither has to be named here.
+ *
+ * ⛔ 2026-10-21 — this used to be JSON-RPC's `getObject` / `getOwnedObjects`, which Sui retired. The
+ *    core API answers the same two questions; the object's fields now come as the node's JSON
+ *    rendering of the struct (`json`), with no `content.fields` wrapper.
  */
 export interface StorageChainReader {
-    getObject(input: {
-        id: string;
-        options: {
-            showType: true;
-        };
-    }): Promise<{
-        data?: {
-            type?: string | null;
-        } | null;
-    }>;
-    getOwnedObjects(input: {
-        owner: string;
-        filter: {
-            StructType: string;
-        };
-        options: {
-            showContent: true;
-        };
-        cursor?: string;
-    }): Promise<{
-        data?: readonly unknown[] | null;
-        hasNextPage?: boolean;
-        nextCursor?: string | null;
-    }>;
+    core: {
+        getObject(input: {
+            objectId: string;
+        }): Promise<{
+            object: {
+                type: string;
+            };
+        }>;
+        listOwnedObjects(input: {
+            owner: string;
+            type: string;
+            include: {
+                json: true;
+            };
+            cursor?: string | null;
+        }): Promise<{
+            objects: readonly unknown[];
+            hasNextPage: boolean;
+            cursor: string | null;
+        }>;
+    };
 }
 /** One storage resource — the chain's `Storage { id, start_epoch, end_epoch, storage_size }` as is. */
 export interface StorageResource {
@@ -43,10 +44,10 @@ export interface StorageResource {
 /**
  * This network's storage-resource type name, derived from the system object.
  *
- * ⛔ `showType` only — the content is not needed, and asking for it returns a large answer.
+ * ⛔ The type only — the content is not needed, and asking for it returns a large answer.
  */
 export declare function readStorageType(client: StorageChainReader, systemObjectId: string): Promise<string>;
-/** One object response as a storage resource. A different shape gives null — it quietly leaves the list. */
+/** One listed object as a storage resource. A different shape gives null — it quietly leaves the list. */
 export declare function toStorageResource(node: unknown): StorageResource | null;
 /**
  * Every storage resource this address holds.

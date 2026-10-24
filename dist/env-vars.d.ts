@@ -16,7 +16,7 @@ export declare const AGGREGATOR_ENV_VAR = "NMTS_AGGREGATOR";
  * ⚠ ONE host, not a list. Unlike reads there is nothing to fail over to — see `RELAY_HOSTS`.
  */
 export declare const RELAY_ENV_VAR = "NMTS_RELAY";
-/** Ask a different Sui JSON-RPC node the shard-count question. */
+/** Ask a different Sui node (one that answers gRPC-web) the chain questions. */
 export declare const SUI_RPC_ENV_VAR = "NMTS_SUI_RPC";
 /**
  * The one-time pass a person took on nmts.me/ai for their agent (D19g ⑥). `nmts create` spends it.
