@@ -3,6 +3,11 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.52.3 — 2026-11-08
+
+- The crypto engine uses ml-dsa 0.1.2, whose key generation no longer branches on secret values.
+  Keys, shared identities and signatures are byte for byte the same as before.
+
 ## 0.52.2 — 2026-11-07
 
 - `nmts wallet activity` and `nmts wallet list` still failed on a node that keeps fewer checkpoints

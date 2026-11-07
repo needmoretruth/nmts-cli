@@ -7,5 +7,5 @@ export type ClientKind = "cli" | "mcp" | "sdk";
  * points with `"sdk"` and the SDK's own version.
  */
 export declare function identifyClient(next: ClientKind, nextVersion?: string): void;
-/** `cli/0.52.2`, `mcp/0.52.2`, `sdk/0.17.0`. */
+/** `cli/0.52.3`, `mcp/0.52.3`, `sdk/0.17.0`. */
 export declare function clientHeaderValue(): string;
