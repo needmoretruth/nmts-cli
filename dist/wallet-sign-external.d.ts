@@ -11,7 +11,7 @@ export interface SignedTransaction {
 /**
  * The wallet that pays, from outside this tool.
  *
- * ⚠ THE SHAPE IS THE WALLET STANDARD'S, so a page hands over what `useSignTransaction()` gives it
+ * ⚠ THE SHAPE IS THE WALLET STANDARD'S, so a page hands over what `useDAppKit().signTransaction()` gives it
  *   and a server hands over whatever signs for the person whose storage this is.
  */
 export interface ExternalPayer {
