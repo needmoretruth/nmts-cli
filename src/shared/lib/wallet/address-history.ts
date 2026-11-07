@@ -20,6 +20,15 @@
 //    filter back to 2023 on both networks; its rows are read by the SAME parser as the node's (its
 //    `transactionJson` and `balanceChangesJson` are the gRPC messages written as JSON).
 //
+// ⛔ A REQUEST WITHOUT A START IS REFUSED (measured 2026-11-07). `ListTransactions` without
+//    `startCheckpoint` starts at genesis, and since about 2026-11-05 both Suiscan and Mysten Labs refuse
+//    that outright — "requested data below earliest available; lowest available checkpoint is <n>" —
+//    instead of stopping quietly at their window's edge. Every wallet walk and activity list then
+//    failed on Suiscan, and on Mysten for any address idle for a few weeks, before the deeper source
+//    was ever asked. So a refused read is sent again from a little above the checkpoint the refusal
+//    names, that floor is remembered per network, and the scan then ends at that start, which is the
+//    window's edge: what lies below it is the deeper source's to answer.
+//
 // ⛔ A SCAN THAT STOPPED SHORT IS NOT "NOTHING THERE". The node also bounds how much of its index one
 //    request reads; a request can end with fewer items than asked — even none — and say it stopped
 //    because of that bound (`SCAN_LIMIT`). This file follows the cursor for a bounded number of
@@ -59,6 +68,43 @@ export const SUI_GRAPHQL_URLS: Readonly<Record<"mainnet" | "testnet", string>> =
 /** How many requests one question may take before it answers with what it has. */
 const MAX_REQUESTS = 8;
 
+/**
+ * How far above a node's lowest checkpoint a read starts. Mainnet seals about four checkpoints a
+ * second, so 20,000 is over an hour of the node pruning before the start falls out of its window
+ * again — and a refusal then simply moves it up (same margin as the chain service's gift reader).
+ */
+export const WINDOW_MARGIN = 20_000n;
+/** Refusals answered by moving the start up before the read counts as failed. */
+const MAX_WINDOW_RETRIES = 2;
+
+// The lowest checkpoint a node has named in a refusal, per network (or per client when it names none,
+// as a test's fake does). Remembered so a page that asks many times pays the refusal once.
+const floorByNetwork = new Map<string, bigint>();
+const floorByClient = new WeakMap<object, bigint>();
+function networkOf(client: object): string | undefined {
+  return "network" in client && typeof client.network === "string" ? client.network : undefined;
+}
+function knownFloor(client: object): bigint | undefined {
+  const network = networkOf(client);
+  return network === undefined ? floorByClient.get(client) : floorByNetwork.get(network);
+}
+function rememberFloor(client: object, floor: bigint): void {
+  const network = networkOf(client);
+  if (network === undefined) floorByClient.set(client, floor);
+  else floorByNetwork.set(network, floor);
+}
+
+/**
+ * The lowest checkpoint a node said it holds, read from its refusal, or `null` for any other error.
+ * Suiscan and Mysten Labs both answered `requested data below earliest available; lowest available
+ * checkpoint is <n>` on 2026-11-07.
+ */
+export function lowestAvailable(e: unknown): bigint | null {
+  const message = e instanceof Error ? e.message : typeof e === "string" ? e : "";
+  const found = /lowest available checkpoint is (\d{1,20})/.exec(message);
+  return found === null || found[1] === undefined ? null : BigInt(found[1]);
+}
+
 /** The fields the parser reads for `{ transaction, balanceChanges }` (the SDK's own read mask, by name). */
 const READ_MASK = [
   "digest",
@@ -90,40 +136,59 @@ async function recentTransactions(
   const transactions: HistoryTransaction[] = [];
   let before: Uint8Array | undefined;
   for (let request = 0; request < MAX_REQUESTS; request += 1) {
-    const call = client.ledgerService.listTransactions(
-      {
-        readMask: { paths: READ_MASK },
-        filter: {
-          terms: [
-            {
-              literals: [
-                { negated: false, predicate: { oneofKind: "affectedAddress", affectedAddress: { address } } },
-              ],
-            },
-          ],
-        },
-        options: {
-          limit: limit - transactions.length,
-          ordering: GrpcTypes.Ordering.DESCENDING,
-          ...(before === undefined ? {} : { before }),
-        },
-      },
-      signal === undefined ? {} : { abort: signal },
-    );
     let frontier: Uint8Array | undefined;
     let reachedCheckpoint: bigint | undefined;
     let reason: GrpcTypes.QueryEndReason | undefined;
-    for await (const frame of call.responses) {
-      if (frame.watermark?.cursor !== undefined) frontier = frame.watermark.cursor;
-      if (frame.watermark?.checkpoint !== undefined) reachedCheckpoint = frame.watermark.checkpoint;
-      if (frame.transaction !== undefined && transactions.length < limit) {
-        const parsed = parseGrpcTransactionResponse(frame.transaction, {
-          include: { transaction: true, balanceChanges: true },
-        });
-        const tx = parsed.Transaction ?? parsed.FailedTransaction;
-        if (tx !== undefined) transactions.push(tx);
+    for (let attempt = 0; ; attempt += 1) {
+      const floor = knownFloor(client);
+      const startCheckpoint = floor === undefined ? undefined : floor + WINDOW_MARGIN;
+      // Rows of one attempt are kept only if the attempt finishes: a refusal mid-stream adds nothing.
+      const rows: HistoryTransaction[] = [];
+      frontier = undefined;
+      reachedCheckpoint = undefined;
+      reason = undefined;
+      try {
+        const call = client.ledgerService.listTransactions(
+          {
+            ...(startCheckpoint === undefined ? {} : { startCheckpoint }),
+            readMask: { paths: READ_MASK },
+            filter: {
+              terms: [
+                {
+                  literals: [
+                    { negated: false, predicate: { oneofKind: "affectedAddress", affectedAddress: { address } } },
+                  ],
+                },
+              ],
+            },
+            options: {
+              limit: limit - transactions.length,
+              ordering: GrpcTypes.Ordering.DESCENDING,
+              ...(before === undefined ? {} : { before }),
+            },
+          },
+          signal === undefined ? {} : { abort: signal },
+        );
+        for await (const frame of call.responses) {
+          if (frame.watermark?.cursor !== undefined) frontier = frame.watermark.cursor;
+          if (frame.watermark?.checkpoint !== undefined) reachedCheckpoint = frame.watermark.checkpoint;
+          if (frame.transaction !== undefined && transactions.length + rows.length < limit) {
+            const parsed = parseGrpcTransactionResponse(frame.transaction, {
+              include: { transaction: true, balanceChanges: true },
+            });
+            const tx = parsed.Transaction ?? parsed.FailedTransaction;
+            if (tx !== undefined) rows.push(tx);
+          }
+          if (frame.end !== undefined) reason = frame.end.reason;
+        }
+        transactions.push(...rows);
+        break;
+      } catch (e: unknown) {
+        const lowest = lowestAvailable(e);
+        // Anything else is a real failure, and so is a window that keeps moving past a fresh floor.
+        if (lowest === null || attempt >= MAX_WINDOW_RETRIES) throw e;
+        rememberFloor(client, lowest);
       }
-      if (frame.end !== undefined) reason = frame.end.reason;
     }
     if (transactions.length >= limit) return { transactions, fromGenesis: true };
     // A scan bound means "there may be more, carry on from here".

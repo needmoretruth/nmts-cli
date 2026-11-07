@@ -21,6 +21,18 @@ export type DeeperHistory = (address: string, limit: number, signal?: AbortSigna
  */
 export declare const SUI_GRAPHQL_URLS: Readonly<Record<"mainnet" | "testnet", string>>;
 /**
+ * How far above a node's lowest checkpoint a read starts. Mainnet seals about four checkpoints a
+ * second, so 20,000 is over an hour of the node pruning before the start falls out of its window
+ * again — and a refusal then simply moves it up (same margin as the chain service's gift reader).
+ */
+export declare const WINDOW_MARGIN = 20000n;
+/**
+ * The lowest checkpoint a node said it holds, read from its refusal, or `null` for any other error.
+ * Suiscan and Mysten Labs both answered `requested data below earliest available; lowest available
+ * checkpoint is <n>` on 2026-11-07.
+ */
+export declare function lowestAvailable(e: unknown): bigint | null;
+/**
  * The newest transactions that moved `address`'s state, newest first.
  *
  * @param limit - how many to return at most; 1 is the cheapest "has this address any history".

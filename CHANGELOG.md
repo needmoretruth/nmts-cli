@@ -3,6 +3,13 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.52.1 — 2026-11-07
+
+- `nmts wallet activity` and `nmts wallet list` failed on mainnet from about 5 November: the Sui
+  nodes now refuse a transaction query that starts at the first checkpoint, and that refusal stopped
+  the command before Sui's GraphQL service was asked for the older history. A refused query is now
+  asked again from just inside the node's range, and the older history comes from GraphQL as before.
+
 ## 0.52.0 — 2026-10-24
 
 - `nmts` talks to Sui over gRPC-web instead of JSON-RPC, which Sui retired in October 2026. The
