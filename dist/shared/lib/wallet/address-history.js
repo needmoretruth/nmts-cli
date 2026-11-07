@@ -20,14 +20,13 @@
 //    filter back to 2023 on both networks; its rows are read by the SAME parser as the node's (its
 //    `transactionJson` and `balanceChangesJson` are the gRPC messages written as JSON).
 //
-// ⛔ A REQUEST WITHOUT A START IS REFUSED (measured 2026-11-07). `ListTransactions` without
-//    `startCheckpoint` starts at genesis, and since about 2026-11-05 both Suiscan and Mysten Labs refuse
-//    that outright — "requested data below earliest available; lowest available checkpoint is <n>" —
-//    instead of stopping quietly at their window's edge. Every wallet walk and activity list then
-//    failed on Suiscan, and on Mysten for any address idle for a few weeks, before the deeper source
-//    was ever asked. So a refused read is sent again from a little above the checkpoint the refusal
-//    names, that floor is remembered per network, and the scan then ends at that start, which is the
-//    window's edge: what lies below it is the deeper source's to answer.
+// ⛔ A REQUEST WITHOUT A START IS REFUSED (measured 2026-11-07). Without `startCheckpoint` a scan
+//    starts at genesis, and since about 2026-11-05 Suiscan and Mysten Labs refuse that ("requested data
+//    below earliest available; lowest available checkpoint is <n>"), which failed every wallet walk and
+//    activity list before the deeper source was asked. A refused read is sent again from just above the
+//    floor it names (or, when the node holds fewer checkpoints than the margin and refuses that as above
+//    its top, from the middle of the window), the window is remembered per network, and the scan ends
+//    at that start: what lies below it is the deeper source's to answer.
 //
 // ⛔ A SCAN THAT STOPPED SHORT IS NOT "NOTHING THERE". The node also bounds how much of its index one
 //    request reads; a request can end with fewer items than asked — even none — and say it stopped
@@ -51,30 +50,64 @@ export const SUI_GRAPHQL_URLS = {
 /** How many requests one question may take before it answers with what it has. */
 const MAX_REQUESTS = 8;
 /**
- * How far above a node's lowest checkpoint a read starts. Mainnet seals about four checkpoints a
- * second, so 20,000 is over an hour of the node pruning before the start falls out of its window
- * again — and a refusal then simply moves it up (same margin as the chain service's gift reader).
+ * How far above a node's lowest checkpoint a read starts, at most. Mainnet seals about four
+ * checkpoints a second, so 20,000 is over an hour of pruning before the start falls out of the window
+ * again. A node whose whole window is shorter (Suiscan's testnet node held 54 checkpoints, about
+ * 13 seconds, on 2026-11-07) refuses that start as above its top and names the top; the start is then
+ * the middle of the window it named. Same rule as the chain service's gift reader.
  */
 export const WINDOW_MARGIN = 20000n;
-/** Refusals answered by moving the start up before the read counts as failed. */
-const MAX_WINDOW_RETRIES = 2;
-// The lowest checkpoint a node has named in a refusal, per network (or per client when it names none,
-// as a test's fake does). Remembered so a page that asks many times pays the refusal once.
-const floorByNetwork = new Map();
-const floorByClient = new WeakMap();
+/** Refusals answered by moving the start before the read counts as failed (floor, top, one stale floor). */
+const MAX_WINDOW_RETRIES = 3;
+// Per network (or per client when it names none, as a test's fake does), so a page that asks many
+// times pays the refusals once. Hosts of one network share it: a floor too low for another host is
+// refused and corrected, and half the shortest span is inside every host's window.
+const windowByNetwork = new Map();
+const windowByClient = new WeakMap();
 function networkOf(client) {
     return "network" in client && typeof client.network === "string" ? client.network : undefined;
 }
-function knownFloor(client) {
+function knownWindow(client) {
     const network = networkOf(client);
-    return network === undefined ? floorByClient.get(client) : floorByNetwork.get(network);
+    return network === undefined ? windowByClient.get(client) : windowByNetwork.get(network);
 }
-function rememberFloor(client, floor) {
+function rememberWindow(client, window) {
     const network = networkOf(client);
     if (network === undefined)
-        floorByClient.set(client, floor);
+        windowByClient.set(client, window);
     else
-        floorByNetwork.set(network, floor);
+        windowByNetwork.set(network, window);
+}
+/** Where a read starts inside what is known of the window; `undefined` (genesis) until a refusal said. */
+function startInside(window) {
+    if (window === undefined)
+        return undefined;
+    const half = window.span === null ? WINDOW_MARGIN : window.span / 2n;
+    return window.floor + (half < WINDOW_MARGIN ? half : WINDOW_MARGIN);
+}
+/** Learns from a window refusal and says whether it was one; any other error teaches nothing. */
+function learnWindow(client, e) {
+    const known = knownWindow(client);
+    const lowest = lowestAvailable(e);
+    if (lowest !== null) {
+        rememberWindow(client, { floor: lowest, span: known?.span ?? null });
+        return true;
+    }
+    const below = highestAvailable(e);
+    if (below === null || known === undefined)
+        return false;
+    rememberWindow(client, { floor: known.floor, span: below > known.floor ? below - known.floor : 1n });
+    return true;
+}
+/**
+ * The checkpoint a node's window ends below, read from its refusal of a start above it, or `null`
+ * for any other error. Suiscan and Mysten Labs answered `requested data above latest available;
+ * start_checkpoint is <s>, and only checkpoints below <n> are available` on 2026-11-07.
+ */
+export function highestAvailable(e) {
+    const message = e instanceof Error ? e.message : typeof e === "string" ? e : "";
+    const found = /only checkpoints below (\d{1,20}) are available/.exec(message);
+    return found === null || found[1] === undefined ? null : BigInt(found[1]);
 }
 /**
  * The lowest checkpoint a node said it holds, read from its refusal, or `null` for any other error.
@@ -108,8 +141,7 @@ async function recentTransactions(client, address, limit, signal) {
         let reachedCheckpoint;
         let reason;
         for (let attempt = 0;; attempt += 1) {
-            const floor = knownFloor(client);
-            const startCheckpoint = floor === undefined ? undefined : floor + WINDOW_MARGIN;
+            const startCheckpoint = startInside(knownWindow(client));
             // Rows of one attempt are kept only if the attempt finishes: a refusal mid-stream adds nothing.
             const rows = [];
             frontier = undefined;
@@ -154,11 +186,12 @@ async function recentTransactions(client, address, limit, signal) {
                 break;
             }
             catch (e) {
-                const lowest = lowestAvailable(e);
-                // Anything else is a real failure, and so is a window that keeps moving past a fresh floor.
-                if (lowest === null || attempt >= MAX_WINDOW_RETRIES)
+                if (!learnWindow(client, e))
                     throw e;
-                rememberFloor(client, lowest);
+                // ⛔ A window no start can hit (Suiscan's testnet replicas disagreed by more than its 54
+                //    checkpoints, 2026-11-07) leaves the node nothing to give, as when it stopped at its edge.
+                if (attempt >= MAX_WINDOW_RETRIES)
+                    return { transactions, fromGenesis: false };
             }
         }
         if (transactions.length >= limit)

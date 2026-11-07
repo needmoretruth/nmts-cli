@@ -21,11 +21,19 @@ export type DeeperHistory = (address: string, limit: number, signal?: AbortSigna
  */
 export declare const SUI_GRAPHQL_URLS: Readonly<Record<"mainnet" | "testnet", string>>;
 /**
- * How far above a node's lowest checkpoint a read starts. Mainnet seals about four checkpoints a
- * second, so 20,000 is over an hour of the node pruning before the start falls out of its window
- * again — and a refusal then simply moves it up (same margin as the chain service's gift reader).
+ * How far above a node's lowest checkpoint a read starts, at most. Mainnet seals about four
+ * checkpoints a second, so 20,000 is over an hour of pruning before the start falls out of the window
+ * again. A node whose whole window is shorter (Suiscan's testnet node held 54 checkpoints, about
+ * 13 seconds, on 2026-11-07) refuses that start as above its top and names the top; the start is then
+ * the middle of the window it named. Same rule as the chain service's gift reader.
  */
 export declare const WINDOW_MARGIN = 20000n;
+/**
+ * The checkpoint a node's window ends below, read from its refusal of a start above it, or `null`
+ * for any other error. Suiscan and Mysten Labs answered `requested data above latest available;
+ * start_checkpoint is <s>, and only checkpoints below <n> are available` on 2026-11-07.
+ */
+export declare function highestAvailable(e: unknown): bigint | null;
 /**
  * The lowest checkpoint a node said it holds, read from its refusal, or `null` for any other error.
  * Suiscan and Mysten Labs both answered `requested data below earliest available; lowest available

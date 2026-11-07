@@ -3,6 +3,14 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.52.2 — 2026-11-07
+
+- `nmts wallet activity` and `nmts wallet list` still failed on a node that keeps fewer checkpoints
+  than 0.52.1 skipped above its lowest one (Suiscan's testnet node keeps about 13 seconds): the node
+  refused that start as above its newest checkpoint. The read now starts in the middle of such a
+  node's range, and when no start is accepted (Suiscan's testnet servers disagree by more than their
+  range) the older history comes from Sui's GraphQL service instead of the command failing.
+
 ## 0.52.1 — 2026-11-07
 
 - `nmts wallet activity` and `nmts wallet list` failed on mainnet from about 5 November: the Sui
