@@ -7,6 +7,9 @@ update history, which covers the site and the server too, is at https://nmts.me/
 
 - The crypto engine uses ml-dsa 0.1.2, whose key generation no longer branches on secret values.
   Keys, shared identities and signatures are byte for byte the same as before.
+- `nmts s3`: two multipart uploads of one key begun in the same millisecond could list in the wrong
+  order, and a `ListMultipartUploads` page resumed after the earlier one could skip the later one.
+  Upload ids now sort in the order the uploads began.
 
 ## 0.52.2 — 2026-11-07
 

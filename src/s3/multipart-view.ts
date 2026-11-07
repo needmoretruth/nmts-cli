@@ -78,14 +78,34 @@ function bare(etag: string): string {
 }
 
 /**
- * A new upload id: the time it began, then randomness, all hex.
+ * A new upload id: the millisecond it began, a sequence within that millisecond, then randomness,
+ * all hex, 32 characters (`multipart-sweep.ts` reads the directory name by that shape).
  *
  * ⛔ SORTED BY TIME AS A STRING. `ListMultipartUploads` resumes after an id, and S3 lists one key's
  *    uploads by when they began; an id that sorts the same way lets a listing resume after an id
  *    even once that upload is gone, without skipping the key's later ones.
+ * ⛔ STRICTLY INCREASING, not only by the millisecond (2026-11-08). Two uploads begun in the same
+ *    millisecond used to sort by their random tail, so half the time the later one sorted first and
+ *    a listing resumed after the earlier one skipped it — seen on a fast macOS runner, where the
+ *    test's two `begin` calls landed in one millisecond. The sequence breaks the tie in order, and a
+ *    clock that steps back keeps the last time it gave.
  */
-function newUploadId(now: number): string {
-  return `${Math.max(0, Math.floor(now)).toString(16).padStart(12, "0")}${randomBytes(10).toString("hex")}`;
+let lastMs = -1;
+let sequence = 0;
+export function newUploadId(now: number): string {
+  let ms = Math.max(0, Math.floor(now));
+  if (ms <= lastMs) {
+    ms = lastMs;
+    sequence += 1;
+    if (sequence > 0xffff) {
+      ms += 1;
+      sequence = 0;
+    }
+  } else {
+    sequence = 0;
+  }
+  lastMs = ms;
+  return `${ms.toString(16).padStart(12, "0")}${sequence.toString(16).padStart(4, "0")}${randomBytes(8).toString("hex")}`;
 }
 
 export function bucketView(book: UploadBook, bucket: string, account: UploadAccount): Staging {

@@ -42,4 +42,5 @@ export interface UploadBook {
     /** Remove what nobody has touched for a day, from memory and from disk. */
     sweepMemory(): Promise<void>;
 }
+export declare function newUploadId(now: number): string;
 export declare function bucketView(book: UploadBook, bucket: string, account: UploadAccount): Staging;
