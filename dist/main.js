@@ -26,7 +26,7 @@
 //    whole command surface can be driven from a test without ending the test runner.
 import { parseArgs } from "./args.js";
 import { NmtsError, NotBuiltYetError, renderError } from "./errors.js";
-import { endQuietlyOnClosedPipe, exitCodeFor, invokedDirectly, noteUpdateAfter } from "./exit.js";
+import { endQuietlyOnClosedPipe, exitCodeFor, invokedDirectly, noteUpdateAfter, stuckLineFor } from "./exit.js";
 import { printHelp } from "./help.js";
 import { BINARY_NAME, VERSION } from "./product.js";
 /**
@@ -375,7 +375,7 @@ async function main() {
         process.exitCode = await run(argv);
     }
     catch (error) {
-        process.stderr.write(`${renderError(error, BINARY_NAME)}\n`);
+        process.stderr.write(`${renderError(error, BINARY_NAME)}\n${stuckLineFor(error, argv)}`);
         process.exitCode = exitCodeFor(error);
         failed = error instanceof Error ? error.message : String(error);
     }

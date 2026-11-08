@@ -50,7 +50,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.52.3    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.53.0    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -559,6 +559,9 @@ auto 모드 둘에서 거절됩니다. 모드가 켜져 있는 동안 모든 명
 영어를 권하지만 한국어도 읽습니다.
 
 도구 자체가 돌지 않으면 **nmts@nmts.me**로, 무엇을 돌렸고 무엇이 찍혔는지 적어 보내십시오.
+
+공개된 곳에서 묻고 싶으면, 실패한 명령 끝에 나오는 NMTS 디스코드 링크로 오십시오. 개발자가 영어와
+한국어로 답합니다: https://discord.gg/HtrUwhb2Mz
 
 ## 이 위에 만드셨습니까?
 

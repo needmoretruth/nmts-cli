@@ -27,7 +27,7 @@
 
 import { parseArgs } from "./args.ts";
 import { NmtsError, NotBuiltYetError, renderError } from "./errors.ts";
-import { endQuietlyOnClosedPipe, exitCodeFor, invokedDirectly, noteUpdateAfter } from "./exit.ts";
+import { endQuietlyOnClosedPipe, exitCodeFor, invokedDirectly, noteUpdateAfter, stuckLineFor } from "./exit.ts";
 import { printHelp } from "./help.ts";
 import { BINARY_NAME, VERSION } from "./product.ts";
 
@@ -381,7 +381,7 @@ async function main(): Promise<void> {
   try {
     process.exitCode = await run(argv);
   } catch (error) {
-    process.stderr.write(`${renderError(error, BINARY_NAME)}\n`);
+    process.stderr.write(`${renderError(error, BINARY_NAME)}\n${stuckLineFor(error, argv)}`);
     process.exitCode = exitCodeFor(error);
     failed = error instanceof Error ? error.message : String(error);
   }

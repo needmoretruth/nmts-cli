@@ -32,7 +32,7 @@ export function identifyClient(next: ClientKind, nextVersion: string = VERSION):
   version = nextVersion;
 }
 
-/** `cli/0.52.3`, `mcp/0.52.3`, `sdk/0.17.0`. */
+/** `cli/0.53.0`, `mcp/0.53.0`, `sdk/0.17.0`. */
 export function clientHeaderValue(): string {
   return `${kind}/${version}`;
 }

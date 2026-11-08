@@ -18,7 +18,7 @@ export const BINARY_NAME = "nmts";
  *    beside it. Here rather than in `main.ts` because the MCP server has to say it too, and a
  *    command importing the entry point is a cycle waiting to bite.
  */
-export const VERSION = "0.52.3";
+export const VERSION = "0.53.0";
 /** Where the product lives, for messages that need to send somebody somewhere real. */
 export const HOME_URL = "https://nmts.me";
 /** The source, so a person holding only the built program can find what it was built from. */
@@ -34,5 +34,10 @@ export const COPYRIGHT = "Copyright 2026 needmoretruth";
  *    invisible from here.
  */
 export const SUPPORT_EMAIL = "nmts@nmts.me";
+/**
+ * The NMTS Discord's #help forum, a permanent invite (owner 2026-11-07). The web drive links the
+ * same address under its failure sentences (`web/src/lib/discord.ts`); this is the CLI's copy.
+ */
+export const DISCORD_HELP_URL = "https://discord.gg/HtrUwhb2Mz";
 /** The document in the source repository that is written for an agent rather than for a person. */
 export const AGENTS_DOC = "AGENTS.md";

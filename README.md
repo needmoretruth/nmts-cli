@@ -51,7 +51,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.52.3    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.53.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -605,6 +605,9 @@ are stripped on this machine first, and `--omit <text>` strips anything else you
 preferred; Korean is read too.
 
 If the tool itself cannot run, write to **nmts@nmts.me** with what you ran and what it said.
+
+To ask in public instead, a failed command ends with a link to the NMTS Discord, where the developer
+answers in English and Korean: https://discord.gg/HtrUwhb2Mz
 
 ## Built on this?
 

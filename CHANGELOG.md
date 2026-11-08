@@ -3,6 +3,13 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.53.0 — 2026-11-08
+
+- A command that fails for a reason other than how it was typed now ends its error with one line
+  that points to the NMTS Discord: `Stuck? Ask in the NMTS Discord: https://discord.gg/HtrUwhb2Mz
+  (the developer answers in English and Korean)`. Usage errors, `--json` output and `nmts mcp` do
+  not get it, and every error sentence and exit code is as before.
+
 ## 0.52.3 — 2026-11-08
 
 - The crypto engine uses ml-dsa 0.1.2, whose key generation no longer branches on secret values.
