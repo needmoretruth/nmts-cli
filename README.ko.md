@@ -50,7 +50,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.53.0    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.54.0    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -245,6 +245,7 @@ nmts put film.mov --part-size 256MiB   # 조각을 키우면: 구매 횟수는 �
 nmts put film.mov --pay wallet --dry-run            # 검토만: WAL 값, 팁, 수수료, 잔액, 날수. 서명하지 않습니다
 nmts put film.mov --pay wallet --epochs 6           # 저장 네트워크의 에포크 6개(기본 2)
 nmts put film.mov --pay wallet --storage fit        # 지갑이 이미 든 저장 자원을 크기에 맞춰 잘라 씁니다
+nmts put film.mov --pay wallet --sui-key-file ~/.sui/agent.key   # 가지고 있는 다른 Sui 지갑이 냅니다
 ```
 
 파일을 같은 조각으로 나누고, 체인이 조각마다 WAL 값과 중계의 팁(SUI)을
@@ -259,6 +260,10 @@ nmts put film.mov --pay wallet --storage fit        # 지갑이 이미 든 저�
 기록하고, `nmts extend`로 연장할 수 있습니다. 지갑으로 낸 업로드는 계정의 스위치가 어느 쪽이든 복구
 목록의 저장 네트워크 사본을 싣지 않습니다 — 오늘은 브라우저의 작은 파일 업로드만 싣습니다.
 `push --pay wallet`은 같은 일을 파일마다 합니다.
+
+`--sui-key-file <파일>`을 주면 `put`이 NMTS 키의 지갑 대신 가지고 있는 다른 Sui 지갑에서 내고, 검토가 그
+지갑을 밝힙니다. 파일에는 그 지갑의 `suiprivkey1…` 줄이 들어 있어야 합니다. 다른 사용자가 읽을 수 있는
+파일은 거절하고, 키는 어디에도 찍지 않습니다. `--wallet`과 함께 쓸 수 없고 `push`에는 쓰지 않습니다.
 
 `push`는 디렉터리를 올리고 **첫 실패에서 멈추며**, 이미 올라간 것을 말합니다. 목적지에 같은
 이름이 이미 있는 파일은 건너뛰므로 다시 돌려도 안전합니다. 점으로 시작하는 이름은 `--hidden`을

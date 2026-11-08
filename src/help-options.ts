@@ -149,7 +149,8 @@ export function optionLines(): string[] {
   // file path; the account number is inside what is signed, so another number is another
   // signature; without `--app` one wallet opens the same account in every product that asks.
   `  --wallet              The NMTS key comes from a wallet's signature (login, create)`,
-  `  --sui-key-file <p>    File holding the wallet's \`suiprivkey1…\` line. Never the key itself`,
+  `  --sui-key-file <p>    File holding the wallet's \`suiprivkey1…\` line. Never the key itself.`,
+  `                        With put --pay wallet, that wallet pays for the upload`,
   `  --account <n>         Which of that wallet's accounts. Default 1; it is inside what is signed`,
   `  --app <name>          Scope the signature to one product. Without it, one account everywhere`,
   `  --version             Print the version and exit`,

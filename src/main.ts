@@ -192,12 +192,13 @@ export async function run(argv: readonly string[]): Promise<number> {
         onCollision: args.onCollision,
         deposit: args.deposit, pay: args.pay, epochs: args.epochs,
         storage: args.storage, from: args.from,
-        json: args.json, wallet: args.wallet, trustServerTipAddress: args.trustServerTipAddress,
+        json: args.json, wallet: args.wallet, trustServerTipAddress: args.trustServerTipAddress, suiKeyFile: args.suiKeyFile,
         tier: args.tier, copies: args.copies, providers: args.providers, evmWallet: args.evmWallet, days: args.days,
         thumbnail: args.thumbnail, thumbnailFile: args.thumbnailFile,
       });
     }
     case "push": {
+      if (args.suiKeyFile !== undefined) (await import("./payer-key-file.ts")).refuseKeyFileForPush();
       const { push } = await import("./commands/push.ts");
       return await push(args.operands[0], {
         server: args.server,

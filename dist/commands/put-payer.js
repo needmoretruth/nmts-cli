@@ -40,6 +40,12 @@ export function refuseWalletOnlyOptions(options) {
             nextStep: `Nothing was sent. Add --pay wallet to use a storage resource this wallet holds.`,
         });
     }
+    if (options.suiKeyFile !== undefined) {
+        throw new NmtsError("--sui-key-file only applies with --pay wallet: credits are not paid from a wallet.", {
+            exitCode: 2,
+            nextStep: `Nothing was sent. Add --pay wallet to pay this upload from the wallet in that file.`,
+        });
+    }
     if (options.from !== undefined) {
         throw new NmtsError("--from only applies with --pay wallet: it is how a credit-paid file moves onto the wallet.", {
             exitCode: 2,

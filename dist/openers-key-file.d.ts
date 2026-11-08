@@ -1,3 +1,4 @@
+import { type Signer } from "@mysten/sui/cryptography";
 import type { SignWallet } from "./openers.ts";
 /** A wallet this run can ask for signatures: which address it is, and how to ask. */
 export interface KeyFileWallet {
@@ -12,3 +13,8 @@ export interface KeyFileWallet {
  * to a file with `echo` appends one and refusing it would be a puzzle with no clue.
  */
 export declare function walletFromKeyFile(path: string): KeyFileWallet;
+/**
+ * The keypair held in `path`, for a caller that signs more than a message — `put --pay wallet
+ * --sui-key-file` signs the upload's transactions with it (`payer-key-file.ts`).
+ */
+export declare function signerFromKeyFile(path: string): Signer;

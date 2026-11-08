@@ -40,12 +40,13 @@ import { partSizeFor } from "../upload-price.ts";
 import { measureLocal } from "../upload-price-node.ts";
 import { downloadForRefill, findOriginal, settleRefill } from "../refill-source.ts";
 import { describeUploadReview, type WalletUploadReads } from "../upload-wallet-plan.ts";
-import { walletPut, type WalletPutReview } from "../upload-wallet-put.ts";
+import { walletPut } from "../upload-wallet-put.ts";
 import type { BlobProtocol, UploadApi } from "../upload-wire.ts";
-import { coinAmount } from "../wallet.ts";
 import { recordWalletSpend, requireWalletGrant } from "../wallet-grant.ts";
+import type { ExternalPayer } from "../wallet-sign-external.ts";
 import type { SignBlobCertify, SignBlobRegister } from "../wallet-sign.ts";
 import { folderIdFor, type PutOptions } from "./put.ts";
+import { factsOf } from "./put-wallet-facts.ts";
 
 /** What paying from the wallet adds to an upload command. */
 export interface WalletPayOptions {
@@ -111,6 +112,8 @@ export interface WalletUploadContext {
   settings?: AccountSettings | undefined;
   /** Which of this key's wallets pays (`wallet-pay-index.ts`). Read from the same list as above. */
   wallet: number;
+  /** A wallet this key does not derive pays instead (`--sui-key-file` · L338); `wallet` is then unused. */
+  payer?: ExternalPayer | undefined;
   /**
    * Does this account ask its uploads to carry the recovery list's storage-network copy?
    *
@@ -130,6 +133,7 @@ export async function putWithWallet(target: string | undefined, options: PutWall
   if (from === undefined && (target === undefined || target === "")) {
     throw new NmtsError("Say which file to put.", { exitCode: 2, nextStep: `\`${BINARY_NAME} put <file> --pay wallet\`` });
   }
+  const payer = options.suiKeyFile === undefined ? undefined : (await import("../payer-key-file.ts")).keyFilePayer(options.suiKeyFile, options.wallet);
   const resolved = await requireAccountCode();
   const key = resolveApiKey();
   if (key === null) {
@@ -174,6 +178,7 @@ export async function putWithWallet(target: string | undefined, options: PutWall
     onCollision: asked,
     settings: list.manifest?.settings,
     wallet,
+    payer,
     networkCopy: options.json === true ? false : await readNetworkCopy(server, key.key),
     progress: new Progress(options.json === true ? silentSink() : stderrSink(), "uploading"),
     say,
@@ -265,6 +270,7 @@ export async function uploadOneWithWallet(
         partSize: ctx.partSize,
         rule: ctx.rule,
         onCollision: ctx.onCollision,
+        ...(ctx.payer === undefined ? {} : { payer: { address: ctx.payer.address } }),
       },
       { source: fileSource(file.localPath, file.size), name: file.name, parentId: file.parentId, destination: file.destination, thumbOf: file.thumbOf },
       {
@@ -272,7 +278,8 @@ export async function uploadOneWithWallet(
         storage: options.storage,
         dryRun: options.dryRun,
         readChain: options.readChain,
-        sign: options.sign,
+        // ⛔ THE KEY FILE'S WALLET SIGNS WHAT ITS ADDRESS WAS PRICED FOR (the SDK's `pay: { signer }` road).
+        sign: options.sign ?? (ctx.payer === undefined ? undefined : (await import("../wallet-sign-external.ts")).externalBlobSigners(ctx.payer)),
         protocol: options.protocol,
         api: options.api,
         onProgress: (sent, total) => ctx.progress.update(sent, total),
@@ -323,7 +330,8 @@ export async function uploadOneWithWallet(
   // ⛔ THE STANDING SHARE, AFTER THE PAYMENT AND NEVER INSIDE IT: a gift that fails must not fail
   //    the upload. A resumed run paid nothing now, so it owes nothing now. In --json the tip speaks
   //    on stderr — stdout carries the machine's one answer and nothing else.
-  await (await import("../standing-tip.ts")).standingTipAfter({
+  // ⛔ NOT WHEN A KEY FILE PAID: the gift would leave a wallet the person did not name for it.
+  if (ctx.payer === undefined) await (await import("../standing-tip.ts")).standingTipAfter({
     server: ctx.server,
     network: ctx.network,
     code: ctx.code,
@@ -352,33 +360,6 @@ export async function readNetworkCopy(server: string, apiKey: string): Promise<b
   } catch {
     return null;
   }
-}
-
-/** The review as `--json` prints it: base units as strings, with the coin amounts beside them. */
-function factsOf(review: WalletPutReview): Record<string, unknown> {
-  const { budget, storage } = review;
-  return {
-    bytes: review.bytes,
-    sealedBytes: review.sealedBytes,
-    parts: review.parts,
-    epochs: review.epochs,
-    days: review.days,
-    endEpoch: review.endEpoch,
-    paidFrom: "wallet",
-    priceFrost: budget.walNeededFrost.toString(),
-    priceWal: coinAmount(budget.walNeededFrost),
-    tipMist: review.tipMist.toString(),
-    tipSui: coinAmount(review.tipMist),
-    feeMist: budget.feeMist === null ? null : budget.feeMist.toString(),
-    feeSui: budget.feeMist === null ? null : coinAmount(budget.feeMist),
-    wallet: budget.address,
-    walletWal: budget.walFrost === null ? null : coinAmount(budget.walFrost),
-    walletSui: budget.suiMist === null ? null : coinAmount(budget.suiMist),
-    storage:
-      storage.kind === "buy"
-        ? { kind: "buy" }
-        : { kind: "reuse", objectId: storage.objectId, cutToBytes: storage.cutToBytes, leftoverBytes: storage.leftoverBytes },
-  };
 }
 
 /** Each step, for a person watching. The signatures are named as what they are. */

@@ -51,7 +51,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.53.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.54.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -256,6 +256,7 @@ interrupted upload: the retry costs nothing more.
 nmts put film.mov --pay wallet --dry-run            # the review: WAL price, tip, fee, balances, days. Signs nothing
 nmts put film.mov --pay wallet --epochs 6           # six of the storage network's epochs (default 2)
 nmts put film.mov --pay wallet --storage fit        # use a storage resource the wallet already holds, cut to size
+nmts put film.mov --pay wallet --sui-key-file ~/.sui/agent.key   # another Sui wallet you hold pays instead
 ```
 
 The file is planned into the same parts, the chain quotes each part in WAL
@@ -272,6 +273,11 @@ wallet holds. The server records the file as stored on the wallet's own storage,
 can extend it. A wallet-paid upload does not carry the recovery list's storage-network copy,
 whichever way the account's switch is set — today only the browser's small-file uploads do. `push
 --pay wallet` does the same one file at a time.
+
+With `--sui-key-file <file>`, `put` pays from another Sui wallet you hold instead of your NMTS key's
+wallet, and the review names that wallet. The file holds the wallet's `suiprivkey1…` line; a file other
+users can read is refused, and the key is never printed. It cannot be combined with `--wallet` or used
+with `push`.
 
 `push` uploads a directory and **stops at the first failure**, saying what is already uploaded.
 Files whose name is already in the destination are skipped, so running it again is safe. Names

@@ -7,6 +7,7 @@ import type { AccountSettings } from "../shared/lib/drive/manifest-settings.ts";
 import type { StandingTipInput } from "../standing-tip.ts";
 import { type WalletUploadReads } from "../upload-wallet-plan.ts";
 import type { BlobProtocol, UploadApi } from "../upload-wire.ts";
+import type { ExternalPayer } from "../wallet-sign-external.ts";
 import type { SignBlobCertify, SignBlobRegister } from "../wallet-sign.ts";
 import { type PutOptions } from "./put.ts";
 /** What paying from the wallet adds to an upload command. */
@@ -75,6 +76,8 @@ export interface WalletUploadContext {
     settings?: AccountSettings | undefined;
     /** Which of this key's wallets pays (`wallet-pay-index.ts`). Read from the same list as above. */
     wallet: number;
+    /** A wallet this key does not derive pays instead (`--sui-key-file` · L338); `wallet` is then unused. */
+    payer?: ExternalPayer | undefined;
     /**
      * Does this account ask its uploads to carry the recovery list's storage-network copy?
      *

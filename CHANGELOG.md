@@ -3,6 +3,13 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.54.0 — 2026-11-08
+
+- `put --pay wallet --sui-key-file <file>` pays for the upload from another Sui wallet you hold, read
+  from a key file, instead of from your NMTS key's wallet. The review names that wallet. A key file
+  other users can read is refused with a `chmod 600` hint, and the key is never printed. It cannot be
+  combined with `--wallet` or used with `push`.
+
 ## 0.53.0 — 2026-11-08
 
 - A command that fails for a reason other than how it was typed now ends its error with one line

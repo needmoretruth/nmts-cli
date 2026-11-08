@@ -79,6 +79,11 @@ export interface PutOptions extends HeavyFlags {
   from?: string | undefined;
   /** `--pay wallet`: which of this key's wallets pays, this run only. Absent = the account's own. */
   wallet?: string | undefined;
+  /**
+   * `--pay wallet --sui-key-file <file>`: a wallet this NMTS key does not derive pays, signed with
+   * the key in that file (`payer-key-file.ts` · L338). Not with `--wallet`: one payer per run.
+   */
+  suiKeyFile?: string | undefined;
   /** `--trust-server-tip-address`: let THIS SERVER name where the standing gift goes. Off unless
    *  typed, and only for a server the caller runs (`standing-tip.ts`). */
   trustServerTipAddress?: boolean;

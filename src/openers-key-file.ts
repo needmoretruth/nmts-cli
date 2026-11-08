@@ -18,13 +18,14 @@
 // ⚠ NODE ONLY, WHICH IS WHY IT IS NOT IN `openers/`. That folder is bundled into a page by the
 //   SDK's browser entry; a page's wallet is an extension, and this one is a file on a disk.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { Secp256k1Keypair } from "@mysten/sui/keypairs/secp256k1";
 import { Secp256r1Keypair } from "@mysten/sui/keypairs/secp256r1";
 import { decodeSuiPrivateKey, type Signer } from "@mysten/sui/cryptography";
 
+import { modesAreEnforced } from "./credentials.ts";
 import { NmtsError } from "./errors.ts";
 import type { SignWallet } from "./openers.ts";
 
@@ -42,7 +43,7 @@ export interface KeyFileWallet {
  * to a file with `echo` appends one and refusing it would be a puzzle with no clue.
  */
 export function walletFromKeyFile(path: string): KeyFileWallet {
-  const keypair = keypairFrom(readOneLine(path), path);
+  const keypair = signerFromKeyFile(path);
   return {
     address: keypair.toSuiAddress(),
     // ⛔ THE CLOSURE HOLDS THE KEYPAIR AND NOTHING HOLDS THE CLOSURE PAST THE RUN. What it answers
@@ -50,6 +51,31 @@ export function walletFromKeyFile(path: string): KeyFileWallet {
     //    that the layer above compares them against the message it built rather than trusting it.
     sign: async (message: Uint8Array) => keypair.signPersonalMessage(message),
   };
+}
+
+/**
+ * The keypair held in `path`, for a caller that signs more than a message — `put --pay wallet
+ * --sui-key-file` signs the upload's transactions with it (`payer-key-file.ts`).
+ */
+export function signerFromKeyFile(path: string): Signer {
+  return keypairFrom(readOneLine(path), path);
+}
+
+/**
+ * A key file other users of this machine can read is refused, as the credentials file is
+ * (`credentials.ts` `readCredentialsFile`).
+ *
+ * ⛔ CHECKED ONLY ONCE THE FILE IS KNOWN TO HOLD A KEY. A file that holds no key leaks nothing, and
+ *    telling somebody to tighten the permissions of the wrong file sends them the wrong way.
+ */
+function refuseOpenKeyFile(path: string): void {
+  if (!modesAreEnforced()) return;
+  const mode = statSync(path).mode & 0o777;
+  if ((mode & 0o077) === 0) return;
+  throw new NmtsError(`${path} can be read by other users of this machine (mode ${mode.toString(8)}).`, {
+    exitCode: 2,
+    nextStep: `Nothing was signed. Make it yours alone with \`chmod 600 ${path}\`, then run this again.`,
+  });
 }
 
 /** The first line with anything on it, or this tool's own refusal. */
@@ -74,6 +100,7 @@ function readOneLine(path: string): string {
       nextStep: "Nothing was signed. The file holds one line beginning `suiprivkey1`.",
     });
   }
+  refuseOpenKeyFile(path);
   return line;
 }
 

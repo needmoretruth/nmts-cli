@@ -28,6 +28,7 @@ export function refuseWalletOnlyOptions(options: {
   wallet?: string | undefined;
   trustServerTipAddress?: boolean;
   from?: string | undefined;
+  suiKeyFile?: string | undefined;
 }): void {
   if (options.wallet !== undefined) {
     throw new NmtsError("--wallet only applies with --pay wallet: credits are not held in a wallet.", {
@@ -45,6 +46,12 @@ export function refuseWalletOnlyOptions(options: {
     throw new NmtsError("--storage only applies with --pay wallet: credits buy storage from the treasury.", {
       exitCode: 2,
       nextStep: `Nothing was sent. Add --pay wallet to use a storage resource this wallet holds.`,
+    });
+  }
+  if (options.suiKeyFile !== undefined) {
+    throw new NmtsError("--sui-key-file only applies with --pay wallet: credits are not paid from a wallet.", {
+      exitCode: 2,
+      nextStep: `Nothing was sent. Add --pay wallet to pay this upload from the wallet in that file.`,
     });
   }
   if (options.from !== undefined) {

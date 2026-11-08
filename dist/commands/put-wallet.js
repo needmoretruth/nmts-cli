@@ -35,9 +35,9 @@ import { measureLocal } from "../upload-price-node.js";
 import { downloadForRefill, findOriginal, settleRefill } from "../refill-source.js";
 import { describeUploadReview } from "../upload-wallet-plan.js";
 import { walletPut } from "../upload-wallet-put.js";
-import { coinAmount } from "../wallet.js";
 import { recordWalletSpend, requireWalletGrant } from "../wallet-grant.js";
 import { folderIdFor } from "./put.js";
+import { factsOf } from "./put-wallet-facts.js";
 export async function putWithWallet(target, options) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const from = options.from;
@@ -45,6 +45,7 @@ export async function putWithWallet(target, options) {
     if (from === undefined && (target === undefined || target === "")) {
         throw new NmtsError("Say which file to put.", { exitCode: 2, nextStep: `\`${BINARY_NAME} put <file> --pay wallet\`` });
     }
+    const payer = options.suiKeyFile === undefined ? undefined : (await import("../payer-key-file.js")).keyFilePayer(options.suiKeyFile, options.wallet);
     const resolved = await requireAccountCode();
     const key = resolveApiKey();
     if (key === null) {
@@ -88,6 +89,7 @@ export async function putWithWallet(target, options) {
         onCollision: asked,
         settings: list.manifest?.settings,
         wallet,
+        payer,
         networkCopy: options.json === true ? false : await readNetworkCopy(server, key.key),
         progress: new Progress(options.json === true ? silentSink() : stderrSink(), "uploading"),
         say,
@@ -180,12 +182,14 @@ export async function uploadOneWithWallet(ctx, file, options) {
             partSize: ctx.partSize,
             rule: ctx.rule,
             onCollision: ctx.onCollision,
+            ...(ctx.payer === undefined ? {} : { payer: { address: ctx.payer.address } }),
         }, { source: fileSource(file.localPath, file.size), name: file.name, parentId: file.parentId, destination: file.destination, thumbOf: file.thumbOf }, {
             epochs: options.epochs,
             storage: options.storage,
             dryRun: options.dryRun,
             readChain: options.readChain,
-            sign: options.sign,
+            // ⛔ THE KEY FILE'S WALLET SIGNS WHAT ITS ADDRESS WAS PRICED FOR (the SDK's `pay: { signer }` road).
+            sign: options.sign ?? (ctx.payer === undefined ? undefined : (await import("../wallet-sign-external.js")).externalBlobSigners(ctx.payer)),
             protocol: options.protocol,
             api: options.api,
             onProgress: (sent, total) => ctx.progress.update(sent, total),
@@ -231,17 +235,19 @@ export async function uploadOneWithWallet(ctx, file, options) {
     // ⛔ THE STANDING SHARE, AFTER THE PAYMENT AND NEVER INSIDE IT: a gift that fails must not fail
     //    the upload. A resumed run paid nothing now, so it owes nothing now. In --json the tip speaks
     //    on stderr — stdout carries the machine's one answer and nothing else.
-    await (await import("../standing-tip.js")).standingTipAfter({
-        server: ctx.server,
-        network: ctx.network,
-        code: ctx.code,
-        settings: ctx.settings,
-        wallet: ctx.wallet,
-        paidWalFrost: outcome.resumed ? 0n : outcome.review.budget.walNeededFrost,
-        say: ctx.json ? (line) => void process.stderr.write(`${line}\n`) : say,
-        trustServerAddress: options.trustServerTipAddress === true,
-        ...(options.tip ?? {}),
-    });
+    // ⛔ NOT WHEN A KEY FILE PAID: the gift would leave a wallet the person did not name for it.
+    if (ctx.payer === undefined)
+        await (await import("../standing-tip.js")).standingTipAfter({
+            server: ctx.server,
+            network: ctx.network,
+            code: ctx.code,
+            settings: ctx.settings,
+            wallet: ctx.wallet,
+            paidWalFrost: outcome.resumed ? 0n : outcome.review.budget.walNeededFrost,
+            say: ctx.json ? (line) => void process.stderr.write(`${line}\n`) : say,
+            trustServerAddress: options.trustServerTipAddress === true,
+            ...(options.tip ?? {}),
+        });
     return { itemId: outcome.itemId, savedAs: outcome.savedAs, replaced: outcome.replaced, seq: outcome.fileListVersion, resumed: outcome.resumed, facts };
 }
 /**
@@ -260,31 +266,6 @@ export async function readNetworkCopy(server, apiKey) {
     catch {
         return null;
     }
-}
-/** The review as `--json` prints it: base units as strings, with the coin amounts beside them. */
-function factsOf(review) {
-    const { budget, storage } = review;
-    return {
-        bytes: review.bytes,
-        sealedBytes: review.sealedBytes,
-        parts: review.parts,
-        epochs: review.epochs,
-        days: review.days,
-        endEpoch: review.endEpoch,
-        paidFrom: "wallet",
-        priceFrost: budget.walNeededFrost.toString(),
-        priceWal: coinAmount(budget.walNeededFrost),
-        tipMist: review.tipMist.toString(),
-        tipSui: coinAmount(review.tipMist),
-        feeMist: budget.feeMist === null ? null : budget.feeMist.toString(),
-        feeSui: budget.feeMist === null ? null : coinAmount(budget.feeMist),
-        wallet: budget.address,
-        walletWal: budget.walFrost === null ? null : coinAmount(budget.walFrost),
-        walletSui: budget.suiMist === null ? null : coinAmount(budget.suiMist),
-        storage: storage.kind === "buy"
-            ? { kind: "buy" }
-            : { kind: "reuse", objectId: storage.objectId, cutToBytes: storage.cutToBytes, leftoverBytes: storage.leftoverBytes },
-    };
 }
 /** Each step, for a person watching. The signatures are named as what they are. */
 function tell(ctx, size, step) {

@@ -8,6 +8,7 @@ export declare function refuseWalletOnlyOptions(options: {
     wallet?: string | undefined;
     trustServerTipAddress?: boolean;
     from?: string | undefined;
+    suiKeyFile?: string | undefined;
 }): void;
 /** What NMTS Heavy adds to an upload command line: the tier, and the self-paid knobs. */
 export interface HeavyFlags {
