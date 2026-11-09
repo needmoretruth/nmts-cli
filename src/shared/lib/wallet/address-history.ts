@@ -53,17 +53,6 @@ export interface AddressHistory {
 /** Where history older than the node's window is read: the newest `limit` rows, newest first. */
 export type DeeperHistory = (address: string, limit: number, signal?: AbortSignal) => Promise<HistoryTransaction[]>;
 
-/**
- * Sui's public GraphQL service per network (Mysten Labs). Measured 2026-10-21: the `affectedAddress`
- * filter answered back to 2023 on both networks, in 0.2–0.9 s, with `access-control-allow-origin: *`.
- * It is the only public operator of it, so it is the second tier and never the only one: a failure
- * here leaves the answer `complete: false`, never "nothing there".
- */
-export const SUI_GRAPHQL_URLS: Readonly<Record<"mainnet" | "testnet", string>> = {
-  mainnet: "https://graphql.mainnet.sui.io/graphql",
-  testnet: "https://graphql.testnet.sui.io/graphql",
-};
-
 /** How many requests one question may take before it answers with what it has. */
 const MAX_REQUESTS = 8;
 
@@ -164,6 +153,8 @@ interface Recent {
   transactions: HistoryTransaction[];
   /** True only when the scan provably covered every checkpoint there is. */
   fromGenesis: boolean;
+  /** The node's own failure, when it gave nothing because it failed rather than because its window ended. */
+  failed?: unknown;
 }
 
 async function recentTransactions(
@@ -222,9 +213,15 @@ async function recentTransactions(
         transactions.push(...rows);
         break;
       } catch (e: unknown) {
-        if (!learnWindow(client, e)) throw e;
-        // ⛔ A window no start can hit (Suiscan's testnet replicas disagreed by more than its 54
-        //    checkpoints, 2026-11-07) leaves the node nothing to give, as when it stopped at its edge.
+        // A read the caller called off is called off; it is not a node failing.
+        if (signal?.aborted === true) throw e;
+        // ⛔ ANY OTHER REFUSAL LEAVES THE NODE'S PART UNREAD, AND THE DEEPER SOURCE IS ASKED (2026-11-09). This
+        //    used to throw on a refusal whose wording it did not know, so one changed sentence in a
+        //    node's reply emptied every wallet's activity again (as on 2026-11-05); a node with no connection
+        //    did the same. What the node could not give is what GraphQL is for. A window no start can
+        //    hit (Suiscan's testnet replicas disagreed by more than its 54 checkpoints, 2026-11-07)
+        //    ends the same way.
+        if (!learnWindow(client, e)) return { transactions, fromGenesis: false, failed: e };
         if (attempt >= MAX_WINDOW_RETRIES) return { transactions, fromGenesis: false };
       }
     }
@@ -273,11 +270,18 @@ export async function addressTransactions(
 ): Promise<AddressHistory> {
   const recent = await recentTransactions(client, address, limit, signal);
   if (recent.fromGenesis) return { transactions: recent.transactions, complete: true };
-  if (deeper === null) return { transactions: recent.transactions, complete: false };
+  // ⛔ A node that failed and gave nothing, with nobody else to answer, is "could not read", not a
+  //    partial list: the screen says it failed rather than "older history is missing" over no rows.
+  const unread = recent.failed !== undefined && recent.transactions.length === 0;
+  if (deeper === null) {
+    if (unread) throw recent.failed;
+    return { transactions: recent.transactions, complete: false };
+  }
   try {
     const older = await deeper(address, limit, signal);
     return { transactions: mergeNewestFirst(recent.transactions, older, limit), complete: true };
-  } catch {
+  } catch (e: unknown) {
+    if (unread) throw recent.failed ?? e;
     // The node's rows stand; the answer says plainly that it is not the whole history.
     return { transactions: recent.transactions, complete: false };
   }
@@ -299,102 +303,5 @@ export async function hasAddressHistory(
   return false;
 }
 
-// ── The deeper source: Sui's GraphQL service ─────────────────────────────────────────────────────
-
-/** JSON as protobuf's `fromJson` takes it — named through the SDK's own signature, not re-declared. */
-type Json = Parameters<typeof GrpcTypes.Transaction.fromJson>[0];
-type JsonObject = { [key: string]: Json };
-
-function asJson(value: unknown): Json | undefined {
-  if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    const out: Json[] = [];
-    for (const item of value) {
-      const json = asJson(item);
-      if (json === undefined) return undefined;
-      out.push(json);
-    }
-    return out;
-  }
-  if (typeof value === "object") {
-    const out: JsonObject = {};
-    for (const [key, item] of Object.entries(value)) {
-      const json = asJson(item);
-      if (json === undefined) return undefined;
-      out[key] = json;
-    }
-    return out;
-  }
-  return undefined;
-}
-
-const objectAt = (json: Json | undefined): JsonObject | undefined =>
-  json !== null && typeof json === "object" && !Array.isArray(json) ? json : undefined;
-
-const QUERY = `query ($address: SuiAddress!, $last: Int!) {
-  transactions(last: $last, filter: { affectedAddress: $address }) {
-    nodes { digest transactionJson effects { status timestamp checkpoint { sequenceNumber } balanceChangesJson } }
-  }
-}`;
-
-/** One GraphQL row as the gRPC message the shared parser reads. `undefined` when its shape is off. */
-function executedFromGraphql(node: JsonObject): GrpcTypes.ExecutedTransaction | undefined {
-  const effects = objectAt(node["effects"]);
-  const digest = node["digest"];
-  const transactionJson = objectAt(node["transactionJson"]);
-  const timestamp = effects?.["timestamp"];
-  const checkpoint = objectAt(effects?.["checkpoint"])?.["sequenceNumber"];
-  const changes = effects?.["balanceChangesJson"];
-  if (typeof digest !== "string" || transactionJson === undefined || effects === undefined) return undefined;
-  const ms = typeof timestamp === "string" ? Date.parse(timestamp) : Number.NaN;
-  const options = { ignoreUnknownFields: true };
-  return GrpcTypes.ExecutedTransaction.create({
-    digest,
-    transaction: GrpcTypes.Transaction.fromJson(transactionJson, options),
-    effects: GrpcTypes.TransactionEffects.create({ status: { success: effects["status"] === "SUCCESS" } }),
-    ...(Number.isFinite(ms) ? { timestamp: { seconds: BigInt(Math.floor(ms / 1000)), nanos: (ms % 1000) * 1_000_000 } } : {}),
-    ...(typeof checkpoint === "number" ? { checkpoint: BigInt(checkpoint) } : {}),
-    balanceChanges: Array.isArray(changes) ? changes.map((c) => GrpcTypes.BalanceChange.fromJson(c, options)) : [],
-  });
-}
-
-/**
- * The deeper source over Sui's GraphQL service at `url`.
- *
- * ⛔ Anything but a clean answer throws — an error list, a missing page, a row of the wrong shape.
- *    The caller turns that into `complete: false`; it never becomes an empty history.
- */
-export function graphqlHistory(
-  url: string,
-  fetchFn: (input: string, init: RequestInit) => Promise<Response> = (input, init) => fetch(input, init),
-): DeeperHistory {
-  return async (address, limit, signal) => {
-    const res = await fetchFn(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ query: QUERY, variables: { address, last: limit } }),
-      ...(signal === undefined ? {} : { signal }),
-    });
-    if (!res.ok) throw new Error(`The history service answered HTTP ${res.status}.`);
-    const body: unknown = await res.json();
-    const top = objectAt(asJson(body));
-    if (top === undefined || top["errors"] !== undefined) {
-      throw new Error("The history service answered with an error.");
-    }
-    const nodes = objectAt(objectAt(top["data"])?.["transactions"])?.["nodes"];
-    if (!Array.isArray(nodes)) throw new Error("The history service answered without a list.");
-    const rows: HistoryTransaction[] = [];
-    // `last: n` arrives oldest-first; the list here is newest-first.
-    for (const node of [...nodes].reverse()) {
-      const row = objectAt(node);
-      const executed = row === undefined ? undefined : executedFromGraphql(row);
-      if (executed === undefined) throw new Error("The history service answered a row this build cannot read.");
-      const parsed = parseGrpcTransactionResponse(executed, { include: { transaction: true, balanceChanges: true } });
-      const tx = parsed.Transaction ?? parsed.FailedTransaction;
-      if (tx !== undefined) rows.push(tx);
-    }
-    return rows;
-  };
-}
+// The deeper source (Sui's GraphQL services) lives in `graphql-history.ts`; both names stay importable here.
+export { graphqlHistory, SUI_GRAPHQL_URLS } from "./graphql-history.ts";

@@ -14,13 +14,6 @@ export interface AddressHistory {
 /** Where history older than the node's window is read: the newest `limit` rows, newest first. */
 export type DeeperHistory = (address: string, limit: number, signal?: AbortSignal) => Promise<HistoryTransaction[]>;
 /**
- * Sui's public GraphQL service per network (Mysten Labs). Measured 2026-10-21: the `affectedAddress`
- * filter answered back to 2023 on both networks, in 0.2–0.9 s, with `access-control-allow-origin: *`.
- * It is the only public operator of it, so it is the second tier and never the only one: a failure
- * here leaves the answer `complete: false`, never "nothing there".
- */
-export declare const SUI_GRAPHQL_URLS: Readonly<Record<"mainnet" | "testnet", string>>;
-/**
  * How far above a node's lowest checkpoint a read starts, at most. Mainnet seals about four
  * checkpoints a second, so 20,000 is over an hour of pruning before the start falls out of the window
  * again. A node whose whole window is shorter (Suiscan's testnet node held 54 checkpoints, about
@@ -53,10 +46,4 @@ export declare function addressTransactions(client: Pick<SuiGrpcClient, "ledgerS
  * tell" and "nothing is there" are opposite facts, and only the second may answer `false`.
  */
 export declare function hasAddressHistory(client: Pick<SuiGrpcClient, "ledgerService">, address: string, signal?: AbortSignal, deeper?: DeeperHistory | null): Promise<boolean>;
-/**
- * The deeper source over Sui's GraphQL service at `url`.
- *
- * ⛔ Anything but a clean answer throws — an error list, a missing page, a row of the wrong shape.
- *    The caller turns that into `complete: false`; it never becomes an empty history.
- */
-export declare function graphqlHistory(url: string, fetchFn?: (input: string, init: RequestInit) => Promise<Response>): DeeperHistory;
+export { graphqlHistory, SUI_GRAPHQL_URLS } from "./graphql-history.ts";

@@ -3,6 +3,13 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.54.1 — 2026-11-09
+
+- `nmts wallet activity` and `nmts wallet list` no longer stop with an error when a Sui node refuses
+  the history read with a message the tool has not seen before: any refusal or failure that leaves
+  history unread now moves the read to Sui GraphQL, which has a second operator (01NODE) when Mysten
+  Labs does not answer.
+
 ## 0.54.0 — 2026-11-08
 
 - `put --pay wallet --sui-key-file <file>` pays for the upload from another Sui wallet you hold, read
