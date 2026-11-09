@@ -15,6 +15,9 @@ export declare const AGGREGATOR_HOSTS: Readonly<Record<string, readonly string[]
  *    register transaction the server pays a tip in, so the bytes have to go to the SAME host the
  *    reservation was made for. That is why a write picks its host BEFORE the storage is bought and
  *    then never moves: failing over to a second relay would push bytes nobody paid that relay for.
+ *
+ * ⭐ THE SECOND ROAD IS NOT A ROW HERE (D50): NMTS's own no-tip relay on the NMTS server, chosen once
+ *    at the start of a run, before the price, only when this one does not answer (`upload-road.ts`).
  */
 export declare const RELAY_HOSTS: Readonly<Record<string, readonly string[]>>;
 /**

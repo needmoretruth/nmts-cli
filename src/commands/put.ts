@@ -16,6 +16,7 @@ import { basename, resolve } from "node:path";
 import { identityOf } from "../account.ts";
 import { requireAccountCode } from "../code-access.ts";
 import { API_KEY_ENV_VAR, CODE_ENV_VAR, readCredentialsFile, resolveApiKey } from "../credentials.ts";
+import { chooseUploadRoad, partSizeForRoad } from "../upload-road.ts";
 import { parseAsked } from "../collision.ts";
 import { depositDefaultOf, depositLines, parseDeposit, refuseDepositWithWallet } from "../deposit.ts";
 import { DERIVED, loadCrypto } from "../crypto.ts";
@@ -177,10 +178,13 @@ export async function put(target: string | undefined, options: PutOptions = {}):
 
   const localPath = resolve(target);
   const size = measureLocal(localPath);
-  const partSize = partSizeFor(options.partSize);
   const stored = readCredentialsFile();
   const server = resolveServer(options.server ?? stored?.server);
   const network = resolveNetwork(server, options.network ?? stored?.network);
+  // ⛔ THE ROAD BEFORE THE PRICE (D50): on NMTS's own relay the parts are 64 MiB, and the credits
+  //    quoted below are the credits of those parts.
+  await chooseUploadRoad({ network, server, apiKey: key.key });
+  const partSize = partSizeForRoad(partSizeFor(options.partSize));
   const identity = await identityOf(resolved.code);
 
   const crypt = await loadCrypto();

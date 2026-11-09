@@ -37,6 +37,7 @@ import type { StandingTipInput } from "../standing-tip.ts";
 import type { FileUploadStep } from "../upload-file.ts";
 import { fileSource } from "../upload-file-node.ts";
 import { partSizeFor } from "../upload-price.ts";
+import { chooseUploadRoad, partSizeForRoad } from "../upload-road.ts";
 import { measureLocal } from "../upload-price-node.ts";
 import { downloadForRefill, findOriginal, settleRefill } from "../refill-source.ts";
 import { describeUploadReview, type WalletUploadReads } from "../upload-wallet-plan.ts";
@@ -148,6 +149,9 @@ export async function putWithWallet(target: string | undefined, options: PutWall
   const stored = readCredentialsFile();
   const server = resolveServer(options.server ?? stored?.server);
   const network = resolveNetwork(server, options.network ?? stored?.network);
+  // ⛔ THE ROAD BEFORE THE PRICE (D50): on NMTS's own relay the parts are 64 MiB, and the credits
+  //    quoted below are the credits of those parts.
+  await chooseUploadRoad({ network, server, apiKey: key.key });
   const identity = await identityOf(resolved.code);
   const crypt = await loadCrypto();
   const asked = parseAsked(options.onCollision);
@@ -173,7 +177,7 @@ export async function putWithWallet(target: string | undefined, options: PutWall
     network,
     accountId: identity.accountId,
     crypt,
-    partSize: partSizeFor(options.partSize),
+    partSize: partSizeForRoad(partSizeFor(options.partSize)),
     rule,
     onCollision: asked,
     settings: list.manifest?.settings,

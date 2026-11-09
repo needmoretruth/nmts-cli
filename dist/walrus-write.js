@@ -17,7 +17,8 @@ import { epochStartedMs as readEpochStart } from "./shared/lib/extend/epochs.js"
 import { NmtsError } from "./errors.js";
 import { countingFetch } from "./progress.js";
 import { reachFetch } from "./reach.js";
-import { relayHost, storageNodesThrough } from "./walrus.js";
+import { isOwnRelay, relayFetch, uploadRelay } from "./upload-road.js";
+import { storageNodesThrough } from "./walrus.js";
 import { suiClient } from "./sui-rpc.js";
 /**
  * How long the relay gets for one blob PUT, sized to the body.
@@ -50,7 +51,8 @@ function extend(network, relayUrl, bodyBytes, onSent) {
         ...storageNodesThrough(),
         uploadRelay: {
             host: relayUrl,
-            sendTip: { max: TIP_CEILING_UNUSED_MIST },
+            // The own relay (D50) takes no tip, so it is not told which transaction paid one.
+            ...(isOwnRelay(relayUrl) ? {} : { sendTip: { max: TIP_CEILING_UNUSED_MIST } }),
             timeout: relayTimeoutMs(bodyBytes),
             // ⛔ THE ONLY WAY TO SEE AN UPLOAD MOVE. The SDK does not report progress, and the relay
             //    PUT is the one step of an upload that takes real time — a person watching a large
@@ -59,7 +61,7 @@ function extend(network, relayUrl, bodyBytes, onSent) {
             //
             // ⛔ AND EITHER WAY IT IS THE CALLER'S `fetch`: the counting wrapper goes through it too,
             //    so the request that carries the file cannot be the one that misses a proxy.
-            fetch: onSent ? countingFetch(onSent) : reachFetch,
+            fetch: relayFetch(relayUrl, onSent ? countingFetch(onSent) : reachFetch),
         },
     }));
 }
@@ -73,7 +75,7 @@ function fail(what, error) {
  * is the only phase of one that anything can report on.
  */
 export function createBlobProtocol(network, bodyBytes, onSent) {
-    const relayUrl = relayHost(network);
+    const relayUrl = uploadRelay(network);
     const client = extend(network, relayUrl, bodyBytes, onSent);
     return {
         relayUrl,

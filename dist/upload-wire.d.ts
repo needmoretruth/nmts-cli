@@ -62,11 +62,12 @@ export interface UploadApi {
          *    already been told, which is how a screen and a ledger come to disagree.
          */
         deposit_credits: number;
+        /** Null on NMTS's own relay, which takes no tip (D50). */
         relay: {
             host: string;
             blob_digest_b64: string;
             nonce_b64: string;
-        };
+        } | null;
     }): Promise<ReserveReply>;
     status(ledgerId: number): Promise<StatusReply>;
     uploaded(ledgerId: number, certificate: Certificate): Promise<unknown>;

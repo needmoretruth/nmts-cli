@@ -19,7 +19,8 @@ import { NmtsError } from "./errors.ts";
 import type { BlobMeta, BlobProtocol, Certificate } from "./upload-wire.ts";
 import { countingFetch } from "./progress.ts";
 import { reachFetch } from "./reach.ts";
-import { relayHost, storageNodesThrough } from "./walrus.ts";
+import { isOwnRelay, relayFetch, uploadRelay } from "./upload-road.ts";
+import { storageNodesThrough } from "./walrus.ts";
 import { suiClient } from "./sui-rpc.ts";
 
 /**
@@ -63,7 +64,8 @@ function extend(
       ...storageNodesThrough(),
       uploadRelay: {
         host: relayUrl,
-        sendTip: { max: TIP_CEILING_UNUSED_MIST },
+        // The own relay (D50) takes no tip, so it is not told which transaction paid one.
+        ...(isOwnRelay(relayUrl) ? {} : { sendTip: { max: TIP_CEILING_UNUSED_MIST } }),
         timeout: relayTimeoutMs(bodyBytes),
         // ⛔ THE ONLY WAY TO SEE AN UPLOAD MOVE. The SDK does not report progress, and the relay
         //    PUT is the one step of an upload that takes real time — a person watching a large
@@ -72,7 +74,7 @@ function extend(
         //
         // ⛔ AND EITHER WAY IT IS THE CALLER'S `fetch`: the counting wrapper goes through it too,
         //    so the request that carries the file cannot be the one that misses a proxy.
-        fetch: onSent ? countingFetch(onSent) : reachFetch,
+        fetch: relayFetch(relayUrl, onSent ? countingFetch(onSent) : reachFetch),
       },
     }),
   );
@@ -93,7 +95,7 @@ export function createBlobProtocol(
   bodyBytes: number,
   onSent?: (sent: number, total: number) => void,
 ): BlobProtocol & { relayUrl: string } {
-  const relayUrl = relayHost(network);
+  const relayUrl = uploadRelay(network);
   const client: Extended = extend(network, relayUrl, bodyBytes, onSent);
   return {
     relayUrl,

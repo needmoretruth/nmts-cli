@@ -31,6 +31,7 @@ import { stderrSink } from "../progress-node.js";
 import { resolveServer } from "../server.js";
 import { fileSource } from "../upload-file-node.js";
 import { partSizeFor } from "../upload-price.js";
+import { chooseUploadRoad, partSizeForRoad } from "../upload-road.js";
 import { measureLocal } from "../upload-price-node.js";
 import { downloadForRefill, findOriginal, settleRefill } from "../refill-source.js";
 import { describeUploadReview } from "../upload-wallet-plan.js";
@@ -60,6 +61,9 @@ export async function putWithWallet(target, options) {
     const stored = readCredentialsFile();
     const server = resolveServer(options.server ?? stored?.server);
     const network = resolveNetwork(server, options.network ?? stored?.network);
+    // ⛔ THE ROAD BEFORE THE PRICE (D50): on NMTS's own relay the parts are 64 MiB, and the credits
+    //    quoted below are the credits of those parts.
+    await chooseUploadRoad({ network, server, apiKey: key.key });
     const identity = await identityOf(resolved.code);
     const crypt = await loadCrypto();
     const asked = parseAsked(options.onCollision);
@@ -84,7 +88,7 @@ export async function putWithWallet(target, options) {
         network,
         accountId: identity.accountId,
         crypt,
-        partSize: partSizeFor(options.partSize),
+        partSize: partSizeForRoad(partSizeFor(options.partSize)),
         rule,
         onCollision: asked,
         settings: list.manifest?.settings,

@@ -32,6 +32,7 @@ import { fileSource } from "../upload-file-node.js";
 import { createUploadApi } from "../upload-api.js";
 import { clearItemRecord, clearReservation } from "../upload-store.js";
 import { CREDIT_BYTES, partSizeFor, planAndPrice, UPLOAD_EPOCHS } from "../upload-price.js";
+import { chooseUploadRoad, partSizeForRoad } from "../upload-road.js";
 import { createBlobProtocol, readCurrentEpoch } from "../walrus-write.js";
 import { ensureFolderPath } from "../drive-edit.js";
 import { payerOf, refuseWalletOnlyOptions } from "./put.js";
@@ -70,7 +71,10 @@ export async function push(target, options = {}) {
         return 0;
     }
     const session = await openSession({ server: options.server, network: options.network });
-    const partSize = partSizeFor(options.partSize);
+    // ⛔ THE ROAD BEFORE THE PRICE (D50): on NMTS's own relay the parts are 64 MiB, and the credits
+    //    quoted below are the credits of those parts.
+    await chooseUploadRoad({ network: session.network, server: session.server, apiKey: session.apiKey });
+    const partSize = partSizeForRoad(partSizeFor(options.partSize));
     // ⛔ READ BEFORE ANYTHING IS SEALED OR PAID FOR — a typo must not surface after the money.
     const asked = parseAsked(options.onCollision);
     const list = await readFileList(session.server, session.apiKey, session.code, session.accountId);

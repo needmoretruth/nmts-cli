@@ -35,6 +35,7 @@ import { reachFetch } from "./reach.ts";
 import { readOwnedStorage, readStorageType, type StorageResource } from "./shared/lib/storage-control/chain.ts";
 import { registerIntoStorage, splitStorageToFit } from "./shared/lib/storage-control/reuse.ts";
 import { dryRun, inspect, u64FromLe } from "./shared/lib/wallet/chain-calls.ts";
+import { isOwnRelay, relayFetch } from "./upload-road.ts";
 import { storageNodesThrough } from "./walrus.ts";
 import { freshWalrus } from "./walrus-fresh.ts";
 import type { Executed } from "./sui-execute.ts";
@@ -66,7 +67,12 @@ function build(network: Network, relayUrl: string) {
   return suiClient(network).$extend(
     walrus({
       ...storageNodesThrough(),
-      uploadRelay: { host: relayUrl, sendTip: { max: RELAY_TIP_CEILING_MIST[network] }, fetch: reachFetch },
+      uploadRelay: {
+        host: relayUrl,
+        // The own relay (D50) takes no tip: no tip is paid and none is announced.
+        ...(isOwnRelay(relayUrl) ? {} : { sendTip: { max: RELAY_TIP_CEILING_MIST[network] } }),
+        fetch: relayFetch(relayUrl, reachFetch),
+      },
     }),
   );
 }

@@ -38,6 +38,7 @@ import {
 } from "./upload-store.ts";
 import { refuseOtherSealing, runIdField } from "./upload-run.ts";
 import { pushPart } from "./upload-steps.ts";
+import { isOwnRelay } from "./upload-road.ts";
 import {
   UploadError,
   type BlobMeta,
@@ -232,11 +233,10 @@ export async function buyAndPushPart(input: UploadInput): Promise<PaidPart> {
       size: sealed.length,
       epochs: input.epochs,
       deposit_credits: input.depositCredits,
-      relay: {
-        host: input.relayUrl,
-        blob_digest_b64: toBase64Url(meta.blobDigest),
-        nonce_b64: nonceB64,
-      },
+      // The own relay (D50) takes no tip, so the treasury registers without one.
+      relay: isOwnRelay(input.relayUrl)
+        ? null
+        : { host: input.relayUrl, blob_digest_b64: toBase64Url(meta.blobDigest), nonce_b64: nonceB64 },
     });
   } catch (error) {
     throw new UploadError({

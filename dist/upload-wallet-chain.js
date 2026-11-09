@@ -26,6 +26,7 @@ import { reachFetch } from "./reach.js";
 import { readOwnedStorage, readStorageType } from "./shared/lib/storage-control/chain.js";
 import { registerIntoStorage, splitStorageToFit } from "./shared/lib/storage-control/reuse.js";
 import { dryRun, inspect, u64FromLe } from "./shared/lib/wallet/chain-calls.js";
+import { isOwnRelay, relayFetch } from "./upload-road.js";
 import { storageNodesThrough } from "./walrus.js";
 import { freshWalrus } from "./walrus-fresh.js";
 import { suiClient } from "./sui-rpc.js";
@@ -50,7 +51,12 @@ export function packageConfig(network) {
 function build(network, relayUrl) {
     return suiClient(network).$extend(walrus({
         ...storageNodesThrough(),
-        uploadRelay: { host: relayUrl, sendTip: { max: RELAY_TIP_CEILING_MIST[network] }, fetch: reachFetch },
+        uploadRelay: {
+            host: relayUrl,
+            // The own relay (D50) takes no tip: no tip is paid and none is announced.
+            ...(isOwnRelay(relayUrl) ? {} : { sendTip: { max: RELAY_TIP_CEILING_MIST[network] } }),
+            fetch: relayFetch(relayUrl, reachFetch),
+        },
     }));
 }
 /** A Walrus client bound to ONE relay, able to pay that relay's tip. */

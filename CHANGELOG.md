@@ -3,6 +3,14 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.54.2 — 2026-11-09
+
+- When Mysten Labs' upload relay does not answer, uploads (`put`, `push`) now go through NMTS's own
+  relay on the NMTS server instead of failing. On that road a file is sent in parts of at most
+  64 MiB, one at a time. Each part carries Walrus's fixed cost per blob, so a large file costs up to
+  about 20% more, and the price the review shows already counts those parts. While the relay carries
+  another upload, the next one waits and then goes.
+
 ## 0.54.1 — 2026-11-09
 
 - `nmts wallet activity` and `nmts wallet list` no longer stop with an error when a Sui node refuses
