@@ -3,6 +3,18 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.55.0 — 2026-11-10
+
+- Uploads (`put`, `push`) keep working when every company's upload relay is down. The order is now
+  Mysten Labs' relay, then Studio Mirai's relay, then the Walrus storage nodes straight from this
+  machine, and NMTS's own relay last. On the direct road the tool encodes the file itself and sends
+  about five times its size, with no relay fee; it stops once the storage nodes holding enough of
+  the network's shards have confirmed, which is the rule the chain checks.
+- Uploads paid with credits can now go through Studio Mirai's relay too, but only while its fee for
+  that upload is at most three times Mysten Labs' fee; above that the upload goes to the storage nodes.
+- `get` and the other downloads read the file from the storage nodes when no aggregator answers.
+- Sui reads fall back to 01NODE and then PublicNode after Suiscan and Mysten Labs.
+
 ## 0.54.2 — 2026-11-09
 
 - When Mysten Labs' upload relay does not answer, uploads (`put`, `push`) now go through NMTS's own

@@ -26,7 +26,7 @@ import { reachFetch } from "./reach.js";
 import { readOwnedStorage, readStorageType } from "./shared/lib/storage-control/chain.js";
 import { registerIntoStorage, splitStorageToFit } from "./shared/lib/storage-control/reuse.js";
 import { dryRun, inspect, u64FromLe } from "./shared/lib/wallet/chain-calls.js";
-import { isOwnRelay, relayFetch } from "./upload-road.js";
+import { isNodeRoad, isOwnRelay, ownRelayFallback, relayFetch } from "./upload-road.js";
 import { storageNodesThrough } from "./walrus.js";
 import { freshWalrus } from "./walrus-fresh.js";
 import { suiClient } from "./sui-rpc.js";
@@ -40,15 +40,22 @@ import { chainReader } from "./wallet-chain.js";
  *   tip configuration sets the amount, which the review prints — and a relay asking for more than
  *   this is refused by the SDK before anything is signed.
  */
+//   ⛔ Raised in D51 (2026-11-10) with the browser's, for Studio Mirai's relay: 3,000,000 MIST plus 60
+//   per encoded KiB, about 0.022 SUI for a 64 MiB part and 0.289 SUI for a 1 GiB one.
 export const RELAY_TIP_CEILING_MIST = {
-    testnet: 100_000,
-    mainnet: 250_000_000,
+    testnet: 50_000_000,
+    mainnet: 400_000_000,
 };
 /** The Walrus package addresses of one network. Exported from the SDK; the system object survives upgrades. */
 export function packageConfig(network) {
     return network === "mainnet" ? MAINNET_WALRUS_PACKAGE_CONFIG : TESTNET_WALRUS_PACKAGE_CONFIG;
 }
-function build(network, relayUrl) {
+function build(network, given) {
+    // The direct road (D51) has no relay to tip; the client is the own relay's (no tip either), which
+    // also carries a part the nodes did not take. Without that fallback, a relay-free client.
+    const relayUrl = isNodeRoad(given) ? (ownRelayFallback() ?? given) : given;
+    if (isNodeRoad(relayUrl))
+        return suiClient(network).$extend(walrus({ ...storageNodesThrough() }));
     return suiClient(network).$extend(walrus({
         ...storageNodesThrough(),
         uploadRelay: {

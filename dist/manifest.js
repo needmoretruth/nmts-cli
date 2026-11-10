@@ -225,6 +225,9 @@ export async function readFileList(base, apiKey, accountCode, accountId) {
                     "account sealed. Nothing was changed.",
             });
         }
+        // ⛔ The index is packed with zstd whenever the writer had the codec, and this is the first read
+        //    in a fresh process: the codec registers here, before the index, not only in `openChunks`.
+        await host().zstd.register();
         const doc = await decodeFileList(body);
         body.fill(0);
         const io = { server: base, apiKey, accountId, crypt, key };

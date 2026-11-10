@@ -225,6 +225,7 @@ async function push(
       nonce: fromBase64Url(record.nonceB64),
       registerTxDigest,
       blobObjectId,
+      relayUrl: record.relayUrl,
     });
   } catch (error) {
     throw new UploadError({

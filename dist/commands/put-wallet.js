@@ -63,7 +63,7 @@ export async function putWithWallet(target, options) {
     const network = resolveNetwork(server, options.network ?? stored?.network);
     // ⛔ THE ROAD BEFORE THE PRICE (D50): on NMTS's own relay the parts are 64 MiB, and the credits
     //    quoted below are the credits of those parts.
-    await chooseUploadRoad({ network, server, apiKey: key.key });
+    await chooseUploadRoad({ network, server, apiKey: key.key, otherCompanies: true });
     const identity = await identityOf(resolved.code);
     const crypt = await loadCrypto();
     const asked = parseAsked(options.onCollision);

@@ -32,7 +32,7 @@ import { ServerError } from "./api.js";
 import { readReservationBytes, readReservationRecord, writeReservation, } from "./upload-store.js";
 import { refuseOtherSealing, runIdField } from "./upload-run.js";
 import { pushPart } from "./upload-steps.js";
-import { isOwnRelay } from "./upload-road.js";
+import { isTipFree } from "./upload-road.js";
 import { UploadError, } from "./upload-wire.js";
 export * from "./upload-wire.js";
 /** A reservation state that can still become storage. Anything else is dead. */
@@ -202,8 +202,8 @@ export async function buyAndPushPart(input) {
             size: sealed.length,
             epochs: input.epochs,
             deposit_credits: input.depositCredits,
-            // The own relay (D50) takes no tip, so the treasury registers without one.
-            relay: isOwnRelay(input.relayUrl)
+            // The own relay (D50) and the storage nodes (D51) take no tip, so the treasury registers without one.
+            relay: isTipFree(input.relayUrl)
                 ? null
                 : { host: input.relayUrl, blob_digest_b64: toBase64Url(meta.blobDigest), nonce_b64: nonceB64 },
         });

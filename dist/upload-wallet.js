@@ -171,6 +171,7 @@ async function push(input, record, registerTxDigest, blobObjectId, sealed) {
             nonce: fromBase64Url(record.nonceB64),
             registerTxDigest,
             blobObjectId,
+            relayUrl: record.relayUrl,
         });
     }
     catch (error) {

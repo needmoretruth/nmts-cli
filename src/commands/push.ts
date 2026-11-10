@@ -112,7 +112,7 @@ export async function push(target: string | undefined, options: PushOptions = {}
   const session = await openSession({ server: options.server, network: options.network });
   // ⛔ THE ROAD BEFORE THE PRICE (D50): on NMTS's own relay the parts are 64 MiB, and the credits
   //    quoted below are the credits of those parts.
-  await chooseUploadRoad({ network: session.network, server: session.server, apiKey: session.apiKey });
+  await chooseUploadRoad({ network: session.network, server: session.server, apiKey: session.apiKey, credit: true });
   const partSize = partSizeForRoad(partSizeFor(options.partSize));
   // ⛔ READ BEFORE ANYTHING IS SEALED OR PAID FOR — a typo must not surface after the money.
   const asked = parseAsked(options.onCollision);

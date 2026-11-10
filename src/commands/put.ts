@@ -183,7 +183,7 @@ export async function put(target: string | undefined, options: PutOptions = {}):
   const network = resolveNetwork(server, options.network ?? stored?.network);
   // ⛔ THE ROAD BEFORE THE PRICE (D50): on NMTS's own relay the parts are 64 MiB, and the credits
   //    quoted below are the credits of those parts.
-  await chooseUploadRoad({ network, server, apiKey: key.key });
+  await chooseUploadRoad({ network, server, apiKey: key.key, credit: true });
   const partSize = partSizeForRoad(partSizeFor(options.partSize));
   const identity = await identityOf(resolved.code);
 

@@ -36,6 +36,11 @@ export interface BlobProtocol {
     nonce: Uint8Array;
     registerTxDigest: string;
     blobObjectId: string;
+    /**
+     * The road the registration was made for, from the record (D51). A part registered with no tip
+     * for the storage nodes must not go to a relay that checks for one on a resume.
+     */
+    relayUrl?: string;
   }): Promise<Certificate>;
 }
 

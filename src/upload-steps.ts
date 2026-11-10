@@ -51,6 +51,7 @@ export async function pushPart(
       nonce: step.nonce,
       registerTxDigest: step.registerTxDigest,
       blobObjectId: step.blobObjectId,
+      relayUrl: step.relayUrl,
     });
   } catch (error) {
     throw new UploadError({

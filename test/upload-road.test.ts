@@ -1,6 +1,10 @@
 // The second upload road (D50): with Mysten Labs' relay blocked, an upload from this tool goes
 // through NMTS's own relay, on a fake one here, and with Mysten answering it never does.
 //
+// ⚠ SINCE D51 THE STORAGE NODES COME BEFORE THE OWN RELAY (owner 11-09). These cases are a machine
+//   that cannot write to the nodes itself (`nodeRoad: false`), which is when the own relay is chosen
+//   at the start; `node-road.test.ts` holds the order.
+//
 // ⛔ IT DRIVES THE SDK'S OWN RELAY CLIENT. The protocol below is the one `put` and `push` use; only
 //    the network under it is faked, so the request that reaches the fake relay is the request the
 //    real one would get: its address, its credential, and no tip announced.
@@ -26,7 +30,7 @@ const blocked: typeof fetch = async (input) => {
 
 test("Mysten's relay blocked: the run takes the own relay, with 64 MiB parts, before any price", async (t) => {
   t.after(resetUploadRoad);
-  assert.equal(await chooseUploadRoad({ network: "mainnet", server: `${SERVER}/`, apiKey: "key-1", probe: blocked }), true);
+  assert.equal(await chooseUploadRoad({ network: "mainnet", server: `${SERVER}/`, apiKey: "key-1", probe: blocked, nodeRoad: false }), true);
   assert.equal(uploadRelay("mainnet"), `${SERVER}/v1/relay`);
   assert.equal(partSizeForRoad(GiB), OWN_RELAY_PART_BYTES);
   assert.equal(partSizeForRoad(16 * 2 ** 20), 16 * 2 ** 20);
@@ -63,7 +67,7 @@ test("the bytes reach the own relay with the account's key, wait out a busy rela
     resetUploadRoad();
   });
 
-  assert.equal(await chooseUploadRoad({ network: "mainnet", server: SERVER, apiKey: "key-1" }), true);
+  assert.equal(await chooseUploadRoad({ network: "mainnet", server: SERVER, apiKey: "key-1", nodeRoad: false }), true);
   const protocol = createBlobProtocol("mainnet", 10);
   assert.equal(protocol.relayUrl, `${SERVER}/v1/relay`);
   const certificate = await protocol.uploadToRelay({

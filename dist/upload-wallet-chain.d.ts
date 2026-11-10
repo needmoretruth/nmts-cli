@@ -16,7 +16,7 @@ export declare const RELAY_TIP_CEILING_MIST: Readonly<Record<Network, number>>;
 export declare function packageConfig(network: Network): {
     systemObjectId: string;
 };
-declare function build(network: Network, relayUrl: string): import("@mysten/sui/client").ClientWithExtensions<{
+declare function build(network: Network, given: string): import("@mysten/sui/client").ClientWithExtensions<{
     walrus: import("@mysten/walrus").WalrusClient;
 }, import("@mysten/sui/grpc").SuiGrpcClient>;
 export type PayingClient = ReturnType<typeof build>;

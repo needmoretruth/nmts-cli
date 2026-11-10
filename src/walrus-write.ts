@@ -19,9 +19,11 @@ import { NmtsError } from "./errors.ts";
 import type { BlobMeta, BlobProtocol, Certificate } from "./upload-wire.ts";
 import { countingFetch } from "./progress.ts";
 import { reachFetch } from "./reach.ts";
-import { isOwnRelay, relayFetch, uploadRelay } from "./upload-road.ts";
+import { isNodeRoad, isOwnRelay, ownRelayFallback, relayFetch, uploadRelay } from "./upload-road.ts";
 import { storageNodesThrough } from "./walrus.ts";
 import { suiClient } from "./sui-rpc.ts";
+import { stopAtQuorum } from "./shared/lib/walrus/node-quorum.ts";
+import { certifyByShardWeight } from "./shared/lib/walrus/node-certificate.ts";
 
 /**
  * How long the relay gets for one blob PUT, sized to the body.
@@ -49,6 +51,33 @@ export function relayTimeoutMs(bodyBytes: number): number {
 const TIP_CEILING_UNUSED_MIST = 1;
 
 type Extended = ReturnType<typeof extend>;
+
+/** What the storage nodes receive for one blob, about five times the blob (the erasure code). */
+const NODE_WRITE_EXPANSION = 5;
+
+/**
+ * A client with no relay, writing to the storage nodes itself (D51). Progress is the bodies the
+ * nodes accepted, counted in the blob's own bytes, and it stops just short of the end until the
+ * certificate is in.
+ */
+function direct(network: string, bodyBytes: number, onSent?: (sent: number, total: number) => void) {
+  let sent = 0;
+  const counted: typeof fetch = async (input, init) => {
+    const res = await reachFetch(input, init);
+    const body = init?.body;
+    if (onSent && res.ok && body instanceof Uint8Array) {
+      sent += body.length;
+      onSent(Math.min(Math.floor(sent / NODE_WRITE_EXPANSION), Math.floor(bodyBytes * 0.99)), bodyBytes);
+    }
+    return res;
+  };
+  // The SDK would wait for every node; `stopAtQuorum` stops a little after a quorum confirmed (D51).
+  const client = suiClient(network === "mainnet" ? "mainnet" : "testnet").$extend(
+    walrus({ storageNodeClientOptions: { fetch: counted, timeout: relayTimeoutMs(bodyBytes) } }),
+  );
+  certifyByShardWeight(stopAtQuorum(client.walrus));
+  return client;
+}
 
 function extend(
   network: string,
@@ -96,7 +125,9 @@ export function createBlobProtocol(
   onSent?: (sent: number, total: number) => void,
 ): BlobProtocol & { relayUrl: string } {
   const relayUrl = uploadRelay(network);
-  const client: Extended = extend(network, relayUrl, bodyBytes, onSent);
+  // On the direct road this relay-shaped client computes the id, and carries a part to the own
+  // relay when the nodes did not take it; the bytes go to the nodes first.
+  const client: Extended = extend(network, isNodeRoad(relayUrl) ? (ownRelayFallback() ?? relayUrl) : relayUrl, bodyBytes, onSent);
   return {
     relayUrl,
     async computeMetadata({ bytes, nonce }): Promise<BlobMeta> {
@@ -121,7 +152,15 @@ export function createBlobProtocol(
         blobDigest: await meta.blobDigest(),
       };
     },
-    async uploadToRelay({ blobId, bytes, nonce, registerTxDigest, blobObjectId }): Promise<Certificate> {
+    async uploadToRelay({ blobId, bytes, nonce, registerTxDigest, blobObjectId, relayUrl: registeredFor }): Promise<Certificate> {
+      if (isNodeRoad(registeredFor ?? relayUrl)) {
+        try {
+          return await writeToNodes(direct(network, bodyBytes, onSent), blobId, bytes, blobObjectId);
+        } catch (nodeError) {
+          // The registration is road-free (no tip on either), so the same part can go to the own relay.
+          if (ownRelayFallback() === null || !isNodeRoad(relayUrl)) fail("The storage nodes did not take the bytes", nodeError);
+        }
+      }
       const { certificate } = await client.walrus
         .writeBlobToUploadRelay({
           blobId,
@@ -140,6 +179,39 @@ export function createBlobProtocol(
         signature_b64: toBase64Url(certificate.signature),
       };
     },
+  };
+}
+
+/**
+ * Write one registered blob to the storage nodes and gather their signatures into the certificate
+ * the certify step needs: the same shape a relay hands back.
+ */
+async function writeToNodes(
+  client: ReturnType<typeof direct>,
+  blobId: string,
+  bytes: Uint8Array,
+  blobObjectId: string,
+): Promise<Certificate> {
+  const encoded = await client.walrus.encodeBlob(bytes);
+  // The id was computed and registered before; bytes that encode to another id would be refused.
+  if (encoded.blobId !== blobId) throw new Error(`the bytes encode to ${encoded.blobId}, not the registered ${blobId}`);
+  const confirmations = await client.walrus.writeEncodedBlobToNodes({
+    blobId,
+    objectId: blobObjectId,
+    metadata: encoded.metadata,
+    sliversByNode: encoded.sliversByNode,
+    deletable: true,
+  });
+  const certificate = await client.walrus.certificateFromConfirmations({
+    confirmations,
+    blobId,
+    blobObjectId,
+    deletable: true,
+  });
+  return {
+    signers: certificate.signers,
+    serialized_message_b64: toBase64Url(certificate.serializedMessage),
+    signature_b64: toBase64Url(certificate.signature),
   };
 }
 

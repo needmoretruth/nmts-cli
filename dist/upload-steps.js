@@ -28,6 +28,7 @@ export async function pushPart(input, step) {
             nonce: step.nonce,
             registerTxDigest: step.registerTxDigest,
             blobObjectId: step.blobObjectId,
+            relayUrl: step.relayUrl,
         });
     }
     catch (error) {
