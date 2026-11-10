@@ -50,8 +50,9 @@ export async function recoveryList(options: RecoveryListOptions = {}): Promise<n
   if (options.force !== true && existsSync(destination)) throw alreadyThere(destination);
   try {
     // ⛔ 0600. These bytes are one account's whole storage index, sealed — and a mode is cheaper to
-    //    get right than an explanation of why it did not matter.
-    writeFileSync(destination, file.content, {
+    //    get right than an explanation of why it did not matter. The library's own bytes, so an
+    //    app on the SDK and this command hand out the same file (spec 2026-09-20 unit B).
+    writeFileSync(destination, file.bytes, {
       flag: options.force === true ? "w" : "wx",
       mode: 0o600,
     });

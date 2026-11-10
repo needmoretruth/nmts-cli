@@ -92,14 +92,16 @@ export interface WalletPutSeams {
     agree?: ((review: WalletPutReview) => void) | undefined;
     /** Told what left the wallet, after each signature. */
     onSpend?: ((spend: Spend) => void) | undefined;
+    /** Told why the recovery list did not ride along, when it was switched on and did not. */
+    onRecoveryProblem?: ((message: string) => void) | undefined;
 }
 /** What this upload would buy, in the order somebody deciding needs it. Base units throughout. */
 export interface WalletPutReview {
     name: string;
-    /** Plaintext bytes. */
     bytes: number;
-    /** Bytes the storage network holds, padding and sealing included. */
+    /** Bytes the storage network holds, sealing and padding included — the quilt, when the list rides. */
     sealedBytes: number;
+    carriesRecoveryList: boolean;
     parts: number;
     epochs: number;
     /** The term in days, read from the network's own clock. */
@@ -131,6 +133,8 @@ export type WalletPutOutcome = {
     fileListVersion: number;
     /** True when every part was already signed for by an earlier run: this call spent nothing. */
     resumed: boolean;
+    /** The number of the recovery list that rode in this upload's quilt; null when none did. */
+    recoveryList: number | null;
 };
 /**
  * Price, agree, sign, upload and record ONE file, paid from the wallet the NMTS key derives.

@@ -1,43 +1,51 @@
 // Which recovery list this machine wrote last, so the next one gets a higher number.
 //
-// ⛔ WHY IT IS REMEMBERED HERE AND NOT ASKED FOR. The account's recorded sequence is reported by
-//    `GET /v1/account`, and that route is closed to an API key outright (`Reach::Never`) — it is
-//    the door that also deletes the account. So a tool holding a key cannot read the number it has
-//    to beat, and the only honest alternatives are to remember its own or to guess. It remembers.
+// ⛔ WHY IT IS STILL REMEMBERED HERE. The account's recorded number is said by
+//    `GET /v1/account/recovery-network-copy` (spec 2026-09-20 unit B), and `recovery.ts` asks it
+//    first. A server older than that door answers 404 or 405, and a record the server refused or
+//    never received still has to push the next number past it. So the two are put together: the
+//    next list carries the higher of the two, plus one.
 //
-// ⛔ WHAT THAT COSTS, SAID PLAINLY. A list written from a browser, or from another machine, moves
-//    the server's number without moving this one. The next run here then offers a number the
-//    server has already passed, the server refuses it — that is what its `seq` guard is for — and
-//    the refusal is reported rather than worked around. The attempt is recorded either way, so a
-//    second run offers a higher number and the two converge instead of looping.
+// ⛔ WHAT A MISSING SERVER NUMBER COSTS, SAID PLAINLY. A list written from a browser moves the
+//    server's number without moving this one. Against an older server the next run here then
+//    offers a number the server has already passed, the server refuses it — that is what its `seq`
+//    guard is for — and the refusal is reported rather than worked around. The attempt is recorded
+//    either way, so a second run offers a higher number and the two converge instead of looping.
+//
+// ⛔ IT GOES THROUGH THE HOST'S STATE, so the same counter runs in a page. On Node a key without a
+//    slash is one file directly under the config directory — the same `recovery-seq-<id>.json`,
+//    with the same text, that this module wrote with `node:fs` before (`host-node.ts::placeOf`).
 //
 // ⛔ IT IS NOT A SECRET AND IT IS STILL WRITTEN 0600. It holds an account id and a counter. The
 //    mode matches every other file this tool keeps beside it: one mode is easier to keep right
 //    than two.
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { configDir } from "./credentials.js";
+import { fromUtf8, utf8 } from "./bytes.js";
 import { NmtsError } from "./errors.js";
 import { isRecord } from "./guards.js";
+import { host } from "./host.js";
 /**
- * Where one account's counter lives.
+ * The state key one account's counter lives under.
  *
- * ⛔ AN ACCOUNT ID BECOMES PART OF A PATH HERE, so it is CHECKED rather than trusted. Every id this
- *    tool has comes from its own derivation and is base64url, but a value that reaches a path join
+ * ⛔ AN ACCOUNT ID BECOMES PART OF A FILE NAME HERE, so it is CHECKED rather than trusted. Every id
+ *    this tool has comes from its own derivation and is base64url, but a value that reaches a path
  *    unchecked is how `..` becomes a write somewhere else, and the check costs one line.
  */
-function seqPath(accountId) {
+function seqKey(accountId) {
     if (!/^[A-Za-z0-9_-]{1,64}$/.test(accountId)) {
         throw new NmtsError("That is not an account id this tool derived.", {
             nextStep: "Nothing was written. This is a fault in the tool rather than in the account.",
         });
     }
-    return join(configDir(), `recovery-seq-${accountId}.json`);
+    return `recovery-seq-${accountId}.json`;
 }
 /** The highest sequence this machine has offered for an account, or 0 when it has offered none. */
-export function lastOfferedSeq(accountId) {
+export async function lastOfferedSeq(accountId) {
+    const key = seqKey(accountId);
     try {
-        const parsed = JSON.parse(readFileSync(seqPath(accountId), "utf8"));
+        const bytes = await host().state.read(key);
+        if (bytes === undefined)
+            return 0;
+        const parsed = JSON.parse(fromUtf8(bytes));
         if (!isRecord(parsed))
             return 0;
         const seq = parsed["seq"];
@@ -55,9 +63,8 @@ export function lastOfferedSeq(accountId) {
  *    refused number the number the next run offers again, and every run after it: the same
  *    refusal for ever. Recording the attempt is what makes a second run get past it.
  */
-export function rememberOfferedSeq(accountId, seq) {
-    if (seq <= lastOfferedSeq(accountId))
+export async function rememberOfferedSeq(accountId, seq) {
+    if (seq <= (await lastOfferedSeq(accountId)))
         return;
-    mkdirSync(configDir(), { recursive: true, mode: 0o700 });
-    writeFileSync(seqPath(accountId), `${JSON.stringify({ seq }, null, 2)}\n`, { mode: 0o600 });
+    await host().state.write(seqKey(accountId), utf8(`${JSON.stringify({ seq }, null, 2)}\n`));
 }

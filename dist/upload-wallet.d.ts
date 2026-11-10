@@ -25,7 +25,10 @@ export interface WalletRailContext {
     epochs: number;
     /** Where the storage comes from. A held resource serves one blob, so it applies to a one-part file. */
     storage: StorageChoice;
-    /** What each part was quoted, in part order — what the grant ledger is told after each signature. */
+    /**
+     * What was quoted, by sealed length — what the grant ledger is told after each signature. Bytes of
+     * a length not here are refused before anything is signed.
+     */
     quotes: readonly PartQuote[];
     /** The measured register fee, added to the ledger with the tip; null adds the tip alone. */
     feeMist: bigint | null;

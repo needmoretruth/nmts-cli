@@ -157,6 +157,18 @@ export function createBlobProtocol(network, bodyBytes, onSent) {
                 signature_b64: toBase64Url(certificate.signature),
             };
         },
+        async encodeQuilt(blobs) {
+            // ⛔ THE SDK'S OWN LAYOUT, the one the browser's `writeFilesFlow` uses — patches sorted by
+            //    identifier, the shard count read from the chain — so an aggregator reads a patch of this
+            //    quilt by name exactly as it reads one the browser wrote (spec 2026-09-20 unit B).
+            const { quilt, index } = await client.walrus
+                .encodeQuilt({ blobs: blobs.map((b) => ({ contents: b.contents, identifier: b.identifier })) })
+                .catch((error) => fail("The storage network's encoder could not build the quilt", error));
+            return {
+                quilt,
+                patches: index.patches.map((p) => ({ identifier: p.identifier, startIndex: p.startIndex, endIndex: p.endIndex })),
+            };
+        },
     };
 }
 /**

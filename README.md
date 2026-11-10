@@ -51,7 +51,7 @@ default branch, from a pinned version, or from the tarball attached to the
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.55.0    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.56.0    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -395,6 +395,14 @@ holds a kit holds the account. `recovery` downloads the standalone recovery prog
 machine, checks it against the release's checksum file before making it runnable, and never puts
 anything on your PATH. `rebuild` reconstructs a file list from the server's rows for an account
 that has lost its own: keys, hashes, dates and sizes come back; names and folders do not.
+
+With the account's storage copy of the recovery list switched on (in the web app, or with the
+SDK's `setRecoveryCopy(true)`), `put --pay wallet` of a one-part file under 64 MiB onto new storage
+uploads the newest list in the same quilt. The recovery program then finds it with `--find` and the
+NMTS key alone. The WAL in the review includes the list. A copy paid from a wallet the NMTS key does
+not derive cannot be found that way. A program can build the same file without the command:
+`@needmoretruth/nmts-cli/recovery` exports `makeRecoveryList`, `readRecoveryCopy` and
+`setRecoveryCopy`, and runs in a browser as well as in Node.
 
 `nmts rollback` puts the previous version of the file list back as the current one, for the case
 where the current one will not open. Files the newer version added are out of the list afterwards —

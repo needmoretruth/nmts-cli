@@ -87,6 +87,10 @@ export { codeActivity } from "./public-code-activity.ts";
 export type { ActivityDoor, CodeActivity, ReceivedThrough, SentThrough } from "./public-code-activity.ts";
 export { readFileList } from "./manifest.ts";
 export type { FileList } from "./manifest.ts";
+// The recovery list (spec 2026-09-20 unit B): the file `nmts recovery-list` writes, and its
+// storage-network copy's switch. Also its own entry, `./recovery`.
+export { makeRecoveryList, nextRecoverySeq, readRecoveryCopy, recordRecoveryList, setRecoveryCopy } from "./recovery.ts";
+export type { MadeRecoveryList, RecoveryAccount, RecoveryCopyState } from "./recovery.ts";
 export { addEntry, applyManyToList, applyToList, planAddition } from "./manifest-write.ts";
 export type { AddEntryInput, AddEntryResult, ListEditInput, ListEditResult } from "./manifest-write.ts";
 export type { Manifest, ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";

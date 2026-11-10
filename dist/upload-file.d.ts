@@ -94,6 +94,8 @@ export type FileUploadStep = {
 export declare function uploadFile(input: FileUploadInput): Promise<UploadResult>;
 /** The file key's records, so a caller can clear them once the list is written. */
 export declare function partKeysOf(fileKey: string, parts: number): string[];
+/** The key `uploadFile` files this upload's records under — the same pass, for a caller pricing it first. */
+export declare function fileKeyOf(dataKey: Uint8Array, source: PlaintextSource, name: string, destination: string): Promise<string>;
 /**
  * The part's bytes, followed by zeros up to the length it will declare.
  *

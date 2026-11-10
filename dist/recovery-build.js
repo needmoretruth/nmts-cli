@@ -21,6 +21,7 @@
 // ⛔ TWO SOURCES, JOINED ON ID. The server is asked only for what it still owns — a file's storage
 //    parts. Its NAME, its folder, its size and its key envelope come from the account's sealed file
 //    list, because that is the only place the tree exists.
+import { fromBase64Url, fromUtf8, toBase64Url } from "./bytes.js";
 import { AAD, DERIVED } from "./crypto.js";
 import { NmtsError } from "./errors.js";
 import { buildRecoveryListDoc, RecoveryListProblem, withTotals, } from "./recovery-map.js";
@@ -96,10 +97,10 @@ function describeAll(entries) {
     return out;
 }
 /** base64url of the RAW bytes inside one envelope sealed under the account's data key. */
-function openRaw(crypt, dataKey, envelope, aad, what) {
+export function openRaw(crypt, dataKey, envelope, aad, what) {
     let opened;
     try {
-        opened = crypt.envelope_open(dataKey, utf8.encode(aad), Buffer.from(envelope, "base64url"));
+        opened = crypt.envelope_open(dataKey, utf8.encode(aad), fromBase64Url(envelope));
     }
     catch {
         // ⛔ The engine's own message is not repeated: it can quote what it was given.
@@ -107,7 +108,7 @@ function openRaw(crypt, dataKey, envelope, aad, what) {
             `The recovery list was not written.`);
     }
     try {
-        return Buffer.from(opened).toString("base64url");
+        return toBase64Url(opened);
     }
     finally {
         opened.fill(0);
@@ -213,13 +214,16 @@ export function buildRecoveryList(input) {
         items.push(item);
         totalBytes += about.size;
     }
+    for (const riding of input.pending ?? []) {
+        items.push(riding);
+        totalBytes += riding.size;
+    }
     const doc = buildRecoveryListDoc({
         seq: input.seq,
-        // ⛔ ALWAYS NULL FROM THIS TOOL. `prev_manifest_blob_id` chains MIRRORS: it is a storage-network
-        //    address, and a list written to somebody's own disk has none for a successor to point at.
-        //    `seq` still increases across every list of either kind, so "which is newest" stays
-        //    answerable; only "what came before it" is unavailable for the stretches never mirrored.
-        prevBlobId: null,
+        // ⛔ NULL FOR A LIST ON SOMEBODY'S DISK. `prev_manifest_blob_id` chains MIRRORS: it is a
+        //    storage-network address, and a local list has none for a successor to point at. `seq`
+        //    still increases across every list of either kind, so "which is newest" stays answerable.
+        prevBlobId: input.prevBlobId ?? null,
         generatedAt: input.generatedAt,
         accountId: input.accountId,
         // Finished here because here is where they are first true: everything before this point could
@@ -229,13 +233,13 @@ export function buildRecoveryList(input) {
         items,
     });
     const json = JSON.stringify(doc);
-    const sealed = Buffer.from(input.crypt.envelope_seal(input.dataKey, utf8.encode(AAD.recoveryMap), utf8.encode(json))).toString("base64url");
+    const sealed = toBase64Url(input.crypt.envelope_seal(input.dataKey, utf8.encode(AAD.recoveryMap), utf8.encode(json)));
     // ⛔ READ IT BACK BEFORE ANYBODY IS TOLD IT EXISTS. Catches a truncated seal, a wrong key, and
     //    any future change that returns something other than what it just sealed. Without it, "your
     //    list covers 412 files" is an assumption rather than a measurement.
     let reopened;
     try {
-        reopened = input.crypt.envelope_open(input.dataKey, utf8.encode(AAD.recoveryMap), Buffer.from(sealed, "base64url"));
+        reopened = input.crypt.envelope_open(input.dataKey, utf8.encode(AAD.recoveryMap), fromBase64Url(sealed));
     }
     catch {
         throw new NmtsError("The sealed recovery list did not open again on this machine.", {
@@ -243,7 +247,7 @@ export function buildRecoveryList(input) {
             nextStep: "Nothing was written. This is a fault in the tool rather than in the account.",
         });
     }
-    if (Buffer.from(reopened).toString("utf8") !== json) {
+    if (fromUtf8(reopened) !== json) {
         throw new NmtsError("The sealed recovery list did not come back as what was sealed.", {
             exitCode: 1,
             nextStep: "Nothing was written. This is a fault in the tool rather than in the account.",

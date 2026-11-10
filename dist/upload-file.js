@@ -141,6 +141,12 @@ async function uploadParts(input, run) {
 export function partKeysOf(fileKey, parts) {
     return Array.from({ length: parts }, (_, index) => partKey(fileKey, index));
 }
+/** The key `uploadFile` files this upload's records under — the same pass, for a caller pricing it first. */
+export async function fileKeyOf(dataKey, source, name, destination) {
+    const keyHash = startReservationKey(dataKey);
+    await hashWhole(source, keyHash);
+    return finishReservationKey(keyHash, name, destination);
+}
 /** Read the whole file once, feeding the key hash and returning the content digest. */
 async function hashWhole(source, keyHash) {
     const content = sha256.create();

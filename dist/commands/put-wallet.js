@@ -202,29 +202,29 @@ export async function uploadOneWithWallet(ctx, file, options) {
                 if (ctx.json)
                     return;
                 describeUploadReview(say, {
-                    name: review.name,
-                    bytes: review.bytes,
-                    parts: review.parts,
-                    epochs: review.epochs,
-                    days: review.days,
-                    endEpoch: review.endEpoch,
-                    walNeeded: review.budget.walNeededFrost,
-                    tipMist: review.tipMist,
-                    storage: review.storage,
-                    heldResources: review.heldResources,
-                    networkCopy: ctx.networkCopy,
+                    name: review.name, bytes: review.bytes, sealedBytes: review.sealedBytes, parts: review.parts,
+                    epochs: review.epochs, days: review.days, endEpoch: review.endEpoch,
+                    walNeeded: review.budget.walNeededFrost, tipMist: review.tipMist, storage: review.storage,
+                    heldResources: review.heldResources, networkCopy: ctx.networkCopy, carriesRecoveryList: review.carriesRecoveryList,
                 }, review.budget);
             },
             agree: (review) => {
                 requireWalletGrant("seal", { walFrost: review.budget.walNeededFrost, suiMist: review.budget.suiNeededMist }, new Date(options.now ?? Date.now()));
             },
             onSpend: recordWalletSpend,
+            // The copy is a passenger: why it stayed behind is said, and the upload goes on.
+            onRecoveryProblem: (message) => (ctx.json ? process.stderr.write(`${message}\n`) : say(`  ⚠ ${message}`)),
         });
     }
     finally {
         ctx.progress.done();
     }
     const facts = factsOf(outcome.review);
+    if (outcome.kind === "uploaded") {
+        facts["recoveryList"] = outcome.recoveryList;
+        if (outcome.recoveryList !== null && !ctx.json)
+            say(`  Recovery list ${outcome.recoveryList} went up with this file.`);
+    }
     if (outcome.kind === "review") {
         if (ctx.json)
             say(JSON.stringify({ dryRun: true, name: outcome.review.name, ...facts, signed: false }));

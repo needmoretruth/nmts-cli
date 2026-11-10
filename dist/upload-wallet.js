@@ -80,6 +80,17 @@ async function buyAndPushPartWithWallet(ctx, input) {
         return paidPart((await readReservationRecord(key)) ?? existing, true);
     }
     // ── fresh, or interrupted before the signature ──
+    // ⛔ ONLY BYTES WHOSE PRICE WAS AGREED ARE REGISTERED. Storage is bought for the length the
+    //    signature names, and a length nobody quoted would spend what nobody reviewed.
+    const quote = ctx.quotes.find((q) => q.sealedLen === sealed.length);
+    if (quote === undefined) {
+        throw new UploadError({
+            phase: "reserve",
+            message: `These ${sealed.length} bytes are not the ones this upload was priced for.`,
+            paid: false,
+            nextStep: "Nothing was signed. Running the same command again prices them first.",
+        });
+    }
     onStep?.({ step: "encoding", bytes: sealed.length });
     let meta;
     try {
@@ -119,9 +130,6 @@ async function buyAndPushPartWithWallet(ctx, input) {
     // ⛔ BEFORE THE SIGNATURE. See the module header.
     await writeReservation(key, record, sealed);
     onStep?.({ step: "reserving" });
-    const quote = ctx.quotes[input.part.index];
-    if (quote === undefined)
-        throw new NmtsError("unreachable: a part with no quote");
     let registered;
     try {
         registered = await ctx.signRegister({

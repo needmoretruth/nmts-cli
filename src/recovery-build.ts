@@ -22,6 +22,7 @@
 //    parts. Its NAME, its folder, its size and its key envelope come from the account's sealed file
 //    list, because that is the only place the tree exists.
 
+import { fromBase64Url, fromUtf8, toBase64Url } from "./bytes.ts";
 import { AAD, DERIVED, type CryptoGlue } from "./crypto.ts";
 import { NmtsError } from "./errors.ts";
 import {
@@ -132,7 +133,7 @@ function describeAll(entries: readonly ManifestEntry[]): Map<string, Described> 
 }
 
 /** base64url of the RAW bytes inside one envelope sealed under the account's data key. */
-function openRaw(
+export function openRaw(
   crypt: CryptoGlue,
   dataKey: Uint8Array,
   envelope: string,
@@ -141,7 +142,7 @@ function openRaw(
 ): string {
   let opened: Uint8Array;
   try {
-    opened = crypt.envelope_open(dataKey, utf8.encode(aad), Buffer.from(envelope, "base64url"));
+    opened = crypt.envelope_open(dataKey, utf8.encode(aad), fromBase64Url(envelope));
   } catch {
     // ⛔ The engine's own message is not repeated: it can quote what it was given.
     throw new RecoveryListProblem(
@@ -150,7 +151,7 @@ function openRaw(
     );
   }
   try {
-    return Buffer.from(opened).toString("base64url");
+    return toBase64Url(opened);
   } finally {
     opened.fill(0);
   }
@@ -169,6 +170,10 @@ export interface BuildRecoveryListInput {
   seq: number;
   /** RFC3339, stamped by the caller before the walk began. */
   generatedAt: string;
+  /** Files riding in the quilt this list goes into (NRM-3 own-quilt form), appended after the rest. */
+  pending?: readonly ManifestItemInput[] | undefined;
+  /** The storage-network copy this one follows, when it is itself such a copy. */
+  prevBlobId?: string | null | undefined;
   meta: RecoveryDocMetaDraft;
 }
 
@@ -307,14 +312,17 @@ export function buildRecoveryList(input: BuildRecoveryListInput): BuiltRecoveryL
     items.push(item);
     totalBytes += about.size;
   }
+  for (const riding of input.pending ?? []) {
+    items.push(riding);
+    totalBytes += riding.size;
+  }
 
   const doc = buildRecoveryListDoc({
     seq: input.seq,
-    // ⛔ ALWAYS NULL FROM THIS TOOL. `prev_manifest_blob_id` chains MIRRORS: it is a storage-network
-    //    address, and a list written to somebody's own disk has none for a successor to point at.
-    //    `seq` still increases across every list of either kind, so "which is newest" stays
-    //    answerable; only "what came before it" is unavailable for the stretches never mirrored.
-    prevBlobId: null,
+    // ⛔ NULL FOR A LIST ON SOMEBODY'S DISK. `prev_manifest_blob_id` chains MIRRORS: it is a
+    //    storage-network address, and a local list has none for a successor to point at. `seq`
+    //    still increases across every list of either kind, so "which is newest" stays answerable.
+    prevBlobId: input.prevBlobId ?? null,
     generatedAt: input.generatedAt,
     accountId: input.accountId,
     // Finished here because here is where they are first true: everything before this point could
@@ -325,9 +333,9 @@ export function buildRecoveryList(input: BuildRecoveryListInput): BuiltRecoveryL
   });
 
   const json = JSON.stringify(doc);
-  const sealed = Buffer.from(
+  const sealed = toBase64Url(
     input.crypt.envelope_seal(input.dataKey, utf8.encode(AAD.recoveryMap), utf8.encode(json)),
-  ).toString("base64url");
+  );
 
   // ⛔ READ IT BACK BEFORE ANYBODY IS TOLD IT EXISTS. Catches a truncated seal, a wrong key, and
   //    any future change that returns something other than what it just sealed. Without it, "your
@@ -337,7 +345,7 @@ export function buildRecoveryList(input: BuildRecoveryListInput): BuiltRecoveryL
     reopened = input.crypt.envelope_open(
       input.dataKey,
       utf8.encode(AAD.recoveryMap),
-      Buffer.from(sealed, "base64url"),
+      fromBase64Url(sealed),
     );
   } catch {
     throw new NmtsError("The sealed recovery list did not open again on this machine.", {
@@ -345,7 +353,7 @@ export function buildRecoveryList(input: BuildRecoveryListInput): BuiltRecoveryL
       nextStep: "Nothing was written. This is a fault in the tool rather than in the account.",
     });
   }
-  if (Buffer.from(reopened).toString("utf8") !== json) {
+  if (fromUtf8(reopened) !== json) {
     throw new NmtsError("The sealed recovery list did not come back as what was sealed.", {
       exitCode: 1,
       nextStep: "Nothing was written. This is a fault in the tool rather than in the account.",

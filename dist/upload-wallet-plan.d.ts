@@ -117,6 +117,8 @@ export declare function uploadShortfallNextStep(b: UploadBudget): string;
 export declare function describeUploadReview(say: (line: string) => void, facts: {
     name: string;
     bytes: number;
+    /** What the storage network would hold, sealing and padding included. */
+    sealedBytes: number;
     parts: number;
     epochs: number;
     days: string;
@@ -133,4 +135,6 @@ export declare function describeUploadReview(say: (line: string) => void, facts:
      *   off buys silence.
      */
     networkCopy: boolean | null;
+    /** The list rides in this upload's quilt, and the WAL above is the quilt's price. */
+    carriesRecoveryList: boolean;
 }, budget: UploadBudget): void;

@@ -3,6 +3,16 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.56.0 — 2026-11-10
+
+- With the account's storage copy of the recovery list switched on, `put --pay wallet` of a one-part
+  file under 64 MiB onto new storage uploads the newest recovery list in the same quilt, as the web
+  app does. The standalone recovery program then finds that list with the NMTS key alone. The WAL in
+  the review includes the list, and a list that cannot go along never stops the upload.
+- A program can build the recovery list without the command: `@needmoretruth/nmts-cli/recovery`
+  exports `makeRecoveryList`, `readRecoveryCopy` and `setRecoveryCopy`, and runs in a browser as well
+  as in Node. `nmts recovery-list` writes the same file as before.
+
 ## 0.55.0 — 2026-11-10
 
 - Uploads (`put`, `push`) keep working when every company's upload relay is down. The order is now

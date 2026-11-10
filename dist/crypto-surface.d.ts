@@ -258,6 +258,8 @@ export interface CryptoGlue {
     link_seal_secret(dataKey: Uint8Array, linkSecret: Uint8Array): Uint8Array;
     /** `S` back from the owner's copy. */
     link_open_secret(dataKey: Uint8Array, sealed: Uint8Array): Uint8Array;
+    /** The name the recovery list's patch takes inside a quilt (NCF-3 §2.5), from the data key. */
+    recovery_patch_name(dataKey: Uint8Array): string;
 }
 export declare function isCryptoGlue(value: unknown): value is CryptoGlue;
 /** Which of the required functions this object does not have. Empty means it is the engine. */

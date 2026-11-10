@@ -82,7 +82,7 @@ test("--dry-run --json says who pays and what it costs, in base units as strings
   });
 });
 
-test("an account that asks for the recovery list's network copy is told this rail does not carry it", async () => {
+test("an account that asks for the recovery list's network copy is told when this upload does not carry it", async () => {
   await withWalletAgreed(drive, "put-wallet-network-copy", async (code) => {
     await drive.serve(code, []);
     setNetworkCopy(true);
@@ -90,8 +90,10 @@ test("an account that asks for the recovery list's network copy is told this rai
     assert.equal(await put(FILE, opts(out, { dryRun: true, sign: refuseToSign("the review signed") })), 0);
     const text = out.lines.join("\n");
     assert.match(text, /This account asks for the recovery list to be copied to the storage network/);
-    assert.match(text, /This upload does not carry that copy/);
-    assert.match(text, /nmts recovery-list/);
+    // One part onto new storage, but this protocol lays out no quilt: the review says what will
+    // happen, not what might (`wallet-ride-price.test.ts` has the upload that carries it).
+    assert.match(text, /This upload does not include it\. `nmts recovery-list` saves the list as a file\./);
+    assert.doesNotMatch(text, /goes up with this file/);
   });
 });
 

@@ -6,6 +6,8 @@
 //    and means the file that DOES spend stays short enough to read in one sitting.
 import { HttpError, ServerError } from "./api.js";
 import { NmtsError } from "./errors.js";
+/** The largest sealed file a recovery list rides with — the browser's quilt line (`upload-recovery-patch.ts`). */
+export const RIDE_CEILING_BYTES = 64 * 1024 * 1024;
 /**
  * A failure that names its phase — and, crucially, whether the account has already paid.
  *

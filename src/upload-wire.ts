@@ -27,6 +27,9 @@ export interface Certificate {
   signature_b64: string;
 }
 
+/** The largest sealed file a recovery list rides with — the browser's quilt line (`upload-recovery-patch.ts`). */
+export const RIDE_CEILING_BYTES = 64 * 1024 * 1024;
+
 /** The Walrus protocol seam. The real one is in `walrus-write.ts`; the tests supply a fake. */
 export interface BlobProtocol {
   computeMetadata(input: { bytes: Uint8Array; nonce?: Uint8Array | undefined }): Promise<BlobMeta>;
@@ -42,6 +45,14 @@ export interface BlobProtocol {
      */
     relayUrl?: string;
   }): Promise<Certificate>;
+  /**
+   * Lay several byte runs out as one quilt, with each patch's place in it. Optional: a protocol
+   * without it uploads files as their own blobs, and no recovery list rides along.
+   */
+  encodeQuilt?(blobs: readonly { contents: Uint8Array; identifier: string }[]): Promise<{
+    quilt: Uint8Array;
+    patches: readonly { identifier: string; startIndex: number; endIndex: number }[];
+  }>;
 }
 
 /** The reservation as the server describes it. */
@@ -247,6 +258,11 @@ export interface PaidPart {
   suiObjectId?: string;
   /** Wallet rail only: the epoch the bought storage ends at, read from the blob object. */
   endEpoch?: number;
+  /**
+   * Set when the part is one patch of a quilt — `blobId` is then the quilt and `sealedLen` this
+   * part's own stream, not the quilt's length.
+   */
+  patchId?: string;
 }
 
 /** What finished. The caller writes the file list, THEN clears the records. */

@@ -13,6 +13,7 @@
 //    costs the most: a zero would refuse an upload the wallet can afford.
 import { NmtsError } from "./errors.js";
 import { BINARY_NAME } from "./product.js";
+import { RIDE_CEILING_BYTES } from "./upload-wire.js";
 import { fits, leftoverBytes, statusOf, usableFirst } from "./shared/lib/storage-control/plan.js";
 import { coinAmount } from "./wallet.js";
 /** The browser's default rung, and the term one credit buys. A number of EPOCHS, not days. */
@@ -179,15 +180,24 @@ export function describeUploadReview(say, facts, budget) {
     say(`  This is paid in WAL and SUI from the wallet this NMTS key derives — not from credits, which`);
     say(`  is what \`${BINARY_NAME} put\` spends without --pay wallet. Nobody, NMTS included, can reverse it.`);
     say(`  The storage is the wallet's own: NMTS records the file and does not hold it.`);
-    // ⛔ SAID WHERE IT CHANGES WHAT SOMEBODY GETS, AND NOWHERE ELSE. The wallet rail never carries
-    //    the recovery list's copy; an account that never asked for one has nothing to be told, and
-    //    the sentence was printed to everybody until this account's own switch became readable
-    //    (`GET /v1/account/summary` `network_copy`, 2026-09-20).
-    if (facts.networkCopy !== false) {
-        say(facts.networkCopy === true
+    // ⛔ SAID WHERE IT CHANGES WHAT SOMEBODY GETS, AND NOWHERE ELSE. An account that never asked for
+    //    the recovery list's copy has nothing to be told (`GET /v1/account/summary` `network_copy`).
+    //    Since spec 2026-09-20 unit B a one-part upload onto new storage carries it, as the browser's
+    //    small uploads do (`upload-recovery-patch.ts`); anything else still does not, and says so.
+    //    Whether it rides was decided before the price, so the sentence says what happens, not "if".
+    const on = facts.carriesRecoveryList || facts.networkCopy === true;
+    if (on || facts.networkCopy === null) {
+        say(on
             ? `  This account asks for the recovery list to be copied to the storage network with its uploads.`
             : `  Whether this account asks for the recovery list's storage-network copy could not be read.`);
-        say(`  This upload does not carry that copy — only the browser's small-file uploads write one, and`);
-        say(`  \`${BINARY_NAME} recovery-list\` writes the list out as a file from here.`);
+        const fits = facts.parts === 1 && facts.storage.kind === "buy" && facts.sealedBytes <= RIDE_CEILING_BYTES;
+        if (facts.carriesRecoveryList)
+            say(`  The newest recovery list goes up with this file, and the WAL above includes it.`);
+        else if (fits)
+            say(`  This upload does not include it. \`${BINARY_NAME} recovery-list\` saves the list as a file.`);
+        else {
+            say(`  Only a one-part upload under 64 MiB onto new storage includes it, so this one does not.`);
+            say(`  \`${BINARY_NAME} recovery-list\` saves the list as a file.`);
+        }
     }
 }

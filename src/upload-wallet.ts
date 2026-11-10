@@ -49,7 +49,10 @@ export interface WalletRailContext {
   epochs: number;
   /** Where the storage comes from. A held resource serves one blob, so it applies to a one-part file. */
   storage: StorageChoice;
-  /** What each part was quoted, in part order — what the grant ledger is told after each signature. */
+  /**
+   * What was quoted, by sealed length — what the grant ledger is told after each signature. Bytes of
+   * a length not here are refused before anything is signed.
+   */
   quotes: readonly PartQuote[];
   /** The measured register fee, added to the ledger with the tip; null adds the tip alone. */
   feeMist: bigint | null;
@@ -127,6 +130,17 @@ async function buyAndPushPartWithWallet(ctx: WalletRailContext, input: UploadInp
   }
 
   // ── fresh, or interrupted before the signature ──
+  // ⛔ ONLY BYTES WHOSE PRICE WAS AGREED ARE REGISTERED. Storage is bought for the length the
+  //    signature names, and a length nobody quoted would spend what nobody reviewed.
+  const quote = ctx.quotes.find((q) => q.sealedLen === sealed.length);
+  if (quote === undefined) {
+    throw new UploadError({
+      phase: "reserve",
+      message: `These ${sealed.length} bytes are not the ones this upload was priced for.`,
+      paid: false,
+      nextStep: "Nothing was signed. Running the same command again prices them first.",
+    });
+  }
   onStep?.({ step: "encoding", bytes: sealed.length });
   let meta: BlobMeta;
   try {
@@ -166,8 +180,6 @@ async function buyAndPushPartWithWallet(ctx: WalletRailContext, input: UploadInp
   await writeReservation(key, record, sealed);
 
   onStep?.({ step: "reserving" });
-  const quote = ctx.quotes[input.part.index];
-  if (quote === undefined) throw new NmtsError("unreachable: a part with no quote");
   let registered: { digest: string; blobObjectId: string; endEpoch: number };
   try {
     registered = await ctx.signRegister({

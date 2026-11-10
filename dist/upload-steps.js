@@ -8,6 +8,8 @@ import { readItemRecord, writeItemRecord } from "./upload-store.js";
 import { UploadError, } from "./upload-wire.js";
 /** ITEM PARTS: the storage shape this tool writes — one blob per part, the file its own set. */
 const STORAGE_KIND_DEDICATED_BLOB = 0;
+/** A wallet upload that carried the recovery list is one patch of a quilt (`upload-recovery-patch.ts`). */
+const STORAGE_KIND_QUILT_PATCH = 1;
 /** Walrus. The only network with an upload path. */
 const NETWORK_WALRUS = 0;
 /** Only this account can read it. Sharing is a separate act, made in a browser. */
@@ -126,9 +128,10 @@ export async function commitItem(input, fileKey, parts) {
 function describePart(part, expiryEpoch) {
     const common = {
         part_index: part.partIndex,
-        storage_kind: STORAGE_KIND_DEDICATED_BLOB,
+        storage_kind: part.patchId === undefined ? STORAGE_KIND_DEDICATED_BLOB : STORAGE_KIND_QUILT_PATCH,
         network: NETWORK_WALRUS,
         blob_id: part.blobId,
+        ...(part.patchId === undefined ? {} : { patch_id: part.patchId }),
         sealed_len: part.sealedLen,
     };
     if (part.ledgerId !== null) {

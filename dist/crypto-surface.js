@@ -45,17 +45,14 @@ const REQUIRED = [
     "derive_ai_account_code",
     // Numbered sharing identities (NCF-3 §5.9). Required for the same reason: an engine without them
     // cannot make, show or open with any public code but the first.
-    "share_id_seeds",
-    "share_public_key_at",
-    "share_address_at",
-    "share_wrap_dek_as",
-    "share_unwrap_dek_as",
+    "share_id_seeds", "share_public_key_at", "share_address_at", "share_wrap_dek_as", "share_unwrap_dek_as",
     // The EVM wallets (NCF-3 §1.9), required for the same reason: `put --tier heavy --pay evm` and
     // `heavy wallet` cannot run on a build without it.
     "evm_key_for",
     // Public links (NCF-3 §5.8): `link make`, `link list` and `link open` cannot run without them.
-    "link_generate_secret", "link_wrap_dek", "link_unwrap_dek",
-    "link_seal_secret", "link_open_secret",
+    "link_generate_secret", "link_wrap_dek", "link_unwrap_dek", "link_seal_secret", "link_open_secret",
+    // The recovery patch's name: a wallet upload cannot carry the recovery list without it.
+    "recovery_patch_name",
 ];
 export function isCryptoGlue(value) {
     return missingExports(value).length === 0;

@@ -45,6 +45,7 @@ import { createUploadApi } from "./upload-api.ts";
 import { uploadFile, type FileUploadStep, type PlaintextSource } from "./upload-file.ts";
 import { CREDIT_BYTES, planAndPrice } from "./upload-price.ts";
 import { forgetUpload } from "./upload-run.ts";
+import { planWalletRide } from "./upload-recovery-patch.ts";
 import { walletRail } from "./upload-wallet.ts";
 import {
   chooseUploadEpochs,
@@ -146,15 +147,17 @@ export interface WalletPutSeams {
   agree?: ((review: WalletPutReview) => void) | undefined;
   /** Told what left the wallet, after each signature. */
   onSpend?: ((spend: Spend) => void) | undefined;
+  /** Told why the recovery list did not ride along, when it was switched on and did not. */
+  onRecoveryProblem?: ((message: string) => void) | undefined;
 }
 
 /** What this upload would buy, in the order somebody deciding needs it. Base units throughout. */
 export interface WalletPutReview {
   name: string;
-  /** Plaintext bytes. */
-  bytes: number;
-  /** Bytes the storage network holds, padding and sealing included. */
+  bytes: number; // plaintext
+  /** Bytes the storage network holds, sealing and padding included — the quilt, when the list rides. */
   sealedBytes: number;
+  carriesRecoveryList: boolean; // the recovery list rides in the quilt, and the price is the quilt's
   parts: number;
   epochs: number;
   /** The term in days, read from the network's own clock. */
@@ -186,6 +189,8 @@ export type WalletPutOutcome =
       fileListVersion: number;
       /** True when every part was already signed for by an earlier run: this call spent nothing. */
       resumed: boolean;
+      /** The number of the recovery list that rode in this upload's quilt; null when none did. */
+      recoveryList: number | null;
     };
 
 /**
@@ -221,7 +226,15 @@ export async function walletPut(
   }
   const epochs = chooseUploadEpochs(seams.epochs, window);
   const endEpoch = window.clock.current + epochs;
-  const quotes = await reads.quoteParts(sealedLens, epochs);
+  // ⛔ THE RIDE IS PLANNED BEFORE THE PRICE: a riding list makes the quilt what is registered, so
+  //    the quilt is quoted, reviewed, checked and told to the ledger (`upload-recovery-patch.ts`).
+  //    The file is quoted too: a list that cannot ride after all sends it, for less than agreed.
+  const range = plan[0];
+  const riding = storageAsk === null && range !== undefined && plan.length === 1
+    ? await planWalletRide(ctx, protocol, seams.onRecoveryProblem, { ...file, streamPlaintextLen: sealFor(range), sealedLen: sealedBytes }) : null;
+  const quiltLen = riding?.quiltLen ?? null, lens = quiltLen === null ? sealedLens : [quiltLen];
+  const quoted = await reads.quoteParts(quiltLen === null ? sealedLens : [quiltLen, ...sealedLens], epochs);
+  const quotes = quoted.slice(0, lens.length);
   // ⛔ THE ADDRESS THAT IS PRICED IS THE ADDRESS THAT SIGNS — the same wallet the rail carries,
   //    whether that is a number this key derives or a wallet the caller holds the key to.
   const address = ctx.payer?.address ?? (await walletAddress(ctx.code, ctx.wallet));
@@ -256,7 +269,7 @@ export async function walletPut(
     reads.readWallet(address),
     reads.estimateRegisterGas({
       sender: address,
-      sealedLen: Math.max(...sealedLens),
+      sealedLen: Math.max(...lens),
       epochs,
       storage:
         storage.kind === "buy"
@@ -268,7 +281,8 @@ export async function walletPut(
   const review: WalletPutReview = {
     name: file.name,
     bytes: file.source.size,
-    sealedBytes,
+    sealedBytes: lens.reduce((sum, len) => sum + len, 0),
+    carriesRecoveryList: quiltLen !== null,
     parts: plan.length,
     epochs,
     days: daysOf(window, epochs),
@@ -297,6 +311,20 @@ export async function walletPut(
   const sign = seams.sign ?? (await signers());
   const onSpend = seams.onSpend ?? ((): void => undefined);
 
+  const rail = walletRail({
+    network: ctx.network,
+    code: ctx.code,
+    wallet: ctx.wallet,
+    ...(ctx.payer === undefined ? {} : { payer: ctx.payer }),
+    relayUrl: protocol.relayUrl,
+    epochs,
+    storage,
+    quotes: quoted,
+    feeMist,
+    signRegister: sign.register,
+    signCertify: sign.certify,
+    onSpend,
+  });
   const derived = ctx.crypt.kdf_derive(ctx.crypt.account_code_parse(ctx.code));
   const dataKey = derived.slice(DERIVED.dataKey[0], DERIVED.dataKey[1]);
   derived.fill(0);
@@ -317,20 +345,7 @@ export async function walletPut(
       partSize: ctx.partSize,
       padding: { rule: ctx.rule, unitBytes: CREDIT_BYTES },
       ...(seams.onStep === undefined ? {} : { onStep: seams.onStep }),
-      buy: walletRail({
-        network: ctx.network,
-        code: ctx.code,
-        wallet: ctx.wallet,
-        ...(ctx.payer === undefined ? {} : { payer: ctx.payer }),
-        relayUrl: protocol.relayUrl,
-        epochs,
-        storage,
-        quotes,
-        feeMist,
-        signRegister: sign.register,
-        signCertify: sign.certify,
-        onSpend,
-      }),
+      buy: riding === null ? rail : riding.ride.wrap(rail),
     });
   } finally {
     dataKey.fill(0);
@@ -370,6 +385,8 @@ export async function walletPut(
     replaced: added.replaced?.id ?? null,
     fileListVersion: added.seq,
     resumed: result.resumed,
+    // After the list names the file, so the account screen and the next list agree.
+    recoveryList: riding === null ? null : await riding.ride.record(),
   };
 }
 

@@ -152,8 +152,14 @@ export interface FakeRecovery {
   recorded: unknown[];
   /** The sequence the account has already recorded. A write must beat it. */
   recordedSeq: number;
-  /** Put a file list on the server, and set the proof this account's code produces. */
-  serve(code: string, entries: ManifestEntry[]): Promise<void>;
+  /** The storage-network copy's switch. */
+  copyOn: boolean;
+  /** The quilt the last `kind: "walrus"` record named, or null. */
+  readonly recordedBlob: string | null;
+  /** False stands for a server older than the narrow switch read. */
+  narrowRead: boolean;
+  /** Put a file list on the server (null: an account with none yet), and set the proof its code produces. */
+  serve(code: string, entries: ManifestEntry[] | null): Promise<void>;
   reset(): void;
   close(): void;
 }
@@ -168,6 +174,9 @@ export async function startFakeRecovery(): Promise<FakeRecovery> {
     proofs: [] as (string | null)[],
     recorded: [] as unknown[],
     recordedSeq: 0,
+    copyOn: false,
+    recordedBlob: null as string | null,
+    narrowRead: true,
   };
 
   const server: Server = createServer((req, res) => {
@@ -186,6 +195,26 @@ export async function startFakeRecovery(): Promise<FakeRecovery> {
     if (method === "GET" && url.startsWith("/v1/manifest")) {
       if (served === null) return json(200, { state: "absent" });
       return json(200, { state: "present", seq: served.seq, ct: served.ct, updated_at: "2026-08-24T00:00:00Z" });
+    }
+    // A wallet upload ends by naming its file in the list; the write is taken as it comes.
+    if (method === "PUT" && url.startsWith("/v1/manifest")) {
+      let raw = "";
+      req.on("data", (c: Buffer) => (raw += c.toString("utf8")));
+      req.on("end", () => {
+        const body: unknown = JSON.parse(raw);
+        const ct: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "ct") : null;
+        if (typeof ct !== "string") return json(400, { error: { code: "BAD", message: "no ct" } });
+        served = { seq: (served?.seq ?? 0) + 1, ct };
+        json(200, { seq: served.seq });
+      });
+      return;
+    }
+
+    // The narrow switch read (spec 2026-09-20 unit B): the read bit alone, no proof. `narrowRead`
+    // off stands for a server older than the door, which answers 405 because the PUT exists.
+    if (method === "GET" && url === "/v1/account/recovery-network-copy") {
+      if (!state.narrowRead) return json(405, { error: { code: "METHOD_NOT_ALLOWED", message: "method not allowed" } });
+      return json(200, { enabled: state.copyOn, written: state.recordedBlob !== null, seq: state.recordedSeq });
     }
 
     if (url.startsWith("/v1/account/recovery-")) {
@@ -233,6 +262,22 @@ export async function startFakeRecovery(): Promise<FakeRecovery> {
         }
         state.recordedSeq = seq;
         state.recorded.push(body);
+        const blob = at("blob_id");
+        if (at("kind") === "walrus" && typeof blob === "string") state.recordedBlob = blob;
+        res.writeHead(204);
+        res.end();
+      });
+      return;
+    }
+
+    if (method === "PUT" && url === "/v1/account/recovery-network-copy") {
+      let raw = "";
+      req.on("data", (c: Buffer) => (raw += c.toString("utf8")));
+      req.on("end", () => {
+        const body: unknown = raw === "" ? {} : JSON.parse(raw);
+        const enabled = typeof body === "object" && body !== null ? Reflect.get(body, "enabled") : undefined;
+        if (typeof enabled !== "boolean") return json(400, { error: { code: "VALIDATION", message: "enabled" } });
+        state.copyOn = enabled;
         res.writeHead(204);
         res.end();
       });
@@ -275,8 +320,23 @@ export async function startFakeRecovery(): Promise<FakeRecovery> {
     set recordedSeq(v: number) {
       state.recordedSeq = v;
     },
-    async serve(code: string, entries: ManifestEntry[]): Promise<void> {
-      served = { seq: 1, ct: await sealFileList(code, await encodeManifest(entries, 1)) };
+    get copyOn() {
+      return state.copyOn;
+    },
+    set copyOn(v: boolean) {
+      state.copyOn = v;
+    },
+    get recordedBlob() {
+      return state.recordedBlob;
+    },
+    get narrowRead() {
+      return state.narrowRead;
+    },
+    set narrowRead(v: boolean) {
+      state.narrowRead = v;
+    },
+    async serve(code: string, entries: ManifestEntry[] | null): Promise<void> {
+      served = entries === null ? null : { seq: 1, ct: await sealFileList(code, await encodeManifest(entries, 1)) };
       expectedProof = await authSecretOf(code);
     },
     reset(): void {
@@ -288,6 +348,9 @@ export async function startFakeRecovery(): Promise<FakeRecovery> {
       state.proofs = [];
       state.recorded = [];
       state.recordedSeq = 0;
+      state.copyOn = false;
+      state.recordedBlob = null;
+      state.narrowRead = true;
     },
     close(): void {
       server.close();

@@ -33,7 +33,11 @@ run (`null` in `--json` when it could not be measured, never 0), both balances, 
 fit|whole|<object id>` uses a free storage resource the wallet holds for a one-part file: `fit`
 cuts it to size and leaves the rest free, `whole` binds all of it with the file. Do not choose
 `--storage` for the person: the leftover is their decision. `--epochs` and `--storage` without
-`--pay wallet` exit 2.
+`--pay wallet` exit 2. With the account's storage copy of the recovery list on, a one-part file
+under 64 MiB onto new storage goes up with the newest recovery list in the same quilt, as in the web
+app, and `nmts-recovery --find` finds that list with the NMTS key alone. The review's WAL includes
+it. If the list is left out, a warning says why and the file goes up on its own; `--json` reports
+`recoveryList` (its number, or `null`).
 
 **`--tier heavy`** stores the file on NMTS Heavy instead of NMTS Standard: each part is kept whole in
 two separate places on Filecoin rather than spread across Walrus storage nodes. It is paid the same

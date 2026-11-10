@@ -50,7 +50,7 @@ nmts --help
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # 기본 브랜치
-npm install -g github:needmoretruth/nmts-cli#v0.55.0    # 버전을 고정할 때
+npm install -g github:needmoretruth/nmts-cli#v0.56.0    # 버전을 고정할 때
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -361,6 +361,14 @@ NMTS 키는 들어 있지 않습니다. `kit`은 그 목록과 NMTS 키를 한 �
 체크섬 파일과 대조한 뒤에야 실행 가능하게 만들고, PATH에는 아무것도 넣지 않습니다. `rebuild`는
 목록을 잃은 계정의 파일 목록을 서버의 줄로 다시 짓습니다. 키·해시·날짜·크기는 돌아오고 이름과
 폴더는 돌아오지 않습니다.
+
+계정에서 복구 목록의 Walrus 사본을 켜 두었으면(웹 앱에서, 또는 SDK의 `setRecoveryCopy(true)`로)
+64 MiB 미만의 한 조각 파일을 새 저장 자원에 `put --pay wallet`으로 올릴 때 최신 목록이 같은 묶음에
+함께 올라갑니다. 그러면 복구 프로그램이 `--find`로 NMTS 키만 가지고 그 목록을 찾습니다. 검토에
+나오는 값에는 목록이 들어 있습니다. NMTS 키에서 나오지 않는 지갑으로 낸 사본은 이 방법으로
+찾지 못합니다. 명령 없이 프로그램에서 같은 파일을 만들 수도 있습니다.
+`@needmoretruth/nmts-cli/recovery`가 `makeRecoveryList` · `readRecoveryCopy` · `setRecoveryCopy`를
+내보내고, Node와 브라우저에서 모두 돕니다.
 
 `nmts rollback`은 파일 목록의 이전 버전을 현재 버전으로 되돌립니다 — 현재 목록이 열리지 않을
 때를 위한 것입니다. 새 버전이 더한 파일은 그 뒤 목록에서 빠지지만 바이트는 그대로 저장돼 있고,
