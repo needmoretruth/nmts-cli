@@ -53,6 +53,8 @@ export { readFileList } from "./manifest.js";
 // The recovery list (spec 2026-09-20 unit B): the file `nmts recovery-list` writes, and its
 // storage-network copy's switch. Also its own entry, `./recovery`.
 export { makeRecoveryList, nextRecoverySeq, readRecoveryCopy, recordRecoveryList, setRecoveryCopy } from "./recovery.js";
+// Sharing one file with another account (spec 2026-09-20 unit C). Also its own entry, `./share`.
+export { addressFromTyped, receivedShares, receiveShare, removeShare, sendShare, sentShares, shareableFileAt } from "./sharing.js";
 export { addEntry, applyManyToList, applyToList, planAddition } from "./manifest-write.js";
 export { buildIndex, entryAt, folderIdFor, fullPathOf, isLive, KIND_FILE, KIND_FOLDER, namesIn, normalisePath, shown, trashedAt, } from "./drive-paths.js";
 export { setTrashed } from "./item-trash.js";

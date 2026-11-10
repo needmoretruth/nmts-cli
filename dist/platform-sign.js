@@ -60,6 +60,11 @@ export const DELEGATION_MAX_TTL_SECS = 2_592_000;
  *    an app can upload cannot destroy — and it does not stand alone: both doors also ask for the
  *    account code's own proof on the same request, which is an act only whoever holds the code can
  *    perform. The token is the business's permission; the proof is the key holder's.
+ *
+ * ⛔ `share` IS THE SIXTH, AND IT IS BUILT THE SAME WAY (spec 2026-09-20 unit C). It opens what sends
+ *    a file's key out of the account: sharing it with another account and making a public link,
+ *    and the lookup of the identity a share is sealed to. Those two sending doors also ask for the
+ *    code's proof. Listing, receiving and cutting stay on `files_read` and `files_write`.
  */
 export const SCOPE_BITS = {
     files_read: 1,
@@ -67,9 +72,15 @@ export const SCOPE_BITS = {
     storage_spend: 4,
     register: 8,
     files_erase: 16,
+    share: 32,
 };
 /** Every bit a token may carry. */
-export const SCOPE_ALL = SCOPE_BITS.files_read | SCOPE_BITS.files_write | SCOPE_BITS.storage_spend | SCOPE_BITS.register | SCOPE_BITS.files_erase;
+export const SCOPE_ALL = SCOPE_BITS.files_read |
+    SCOPE_BITS.files_write |
+    SCOPE_BITS.storage_spend |
+    SCOPE_BITS.register |
+    SCOPE_BITS.files_erase |
+    SCOPE_BITS.share;
 /**
  * A new key pair, from the runtime's own random source.
  *

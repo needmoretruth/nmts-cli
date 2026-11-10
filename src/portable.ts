@@ -91,6 +91,9 @@ export type { FileList } from "./manifest.ts";
 // storage-network copy's switch. Also its own entry, `./recovery`.
 export { makeRecoveryList, nextRecoverySeq, readRecoveryCopy, recordRecoveryList, setRecoveryCopy } from "./recovery.ts";
 export type { MadeRecoveryList, RecoveryAccount, RecoveryCopyState } from "./recovery.ts";
+// Sharing one file with another account (spec 2026-09-20 unit C). Also its own entry, `./share`.
+export { addressFromTyped, receivedShares, receiveShare, removeShare, sendShare, sentShares, shareableFileAt } from "./sharing.ts";
+export type { ReceivedFile, ReceivedShare, SentShare, ShareAccount, ShareableFile } from "./sharing.ts";
 export { addEntry, applyManyToList, applyToList, planAddition } from "./manifest-write.ts";
 export type { AddEntryInput, AddEntryResult, ListEditInput, ListEditResult } from "./manifest-write.ts";
 export type { Manifest, ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";

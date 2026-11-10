@@ -1,13 +1,11 @@
 // `nmts shares --sent` — moved out of `share.ts` whole (that file is measured by `check:size`).
 
-import { request } from "../api.ts";
-import { buildIndex, entryAt, fullPathOf, KIND_FILE, normalisePath } from "../drive-paths.ts";
 import { NmtsError } from "../errors.ts";
 import { isRecord } from "../guards.ts";
-import { readFileList } from "../manifest.ts";
 import { BINARY_NAME } from "../product.ts";
 import { openSession } from "../session.ts";
-import { out, type ShareOptions } from "./share.ts";
+import { sentShares } from "../sharing.ts";
+import { out, shareAccountOf, type ShareOptions } from "./share.ts";
 
 /**
  * `nmts shares --sent <path>` — who ONE file was shared with.
@@ -36,40 +34,12 @@ export async function sharesSent(
     });
   }
   const session = await openSession({ server: options.server, network: options.network });
-  const list = await readFileList(session.server, session.apiKey, session.code, session.accountId);
-  if (list.manifest === null) {
-    throw new NmtsError("This account has no file list, so there is nothing to look up.", {
-      exitCode: 4,
-    });
-  }
-  const index = buildIndex(list.manifest.entries);
-  const entry = entryAt(list.manifest.entries, normalisePath(target), {
-    nothingHappened: "Nothing was changed.",
-  });
-  if (entry.kind !== KIND_FILE) {
-    throw new NmtsError(`No file at "${fullPathOf(index, entry)}".`, {
-      exitCode: 4,
-      nextStep: "That is a folder, and a share is of one file.",
-    });
-  }
-  const path = fullPathOf(index, entry);
-
-  const answer: unknown = await request(
-    session.server,
-    `/v1/shares/sent?item_id=${encodeURIComponent(entry.id)}`,
-    { token: session.apiKey },
-  );
-  const rows: unknown = typeof answer === "object" && answer !== null ? Reflect.get(answer, "shares") : null;
-  if (!Array.isArray(rows)) {
-    throw new NmtsError("The server's answer did not carry a list of shares.", {
-      nextStep: "Nothing was changed. Report it rather than retrying — the shape, not the network, is wrong.",
-    });
-  }
+  const { path, itemId, rows } = await sentShares(shareAccountOf(session), target);
 
   if (options.json) {
     // ⛔ THE SERVER'S ROWS, UNCHANGED. A reader of this arm is reading the route, and a shape
     //    rewritten here would be a second wire to keep in step with the first.
-    say(JSON.stringify({ path, item_id: entry.id, shares: rows }));
+    say(JSON.stringify({ path, item_id: itemId, shares: rows }));
     return 0;
   }
   if (rows.length === 0) {

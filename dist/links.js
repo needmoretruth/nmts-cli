@@ -67,7 +67,12 @@ export async function makeLink(account, entry, options) {
                 digest.fill(0);
             }
         });
-        const answer = await request(account.server, "/v1/share-links", { method: "POST", body, token: account.bearer });
+        const answer = await request(account.server, "/v1/share-links", {
+            method: "POST",
+            body,
+            token: account.bearer,
+            ...(account.accountProof === undefined ? {} : { accountProof: account.accountProof }),
+        });
         const id = isRecord(answer) ? text(answer["link_id"]) : null;
         const createdAt = isRecord(answer) ? text(answer["created_at"]) : null;
         if (id === null || createdAt === null) {

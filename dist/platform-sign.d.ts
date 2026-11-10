@@ -32,6 +32,11 @@ export declare const DELEGATION_MAX_TTL_SECS = 2592000;
  *    an app can upload cannot destroy — and it does not stand alone: both doors also ask for the
  *    account code's own proof on the same request, which is an act only whoever holds the code can
  *    perform. The token is the business's permission; the proof is the key holder's.
+ *
+ * ⛔ `share` IS THE SIXTH, AND IT IS BUILT THE SAME WAY (spec 2026-09-20 unit C). It opens what sends
+ *    a file's key out of the account: sharing it with another account and making a public link,
+ *    and the lookup of the identity a share is sealed to. Those two sending doors also ask for the
+ *    code's proof. Listing, receiving and cutting stay on `files_read` and `files_write`.
  */
 export declare const SCOPE_BITS: {
     readonly files_read: 1;
@@ -39,8 +44,9 @@ export declare const SCOPE_BITS: {
     readonly storage_spend: 4;
     readonly register: 8;
     readonly files_erase: 16;
+    readonly share: 32;
 };
-/** One of the five names above. */
+/** One of the six names above. */
 export type ScopeName = keyof typeof SCOPE_BITS;
 /** Every bit a token may carry. */
 export declare const SCOPE_ALL: number;

@@ -28,6 +28,7 @@ import {
   mintDelegation,
   rotationProof,
   rotationSigningInput,
+  SCOPE_ALL,
   scopeMask,
   signatureHolds,
   signBusinessRequest,
@@ -189,6 +190,8 @@ test("the five scope names are the five bits, and no scope at all is refused", (
   //    upload must not be able to destroy.
   assert.equal(scopeMask(["files_erase"]), 16);
   assert.equal(scopeMask(["files_read", "files_write", "storage_spend", "register", "files_erase"]), 31);
+  assert.equal(scopeMask(["share"]), 32);
+  assert.equal(SCOPE_ALL, 63, "the server refuses a token above its own SCOPE_ALL, so the two move together");
   assert.throws(() => scopeMask([]), NmtsError);
 });
 

@@ -29,6 +29,8 @@ export { readFileList } from "./manifest.ts";
 export type { FileList } from "./manifest.ts";
 export { makeRecoveryList, nextRecoverySeq, readRecoveryCopy, recordRecoveryList, setRecoveryCopy } from "./recovery.ts";
 export type { MadeRecoveryList, RecoveryAccount, RecoveryCopyState } from "./recovery.ts";
+export { addressFromTyped, receivedShares, receiveShare, removeShare, sendShare, sentShares, shareableFileAt } from "./sharing.ts";
+export type { ReceivedFile, ReceivedShare, SentShare, ShareAccount, ShareableFile } from "./sharing.ts";
 export { addEntry, applyManyToList, applyToList, planAddition } from "./manifest-write.ts";
 export type { AddEntryInput, AddEntryResult, ListEditInput, ListEditResult } from "./manifest-write.ts";
 export type { Manifest, ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";

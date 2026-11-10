@@ -44,6 +44,10 @@ export interface PublicCodesState {
   recipients: Map<string, string>;
   /** Every `POST /v1/shares` body, as sent. */
   sharesPosted: Record<string, unknown>[];
+  /** What `GET /v1/shares/{id}/parts` answers, by share id. */
+  shareParts: Map<string, unknown>;
+  /** Every `DELETE /v1/shares/{id}`, by id, in order. */
+  unshared: string[];
 }
 
 export const publicCodesState: PublicCodesState = {
@@ -59,6 +63,8 @@ export const publicCodesState: PublicCodesState = {
   received: [],
   recipients: new Map(),
   sharesPosted: [],
+  shareParts: new Map(),
+  unshared: [],
 };
 
 export function resetPublicCodes(): void {
@@ -74,6 +80,8 @@ export function resetPublicCodes(): void {
   publicCodesState.received = [];
   publicCodesState.recipients = new Map();
   publicCodesState.sharesPosted = [];
+  publicCodesState.shareParts = new Map();
+  publicCodesState.unshared = [];
 }
 
 const REVOKE = /^\/v1\/account\/public-codes\/([0-9]+)\/revoke$/;
@@ -94,6 +102,21 @@ export function servePublicCodes(method: string, url: string, req: IncomingMessa
     const held = publicCodesState.recipients.get(decodeURIComponent(path.slice("/v1/share-recipients/".length)));
     if (held === "revoked") return refuseWith(res, 410, "PUBLIC_CODE_REVOKED");
     return held === undefined ? refuseWith(res, 404, "NOT_FOUND") : send(res, { share_public_key: held });
+  }
+  // A received file's parts, and taking a share back: the two doors a receive and an unshare use.
+  const one = /^\/v1\/shares\/([^/]+)(\/parts)?$/.exec(path);
+  if (one !== null && one[1] !== "received" && one[1] !== "sent") {
+    const id = decodeURIComponent(one[1] ?? "");
+    if (method === "GET" && one[2] === "/parts") {
+      const parts = publicCodesState.shareParts.get(id);
+      return parts === undefined ? refuseWith(res, 404, "NOT_FOUND") : send(res, parts);
+    }
+    if (method === "DELETE" && one[2] === undefined) {
+      publicCodesState.unshared.push(id);
+      res.writeHead(204);
+      res.end();
+      return true;
+    }
   }
   if (method === "POST" && path === "/v1/shares") {
     let body = "";

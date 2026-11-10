@@ -13,18 +13,15 @@
 
 import { resolve } from "node:path";
 
-import { request } from "../api.ts";
-import { loadCrypto } from "../crypto.ts";
-import { fetchWithKey } from "../download.ts";
 import { fileSink, stdoutSink } from "../download-sink-node.ts";
 import { NmtsError } from "../errors.ts";
 import { destinationFor } from "../safe-path.ts";
 import { resolveNetwork } from "../network.ts";
 import { BINARY_NAME } from "../product.ts";
 import { openSession } from "../session.ts";
-import { openReceived, openSharedDigest, receivedIndex, type ReceivedRow } from "../share.ts";
-import { shareKeyRing } from "../share-codes.ts";
+import { receiveShare } from "../sharing.ts";
 import { processStdout, STDOUT_TARGET, type ByteDestination } from "../stdout.ts";
+import { shareAccountOf } from "./share.ts";
 
 export interface ReceiveOptions {
   server?: string | undefined;
@@ -60,104 +57,45 @@ export async function receive(id: string | undefined, options: ReceiveOptions = 
     });
   }
   const session = await openSession({ server: options.server, network: options.network });
-  const chain = resolveNetwork(session.server, session.network);
-  const crypt = await loadCrypto();
-  // The row names which of this account's codes it came to; that code's keys open it.
-  const ring = shareKeyRing(crypt, session.code);
-  try {
-    // ⛔ THE ROW IS FOUND IN THE LISTING, not asked for by id. The listing is what carries the
-    //    sender's published identity, and without that identity the envelope cannot be
-    //    authenticated — an unauthenticated open is not one worth doing.
-    const answer: unknown = await request(session.server, "/v1/shares/received", {
-      token: session.apiKey,
-    });
-    const rows: unknown = typeof answer === "object" && answer !== null ? Reflect.get(answer, "shares") : null;
-    if (!Array.isArray(rows)) throw new NmtsError("The server did not list any shares.");
-    const row = rows.find(
-      (candidate): candidate is ReceivedRow =>
-        typeof candidate === "object" && candidate !== null && Reflect.get(candidate, "id") === id,
-    );
-    if (row === undefined) {
-      throw new NmtsError(`Nothing shared with this account has the id "${id}".`, {
-        exitCode: 4,
-        nextStep: `Nothing was written. \`${BINARY_NAME} shares\` lists what is there.`,
-      });
-    }
-
-    const opened = openReceived(crypt, ring.at(receivedIndex(row)), row);
-    if (opened.dek === null || opened.name === null) {
-      throw new NmtsError(`That share ${opened.problem ?? "did not open"}.`, {
-        exitCode: 1,
-        nextStep: "Nothing was written. The sender can withdraw it and share the file again.",
-      });
-    }
-    if (opened.size === null) {
-      // ⛔ NOT A GUESS. Without the sender's number there is nothing to trim the stored bytes back
-      //    to, and taking the stored length would write padding into the end of the file.
-      opened.dek.fill(0);
-      throw new NmtsError("The sender did not record this file's real length.", {
-        exitCode: 1,
-        nextStep:
-          "Nothing was written. It was shared by an older client; ask them to share it again from " +
-          "a current one, which seals the length beside the name.",
-      });
-    }
-    const expected = openSharedDigest(crypt, opened.dek, opened.digestCt);
-    if (expected === null) {
-      opened.dek.fill(0);
-      throw new NmtsError("This share's content hash did not open with the file's own key.", {
-        exitCode: 1,
-        nextStep: "Nothing was written. There would be nothing to check the bytes against.",
-      });
-    }
-
-    const destination = toStdout
+  const account = shareAccountOf(session, resolveNetwork(session.server, session.network));
+  // ⛔ THE ROW IS FOUND IN THE LISTING, not asked for by id, and the length written is the one the
+  //    sender sealed — both inside `receiveShare`, for the reasons at the top of this file.
+  let destination: string | null = null;
+  const got = await receiveShare(account, id, ({ name }) => {
+    destination = toStdout
       ? null
       : options.out !== undefined
         ? resolve(options.out)
         : // ⛔ The name is the SENDER'S choice, so it lands in a directory by its last segment only:
           //    `../x` or an absolute path must not put a file outside where this tool was run.
-          destinationFor(options.intoDir ?? ".", opened.name);
+          destinationFor(options.intoDir ?? ".", name);
     // ⛔ `--force` has nothing to overwrite on the stdout branch and is ignored there on purpose.
     //    On the disk branch the file streams into a temporary name beside the destination and is
     //    renamed into place only once the sender's digest matches, so a share that turns out to be
     //    wrong — or a transfer that stops half way — leaves nothing under the name it was given.
-    const sink =
-      destination === null
-        ? stdoutSink(options.stdout ?? processStdout())
-        : fileSink(destination, { force: options.force === true });
-    const fetched = await fetchWithKey({
-      base: session.server,
-      apiKey: session.apiKey,
-      descriptorPath: `/v1/shares/${encodeURIComponent(id)}/parts?for=download`,
-      size: opened.size,
-      dek: opened.dek,
-      expected,
-      chain,
-      sink,
-    });
-    if (!fetched.delivered) return 0;
-    if (options.json) {
-      say(
-        JSON.stringify({
-          id,
-          name: opened.name,
-          bytes: fetched.byteCount,
-          from: opened.sender,
-          senderRevoked: opened.senderRevoked,
-          toIndex: opened.toIndex,
-          parts: fetched.partCount,
-          out: destination ?? STDOUT_TARGET,
-        }),
-      );
-      return 0;
-    }
-    say(`${opened.name}  ${fetched.byteCount} bytes`);
-    say(`  from ${opened.sender ?? ""}${opened.senderRevoked ? "  · the sender has revoked this code" : ""}`);
-    if (opened.toIndex !== 0) say(`  to #${opened.toIndex}  ${ring.at(opened.toIndex).display}`);
-    say(`  checked against the hash the sender sealed with it`);
+    return destination === null
+      ? stdoutSink(options.stdout ?? processStdout())
+      : fileSink(destination, { force: options.force === true });
+  });
+  if (!got.delivered) return 0;
+  if (options.json) {
+    say(
+      JSON.stringify({
+        id,
+        name: got.name,
+        bytes: got.bytes,
+        from: got.sender,
+        senderRevoked: got.senderRevoked,
+        toIndex: got.toIndex,
+        parts: got.parts,
+        out: destination ?? STDOUT_TARGET,
+      }),
+    );
     return 0;
-  } finally {
-    ring.wipe();
   }
+  say(`${got.name}  ${got.bytes} bytes`);
+  say(`  from ${got.sender ?? ""}${got.senderRevoked ? "  · the sender has revoked this code" : ""}`);
+  if (got.toIndex !== 0) say(`  to #${got.toIndex}  ${got.toCode}`);
+  say(`  checked against the hash the sender sealed with it`);
+  return 0;
 }

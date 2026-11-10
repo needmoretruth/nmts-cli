@@ -1,6 +1,6 @@
 {
   "name": "@needmoretruth/nmts-cli",
-  "version": "0.56.0",
+  "version": "0.57.0",
   "description": "Command-line and MCP access to NMTS (NeedMoreTruthStorage, https://nmts.me): open-source, end-to-end encrypted storage on the Walrus network. No fee to NMTS; you pay the network from your own wallet. For people and for their agents.",
   "license": "Apache-2.0",
   "publishConfig": {
@@ -48,6 +48,10 @@
     "./recovery": {
       "types": "./dist/recovery.d.ts",
       "default": "./dist/recovery.js"
+    },
+    "./share": {
+      "types": "./dist/sharing.d.ts",
+      "default": "./dist/sharing.js"
     },
     "./host": {
       "types": "./dist/host.d.ts",

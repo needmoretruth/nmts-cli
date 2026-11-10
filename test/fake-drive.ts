@@ -34,6 +34,7 @@ import { resetAccount, serveAccount } from "./fake-account.ts";
 // ⛔ And the two PERMANENT doors, from a file of their own for the same reason.
 import { resetAiAccounts, serveAiAccounts } from "./fake-ai-accounts.ts";
 import { resetBytes, serveBytes } from "./fake-bytes.ts";
+import { refuseByDelegationTable } from "./fake-delegation.ts";
 import { resetErase, serveErase } from "./fake-erase.ts";
 import { resetLinks, serveLinks } from "./fake-links.ts";
 // ⛔ And the four OPENER doors, from a file of their own for the same reason. Three of them refuse
@@ -151,9 +152,10 @@ export async function startFakeDrive(): Promise<FakeDrive> {
       res.end(JSON.stringify(body));
     };
 
+    // ⛔ FIRST: a delegation token meets the server's own table before any door answers it.
+    if (refuseByDelegationTable(method, url, req, res)) return;
     if (serveDocuments(method, url, res)) return;
     if (serveAccount(method, url, req, res)) return;
-
     if (serveErase(method, url, req, res)) return;
     if (serveLinks(method, url, req, res)) return;
     if (serveBytes(method, url, req, res)) return;

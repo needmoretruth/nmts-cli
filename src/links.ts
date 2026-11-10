@@ -38,6 +38,11 @@ export interface LinkAccount {
   readonly bearer: string;
   /** The NMTS key, display form. Its dataKey opens the file key and seals the owner's copy of `S`. */
   readonly code: string;
+  /**
+   * ⛔ base64url of the code's proof, sent on making a link and nowhere else. A delegation token
+   *    reaches that door only with its `share` bit and this proof; an API key does not need it.
+   */
+  readonly accountProof?: string | undefined;
 }
 
 export interface MadeLink {
@@ -114,7 +119,12 @@ export async function makeLink(
         digest.fill(0);
       }
     });
-    const answer = await request(account.server, "/v1/share-links", { method: "POST", body, token: account.bearer });
+    const answer = await request(account.server, "/v1/share-links", {
+      method: "POST",
+      body,
+      token: account.bearer,
+      ...(account.accountProof === undefined ? {} : { accountProof: account.accountProof }),
+    });
     const id = isRecord(answer) ? text(answer["link_id"]) : null;
     const createdAt = isRecord(answer) ? text(answer["created_at"]) : null;
     if (id === null || createdAt === null) {

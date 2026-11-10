@@ -1,3 +1,5 @@
+import { type Session } from "../session.ts";
+import { type ShareAccount } from "../sharing.ts";
 export interface ShareOptions {
     server?: string | undefined;
     network?: string | undefined;
@@ -9,6 +11,11 @@ export interface ShareOptions {
     write?: (line: string) => void;
 }
 export declare function out(options: ShareOptions): (line: string) => void;
+/**
+ * The session as the share doors take it. ⛔ No account proof: an API key is asked for a live
+ * human check on the sending doors, and the commands send exactly what they sent before.
+ */
+export declare function shareAccountOf(session: Session, network?: string): ShareAccount;
 /** `nmts share <path> <address>` — hand one file to one account. */
 export declare function share(target: string | undefined, typedAddress: string | undefined, options?: ShareOptions): Promise<number>;
 /** `nmts shares` — what was shared with this account, and what it shared. */

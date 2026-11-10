@@ -3,6 +3,16 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.57.0 — 2026-11-10
+
+- A program can share a file the way `nmts share` does: `@needmoretruth/nmts-cli/share` exports
+  sending a share, listing what came in and what went out, receiving one and withdrawing one, and
+  runs in a browser as well as in Node. `nmts share`, `shares`, `receive` and `unshare` print what
+  they printed before.
+- Delegation tokens have a sixth scope, `share`. With it, and the NMTS key's proof on the same
+  request, a token can share a file and make a public link. Listing shares and links needs
+  `files_read`; withdrawing a share or cutting a link needs `files_write`.
+
 ## 0.56.0 — 2026-11-10
 
 - With the account's storage copy of the recovery list switched on, `put --pay wallet` of a one-part
