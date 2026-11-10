@@ -73,9 +73,12 @@ function readRow(value: unknown): PublicCodeRow {
   };
 }
 
-/** `GET /v1/account/public-codes`, read field by field. Codes come back in number order. */
-export async function readPublicCodes(server: string, token: string): Promise<PublicCodeList> {
-  const answer: unknown = await request(server, "/v1/account/public-codes", { token });
+/**
+ * `GET /v1/account/public-codes`, read field by field. Codes come back in number order.
+ * `accountProof` goes with it when given: a delegation token reads its account's list only with it.
+ */
+export async function readPublicCodes(server: string, token: string, accountProof?: string): Promise<PublicCodeList> {
+  const answer: unknown = await request(server, "/v1/account/public-codes", { token, ...proofOf(accountProof) });
   if (!isRecord(answer) || !Array.isArray(answer["codes"])) throw unreadable();
   const codes = answer["codes"].map(readRow).sort((a, b) => a.index - b.index);
   return {
@@ -109,10 +112,23 @@ export function nextCodeIndex(list: PublicCodeList): number {
   return list.codes.reduce((top, c) => Math.max(top, c.index + 1), 0);
 }
 
-/** Where a request goes and what it carries. */
+/**
+ * Where a request goes and what it carries.
+ *
+ * ⛔ `accountProof` IS FOR A DELEGATION TOKEN. A token is its business's permission, so the three
+ *    code doors also ask it for the code's proof — the key holder's own act, sent from wherever the
+ *    key is straight to the server. An API key or a session needs none and sends none.
+ */
 export interface CodeDoor {
   server: string;
   token: string;
+  /** base64url of the code's proof. Absent: not sent. */
+  accountProof?: string | undefined;
+}
+
+/** The proof header's option for `request`, or nothing. */
+function proofOf(accountProof: string | undefined): { accountProof?: string } {
+  return accountProof === undefined ? {} : { accountProof };
 }
 
 /** What publishing answers: the number it landed on and the code a person reads. */
@@ -149,6 +165,7 @@ export async function publishCode(
         const address = toBase64Url(keys.address);
         await request(door.server, "/v1/account/public-codes", {
           token: door.token,
+          ...proofOf(door.accountProof),
           method: "POST",
           body: {
             index,
@@ -194,11 +211,11 @@ export async function ensureLiveCode(
   door: CodeDoor,
   onPublish?: () => void,
 ): Promise<{ list: PublicCodeList; published: PublishedCode | null }> {
-  const list = await readPublicCodes(door.server, door.token);
+  const list = await readPublicCodes(door.server, door.token, door.accountProof);
   if (defaultCode(list) !== null) return { list, published: null };
   onPublish?.();
   const published = await publishCode(crypt, code, door, nextCodeIndex(list));
-  return { list: await readPublicCodes(door.server, door.token), published };
+  return { list: await readPublicCodes(door.server, door.token, door.accountProof), published };
 }
 
 /** One bucket of the server's revoked list, fetched once per lookup that shares it. */
@@ -241,6 +258,7 @@ export async function revokedOnServer(
 export async function revokeCode(door: CodeDoor, index: number): Promise<void> {
   await request(door.server, `/v1/account/public-codes/${requireCodeIndex(index)}/revoke`, {
     token: door.token,
+    ...proofOf(door.accountProof),
     method: "POST",
   });
 }

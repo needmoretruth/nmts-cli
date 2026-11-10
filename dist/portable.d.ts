@@ -37,7 +37,7 @@ export type { Manifest, ManifestEntry } from "./shared/lib/drive/manifest-codec.
 export { buildIndex, entryAt, folderIdFor, fullPathOf, isLive, KIND_FILE, KIND_FOLDER, namesIn, normalisePath, shown, trashedAt, } from "./drive-paths.ts";
 export type { FindOptions, ManifestIndex } from "./drive-paths.ts";
 export { setTrashed } from "./item-trash.ts";
-export { businessPublicKey, businessSigningInput, BUSINESS_CONTEXT, BUSINESS_PREFIX, delegationSigningInput, DELEGATION_CONTEXT, DELEGATION_MAX_TTL_SECS, DELEGATION_PREFIX, generateBusinessKeys, mintDelegation, NONCE_LEN, PUBKEY_LEN, rotationProof, rotationSigningInput, ROTATE_CONTEXT, SCOPE_ALL, SCOPE_BITS, scopeMask, signatureHolds, signBusinessRequest, SIGNATURE_LEN, } from "./platform-sign.ts";
+export { businessPublicKey, businessSigningInput, BUSINESS_CONTEXT, BUSINESS_PREFIX, delegationSigningInput, DELEGATION_CONTEXT, DELEGATION_MAX_TTL_SECS, DELEGATION_PREFIX, generateBusinessKeys, mintDelegation, NONCE_LEN, PUBKEY_LEN, readDelegation, rotationProof, rotationSigningInput, ROTATE_CONTEXT, SCOPE_ALL, SCOPE_BITS, scopeMask, signatureHolds, signBusinessRequest, SIGNATURE_LEN, } from "./platform-sign.ts";
 export type { BusinessKeyPair, BusinessRequest, DelegationRequest, ScopeName } from "./platform-sign.ts";
 export { newAccountCode, registrationProofOf } from "./registration.ts";
 export type { RegistrationProof } from "./registration.ts";

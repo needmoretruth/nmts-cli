@@ -462,6 +462,18 @@ export declare const ACTS: {
         readonly what: "Hand a storage resource to another address — signed, and not undoable.";
         readonly asksItself: true;
     };
+    readonly "wallet.storage.buy": {
+        readonly tier: "high";
+        readonly lock: "wallet";
+        readonly what: "Buy a storage resource with WAL from the wallet — signed, and not undoable.";
+        readonly asksItself: true;
+    };
+    readonly "wallet.storage.extend": {
+        readonly tier: "high";
+        readonly lock: "wallet";
+        readonly what: "Extend a user's files with WAL from the wallet — signed, and not undoable.";
+        readonly asksItself: true;
+    };
 };
 export type ActId = keyof typeof ACTS;
 export declare const ACT_IDS: ActId[];

@@ -61,8 +61,11 @@ export interface FakeDrive {
   /** What `GET /v1/items/{id}/extend-preview` answers — untyped for the reason `expiringRaw` is.
    *  Null is "the server lists nothing to extend", which is a real answer. */
   extendPreview: unknown;
+  extendPreviews: Map<string, unknown>; // per item id, wins over `extendPreview`
   /** Every extension the tool reported, in the order it reported them. */
   extendRecorded: { epochs: unknown; tx_digest: unknown }[];
+  extendRecordedFor: string[]; // the item id of each of those, in the same order
+  objectsTrashed: Set<string>; // ids in `objects` the listing answers with a `deleted_at`
   /**
    * Make recording an extension fail.
    *
@@ -133,7 +136,9 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     truncated: false,
     expiringRaw: undefined as unknown,
     extendPreview: null as unknown,
+    extendPreviews: new Map<string, unknown>(),
     extendRecorded: [] as { epochs: unknown; tx_digest: unknown }[],
+    extendRecordedFor: [] as string[], objectsTrashed: new Set<string>(),
     extendRecordFails: false,
     losses: [] as LossRow[],
     recheckResult: "still_missing" as RecheckResult,
@@ -224,7 +229,7 @@ export async function startFakeDrive(): Promise<FakeDrive> {
       const id = decodeURIComponent(url.split("/")[3] ?? "");
       // Null means "nothing on this file can be extended" — the shape the real server sends for a
       // file whose parts are all on treasury-paid storage.
-      return json(200, state.extendPreview ?? { item_id: id, targets: [], treasury_parts: 1, untracked_parts: 0 });
+      return json(200, state.extendPreviews.get(id) ?? state.extendPreview ?? { item_id: id, targets: [], treasury_parts: 1, untracked_parts: 0 });
     }
     if (method === "POST" && /^\/v1\/items\/[^/]+\/extended$/.test(url)) {
       let raw = "";
@@ -237,6 +242,7 @@ export async function startFakeDrive(): Promise<FakeDrive> {
           return json(500, { error: { code: "INTERNAL", message: "the note of it was not written" } });
         }
         state.extendRecorded.push({ epochs: at("epochs"), tx_digest: at("tx_digest") });
+        state.extendRecordedFor.push(decodeURIComponent(url.split("/")[3] ?? ""));
         json(200, { parts_moved: 1, quilts_moved: 0, replay: false });
       });
       return;
@@ -248,7 +254,7 @@ export async function startFakeDrive(): Promise<FakeDrive> {
       const page = state.objects.slice(from, from + state.objectsPageSize);
       const more = from + state.objectsPageSize < state.objects.length;
       return json(200, {
-        objects: page.map((id) => ({ id, size: 1, visibility: 0 })),
+        objects: page.map((id) => ({ id, size: 1, visibility: 0, deleted_at: state.objectsTrashed.has(id) ? "2026-08-01T00:00:00Z" : null })),
         next_cursor: more ? (page.at(-1) ?? null) : null,
       });
     }
@@ -319,6 +325,8 @@ export async function startFakeDrive(): Promise<FakeDrive> {
     get extendPreview(): unknown { return state.extendPreview; },
     set extendPreview(v: unknown) { state.extendPreview = v; },
     get extendRecorded() { return state.extendRecorded; },
+    get extendPreviews() { return state.extendPreviews; }, get extendRecordedFor() { return state.extendRecordedFor; },
+    get objectsTrashed() { return state.objectsTrashed; },
     get extendRecordFails() { return state.extendRecordFails; },
     set extendRecordFails(v: boolean) { state.extendRecordFails = v; },
     get losses() { return state.losses; },
@@ -375,6 +383,7 @@ export async function startFakeDrive(): Promise<FakeDrive> {
       state.expiringRaw = undefined;
       state.extendPreview = null;
       state.extendRecorded = [];
+      state.extendPreviews = new Map(); state.extendRecordedFor = []; state.objectsTrashed = new Set();
       state.extendRecordFails = false;
       state.losses = [];
       state.recheckResult = "still_missing";

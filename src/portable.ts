@@ -130,6 +130,7 @@ export {
   mintDelegation,
   NONCE_LEN,
   PUBKEY_LEN,
+  readDelegation,
   rotationProof,
   rotationSigningInput,
   ROTATE_CONTEXT,

@@ -19,7 +19,9 @@
 //   entry bundles what this exports, and the chain and the signer are loaded only when no seam was
 //   supplied.
 export { formatBytes, listStorage, readOrRefuse } from "./storage-control/list.js";
-export { applyExtension, nothingToExtend, planExtension } from "./storage-control/extend.js";
+export { applyExtension, planExtension } from "./storage-control/extend.js";
+// A business extending a user's files from its own wallet, with the user's token and no user key.
+export { extendFor } from "./storage-control/extend-for.js";
 export { planStorageOp, reshapeStorage } from "./storage-control/reshape.js";
 export { buyStorage } from "./storage-control/buy.js";
-export { DEFAULT_EXTEND_EPOCHS } from "./extend-plan.js";
+export { DEFAULT_EXTEND_EPOCHS, nothingToExtend } from "./extend-plan.js";

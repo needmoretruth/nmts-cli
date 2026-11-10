@@ -59,7 +59,37 @@ export interface BlobLease {
     size: number;
     /** The epoch the lease runs out at. THE authoritative expiry. */
     endEpoch: number;
+    /**
+     * Who may extend it, as the chain says.
+     *
+     * ⚠ OPTIONAL ONLY FOR A TEST'S FAKE CHAIN. The real reader (`extend-chain.ts`) always reads it, and
+     *   a lease without it skips only the early refusal below — the chain itself still refuses a
+     *   transaction that names a blob its sender does not hold.
+     */
+    holder?: BlobHolder | undefined;
 }
+/**
+ * Who holds a blob object. An address holds it alone; a shared blob anyone may extend; anything else
+ * (held inside another object, frozen) nobody can extend with a plain transaction.
+ */
+export type BlobHolder = {
+    kind: "address";
+    address: string;
+} | {
+    kind: "shared";
+} | {
+    kind: "other";
+    what: string;
+};
+/**
+ * Refuse, before anything is signed, a blob the paying wallet does not hold.
+ *
+ * ⛔ WHAT A WALLET PAID FOR, ONLY THAT WALLET EXTENDS (`pay.ts` in the SDK says the same). The chain
+ *    enforces it — but only after a signature was asked for, and for a remote signer (an operator's
+ *    server signing for a customer) that is a request to sign a transaction that cannot run. Named
+ *    here, each blob and who holds it, so the caller knows which wallet to pay from instead.
+ */
+export declare function refuseUnheld(leases: readonly BlobLease[], payer: string, file: string): void;
 /**
  * When the file actually runs out: the SOONEST end epoch across the blobs it rides on.
  *
@@ -148,3 +178,11 @@ export type SignExtension = (input: {
     objectIds: readonly string[];
     epochs: number;
 }) => Promise<string>;
+/**
+ * The network's clock and how far ahead it sells, or the refusal for a network that would not say.
+ *
+ * ⛔ Not "nothing needs extending". The two look identical from outside and mean opposite things.
+ */
+export declare function readWindowOrRefuse(reads: ExtendReads, network: string): Promise<ExtendWindow>;
+/** Why a file has nothing to extend, said as the two different things it can be. */
+export declare function nothingToExtend(preview: ExtendPreview): string;

@@ -106,6 +106,51 @@ export interface BlobLease {
   size: number;
   /** The epoch the lease runs out at. THE authoritative expiry. */
   endEpoch: number;
+  /**
+   * Who may extend it, as the chain says.
+   *
+   * ⚠ OPTIONAL ONLY FOR A TEST'S FAKE CHAIN. The real reader (`extend-chain.ts`) always reads it, and
+   *   a lease without it skips only the early refusal below — the chain itself still refuses a
+   *   transaction that names a blob its sender does not hold.
+   */
+  holder?: BlobHolder | undefined;
+}
+
+/**
+ * Who holds a blob object. An address holds it alone; a shared blob anyone may extend; anything else
+ * (held inside another object, frozen) nobody can extend with a plain transaction.
+ */
+export type BlobHolder = { kind: "address"; address: string } | { kind: "shared" } | { kind: "other"; what: string };
+
+/**
+ * Refuse, before anything is signed, a blob the paying wallet does not hold.
+ *
+ * ⛔ WHAT A WALLET PAID FOR, ONLY THAT WALLET EXTENDS (`pay.ts` in the SDK says the same). The chain
+ *    enforces it — but only after a signature was asked for, and for a remote signer (an operator's
+ *    server signing for a customer) that is a request to sign a transaction that cannot run. Named
+ *    here, each blob and who holds it, so the caller knows which wallet to pay from instead.
+ */
+export function refuseUnheld(leases: readonly BlobLease[], payer: string, file: string): void {
+  const mine = normaliseAddress(payer);
+  const unheld = leases.flatMap((lease) => {
+    const holder = lease.holder;
+    if (holder === undefined || holder.kind === "shared") return [];
+    if (holder.kind === "address" && normaliseAddress(holder.address) === mine) return [];
+    return [`${lease.objectId} is held by ${holder.kind === "address" ? holder.address : holder.what}`];
+  });
+  if (unheld.length === 0) return;
+  throw new NmtsError(`EXTEND_NOT_OWNED: the wallet ${payer} does not hold the storage of "${file}": ${unheld.join("; ")}.`, {
+    exitCode: 4,
+    nextStep:
+      "Nothing was signed and nothing was charged. Only the wallet that holds a blob can extend it — " +
+      "pay from that wallet, or leave this file to whoever holds it.",
+  });
+}
+
+/** `0x` and 64 lower-case hex digits, whatever the spelling it arrived in. */
+function normaliseAddress(address: string): string {
+  const hex = address.toLowerCase().replace(/^0x/, "");
+  return `0x${hex.padStart(64, "0")}`;
 }
 
 /**
@@ -250,3 +295,39 @@ export type SignExtension = (input: {
   objectIds: readonly string[];
   epochs: number;
 }) => Promise<string>;
+
+/**
+ * The network's clock and how far ahead it sells, or the refusal for a network that would not say.
+ *
+ * ⛔ Not "nothing needs extending". The two look identical from outside and mean opposite things.
+ */
+export async function readWindowOrRefuse(reads: ExtendReads, network: string): Promise<ExtendWindow> {
+  const window = await reads.readWindow();
+  if (window !== null) return window;
+  throw new NmtsError(`The ${network} storage network could not be read.`, {
+    exitCode: 1,
+    nextStep:
+      `Nothing was signed and nothing was charged. Which epoch the network is in, and how far ` +
+      `ahead it will sell, are facts only the chain has — this will not spend against a ` +
+      `guess. Try again, or name a different Sui node in NMTS_SUI_RPC.`,
+  });
+}
+
+/** Why a file has nothing to extend, said as the two different things it can be. */
+export function nothingToExtend(preview: ExtendPreview): string {
+  const parts: string[] = [];
+  if (preview.treasuryParts > 0) {
+    parts.push(
+      `${preview.treasuryParts} part${preview.treasuryParts === 1 ? " is" : "s are"} on storage NMTS ` +
+        `paid for, which this account cannot extend`,
+    );
+  }
+  if (preview.untrackedParts > 0) {
+    parts.push(
+      `${preview.untrackedParts} part${preview.untrackedParts === 1 ? " has" : "s have"} no ` +
+        `recorded storage object, so there is nothing to name on the chain`,
+    );
+  }
+  const why = parts.length === 0 ? "The server lists no storage object for it." : `${parts.join(", and ")}.`;
+  return `Nothing was signed and nothing was charged. ${why} Opening the account in a browser shows what it is stored on.`;
+}

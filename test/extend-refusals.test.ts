@@ -130,3 +130,30 @@ test("⛔ a storage term that has already ended is not sold more time", async ()
   });
 });
 
+// ── storage another wallet holds ──────────────────────────────────────────────────────────────
+
+test("⛔ a blob another wallet holds is named and refused before anything is signed", async () => {
+  await withWalletAgreed(drive, "extend-not-held", async (code) => {
+    await drive.serve(code, [entry({ id: "a", name: "theirs.bin", size: 10 })]);
+    // One blob held by somebody else, one shared. The chain would refuse `extend_blob` on the first
+    // only after the signature; the shared one is anybody's to extend and must not trip it.
+    const elsewhere = `0x${"ab".repeat(32)}`;
+    const leases: BlobLease[] = [
+      { objectId: "0xblob-theirs", size: 1_000, endEpoch: 1202, holder: { kind: "address", address: elsewhere } },
+      { objectId: "0xblob-shared", size: 1_000, endEpoch: 1202, holder: { kind: "shared" } },
+    ];
+    drive.extendPreview = preview(leases);
+    const sign = refuseToSign("it asked to sign for a blob its wallet does not hold");
+    const failure = await refusal(
+      extend("theirs.bin", opts(collect(), { readChain: () => fakeChain({ leases }), sign })),
+    );
+    assert.equal(sign.calls, 0);
+    assert.equal(failure.exitCode, 4);
+    assert.match(failure.message, /^EXTEND_NOT_OWNED:/);
+    assert.match(failure.message, /0xblob-theirs/);
+    assert.match(failure.message, new RegExp(elsewhere));
+    assert.doesNotMatch(failure.message, /0xblob-shared/);
+    assert.match(String(failure.nextStep), /Nothing was signed and nothing was charged/);
+  });
+});
+

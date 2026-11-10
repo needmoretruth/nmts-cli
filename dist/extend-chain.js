@@ -19,7 +19,7 @@ import { ObjectError } from "@mysten/sui/client";
 import { walrus } from "@mysten/walrus";
 import { NmtsError } from "./errors.js";
 import { epochClock } from "./expiry.js";
-import { dryRun, objectFields } from "./shared/lib/wallet/chain-calls.js";
+import { dryRun } from "./shared/lib/wallet/chain-calls.js";
 import { epochStartedMs } from "./walrus-write.js";
 import { storageNodesThrough } from "./walrus.js";
 import { freshWalrus } from "./walrus-fresh.js";
@@ -60,8 +60,12 @@ function numberOf(value) {
  */
 export async function readBlobLease(client, objectId) {
     let fields;
+    let holder;
     try {
-        fields = await objectFields(client, objectId);
+        // ⛔ ONE READ FOR THE LEASE AND ITS HOLDER, so the two describe the same version of the object.
+        const { object } = await client.core.getObject({ objectId, include: { json: true } });
+        fields = object.json ?? null;
+        holder = holderOf(object.owner);
     }
     catch (error) {
         // Only the node's own "no such object" is said as one; a node that did not answer is thrown
@@ -87,7 +91,19 @@ export async function readBlobLease(client, objectId) {
             nextStep: "Nothing was signed and nothing was charged. Update this tool.",
         });
     }
-    return { objectId, size, endEpoch };
+    return { objectId, size, endEpoch, holder };
+}
+/** Who holds an object, in the three kinds an extension cares about. */
+function holderOf(owner) {
+    if (owner.AddressOwner !== undefined)
+        return { kind: "address", address: owner.AddressOwner };
+    if (owner.ConsensusAddressOwner !== undefined)
+        return { kind: "address", address: owner.ConsensusAddressOwner.owner };
+    if (owner.$kind === "Shared")
+        return { kind: "shared" };
+    if (owner.ObjectOwner !== undefined)
+        return { kind: "other", what: `the object ${owner.ObjectOwner}` };
+    return { kind: "other", what: owner.$kind === "Immutable" ? "nobody (it is frozen)" : `an owner of kind ${owner.$kind}` };
 }
 /**
  * The reads one `nmts extend` run needs, bound to one network.

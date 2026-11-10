@@ -8,14 +8,14 @@
 //    byte — the sealing itself is `share.ts`, untouched, and its order is load-bearing.
 //
 // ⛔ THE SAME FOR EVERY KEY HOLDER. `ShareAccount.bearer` is an API key or a delegation token. A
-//    token reaches the two sending doors only with its `share` bit AND the code's proof
-//    (`accountProof`), so the proof is sent on those two requests and on no other. An API key is
-//    asked for a live human check there instead, and the proof is simply not needed.
+//    token reaches the sending doors and the account's own code doors only with its `share` bit AND
+//    the code's proof (`accountProof`), so the proof is sent on those requests and on no other. An
+//    API key is asked for a live human check there instead, and the proof is simply not needed.
 //
 // ⛔ RECEIVING IS `sharing-inbox.ts`, re-exported here so `./share` is one entry.
 //
 // ⛔ NO `node:`, NO `Buffer`, NO `process.` — `test/portable-closure.test.ts` walks this file.
-import { request, ServerError } from "./api.js";
+import { request } from "./api.js";
 import { fromBase64Url, toBase64Url, utf8 } from "./bytes.js";
 import { AAD, DERIVED, loadCrypto } from "./crypto.js";
 import { buildIndex, entryAt, fullPathOf, KIND_FILE, normalisePath } from "./drive-paths.js";
@@ -23,9 +23,9 @@ import { NmtsError } from "./errors.js";
 import { readFileList } from "./manifest.js";
 import { BINARY_NAME } from "./product.js";
 import { differentCode, notLiveCode, publicCodeRefusal } from "./public-code-refusals.js";
-import { ensureLiveCode, liveCodes, PUBLISH_TRIES } from "./public-codes.js";
+import { ensureLiveCode, liveCodes } from "./public-codes.js";
 import { identityMatches, sealShare } from "./share.js";
-import { shareKeyRing, shareKeysAt } from "./share-codes.js";
+import { shareKeysAt } from "./share-codes.js";
 export { addressFromTyped } from "./share.js";
 export { receivedShares, receiveShare } from "./sharing-inbox.js";
 /** The file at `target`, checked for the key and the hash a share carries. */
@@ -58,21 +58,19 @@ export async function shareableFileAt(account, target) {
  * Which live code sends: `as` when named, else the lowest-numbered live one — published first when
  * the account has none, as a first share does.
  *
- * ⚠ A DELEGATION TOKEN CANNOT READ THE CODE LIST (its business replaces a user's one code through
- *   its own signed batch, and that list stays closed to it). So for a token the codes are asked
- *   one number at a time at the public lookup, from 0: a revoked one answers 410, the live one 200,
- *   and the first number never published 404 — there is nothing after it.
+ * ⛔ THE SAME ON EVERY ROOT. A delegation token reads the code list and publishes the
+ *    first code with its `share` bit and the code's proof, the proof this account already carries
+ *    for the sending door. Until 2026-11-11 a token could not, and a device whose business held no
+ *    key had no road to a code of its own.
  */
 async function senderKeys(crypt, account, as, onFirstCode) {
-    const door = { server: account.server, token: account.bearer };
+    const door = { server: account.server, token: account.bearer, accountProof: account.accountProof };
     let codes;
     try {
         ({ list: codes } = await ensureLiveCode(crypt, account.code, door, onFirstCode));
     }
     catch (error) {
-        if (!(error instanceof ServerError && error.code === "DELEGATION_SCOPE"))
-            throw publicCodeRefusal(error);
-        return as === undefined ? await walkToLiveCode(crypt, account) : shareKeysAt(crypt, account.code, as);
+        throw publicCodeRefusal(error);
     }
     const live = liveCodes(codes);
     const sender = as === undefined ? live[0] : live.find((c) => c.index === as);
@@ -84,32 +82,6 @@ async function senderKeys(crypt, account, as, onFirstCode) {
         throw differentCode();
     }
     return keys;
-}
-async function walkToLiveCode(crypt, account) {
-    const ring = shareKeyRing(crypt, account.code);
-    try {
-        for (let index = 0; index < PUBLISH_TRIES; index += 1) {
-            const address = toBase64Url(ring.at(index).address);
-            try {
-                await request(account.server, `/v1/share-recipients/${encodeURIComponent(address)}`, { token: account.bearer });
-                return shareKeysAt(crypt, account.code, index);
-            }
-            catch (error) {
-                if (error instanceof ServerError && error.status === 410)
-                    continue;
-                if (error instanceof ServerError && error.status === 404)
-                    break;
-                throw error;
-            }
-        }
-    }
-    finally {
-        ring.wipe();
-    }
-    throw new NmtsError("This account has no public code yet, so nothing can be shared from it.", {
-        exitCode: 4,
-        nextStep: "Nothing was shared. The business that issued this token publishes one with setPublicCodes; then share again.",
-    });
 }
 /**
  * Seal one file for one public code and send it.

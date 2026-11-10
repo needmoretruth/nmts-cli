@@ -21,8 +21,8 @@ import { walrus } from "@mysten/walrus";
 
 import { NmtsError } from "./errors.ts";
 import { epochClock } from "./expiry.ts";
-import type { BlobLease, ExtendReads, ExtendWindow } from "./extend-plan.ts";
-import { dryRun, objectFields } from "./shared/lib/wallet/chain-calls.ts";
+import type { BlobHolder, BlobLease, ExtendReads, ExtendWindow } from "./extend-plan.ts";
+import { dryRun } from "./shared/lib/wallet/chain-calls.ts";
 import { epochStartedMs } from "./walrus-write.ts";
 import { storageNodesThrough } from "./walrus.ts";
 import { freshWalrus } from "./walrus-fresh.ts";
@@ -69,8 +69,12 @@ export async function readBlobLease(
   objectId: string,
 ): Promise<BlobLease> {
   let fields: Record<string, unknown> | null;
+  let holder: BlobHolder | undefined;
   try {
-    fields = await objectFields(client, objectId);
+    // ⛔ ONE READ FOR THE LEASE AND ITS HOLDER, so the two describe the same version of the object.
+    const { object } = await client.core.getObject({ objectId, include: { json: true } });
+    fields = object.json ?? null;
+    holder = holderOf(object.owner);
   } catch (error) {
     // Only the node's own "no such object" is said as one; a node that did not answer is thrown
     // as itself, because "deleted" and "unreachable" ask the person to do different things.
@@ -97,7 +101,21 @@ export async function readBlobLease(
       nextStep: "Nothing was signed and nothing was charged. Update this tool.",
     });
   }
-  return { objectId, size, endEpoch };
+  return { objectId, size, endEpoch, holder };
+}
+
+/** Who holds an object, in the three kinds an extension cares about. */
+function holderOf(owner: {
+  $kind: string;
+  AddressOwner?: string;
+  ObjectOwner?: string;
+  ConsensusAddressOwner?: { owner: string };
+}): BlobHolder {
+  if (owner.AddressOwner !== undefined) return { kind: "address", address: owner.AddressOwner };
+  if (owner.ConsensusAddressOwner !== undefined) return { kind: "address", address: owner.ConsensusAddressOwner.owner };
+  if (owner.$kind === "Shared") return { kind: "shared" };
+  if (owner.ObjectOwner !== undefined) return { kind: "other", what: `the object ${owner.ObjectOwner}` };
+  return { kind: "other", what: owner.$kind === "Immutable" ? "nobody (it is frozen)" : `an owner of kind ${owner.$kind}` };
 }
 
 /**

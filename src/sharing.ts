@@ -8,15 +8,15 @@
 //    byte — the sealing itself is `share.ts`, untouched, and its order is load-bearing.
 //
 // ⛔ THE SAME FOR EVERY KEY HOLDER. `ShareAccount.bearer` is an API key or a delegation token. A
-//    token reaches the two sending doors only with its `share` bit AND the code's proof
-//    (`accountProof`), so the proof is sent on those two requests and on no other. An API key is
-//    asked for a live human check there instead, and the proof is simply not needed.
+//    token reaches the sending doors and the account's own code doors only with its `share` bit AND
+//    the code's proof (`accountProof`), so the proof is sent on those requests and on no other. An
+//    API key is asked for a live human check there instead, and the proof is simply not needed.
 //
 // ⛔ RECEIVING IS `sharing-inbox.ts`, re-exported here so `./share` is one entry.
 //
 // ⛔ NO `node:`, NO `Buffer`, NO `process.` — `test/portable-closure.test.ts` walks this file.
 
-import { request, ServerError } from "./api.ts";
+import { request } from "./api.ts";
 import { fromBase64Url, toBase64Url, utf8 } from "./bytes.ts";
 import { AAD, DERIVED, loadCrypto, type CryptoGlue } from "./crypto.ts";
 import { buildIndex, entryAt, fullPathOf, KIND_FILE, normalisePath } from "./drive-paths.ts";
@@ -24,9 +24,9 @@ import { NmtsError } from "./errors.ts";
 import { readFileList } from "./manifest.ts";
 import { BINARY_NAME } from "./product.ts";
 import { differentCode, notLiveCode, publicCodeRefusal } from "./public-code-refusals.ts";
-import { ensureLiveCode, liveCodes, PUBLISH_TRIES } from "./public-codes.ts";
+import { ensureLiveCode, liveCodes } from "./public-codes.ts";
 import { identityMatches, sealShare, type ShareKeys } from "./share.ts";
-import { shareKeyRing, shareKeysAt } from "./share-codes.ts";
+import { shareKeysAt } from "./share-codes.ts";
 import type { ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";
 
 export { addressFromTyped } from "./share.ts";
@@ -42,7 +42,7 @@ export interface ShareAccount {
   readonly accountId: string;
   /** The chain the stored parts are on, as `resolveNetwork` answers it. */
   readonly network: string;
-  /** ⛔ base64url of the code's proof, for the two sending doors only. Absent: not sent. */
+  /** ⛔ base64url of the code's proof, for the sending and code doors only. Absent: not sent. */
   readonly accountProof?: string | undefined;
 }
 
@@ -93,19 +93,18 @@ export async function shareableFileAt(account: ShareAccount, target: string): Pr
  * Which live code sends: `as` when named, else the lowest-numbered live one — published first when
  * the account has none, as a first share does.
  *
- * ⚠ A DELEGATION TOKEN CANNOT READ THE CODE LIST (its business replaces a user's one code through
- *   its own signed batch, and that list stays closed to it). So for a token the codes are asked
- *   one number at a time at the public lookup, from 0: a revoked one answers 410, the live one 200,
- *   and the first number never published 404 — there is nothing after it.
+ * ⛔ THE SAME ON EVERY ROOT. A delegation token reads the code list and publishes the
+ *    first code with its `share` bit and the code's proof, the proof this account already carries
+ *    for the sending door. Until 2026-11-11 a token could not, and a device whose business held no
+ *    key had no road to a code of its own.
  */
 async function senderKeys(crypt: CryptoGlue, account: ShareAccount, as: number | undefined, onFirstCode?: () => void): Promise<ShareKeys> {
-  const door = { server: account.server, token: account.bearer };
+  const door = { server: account.server, token: account.bearer, accountProof: account.accountProof };
   let codes;
   try {
     ({ list: codes } = await ensureLiveCode(crypt, account.code, door, onFirstCode));
   } catch (error) {
-    if (!(error instanceof ServerError && error.code === "DELEGATION_SCOPE")) throw publicCodeRefusal(error);
-    return as === undefined ? await walkToLiveCode(crypt, account) : shareKeysAt(crypt, account.code, as);
+    throw publicCodeRefusal(error);
   }
   const live = liveCodes(codes);
   const sender = as === undefined ? live[0] : live.find((c) => c.index === as);
@@ -116,29 +115,6 @@ async function senderKeys(crypt: CryptoGlue, account: ShareAccount, as: number |
     throw differentCode();
   }
   return keys;
-}
-
-async function walkToLiveCode(crypt: CryptoGlue, account: ShareAccount): Promise<ShareKeys> {
-  const ring = shareKeyRing(crypt, account.code);
-  try {
-    for (let index = 0; index < PUBLISH_TRIES; index += 1) {
-      const address = toBase64Url(ring.at(index).address);
-      try {
-        await request(account.server, `/v1/share-recipients/${encodeURIComponent(address)}`, { token: account.bearer });
-        return shareKeysAt(crypt, account.code, index);
-      } catch (error) {
-        if (error instanceof ServerError && error.status === 410) continue;
-        if (error instanceof ServerError && error.status === 404) break;
-        throw error;
-      }
-    }
-  } finally {
-    ring.wipe();
-  }
-  throw new NmtsError("This account has no public code yet, so nothing can be shared from it.", {
-    exitCode: 4,
-    nextStep: "Nothing was shared. The business that issued this token publishes one with setPublicCodes; then share again.",
-  });
 }
 
 /**

@@ -3,6 +3,21 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.59.0 — 2026-11-11
+
+- `nmts wallet storage extend [<item-id>...] --delegation-file <file>` lets a business that paid
+  for its users' uploads extend those files from its own wallet. It needs a delegation token for the
+  user with `files_read` and `storage_spend`, and not the user's key. The library exports the same
+  call as `extendFor`.
+- `extend`, here and in the library, now refuses a file whose storage another wallet holds, and
+  names that wallet, before anything is signed.
+- A delegation token with the `share` scope can list, publish and revoke its own account's public
+  codes, with the NMTS key's proof on the same request. A device that holds its own key publishes
+  its first code itself when it first shares; the business no longer has to.
+- `wallet storage buy` and `wallet storage extend` are rated as signing commands that spend WAL.
+  Until now `buy` was rated as a read.
+- `expiring` says "1 day" and "1 file runs out" where it said "1 days" and "1 file run out".
+
 ## 0.58.0 — 2026-11-11
 
 - `nmts wallet storage buy --size <n> [--epochs <n>]` buys a storage resource with nothing in it,

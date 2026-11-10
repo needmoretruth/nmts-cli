@@ -11,7 +11,7 @@ export interface ShareAccount {
     readonly accountId: string;
     /** The chain the stored parts are on, as `resolveNetwork` answers it. */
     readonly network: string;
-    /** ⛔ base64url of the code's proof, for the two sending doors only. Absent: not sent. */
+    /** ⛔ base64url of the code's proof, for the sending and code doors only. Absent: not sent. */
     readonly accountProof?: string | undefined;
 }
 /** One file of the account's list that a share can carry, and its full path. */

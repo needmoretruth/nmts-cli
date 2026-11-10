@@ -23,24 +23,15 @@
 //
 // ⛔ AND IT DROPS WHOLE BRANCHES. See `trash-sweep.ts`: a folder dropped while a file under it is
 //    kept leaves that file with no trashed ancestor, which reads as LIVE for ever after.
-import { request } from "../api.js";
 import { buildIndex, fullPathOf, trashedAt } from "../drive-paths.js";
 import { NmtsError } from "../errors.js";
 import { readFileList } from "../manifest.js";
 import { applyToList } from "../manifest-write.js";
 import { BINARY_NAME } from "../product.js";
+import { serverObjects } from "../server-objects.js";
 import { openSession } from "../session.js";
 import { expiredTrashEntries, filesAmong, planPurge, TRASH_RETENTION_DAYS, } from "../trash-sweep.js";
 const DAY_MS = 86_400_000;
-/**
- * How many pages of the server's item listing one sweep will read.
- *
- * ⛔ THERE IS A CEILING BECAUSE "ABSENT FROM A PARTIAL LISTING" IS NOT "ERASED". The whole
- *    safeguard below rests on having seen every row the server still holds, so a listing that ran
- *    out of patience must stop the sweep rather than shorten it. A hundred rows a page puts the
- *    limit well past any drive a command-line tool is the right way to manage.
- */
-const MAX_PAGES = 200;
 export async function sweep(options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     const now = options.now ?? Date.now();
@@ -180,61 +171,12 @@ function describe(plan, shown, ageDays) {
     return rows;
 }
 /**
- * Every item id the server still holds a row for, live or trashed.
+ * Every item id the server still holds a row for, live or trashed (`server-objects.ts`).
  *
- * ⛔ `/v1/objects` AND NOT `/v1/items?deleted=true`. The trash listing stops at the retention
- *    window, so a row that is past thirty days and not yet erased is missing from it — and
- *    "missing" is exactly the answer this function must not get wrong. `/v1/objects` is the
- *    reconciliation view: every row of the account, with no window on it.
- *
- * ⚠ The two calls are written out rather than built from a variable so that the gate comparing
- *   this tool's addresses against the server's routes can see them both. It reads literal strings.
+ * ⛔ A WALK THAT STOPPED AT THE CEILING IS REPORTED AS ONE: "absent from a partial listing" is not
+ *    "erased", and the safeguard above rests on having seen every row.
  */
 async function serverItemIds(base, apiKey) {
-    const ids = new Set();
-    let cursor = null;
-    for (let page = 0; page < MAX_PAGES; page += 1) {
-        const answer = cursor === null
-            ? await request(base, "/v1/objects", { token: apiKey })
-            : await request(base, `/v1/objects?after=${encodeURIComponent(cursor)}`, { token: apiKey });
-        const read = asObjectsAnswer(answer);
-        for (const id of read.ids)
-            ids.add(id);
-        if (read.next === null)
-            return { ids, complete: true };
-        cursor = read.next;
-    }
-    return { ids, complete: false };
-}
-/**
- * What `GET /v1/objects` answers, narrowed rather than trusted.
- *
- * ⛔ A ROW THIS CANNOT READ IS A REFUSAL. Skipping one would shrink the set of things the server is
- *    known to hold, and every id missing from that set is an entry this command then drops.
- */
-function asObjectsAnswer(value) {
-    const unreadable = () => {
-        throw new NmtsError("The server answered with an item listing this version cannot read.", {
-            nextStep: "Nothing was changed. Update this tool before sweeping.",
-        });
-    };
-    if (typeof value !== "object" || value === null)
-        return unreadable();
-    const raw = Reflect.get(value, "objects");
-    if (!Array.isArray(raw))
-        return unreadable();
-    const objects = raw;
-    const ids = [];
-    for (const object of objects) {
-        if (typeof object !== "object" || object === null)
-            return unreadable();
-        const id = Reflect.get(object, "id");
-        if (typeof id !== "string")
-            return unreadable();
-        ids.push(id);
-    }
-    const next = Reflect.get(value, "next_cursor");
-    if (next !== null && next !== undefined && typeof next !== "string")
-        return unreadable();
-    return { ids, next: typeof next === "string" && next !== "" ? next : null };
+    const { rows, complete } = await serverObjects(base, apiKey);
+    return { ids: new Set(rows.map((row) => row.id)), complete };
 }

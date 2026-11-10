@@ -57,6 +57,8 @@ const VALUE_OPTIONS = {
     //    credential and lists this one as the exception it is: what it names is a FILE, the shape
     //    this tool already recommends for every other secret (`NMTS_ACCOUNT_CODE_FILE`).
     "--sui-key-file": "suiKeyFile",
+    // A PATH, like the one above: a business's server names the file holding a user's delegation token.
+    "--delegation-file": "delegationFile",
     "--from": "from",
     // NMTS Heavy: which tier, and the self-paid path's knobs (developer mode).
     "--tier": "tier",

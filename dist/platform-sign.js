@@ -24,7 +24,7 @@
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, randomBytes } from "@noble/hashes/utils.js";
-import { concat, fromBase64Url, toBase64Url, utf8 } from "./bytes.js";
+import { concat, fromBase64Url, fromUtf8, toBase64Url, utf8 } from "./bytes.js";
 import { NmtsError } from "./errors.js";
 /** The fixed prefix of a business signature. `1` is the format version, so a later shape is `bs2_`. */
 export const BUSINESS_PREFIX = "nmts_bs1_";
@@ -178,6 +178,34 @@ export function mintDelegation(request) {
  */
 export function rotationProof(oldPublicKey, newPrivateKey) {
     return toBase64Url(ed25519.sign(rotationSigningInput(oldPublicKey), secretBytes(newPrivateKey)));
+}
+/**
+ * What a delegation token was minted FOR — the account it names and its scope — or null for a string
+ * that is not one this can read.
+ *
+ * ⚠ IT IS NOT A CHECK THAT THE TOKEN IS VALID. Whether the signature holds and whether it has run
+ *   out are the server's judgement and stay there; what is read here is what a caller can act on
+ *   BEFORE spending — a token minted without `storage_spend` would be refused after the WAL had gone.
+ */
+export function readDelegation(token) {
+    if (!token.startsWith(DELEGATION_PREFIX))
+        return null;
+    const payload = token.slice(DELEGATION_PREFIX.length).split(".")[0];
+    if (payload === undefined || payload === "")
+        return null;
+    try {
+        const parsed = JSON.parse(fromUtf8(fromBase64Url(payload)));
+        if (typeof parsed !== "object" || parsed === null)
+            return null;
+        const scope = Reflect.get(parsed, "s");
+        const user = Reflect.get(parsed, "u");
+        if (typeof scope !== "number" || !Number.isSafeInteger(scope) || typeof user !== "string")
+            return null;
+        return { user, scope };
+    }
+    catch {
+        return null;
+    }
 }
 /** The bitmask these scope names make. */
 export function scopeMask(scopes) {

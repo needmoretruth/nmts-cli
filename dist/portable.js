@@ -62,7 +62,7 @@ export { setTrashed } from "./item-trash.js";
 // token it mints for one of its users. Making either needs no host and no server — a business
 // signs on its own machine, and a device that was handed a token presents it from a page — so
 // they belong on this side of the line rather than behind the Node entry.
-export { businessPublicKey, businessSigningInput, BUSINESS_CONTEXT, BUSINESS_PREFIX, delegationSigningInput, DELEGATION_CONTEXT, DELEGATION_MAX_TTL_SECS, DELEGATION_PREFIX, generateBusinessKeys, mintDelegation, NONCE_LEN, PUBKEY_LEN, rotationProof, rotationSigningInput, ROTATE_CONTEXT, SCOPE_ALL, SCOPE_BITS, scopeMask, signatureHolds, signBusinessRequest, SIGNATURE_LEN, } from "./platform-sign.js";
+export { businessPublicKey, businessSigningInput, BUSINESS_CONTEXT, BUSINESS_PREFIX, delegationSigningInput, DELEGATION_CONTEXT, DELEGATION_MAX_TTL_SECS, DELEGATION_PREFIX, generateBusinessKeys, mintDelegation, NONCE_LEN, PUBKEY_LEN, readDelegation, rotationProof, rotationSigningInput, ROTATE_CONTEXT, SCOPE_ALL, SCOPE_BITS, scopeMask, signatureHolds, signBusinessRequest, SIGNATURE_LEN, } from "./platform-sign.js";
 // What a brand-new account is registered with, derived from its NMTS key and from nothing else.
 // ⚠ Here because a business registering a user makes the same pair the account door has always
 //   taken — a second derivation for the Platform would be a second answer to one question.

@@ -63,10 +63,12 @@ export async function wallet(what, options = {}) {
         }
         if (sub === "buy")
             return (await import("./wallet-storage-buy.js")).walletStorageBuy(options);
+        if (sub === "extend")
+            return (await import("./wallet-storage-extend.js")).walletStorageExtend(more, options);
         if (sub !== undefined) {
             throw new NmtsError(`\`${BINARY_NAME} wallet storage ${sub}\` is not something this command does.`, {
                 exitCode: 2,
-                nextStep: `\`${BINARY_NAME} wallet storage\` lists; \`buy\`, \`split\`, \`merge\` and \`transfer\` sign — \`${BINARY_NAME} help wallet\`.`,
+                nextStep: `\`${BINARY_NAME} wallet storage\` lists; \`buy\`, \`extend\`, \`split\`, \`merge\` and \`transfer\` sign — \`${BINARY_NAME} help wallet\`.`,
             });
         }
         return (await import("./wallet-storage.js")).walletStorage(options);

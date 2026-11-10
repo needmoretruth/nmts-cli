@@ -24,7 +24,7 @@ import { buildIndex, entryAt, fullPathOf, KIND_FILE, normalisePath } from "../dr
 import { NmtsError } from "../errors.js";
 import { budgetFacts, readBudget } from "../extend-budget.js";
 import { daysLeftUntilEpoch, stageOf } from "../expiry.js";
-import { asExtendPreview, chooseEpochs, headroom, soonestEnd, } from "../extend-plan.js";
+import { asExtendPreview, chooseEpochs, headroom, nothingToExtend, readWindowOrRefuse, soonestEnd, refuseUnheld, } from "../extend-plan.js";
 import { isRecord } from "../guards.js";
 import { readFileList } from "../manifest.js";
 import { activeWalletOf } from "../shared/lib/drive/manifest-settings.js";
@@ -53,28 +53,44 @@ export async function planExtension(input, target, seams) {
         });
     }
     const path = fullPathOf(buildIndex(entries), entry);
+    // ⛔ WHICH WALLET PAYS comes out of the list this run already read, before the price is measured
+    //    against a balance: the address below is the one that will sign.
+    const wallet = seams.wallet ?? activeWalletOf(settings);
+    const address = seams.payer?.address ?? (await walletAddress(input.code, wallet));
+    const reads = await (seams.readChain ?? defaultReads)(input.network);
+    const item = await planItemExtension(input, { id: entry.id, label: path }, {
+        reads,
+        window: await readWindowOrRefuse(reads, input.network),
+        address,
+        epochs: seams.epochs,
+        now: seams.now,
+        hints: seams.hints,
+    });
+    return { ...item, path, wallet, settings };
+}
+/**
+ * Plan one file's extension from its id. The NMTS server says which blobs, the chain says how long
+ * each runs and who holds it, and the paying wallet's balances are read against the price.
+ *
+ * ⛔ NO NMTS KEY. This is what lets a business's server keep a user's files alive with the user's
+ *    delegation token and its own wallet, while the key that opens the files stays on the user's
+ *    device. The file is named by `item.label`: its path when a key opened the list, its id when
+ *    nothing could.
+ */
+export async function planItemExtension(where, item, seams) {
+    const path = item.label;
     // ⛔ THE SERVER SAYS WHICH BLOBS, AND NOTHING ELSE. Its `expiry_epoch` is client-reported and
     //    advisory; anything that spends money reads the chain's own answer below.
-    const preview = asExtendPreview(await request(input.server, `/v1/items/${encodeURIComponent(entry.id)}/extend-preview`, {
-        token: input.apiKey,
+    const preview = asExtendPreview(await request(where.server, `/v1/items/${encodeURIComponent(item.id)}/extend-preview`, {
+        token: where.apiKey,
     }));
     if (preview.targets.length === 0) {
-        throw new NmtsError(`Nothing on "${path}" can be extended from here.`, {
+        throw new NmtsError(`EXTEND_NOTHING: nothing on "${path}" can be extended from here.`, {
             exitCode: 4,
             nextStep: nothingToExtend(preview),
         });
     }
-    const reads = await (seams.readChain ?? defaultReads)(input.network);
-    const window = await reads.readWindow();
-    if (window === null) {
-        // ⛔ Not "nothing needs extending". The two look identical from outside and mean opposite things.
-        throw new NmtsError(`The ${input.network} storage network could not be read.`, {
-            exitCode: 1,
-            nextStep: `Nothing was signed and nothing was charged. Which epoch the network is in, and how far ` +
-                `ahead it will sell, are facts only the chain has — this will not spend against a ` +
-                `guess. Try again, or name a different Sui node in NMTS_SUI_RPC.`,
-        });
-    }
+    const { reads, window } = seams;
     const clock = window.clock;
     const objectIds = preview.targets.map((t) => t.objectId);
     const leases = await reads.readLeases(objectIds);
@@ -87,7 +103,7 @@ export async function planExtension(input, target, seams) {
     }
     const stage = stageOf(clock, endEpoch, seams.now);
     if (stage === "lapsed") {
-        throw new NmtsError(`The storage term for "${path}" has already ended.`, {
+        throw new NmtsError(`EXTEND_LAPSED: the storage term for "${path}" has already ended.`, {
             exitCode: 4,
             nextStep: seams.hints?.lapsed ??
                 `Nothing was signed and nothing was charged. A lease is extended before it ends — once it ` +
@@ -95,6 +111,9 @@ export async function planExtension(input, target, seams) {
                     `Fetching the file is what says whether they can still be read.`,
         });
     }
+    // ⛔ BEFORE THE PRICE AND BEFORE ANY SIGNATURE: a blob this wallet does not hold cannot be
+    //    extended by it, and the chain would only say so after somebody had been asked to sign.
+    refuseUnheld(leases, seams.address, path);
     const epochs = chooseEpochs(seams.epochs, headroom(leases, clock.current, window.maxAhead));
     const newEndEpoch = endEpoch + epochs;
     const before = daysLeftUntilEpoch(clock, endEpoch, seams.now);
@@ -104,16 +123,12 @@ export async function planExtension(input, target, seams) {
     const frost = await reads.quote(leases, epochs);
     const cohort = Math.max(0, ...preview.targets.map((t) => t.sharedItems));
     const unreachable = preview.treasuryParts + preview.untrackedParts;
-    // ⛔ WHICH WALLET PAYS comes out of the list this run already read, before the price is measured
-    //    against a balance: the address below is the one that will sign.
-    const wallet = seams.wallet ?? activeWalletOf(settings);
-    const address = seams.payer?.address ?? (await walletAddress(input.code, wallet));
-    const budget = await readBudget(reads, { address, objectIds, epochs, priceFrost: frost });
+    const budget = await readBudget(reads, { address: seams.address, objectIds, epochs, priceFrost: frost });
     return {
         facts: {
             file: path,
-            itemId: entry.id,
-            network: input.network,
+            itemId: item.id,
+            network: where.network,
             epoch: clock.current,
             endEpoch,
             epochs,
@@ -128,14 +143,12 @@ export async function planExtension(input, target, seams) {
             partsThatCannotBeExtended: unreachable,
             ...budgetFacts(budget),
         },
-        itemId: entry.id,
-        path,
+        itemId: item.id,
         objectIds,
+        bytes: leases.reduce((sum, lease) => sum + lease.size, 0),
         epochs,
-        wallet,
         stage,
         budget,
-        settings,
     };
 }
 /**
@@ -154,10 +167,17 @@ export async function applyExtension(input, plan, seams = {}) {
         epochs: plan.epochs,
     });
     seams.onSigned?.(digest);
-    // From here the storage IS extended. Recording it is bookkeeping, and a failure to record must
-    // never be reported as a failure to extend — that reading invites a second run, which pays again.
+    return recordExtension(input, plan, digest);
+}
+/**
+ * Tell the NMTS server about an extension that is already signed and paid for.
+ *
+ * From here the storage IS extended. Recording it is bookkeeping, and a failure to record must
+ * never be reported as a failure to extend — that reading invites a second run, which pays again.
+ */
+export async function recordExtension(where, plan, digest) {
     try {
-        const recorded = await request(input.server, `/v1/items/${encodeURIComponent(plan.itemId)}/extended`, { method: "POST", token: input.apiKey, body: { epochs: plan.epochs, tx_digest: digest } });
+        const recorded = await request(where.server, `/v1/items/${encodeURIComponent(plan.itemId)}/extended`, { method: "POST", token: where.apiKey, body: { epochs: plan.epochs, tx_digest: digest } });
         return { digest, recorded: true, replay: isRecord(recorded) && recorded["replay"] === true, notRecorded: null };
     }
     catch (error) {
@@ -169,21 +189,7 @@ export async function applyExtension(input, plan, seams = {}) {
         };
     }
 }
-/** Why a file has nothing to extend, said as the two different things it can be. */
-export function nothingToExtend(preview) {
-    const parts = [];
-    if (preview.treasuryParts > 0) {
-        parts.push(`${preview.treasuryParts} part${preview.treasuryParts === 1 ? " is" : "s are"} on storage NMTS ` +
-            `paid for, which this account cannot extend`);
-    }
-    if (preview.untrackedParts > 0) {
-        parts.push(`${preview.untrackedParts} part${preview.untrackedParts === 1 ? " has" : "s have"} no ` +
-            `recorded storage object, so there is nothing to name on the chain`);
-    }
-    const why = parts.length === 0 ? "The server lists no storage object for it." : `${parts.join(", and ")}.`;
-    return `Nothing was signed and nothing was charged. ${why} Opening the account in a browser shows what it is stored on.`;
-}
 /** The real chain reads. Imported only when no seam was supplied — it loads the storage SDK. */
-async function defaultReads(network) {
+export async function defaultReads(network) {
     return (await import("../extend-chain.js")).extendReads(network);
 }

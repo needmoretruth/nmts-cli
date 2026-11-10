@@ -60,6 +60,9 @@ export interface WalletOptions {
   /** `wallet storage split`: what the resource keeps, by size or by epochs (`wallet-storage-ops.ts`). */
   size?: string | undefined;
   epochs?: string | undefined;
+  /** `wallet storage extend`: the user's delegation token file, and whether files not due go too. */
+  delegationFile?: string | undefined;
+  force?: boolean;
   /** `wallet hall`: the name to be listed under, or `remove` to go back to a shortened address. */
   name?: string | undefined;
   remove?: boolean;
@@ -111,10 +114,11 @@ export async function wallet(what: string | undefined, options: WalletOptions = 
       return (await import("./wallet-storage-ops.ts")).walletStorageOps(sub, more, options);
     }
     if (sub === "buy") return (await import("./wallet-storage-buy.ts")).walletStorageBuy(options);
+    if (sub === "extend") return (await import("./wallet-storage-extend.ts")).walletStorageExtend(more, options);
     if (sub !== undefined) {
       throw new NmtsError(`\`${BINARY_NAME} wallet storage ${sub}\` is not something this command does.`, {
         exitCode: 2,
-        nextStep: `\`${BINARY_NAME} wallet storage\` lists; \`buy\`, \`split\`, \`merge\` and \`transfer\` sign — \`${BINARY_NAME} help wallet\`.`,
+        nextStep: `\`${BINARY_NAME} wallet storage\` lists; \`buy\`, \`extend\`, \`split\`, \`merge\` and \`transfer\` sign — \`${BINARY_NAME} help wallet\`.`,
       });
     }
     return (await import("./wallet-storage.ts")).walletStorage(options);

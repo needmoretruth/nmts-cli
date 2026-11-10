@@ -117,6 +117,8 @@ export interface ParsedArgs {
    *    used to sign one message, and never copied or printed.
    */
   suiKeyFile?: string;
+  /** `wallet storage extend`: the file holding the user's delegation token. ⛔ A path, never the token. */
+  delegationFile?: string;
   /** `login`/`create`/`openers add`: which of that wallet's NMTS accounts. Whole, from 1. */
   account?: string;
   /**

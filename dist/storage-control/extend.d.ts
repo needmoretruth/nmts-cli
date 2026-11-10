@@ -1,6 +1,6 @@
 import { type Budget } from "../extend-budget.ts";
 import { type DaysLeft, type ExpiryStage } from "../expiry.ts";
-import { type ExtendPreview, type ExtendReads, type SignExtension } from "../extend-plan.ts";
+import { type ExtendReads, type ExtendWindow, type SignExtension } from "../extend-plan.ts";
 import type { StorageHints } from "./hints.ts";
 import { type AccountSettings } from "../shared/lib/drive/manifest-settings.ts";
 /** Where to talk, what opens the list, and whose list it is. */
@@ -46,20 +46,15 @@ export interface ExtendFacts {
     feeMist: string | null;
     feeSui: string | null;
 }
-/** What one extension would buy, and everything the decision to buy it rests on. */
-export interface ExtendPlan {
+/** What extending one stored file would buy, worked out from its id — no NMTS key needed. */
+export interface ItemExtendPlan {
     facts: ExtendFacts;
     itemId: string;
-    /** The file's full path in the account, as the list spells it. */
-    path: string;
     /** The blobs the transaction would name. */
     objectIds: readonly string[];
+    /** Their sizes added up, as the chain records them — what a business's ledger charges by. */
+    bytes: number;
     epochs: number;
-    /**
-     * ⚠ THE WALLET'S NUMBER. `facts.wallet` is that wallet's address — the one the price was measured
-     *   against, and the one that signs.
-     */
-    wallet: number;
     /**
      * How close this file is to running out.
      *
@@ -69,6 +64,16 @@ export interface ExtendPlan {
      */
     stage: ExpiryStage;
     budget: Budget;
+}
+/** What one extension would buy, and everything the decision to buy it rests on. */
+export interface ExtendPlan extends ItemExtendPlan {
+    /** The file's full path in the account, as the list spells it. */
+    path: string;
+    /**
+     * ⚠ THE WALLET'S NUMBER. `facts.wallet` is that wallet's address — the one the price was measured
+     *   against, and the one that signs.
+     */
+    wallet: number;
     /** The sealed list's settings, as read for this price. */
     settings: AccountSettings | undefined;
 }
@@ -101,6 +106,36 @@ export interface ExtendPlanSeams {
  *    what lets a price be asked for without an agreement being asked for first.
  */
 export declare function planExtension(input: ExtendInput, target: string, seams: ExtendPlanSeams): Promise<ExtendPlan>;
+/** Where an extension is planned and recorded: the account's server, its credential and its chain. */
+export interface ItemExtendWhere {
+    server: string;
+    /** An API key or a delegation token for the account that holds the file. No NMTS key is needed. */
+    apiKey: string;
+    network: string;
+}
+/** What planning one file by its id needs: the chain, read once per run, and who pays. */
+export interface ItemPlanSeams {
+    reads: ExtendReads;
+    window: ExtendWindow;
+    /** The address that will sign. Every blob must be held by it, and its balances are read. */
+    address: string;
+    epochs?: string | number | undefined;
+    now: number;
+    hints?: StorageHints | undefined;
+}
+/**
+ * Plan one file's extension from its id. The NMTS server says which blobs, the chain says how long
+ * each runs and who holds it, and the paying wallet's balances are read against the price.
+ *
+ * ⛔ NO NMTS KEY. This is what lets a business's server keep a user's files alive with the user's
+ *    delegation token and its own wallet, while the key that opens the files stays on the user's
+ *    device. The file is named by `item.label`: its path when a key opened the list, its id when
+ *    nothing could.
+ */
+export declare function planItemExtension(where: ItemExtendWhere, item: {
+    id: string;
+    label: string;
+}, seams: ItemPlanSeams): Promise<ItemExtendPlan>;
 /** What one extension did. ⛔ By the time this exists, the storage IS extended and paid for. */
 export interface ExtendOutcome {
     /** The transaction digest — what the server records as the replay guard. */
@@ -130,5 +165,15 @@ export interface ExtendApplySeams {
  * the plan, and calling this is the answer.
  */
 export declare function applyExtension(input: ExtendInput, plan: ExtendPlan, seams?: ExtendApplySeams): Promise<ExtendOutcome>;
-/** Why a file has nothing to extend, said as the two different things it can be. */
-export declare function nothingToExtend(preview: ExtendPreview): string;
+/**
+ * Tell the NMTS server about an extension that is already signed and paid for.
+ *
+ * From here the storage IS extended. Recording it is bookkeeping, and a failure to record must
+ * never be reported as a failure to extend — that reading invites a second run, which pays again.
+ */
+export declare function recordExtension(where: ItemExtendWhere, plan: {
+    itemId: string;
+    epochs: number;
+}, digest: string): Promise<ExtendOutcome>;
+/** The real chain reads. Imported only when no seam was supplied — it loads the storage SDK. */
+export declare function defaultReads(network: string): Promise<ExtendReads>;

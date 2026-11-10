@@ -24,6 +24,9 @@ export interface WalletOptions {
     /** `wallet storage split`: what the resource keeps, by size or by epochs (`wallet-storage-ops.ts`). */
     size?: string | undefined;
     epochs?: string | undefined;
+    /** `wallet storage extend`: the user's delegation token file, and whether files not due go too. */
+    delegationFile?: string | undefined;
+    force?: boolean;
     /** `wallet hall`: the name to be listed under, or `remove` to go back to a shortened address. */
     name?: string | undefined;
     remove?: boolean;

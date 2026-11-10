@@ -23,18 +23,29 @@ export interface PublicCodeList {
 }
 /** How many numbers in a row publishing walks past before it stops. */
 export declare const PUBLISH_TRIES = 64;
-/** `GET /v1/account/public-codes`, read field by field. Codes come back in number order. */
-export declare function readPublicCodes(server: string, token: string): Promise<PublicCodeList>;
+/**
+ * `GET /v1/account/public-codes`, read field by field. Codes come back in number order.
+ * `accountProof` goes with it when given: a delegation token reads its account's list only with it.
+ */
+export declare function readPublicCodes(server: string, token: string, accountProof?: string): Promise<PublicCodeList>;
 /** The live codes, lowest number first. */
 export declare function liveCodes(list: PublicCodeList): PublicCodeRow[];
 /** The code this account shows and sends from unless told otherwise: its lowest-numbered live one. */
 export declare function defaultCode(list: PublicCodeList): PublicCodeRow | null;
 /** The number a new code gets: one past the highest ever published, or 0 for an account with none. */
 export declare function nextCodeIndex(list: PublicCodeList): number;
-/** Where a request goes and what it carries. */
+/**
+ * Where a request goes and what it carries.
+ *
+ * ⛔ `accountProof` IS FOR A DELEGATION TOKEN. A token is its business's permission, so the three
+ *    code doors also ask it for the code's proof — the key holder's own act, sent from wherever the
+ *    key is straight to the server. An API key or a session needs none and sends none.
+ */
 export interface CodeDoor {
     server: string;
     token: string;
+    /** base64url of the code's proof. Absent: not sent. */
+    accountProof?: string | undefined;
 }
 /** What publishing answers: the number it landed on and the code a person reads. */
 export interface PublishedCode {

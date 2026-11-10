@@ -42,9 +42,12 @@ function readRow(value) {
         support: whole(value["support"] ?? 0),
     };
 }
-/** `GET /v1/account/public-codes`, read field by field. Codes come back in number order. */
-export async function readPublicCodes(server, token) {
-    const answer = await request(server, "/v1/account/public-codes", { token });
+/**
+ * `GET /v1/account/public-codes`, read field by field. Codes come back in number order.
+ * `accountProof` goes with it when given: a delegation token reads its account's list only with it.
+ */
+export async function readPublicCodes(server, token, accountProof) {
+    const answer = await request(server, "/v1/account/public-codes", { token, ...proofOf(accountProof) });
     if (!isRecord(answer) || !Array.isArray(answer["codes"]))
         throw unreadable();
     const codes = answer["codes"].map(readRow).sort((a, b) => a.index - b.index);
@@ -74,6 +77,10 @@ export function defaultCode(list) {
 export function nextCodeIndex(list) {
     return list.codes.reduce((top, c) => Math.max(top, c.index + 1), 0);
 }
+/** The proof header's option for `request`, or nothing. */
+function proofOf(accountProof) {
+    return accountProof === undefined ? {} : { accountProof };
+}
 /**
  * Publish this key's code at `from` (default: the next number), revoking `replace` in the same
  * request when it is given. Walks past numbers the server says were revoked, up to `PUBLISH_TRIES`.
@@ -93,6 +100,7 @@ export async function publishCode(crypt, code, door, from, replace) {
                 const address = toBase64Url(keys.address);
                 await request(door.server, "/v1/account/public-codes", {
                     token: door.token,
+                    ...proofOf(door.accountProof),
                     method: "POST",
                     body: {
                         index,
@@ -136,12 +144,12 @@ export async function publishCode(crypt, code, door, from, replace) {
  * first share does before anything else. Answers the list as it now stands, and whether it wrote.
  */
 export async function ensureLiveCode(crypt, code, door, onPublish) {
-    const list = await readPublicCodes(door.server, door.token);
+    const list = await readPublicCodes(door.server, door.token, door.accountProof);
     if (defaultCode(list) !== null)
         return { list, published: null };
     onPublish?.();
     const published = await publishCode(crypt, code, door, nextCodeIndex(list));
-    return { list: await readPublicCodes(door.server, door.token), published };
+    return { list: await readPublicCodes(door.server, door.token, door.accountProof), published };
 }
 /**
  * Whether the code at `address` is on the server's revoked list — or null when the list could not
@@ -177,6 +185,7 @@ export async function revokedOnServer(server, address, buckets = new Map()) {
 export async function revokeCode(door, index) {
     await request(door.server, `/v1/account/public-codes/${requireCodeIndex(index)}/revoke`, {
         token: door.token,
+        ...proofOf(door.accountProof),
         method: "POST",
     });
 }

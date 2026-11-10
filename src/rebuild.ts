@@ -37,6 +37,7 @@
 
 import { request } from "./api.ts";
 import { NmtsError } from "./errors.ts";
+import { serverObjects } from "./server-objects.ts";
 import type { ManifestEntry } from "./shared/lib/drive/manifest-codec.ts";
 import { KIND_FILE } from "./shared/lib/drive/manifest-index.ts";
 import {
@@ -246,28 +247,14 @@ async function readListing(
  *   unavailable, which is reported as unknown rather than as zero.
  */
 async function serverRowIds(base: string, apiKey: string): Promise<Set<string> | null> {
-  const ids = new Set<string>();
-  let cursor: string | null = null;
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const answer: unknown =
-      cursor === null
-        ? await request(base, "/v1/objects", { token: apiKey })
-        : await request(base, `/v1/objects?after=${encodeURIComponent(cursor)}`, { token: apiKey });
-    if (typeof answer !== "object" || answer === null) return null;
-    const raw: unknown = Reflect.get(answer, "objects");
-    if (!Array.isArray(raw)) return null;
-    const rows: readonly unknown[] = raw;
-    for (const row of rows) {
-      if (typeof row !== "object" || row === null) return null;
-      const id: unknown = Reflect.get(row, "id");
-      if (typeof id !== "string") return null;
-      ids.add(id);
-    }
-    const next: unknown = Reflect.get(answer, "next_cursor");
-    if (typeof next !== "string" || next === "") return ids;
-    cursor = next;
+  try {
+    const { rows, complete } = await serverObjects(base, apiKey);
+    return complete ? new Set(rows.map((row) => row.id)) : null;
+  } catch (error) {
+    // An unreadable listing makes the cross-check unavailable — unknown, never zero.
+    if (error instanceof NmtsError) return null;
+    throw error;
   }
-  return null;
 }
 
 /**

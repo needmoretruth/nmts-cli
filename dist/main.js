@@ -122,7 +122,7 @@ export async function run(argv) {
             return await wallet(args.operands[0], {
                 server: args.server, network: args.network, json: args.json, qr: args.qr,
                 rest: args.operands.slice(1), yes: args.yes, dryRun: args.dryRun, feeCap: args.feeCap,
-                to: args.to, venue: args.venue, slippageBps: args.slippageBps, acceptExtremes: args.acceptExtremes, size: args.size, epochs: args.epochs, name: args.name, remove: args.remove, index: args.index, wallet: args.wallet,
+                to: args.to, venue: args.venue, slippageBps: args.slippageBps, acceptExtremes: args.acceptExtremes, size: args.size, epochs: args.epochs, name: args.name, remove: args.remove, index: args.index, wallet: args.wallet, delegationFile: args.delegationFile, force: args.force,
             });
         }
         case "expiring": {

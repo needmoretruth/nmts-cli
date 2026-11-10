@@ -234,6 +234,10 @@ export const ACTS = {
   "wallet.hall.set": { tier: "medium", what: "Publish this name beside your wallet's address in the gift hall of fame." },
   "wallet.storage.reshape": { tier: "high", lock: "wallet", what: "Cut or join a storage resource the wallet holds — a signed transaction.", asksItself: true },
   "wallet.storage.give": { tier: "high", lock: "wallet", what: "Hand a storage resource to another address — signed, and not undoable.", asksItself: true },
+  // ⛔ BOTH SPEND WAL. Until 2026-11-11 `buy` fell through to the bare `wallet` read, tier none, so
+  //    an auto mode ran a WAL purchase without the gate knowing a payment was coming.
+  "wallet.storage.buy": { tier: "high", lock: "wallet", what: "Buy a storage resource with WAL from the wallet — signed, and not undoable.", asksItself: true },
+  "wallet.storage.extend": { tier: "high", lock: "wallet", what: "Extend a user's files with WAL from the wallet — signed, and not undoable.", asksItself: true },
 } as const satisfies Record<string, Act>;
 
 export type ActId = keyof typeof ACTS;
@@ -259,6 +263,8 @@ export function actOf(args: ParsedArgs): ActId | null {
     case "wallet":
       if (sub === "storage") {
         const what = args.operands[1] ?? "";
+        if (what === "buy") return "wallet.storage.buy";
+        if (what === "extend") return "wallet.storage.extend";
         return what === "transfer" ? "wallet.storage.give" : what === "split" || what === "merge" ? "wallet.storage.reshape" : "wallet";
       }
       // ⛔ `hall` READS UNTIL A NAME IS NAMED. `--name` and `--remove` both write the listing, so

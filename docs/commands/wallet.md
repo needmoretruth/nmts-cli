@@ -1,7 +1,7 @@
 # nmts wallet — the wallet your NMTS key derives
 
 Commands: wallet
-Tiers: wallet=none · wallet.use=low · wallet.send=high(wallet) · wallet.swap=high(wallet) · wallet.donate=high(donate) · wallet.storage.reshape=high(wallet) · wallet.storage.give=high(wallet) · wallet.hall=none · wallet.hall.set=medium
+Tiers: wallet=none · wallet.use=low · wallet.send=high(wallet) · wallet.swap=high(wallet) · wallet.donate=high(donate) · wallet.storage.reshape=high(wallet) · wallet.storage.give=high(wallet) · wallet.storage.buy=high(wallet) · wallet.storage.extend=high(wallet) · wallet.hall=none · wallet.hall.set=medium
 
 `wallet` shows the address and its SUI and WAL balances; `wallet address` derives the address
 offline (`--qr` draws it, `--index N` derives another of this key's wallets); `wallet activity`
@@ -51,6 +51,18 @@ resources are the person's, in their wallet, and every step is their signature):
 - `wallet storage transfer <id> <address>` hands a resource to another wallet. No file goes with it
   — what goes is size and remaining time; files stay sealed with this account's keys. Not undoable,
   and NMTS cannot recall it. Scope `all`.
+
+Two more spend WAL from the wallet, under the wallet unlock, and sign only with `--yes`:
+
+- `wallet storage buy --size <bytes> [--epochs <n>]` buys a storage resource with no file in it,
+  for 2 epochs unless `--epochs` says otherwise.
+- `wallet storage extend [<item-id>...] --delegation-file <file>` is for a business that paid for
+  its users' uploads. The storage of those files is held by the business's wallet, so that wallet
+  extends it. The file holds a delegation token for the user's account with `files_read` and
+  `storage_spend`; the user's key is not needed. Without item ids it takes every file of that user
+  that runs out soon; `--force` takes files not due yet. A file whose storage another wallet holds
+  is named and left as it is before anything is signed. Each file is one transaction, and the new
+  end is written into the user's account.
 
 Each prints the review with the chain fee measured by a dry run, and a refusal the chain would
 give ends the run there; nothing is signed without `--yes` on that run. Sizes are what a resource

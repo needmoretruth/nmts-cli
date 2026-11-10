@@ -151,6 +151,18 @@ export declare function mintDelegation(request: DelegationRequest): string;
  *    halves in one hand.
  */
 export declare function rotationProof(oldPublicKey: string, newPrivateKey: string): string;
+/**
+ * What a delegation token was minted FOR — the account it names and its scope — or null for a string
+ * that is not one this can read.
+ *
+ * ⚠ IT IS NOT A CHECK THAT THE TOKEN IS VALID. Whether the signature holds and whether it has run
+ *   out are the server's judgement and stay there; what is read here is what a caller can act on
+ *   BEFORE spending — a token minted without `storage_spend` would be refused after the WAL had gone.
+ */
+export declare function readDelegation(token: string): {
+    user: string;
+    scope: number;
+} | null;
 /** The bitmask these scope names make. */
 export declare function scopeMask(scopes: readonly ScopeName[]): number;
 /** Does this signature hold over these bytes? Here so a caller can check its own work offline. */

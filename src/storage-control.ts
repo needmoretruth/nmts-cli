@@ -29,7 +29,7 @@ export type {
   StorageStatus,
 } from "./storage-control/list.ts";
 
-export { applyExtension, nothingToExtend, planExtension } from "./storage-control/extend.ts";
+export { applyExtension, planExtension } from "./storage-control/extend.ts";
 export type {
   ExtendApplySeams,
   ExtendFacts,
@@ -38,6 +38,16 @@ export type {
   ExtendPlan,
   ExtendPlanSeams,
 } from "./storage-control/extend.ts";
+
+// A business extending a user's files from its own wallet, with the user's token and no user key.
+export { extendFor } from "./storage-control/extend-for.ts";
+export type {
+  ExtendForAsk,
+  ExtendForFile,
+  ExtendForInput,
+  ExtendForResult,
+  ExtendForSeams,
+} from "./storage-control/extend-for.ts";
 
 export { planStorageOp, reshapeStorage } from "./storage-control/reshape.ts";
 export type {
@@ -59,7 +69,7 @@ export type { BuyAsk, BuyOutcome, BuyReads, BuyReview, BuySeams } from "./storag
 // that a caller holding a plan can read what it names without a second import path.
 export type { StorageOpShape, StorageOpsReads } from "./storage-control-chain.ts";
 export type { StorageResource } from "./shared/lib/storage-control/chain.ts";
-export { DEFAULT_EXTEND_EPOCHS } from "./extend-plan.ts";
+export { DEFAULT_EXTEND_EPOCHS, nothingToExtend } from "./extend-plan.ts";
 export type { ExtendReads, SignExtension } from "./extend-plan.ts";
 export type { Budget } from "./extend-budget.ts";
 export type { SignStorageOp } from "./wallet-sign-seams.ts";

@@ -36,6 +36,7 @@
 //    passed over in silence.
 import { request } from "./api.js";
 import { NmtsError } from "./errors.js";
+import { serverObjects } from "./server-objects.js";
 import { KIND_FILE } from "./shared/lib/drive/manifest-index.js";
 import { mayCarryKey, verifyKeyPairings, } from "./shared/lib/drive/rebuild-verify.js";
 import { uniqueFileName } from "./shared/lib/drive/unique-name.js";
@@ -177,32 +178,16 @@ async function readListing(base, apiKey, trash, onProgress) {
  *   unavailable, which is reported as unknown rather than as zero.
  */
 async function serverRowIds(base, apiKey) {
-    const ids = new Set();
-    let cursor = null;
-    for (let page = 0; page < MAX_PAGES; page += 1) {
-        const answer = cursor === null
-            ? await request(base, "/v1/objects", { token: apiKey })
-            : await request(base, `/v1/objects?after=${encodeURIComponent(cursor)}`, { token: apiKey });
-        if (typeof answer !== "object" || answer === null)
-            return null;
-        const raw = Reflect.get(answer, "objects");
-        if (!Array.isArray(raw))
-            return null;
-        const rows = raw;
-        for (const row of rows) {
-            if (typeof row !== "object" || row === null)
-                return null;
-            const id = Reflect.get(row, "id");
-            if (typeof id !== "string")
-                return null;
-            ids.add(id);
-        }
-        const next = Reflect.get(answer, "next_cursor");
-        if (typeof next !== "string" || next === "")
-            return ids;
-        cursor = next;
+    try {
+        const { rows, complete } = await serverObjects(base, apiKey);
+        return complete ? new Set(rows.map((row) => row.id)) : null;
     }
-    return null;
+    catch (error) {
+        // An unreadable listing makes the cross-check unavailable — unknown, never zero.
+        if (error instanceof NmtsError)
+            return null;
+        throw error;
+    }
 }
 /**
  * Turn the server's rows into entries.

@@ -79,7 +79,7 @@ export async function expiring(options = {}) {
     }
     const epochDays = clock.durationMs / 86_400_000;
     say(`The ${session.network} storage network is at epoch ${clock.current}, and one epoch is ` +
-        `${epochDays === Math.round(epochDays) ? epochDays : epochDays.toFixed(1)} days.`);
+        `${epochDays === 1 ? "1 day" : `${epochDays === Math.round(epochDays) ? epochDays : epochDays.toFixed(1)} days`}.`);
     if (dated.length === 0 && unrecorded.length === 0) {
         say(`Nothing in this account runs out before epoch ${cutoff}.`);
         return 0;
@@ -94,7 +94,7 @@ export async function expiring(options = {}) {
                 MARK[row.stage]);
         }
         say(``);
-        say(`${dated.length} file${dated.length === 1 ? "" : "s"} run out before epoch ${cutoff}.`);
+        say(`${dated.length} file${dated.length === 1 ? " runs" : "s run"} out before epoch ${cutoff}.`);
     }
     if (unrecorded.length > 0) {
         say(``);
