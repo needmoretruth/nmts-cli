@@ -282,9 +282,9 @@ function sayAboutTheKey(outcome, server, say) {
             say(``);
             say(`⚠ A different API key is in ${keySourceName(outcome.from)}. It was NOT stored.`);
             say(``);
-            say(`  The key already on this machine is left as it is. Replacing one is something to say`);
-            say(`  out loud, not something a run about the NMTS key does on the way past — every`);
-            say(`  agent using the old one would stop working at a moment nobody would connect to this.`);
+            say(`  The key already on this machine is left as it is. Storing the NMTS key does not replace`);
+            say(`  it on the side: every agent using the old one would stop at a moment nobody would`);
+            say(`  connect to this.`);
             say(``);
             say(`  While that variable is set, every command uses what it holds anyway: the environment`);
             say(`  wins over what is stored. To store it instead — at a terminal, run this again and`);

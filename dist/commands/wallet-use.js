@@ -49,7 +49,7 @@ export async function walletUse(said, options = {}) {
     say(`Address  ${address}`);
     say(``);
     say(`  Storage paid from this account's wallet now leaves this address, on every device — the`);
-    say(`  number rides in the sealed file list, not on this machine. What is already stored is`);
+    say(`  number is kept in the sealed file list, not on this machine. What is already stored is`);
     say(`  unaffected, and the wallets you were using keep whatever is in them.`);
     return 0;
 }

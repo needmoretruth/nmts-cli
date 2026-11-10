@@ -167,8 +167,10 @@ function describe(say, facts) {
         say(`  ${unreachable} part${unreachable === 1 ? "" : "s"} of this file cannot be extended from here.`);
     }
     say(``);
-    // ⛔ REQUIRED, AND IT COMES BEFORE THE AGREEMENT. Every other purchase in this tool spends
-    //    credits; this one spends assets out of a wallet, and nobody can put them back.
-    say(`  This is paid in WAL from the wallet this NMTS key derives — not from credits, which`);
-    say(`  is what every other command in this tool spends. \`${BINARY_NAME} wallet\` shows what is in it.`);
+    // ⛔ REQUIRED, AND IT COMES BEFORE THE AGREEMENT. A person who has only ever stored with credits
+    //    must read that this spends assets out of a wallet, and nobody can put them back. (It once said
+    //    "every other command spends credits", which stopped being true when wallet uploads, sends,
+    //    swaps and storage purchases arrived.)
+    say(`  This is paid in WAL from the wallet this NMTS key derives, not from credits, and nobody`);
+    say(`  can put it back. \`${BINARY_NAME} wallet\` shows what is in it.`);
 }

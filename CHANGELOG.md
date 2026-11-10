@@ -3,6 +3,14 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.59.1 — 2026-11-11
+
+- `expiring` says that storage another wallet bought, such as a service that paid for your
+  uploads, only that wallet can extend. It used to tell everyone to extend from their own wallet.
+- `wallet` no longer says `extend` is the one command that signs: every command that signs from
+  the wallet stays locked until a person unlocks it on this machine. `extend` no longer says every
+  other command spends credits.
+
 ## 0.59.0 — 2026-11-11
 
 - `nmts wallet storage extend [<item-id>...] --delegation-file <file>` lets a business that paid

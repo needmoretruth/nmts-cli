@@ -15,8 +15,8 @@
 //    address to send one to.
 //
 // ⛔ AND IT BUYS NOTHING. What this does is make the deadline visible in time for somebody to act
-//    on it. Acting on it is `nmts extend`, which spends from the person's own wallet and asks for
-//    its own agreement first — this command reads, and no amount of it costs anything.
+//    on it. Acting on it is `nmts extend`, which spends from the wallet that holds the storage and
+//    asks for its own agreement first — this command reads, and no amount of it costs anything.
 import { request } from "../api.js";
 import { buildIndex, fullPathOf } from "../drive-paths.js";
 import { NmtsError } from "../errors.js";
@@ -118,9 +118,11 @@ export async function expiring(options = {}) {
         say(`  and running this again shows the next ones.`);
     }
     say(``);
-    say(`Extending storage is paid for from your own wallet and signed on this machine: ` +
+    say(`Storage your own wallet bought is extended from that wallet and signed on this machine: ` +
         `\`${BINARY_NAME} extend <path>\`, or the browser at ${HOME_URL}. It spends WAL rather than ` +
         `credits, and it asks once before it signs.`);
+    say(`Storage another wallet bought, such as a service that paid for your uploads, only that wallet ` +
+        `can extend; \`${BINARY_NAME} extend\` names it and stops before signing.`);
     return 0;
 }
 /** What a row is called, with the reason spelled out when it has no name. */
