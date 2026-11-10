@@ -93,7 +93,12 @@ export { listLinks, listLiveLinks, makeLink, openLink, revokeAllLinks, revokeLin
 // The wallet the NMTS key derives: reading it, and signing with it.
 export { coinAmount, readBalances, walCoinType, walletAddress } from "./wallet.js";
 export { chainReader } from "./wallet-chain.js";
-export { signerAddress, signExtension, signTransfer } from "./wallet-sign.js";
+export { signerAddress, signExtension, signSponsored, signTransfer } from "./wallet-sign.js";
+// Money paths with no account (plan 2026-11-10): an upload's price asked with nothing opened, and
+// the check an operator's server runs on a transaction another device built, before signing it.
+export { gasEstimate, MEASURED_GAS, quoteUpload } from "./upload-quote.js";
+export { judgeSponsored } from "./sponsor-check.js";
+export { readRelayTipAddresses, sponsorFacts } from "./sponsor-facts.js";
 // WHICH of this key's wallets, and which of them have been used. One key derives a wallet at every
 // index (NCF-3 §1.3), so the account's own number is read out of the sealed list and the rest is a
 // walk. Both are here so that a library built on this package finds the SAME wallets under the same

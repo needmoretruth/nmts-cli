@@ -1,0 +1,15 @@
+{
+  "operator": "0x76019a049d3d5fa370119dfd0aa22e10e2ca50188d700af11affc55f3d0f664f",
+  "walrusPackageId": "0x7d3b2086808a62bbc44d18c6b1d407973d77dd26946735873092c2f5650b4611",
+  "systemObjectId": "0x6c2547cbbc38025cf3adac45f63cb0a8d12ecf777cdc75a4971612bf97fdf6af",
+  "relayTipAddresses": [
+    "0x4b6a7439159cf10533147fc3d678cf10b714f2bc998f6cb1f1b0b9594cdc52b6",
+    "0xb84ef11fb87366eebb7b947eb7e886b682b73ebb7ce50015c9c187794c2b2190"
+  ],
+  "encodedLength": {
+    "2097152": 74042000
+  },
+  "blobSize": {
+    "0xc06943b5199f6852719f36d59b22a42830af7a9c7d55ebe85cfd044c8f0b80fe": 2097152
+  }
+}

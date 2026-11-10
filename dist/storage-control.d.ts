@@ -5,6 +5,8 @@ export { applyExtension, nothingToExtend, planExtension } from "./storage-contro
 export type { ExtendApplySeams, ExtendFacts, ExtendInput, ExtendOutcome, ExtendPlan, ExtendPlanSeams, } from "./storage-control/extend.ts";
 export { planStorageOp, reshapeStorage } from "./storage-control/reshape.ts";
 export type { ReshapeContext, ReshapeOutcome, ReshapeSeams, StorageOp, StorageOpAsk, StorageOpPlan, StorageOpResult, StorageOpReview, StorageShape, } from "./storage-control/reshape.ts";
+export { buyStorage } from "./storage-control/buy.ts";
+export type { BuyAsk, BuyOutcome, BuyReads, BuyReview, BuySeams } from "./storage-control/buy.ts";
 export type { StorageOpShape, StorageOpsReads } from "./storage-control-chain.ts";
 export type { StorageResource } from "./shared/lib/storage-control/chain.ts";
 export { DEFAULT_EXTEND_EPOCHS } from "./extend-plan.ts";

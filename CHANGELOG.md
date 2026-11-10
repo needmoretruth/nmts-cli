@@ -3,6 +3,17 @@
 Each version's entry is what changed for the person or the program using `nmts`. The product's own
 update history, which covers the site and the server too, is at https://nmts.me/updates.
 
+## 0.58.0 — 2026-11-11
+
+- `nmts wallet storage buy --size <n> [--epochs <n>]` buys a storage resource with nothing in it,
+  paid in WAL from the wallet, for 2 epochs unless `--epochs` says otherwise. It shows the price and
+  the chain fee first, signs only with `--yes`, and needs `nmts unlock wallet`. `put --pay wallet
+  --storage <id>` then writes a file into it.
+- A program can price an upload with no account (`@needmoretruth/nmts-cli/portable` exports
+  `quoteUpload`), and a business's server can check a transaction a customer's device built before
+  its own wallet signs it (`judgeSponsored`, `signSponsored`): only Walrus storage work within the limits
+  it sets passes.
+
 ## 0.57.0 — 2026-11-10
 
 - A program can share a file the way `nmts share` does: `@needmoretruth/nmts-cli/share` exports

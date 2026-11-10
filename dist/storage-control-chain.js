@@ -13,7 +13,13 @@
 //      · `fuse_periods(&mut Storage, Storage)`           same size, adjacent periods; the second is consumed
 //    ⛔ A returned resource must be transferred or the transaction is refused at assembly for an
 //       unused value; a consumed one needs nothing. The dry run is the final judge of every rule.
-import { Transaction } from "@mysten/sui/transactions";
+//
+// ⛔ BUYING IS THE FIFTH SHAPE (2026-11-10 · Deponejo gap B2): `system::reserve_space(&mut System,
+//    u64 storage_amount, u32 epochs_ahead, &mut Coin<WAL>) → Storage`, paid from a WAL coin of
+//    exactly the price the review read, the zero coin destroyed and the resource sent to the sender.
+//    The amount is the RESOURCE's size, the encoded size a listing shows, not a file's size. The
+//    price travels in the shape, so the coin the fee was measured with is the coin that is signed.
+import { coinWithBalance, Transaction } from "@mysten/sui/transactions";
 import { walrusClient, netGasFee } from "./extend-chain.js";
 import { splitStorageToFit } from "./shared/lib/storage-control/reuse.js";
 import { dryRun } from "./shared/lib/wallet/chain-calls.js";
@@ -45,6 +51,18 @@ export function storageOpTransaction(shape, input) {
         case "transfer":
             tx.transferObjects([tx.object(shape.objectId)], shape.to);
             return tx;
+        case "buy": {
+            const payment = tx.add(coinWithBalance({ balance: shape.priceFrost, type: shape.walType }));
+            const storage = tx.moveCall({
+                package: input.walrusPackageId,
+                module: "system",
+                function: "reserve_space",
+                arguments: [tx.object(shape.systemObjectId), tx.pure.u64(shape.sizeBytes), tx.pure.u32(shape.epochs), payment],
+            });
+            tx.moveCall({ target: "0x2::coin::destroy_zero", typeArguments: [shape.walType], arguments: [payment] });
+            tx.transferObjects([storage], input.sender);
+            return tx;
+        }
     }
 }
 export function storageOpsReads(network) {

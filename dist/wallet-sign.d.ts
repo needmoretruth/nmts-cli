@@ -1,4 +1,6 @@
 import type { SignExtension } from "./extend-plan.ts";
+import type { Network } from "./network.ts";
+import type { SponsorFacts, SponsorPolicy, SponsorSpend } from "./sponsor-check.ts";
 import type { SignBlobCertify, SignBlobRegister, SignMessage, SignStorageOp, SignSwap, SignTransfer } from "./wallet-sign-seams.ts";
 export type { SignBlobCertify, SignBlobRegister, SignMessage, SignStorageOp, SignSwap, SignTransfer, } from "./wallet-sign-seams.ts";
 /**
@@ -81,3 +83,25 @@ export declare const signBlobCertify: SignBlobCertify;
  *    spent its gas, so the status is read and a failure is said as one.
  */
 export declare const signStorageOp: SignStorageOp;
+/**
+ * Sign a transaction somebody else's device built, as the operator that pays for it — only after
+ * `sponsor-check.ts` has passed it against the operator's policy.
+ *
+ * ⛔ CHECK, THEN SIGN, IN ONE DOOR. There is no way to reach the signature without the check: the
+ *    bytes are judged here, by the same function an operator can call on its own, and a refusal
+ *    throws before the keypair is even built. The policy's operator must be this wallet's address.
+ * ⛔ IT DOES NOT SUBMIT. The device that built the transaction submits it with this signature, the
+ *    way any wallet's `signTransaction` answers.
+ */
+export declare function signSponsored(input: {
+    network: Network;
+    code: string;
+    wallet: number;
+    bytes: Uint8Array;
+    policy: SponsorPolicy;
+    facts?: SponsorFacts | undefined;
+}): Promise<{
+    bytes: string;
+    signature: string;
+    spends: SponsorSpend;
+}>;

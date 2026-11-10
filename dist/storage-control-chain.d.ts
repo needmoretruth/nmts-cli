@@ -18,6 +18,13 @@ export type StorageOpShape = {
     kind: "transfer";
     objectId: string;
     to: string;
+} | {
+    kind: "buy";
+    sizeBytes: number;
+    epochs: number;
+    priceFrost: bigint;
+    walType: string;
+    systemObjectId: string;
 };
 /** The transaction one shape is, for `sender`. */
 export declare function storageOpTransaction(shape: StorageOpShape, input: {

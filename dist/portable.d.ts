@@ -68,8 +68,13 @@ export type { LinkAccount, ListedLink, MadeLink, OpenedLinkFile } from "./links.
 export { coinAmount, readBalances, walCoinType, walletAddress } from "./wallet.ts";
 export type { ChainReader, CoinBalance, WalletBalances } from "./wallet.ts";
 export { chainReader } from "./wallet-chain.ts";
-export { signerAddress, signExtension, signTransfer } from "./wallet-sign.ts";
+export { signerAddress, signExtension, signSponsored, signTransfer } from "./wallet-sign.ts";
 export type { SignTransfer } from "./wallet-sign.ts";
+export { gasEstimate, MEASURED_GAS, quoteUpload } from "./upload-quote.ts";
+export type { QuotedPart, UploadQuote, UploadQuoteAsk, UploadQuoteReads } from "./upload-quote.ts";
+export { judgeSponsored } from "./sponsor-check.ts";
+export type { SponsorFacts, SponsorPolicy, SponsorRefusal, SponsorSpend, SponsorVerdict } from "./sponsor-check.ts";
+export { readRelayTipAddresses, sponsorFacts } from "./sponsor-facts.ts";
 export { activeWalletOf, walletCountOf, WALLET_INDEX_LIMIT } from "./shared/lib/drive/manifest-settings.ts";
 export { classify } from "./shared/lib/drive/preview-classify.ts";
 export { discoverWallets, WALLET_SCAN_GAP } from "./shared/lib/wallet/discover.ts";

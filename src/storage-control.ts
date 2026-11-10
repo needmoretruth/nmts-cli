@@ -52,6 +52,9 @@ export type {
   StorageShape,
 } from "./storage-control/reshape.ts";
 
+export { buyStorage } from "./storage-control/buy.ts";
+export type { BuyAsk, BuyOutcome, BuyReads, BuyReview, BuySeams } from "./storage-control/buy.ts";
+
 // The shapes the chain takes, the resource it answers with, and the two signatures — re-exported so
 // that a caller holding a plan can read what it names without a second import path.
 export type { StorageOpShape, StorageOpsReads } from "./storage-control-chain.ts";

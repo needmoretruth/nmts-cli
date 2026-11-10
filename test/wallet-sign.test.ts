@@ -50,6 +50,7 @@ test("⛔ nothing here hands out a key", () => {
     "signBlobRegister",
     "signExtension",
     "signMessage",
+    "signSponsored",
     "signStorageOp",
     "signSwap",
     "signTransfer",

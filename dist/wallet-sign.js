@@ -6,7 +6,9 @@
 //    the other on a venue (`signSwap`), and the two halves of a wallet-paid upload — registering one
 //    part's blob (`signBlobRegister`, which buys the storage or binds a held resource and pays the
 //    relay's tip) and certifying it (`signBlobCertify`, gas only). Another transaction shape is a
-//    decision made here, in the open — the test pins the export list.
+//    decision made here, in the open — the test pins the export list. `signStorageOp` signs the
+//    storage-resource changes (buy, cut, join, hand over), and `signSponsored` signs a transaction
+//    another device built, only after `sponsor-check.ts` has passed it against the operator's policy.
 //
 // ⛔ AND ONE THING THAT IS NOT A TRANSACTION. `signMessage` signs a short text under the
 //    personal-message intent: it moves nothing, it cannot be replayed as a transaction, and it
@@ -31,6 +33,7 @@
 //    surfaces is a transaction signed by a wallet the person has never funded.
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { Transaction } from "@mysten/sui/transactions";
+import { normalizeSuiAddress } from "@mysten/sui/utils";
 import { assertUsableCode } from "./account.js";
 import { DERIVED, loadCrypto } from "./crypto.js";
 import { NmtsError } from "./errors.js";
@@ -273,3 +276,30 @@ export const signStorageOp = async ({ network, code, wallet, shape, walrusPackag
     }
     return result.digest;
 };
+/**
+ * Sign a transaction somebody else's device built, as the operator that pays for it — only after
+ * `sponsor-check.ts` has passed it against the operator's policy.
+ *
+ * ⛔ CHECK, THEN SIGN, IN ONE DOOR. There is no way to reach the signature without the check: the
+ *    bytes are judged here, by the same function an operator can call on its own, and a refusal
+ *    throws before the keypair is even built. The policy's operator must be this wallet's address.
+ * ⛔ IT DOES NOT SUBMIT. The device that built the transaction submits it with this signature, the
+ *    way any wallet's `signTransaction` answers.
+ */
+export async function signSponsored(input) {
+    const { judgeSponsored } = await import("./sponsor-check.js");
+    const facts = input.facts ?? (await (await import("./sponsor-facts.js")).sponsorFacts(input.network, input.policy.operator));
+    const verdict = await judgeSponsored(input.bytes, { ...input.policy, network: input.network }, facts);
+    if (!verdict.ok) {
+        throw new NmtsError(`SPONSOR_REFUSED: ${verdict.code}: ${verdict.reason}.`, {
+            exitCode: 4,
+            nextStep: "Nothing was signed. The transaction asks for something the operator's policy does not pay for.",
+        });
+    }
+    const keypair = await keypairFor(input.code, input.wallet);
+    if (keypair.toSuiAddress() !== normalizeSuiAddress(input.policy.operator)) {
+        throw new NmtsError(`SPONSOR_REFUSED: SPONSOR_SENDER: the policy names ${input.policy.operator}, and this wallet is ${keypair.toSuiAddress()}.`, { exitCode: 4, nextStep: "Nothing was signed. The operator in the policy is the wallet that signs." });
+    }
+    const signed = await keypair.signTransaction(input.bytes);
+    return { bytes: signed.bytes, signature: signed.signature, spends: verdict.spends };
+}

@@ -195,8 +195,16 @@ export type { LinkAccount, ListedLink, MadeLink, OpenedLinkFile } from "./links.
 export { coinAmount, readBalances, walCoinType, walletAddress } from "./wallet.ts";
 export type { ChainReader, CoinBalance, WalletBalances } from "./wallet.ts";
 export { chainReader } from "./wallet-chain.ts";
-export { signerAddress, signExtension, signTransfer } from "./wallet-sign.ts";
+export { signerAddress, signExtension, signSponsored, signTransfer } from "./wallet-sign.ts";
 export type { SignTransfer } from "./wallet-sign.ts";
+
+// Money paths with no account (plan 2026-11-10): an upload's price asked with nothing opened, and
+// the check an operator's server runs on a transaction another device built, before signing it.
+export { gasEstimate, MEASURED_GAS, quoteUpload } from "./upload-quote.ts";
+export type { QuotedPart, UploadQuote, UploadQuoteAsk, UploadQuoteReads } from "./upload-quote.ts";
+export { judgeSponsored } from "./sponsor-check.ts";
+export type { SponsorFacts, SponsorPolicy, SponsorRefusal, SponsorSpend, SponsorVerdict } from "./sponsor-check.ts";
+export { readRelayTipAddresses, sponsorFacts } from "./sponsor-facts.ts";
 
 // WHICH of this key's wallets, and which of them have been used. One key derives a wallet at every
 // index (NCF-3 §1.3), so the account's own number is read out of the sealed list and the rest is a

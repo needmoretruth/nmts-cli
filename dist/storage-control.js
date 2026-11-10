@@ -21,4 +21,5 @@
 export { formatBytes, listStorage, readOrRefuse } from "./storage-control/list.js";
 export { applyExtension, nothingToExtend, planExtension } from "./storage-control/extend.js";
 export { planStorageOp, reshapeStorage } from "./storage-control/reshape.js";
+export { buyStorage } from "./storage-control/buy.js";
 export { DEFAULT_EXTEND_EPOCHS } from "./extend-plan.js";

@@ -88,6 +88,8 @@ export function helpText(version: string): string {
     `  wallet storage        The storage resources (size × time) the wallet holds, unbound`,
     `  wallet storage split <id> --size <n>|--epochs <n> · merge <id> <id> · transfer <id> <address>`,
     `                        Cut, join or hand over a resource — **signs**, under the wallet unlock`,
+    `  wallet storage buy --size <n> [--epochs <n>]`,
+    `                        Buy a resource with no file — **signs and spends WAL**, under the unlock`,
     `  wallet send <SUI|WAL> <amount|max> <address>`,
     `                        Send coins to an address — **signs and spends from the wallet**.`,
     `                        Prints the review; sends only with --yes`,
