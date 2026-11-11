@@ -44,7 +44,7 @@ export class NotBuiltYetError extends NmtsError {
     constructor(what) {
         super(`${what} is not built yet.`, {
             exitCode: 4,
-            nextStep: `This is not a failure — the command is announced but unfinished. Do not retry.`,
+            nextStep: `The command is announced but unfinished, so this is not a failure. Do not retry.`,
         });
         this.name = "NotBuiltYetError";
     }

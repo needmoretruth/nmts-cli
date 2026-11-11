@@ -21,7 +21,7 @@ export function adviseFor(code) {
         case "CLEARANCE_REQUIRED":
         case "TURNSTILE_FAILED":
             return ("This account needs a human check, which a command-line tool cannot pass. An API key " +
-                "made on the account screen is what waives it — put it in NMTS_API_KEY. If that screen " +
+                "made on the account screen is what waives it. Put it in NMTS_API_KEY. If that screen " +
                 "has no place to make one, this server does not have API keys switched on.");
         case "UNAUTHORIZED":
             return "The credential is missing or expired. Check NMTS_API_KEY, or make a new key.";
@@ -30,26 +30,26 @@ export function adviseFor(code) {
         case "SESSION_REVOKED":
             return "That is a browser session somebody ended from another device, not an API key. A key is what a program should carry; NMTS_API_KEY is where it goes.";
         case "API_KEY_REVOKED":
-            return "Somebody revoked this key. It will not start working again — make a new one.";
+            return "Somebody revoked this key. It will not start working again. Make a new one.";
         case "API_KEY_EXPIRED":
             return "This key reached the end of the lifetime it was given. Make a new one.";
         case "API_KEY_SCOPE":
             return ("The key is valid and was not given permission for this. Nothing here will succeed with " +
-                "it — a key with the right permissions has to be made on the account screen.");
+                "it. A key with the right permissions has to be made on the account screen.");
         case "API_KEY_MALFORMED":
             return ("What was sent is not a well-formed key. Check that the whole string was copied, with " +
-                "no quotes or line break — it is one line of exactly 65 characters.");
+                "no quotes or line break. It is one line of exactly 65 characters.");
         case "ACCOUNT_CODE_NOT_A_CREDENTIAL":
-            return ("That was an NMTS key, not an API key. An NMTS key never goes to the server; it stays " +
+            return ("That was an NMTS key, not an API key. An NMTS key never goes to the server. It stays " +
                 "on this machine and opens the files. Put the NMTS key in NMTS_ACCOUNT_CODE and the API key in " +
                 "NMTS_API_KEY.");
         case "AGENT_VERIFY_REQUIRED":
             return ("This was refused because nothing has checked lately that a person is behind this " +
-                "account's key. Ask the person to run `nmts verify` and to follow what it prints — it " +
+                "account's key. Ask the person to run `nmts verify` and to follow what it prints: it " +
                 "gives them a code to type at a browser, and nothing here can pass that check for them.");
         case "SUPPORT_DUPLICATE":
             return ("The same message reached the developer within the last day, so this one was not filed " +
-                "twice — nothing was lost. Sending it again will be refused again: say something the " +
+                "twice. Nothing was lost. Sending it again will be refused again: say something the " +
                 "first message did not, or read the reply on the thread that is already open.");
         // ⛔ THE REFUSAL IS CORRECT AND THERE IS NOTHING HERE TO WORK AROUND. Accepting terms is a
         //    person reading a document and agreeing to it; a program doing it for them would be
@@ -84,7 +84,7 @@ export function adviseFor(code) {
             return "An account already exists for that. Use the one you have rather than making another.";
         case "ALPHA_NOT_OPEN":
             return ("This build asks the server for a channel it does not open. This is not something to " +
-                "retry or to fix with a different credential — use a release build.");
+                "retry or to fix with a different credential. Use a release build.");
         case "API_KEY_CAP":
             return ("The account holds as many live keys as it is allowed. Nothing here can raise the limit: " +
                 "the person has to revoke a key they no longer use, on the account screen at nmts.me.");
@@ -100,60 +100,60 @@ export function adviseFor(code) {
         case "INVALID_CREDENTIALS":
             return ("The server did not accept what was sent. For an API key: check that key. For `key new`: the " +
                 "server checked the proof derived from the NMTS key, and it did not match a registered " +
-                "account — the NMTS key itself never goes to the server.");
+                "account. The NMTS key itself never goes to the server.");
         case "LOCKED_OUT":
             return ("Too many failed attempts, so this is shut for a while. Retrying now makes it longer, " +
-                "not shorter. The refusal carries the moment it lifts; wait for it.");
+                "not shorter. The refusal carries the moment it lifts. Wait for it.");
         case "RATE_LIMITED":
-            return ("Too many requests too quickly. Wait and send fewer — the refusal carries how long. This " +
+            return ("Too many requests too quickly. Wait and send fewer. The refusal carries how long. This " +
                 "is not a credential problem, so changing keys will not help.");
         case "SURFACE_MISMATCH":
             return ("This account acts through a different build than the one calling. The refusal names " +
-                "which; nothing on this machine can change it, and the person switches it at nmts.me.");
+                "which. Nothing on this machine can change it, and the person switches it at nmts.me.");
         // ── The terms ─────────────────────────────────────────────────────────────────────────────
         case "TERMS_VERSION_MISMATCH":
-            return ("The versions sent are not the ones in force; the refusal carries the ones that are. " +
-                "This is a stale copy, not a refusal to serve — read the current versions and send those.");
+            return ("The versions sent are not the ones in force. The refusal carries the ones that are. " +
+                "The copy is stale and the server still serves: read the current versions and send those.");
         case "TERMS_NOT_IN_FORCE":
             return ("There is nothing to accept, so accepting cannot be what is missing. This is a server " +
-                "condition; report it rather than retrying.");
+                "condition. Report it rather than retrying.");
         // ── Credits and the free trial ────────────────────────────────────────────────────────────
         // NMTS Heavy's order route names the same three credit refusals in its own spelling (lower case).
         case "file_credits_cap":
         case "CREDIT_FILE_CAP":
             return ("One file may cost at most the published cap in credits, and this one costs more. The " +
-                "refusal carries both numbers. Splitting the file is the way through; more credits is not.");
+                "refusal carries both numbers. Splitting the file is the way through. More credits is not.");
         case "day_credits_cap":
         case "CREDIT_DAILY_CAP":
             return ("The account has spent its allowance for today. The refusal carries the cap and what is " +
-                "spent. Waiting for the day to turn is the only remedy — buying credits does not lift it.");
+                "spent. Waiting for the day to turn is the only remedy. Buying credits does not lift it.");
         // ⛔ FOUR CODES, FOUR REMEDIES, and that is why the server did not send one. They are cleared
         //    by four different acts — name an account of your own · name a different one · send less ·
         //    send some — and a retry loop that could not tell them apart would do the wrong one.
         case "CREDIT_TRANSFER_OUTSIDE_FAMILY":
-            return ("Credits move between one person's own accounts — the account they made and every account " +
-                "under it — and nowhere else. The recipient named is not one of them, or does not exist: " +
+            return ("Credits move between one person's own accounts (the account they made and every account " +
+                "under it) and nowhere else. The recipient named is not one of them, or does not exist: " +
                 "the server answers both the same way, so this cannot be used to find out which " +
                 "identifiers are real. Nothing was moved, and no credential changes this.");
         case "CREDIT_TRANSFER_SELF":
             return "The recipient named is the account sending. Name another account of the same family. Nothing was moved.";
         case "CREDIT_TRANSFER_INSUFFICIENT":
-            return ("The sending account cannot cover that amount; the refusal carries what was needed and " +
+            return ("The sending account cannot cover that amount. The refusal carries what was needed and " +
                 "what it can spend. Nothing was moved and nothing is held. Send the smaller number, or " +
                 "get credits into that account first (`nmts trial`, or a funded wallet).");
         case "CREDIT_TRANSFER_ZERO":
-            return "The transfer named no credits. Send a whole number above zero; nothing was moved.";
+            return "The transfer named no credits. Send a whole number above zero. Nothing was moved.";
         case "TRIAL_CLOSED":
             return "The free trial is not open at all right now. Credits have to come from a funded wallet.";
         case "TRIAL_FULL":
-            return "This week's free-trial places are taken. Applying again this week cannot succeed; next week can.";
+            return "This week's free-trial places are taken. Applying again this week cannot succeed. Next week can.";
         case "TRIAL_ALREADY":
             return "This account already took the free trial this week. It comes round weekly, not once.";
         case "TRIAL_HELD":
             return "Free-trial applications are paused pending review. Retrying does not move it.";
         case "TRIAL_LINE_CAPPED":
-            return ("This internet connection has taken its share of this week's places today — the limit is " +
-                "on the connection, not on the account, so another account here hits it too.");
+            return ("This internet connection has taken its share of this week's places today. The limit is " +
+                "on the connection, so another account here hits it too.");
         // ── Storage, the chain, and what is safe to retry ─────────────────────────────────────────
         // ⛔ THE THREE OUTCOMES ARE DIFFERENT AND AN AGENT MUST NOT COLLAPSE THEM. Refused means it did
         //    not happen. Failed means it did not finish. Uncertain means nobody knows — and that is the
@@ -162,7 +162,7 @@ export function adviseFor(code) {
             return ("The storage service refused the request itself, so nothing was spent and nothing was " +
                 "stored. Retrying the same request will be refused the same way.");
         case "CHAIN_REGISTER_FAILED":
-            return "Registering the storage did not go through. Nothing is stored; the upload can be tried again.";
+            return "Registering the storage did not go through. Nothing is stored. The upload can be tried again.";
         case "CHAIN_CERTIFY_FAILED":
             return ("The bytes went out but the storage was never certified, so the file is not safely stored. " +
                 "Try the upload again.");
@@ -174,24 +174,24 @@ export function adviseFor(code) {
                 "and no credential or credit changes it. Try tomorrow.");
         case "CHAIN_DELETE_FAILED":
             return ("The storage could not be released. The file's record is gone from this side either way, " +
-                "so nothing here is stuck — the storage runs out on its own when its time is up.");
+                "so nothing here is stuck: the storage runs out on its own when its time is up.");
         case "RELEASE_NOT_SPONSORED":
             return ("This file's storage was not paid for with credits, so it is not the server's to release. " +
                 "Storage bought from a wallet is released by that wallet.");
         case "SPONSORED_IDEM_MISMATCH":
             return ("This reservation key already names a different blob: the piece was re-encrypted after it " +
                 "was reserved. Repeating the call under this key cannot work, and nothing was charged for " +
-                "it. Reserve the new bytes under a key the account has never used — a key made fresh for " +
+                "it. Reserve the new bytes under a key the account has never used: a key made fresh for " +
                 "each upload, not one worked out from the file, which gives the same answer again.");
         case "SPONSORED_STATE":
-            return ("The upload is not at the step that call belongs to — the steps have an order and one was " +
+            return ("The upload is not at the step that call belongs to. The steps have an order and one was " +
                 "skipped or already done. Start the upload again rather than repeating this call.");
         // ── Two callers, one drive ────────────────────────────────────────────────────────────────
         case "MANIFEST_TOO_LARGE":
             return ("The sealed file list is over the server's ceiling (16 MiB), so this save was refused and " +
                 "nothing changed. The list is stored as a small index plus chunks, and the index holds one " +
-                "short row per chunk — so an account reaches this only with a list that is not in chunks. " +
-                "Save once more to convert it; the ceiling is then the account's chunk allowance, which " +
+                "short row per chunk, so an account reaches this only with a list that is not in chunks. " +
+                "Save once more to convert it. The ceiling is then the account's chunk allowance, which " +
                 "grows with confirmed files (details.allowed on MANIFEST_CHUNKS_EXCEEDED).");
         // ── The chunked file list (NCF-3 §6.3) ────────────────────────────────────────────────────
         case "MANIFEST_CHUNK_HASH":
@@ -200,8 +200,8 @@ export function adviseFor(code) {
                 "the bytes it decodes to, and send it under that name.");
         case "MANIFEST_CHUNK_TOO_LARGE":
             return ("One chunk of the file list is over the server's 4 MiB ceiling of sealed bytes. Pack " +
-                "fewer entries per chunk — the format's own bound is on the plaintext, so a chunk built " +
-                "to it is always under this — and send the same index again.");
+                "fewer entries per chunk (the format's own bound is on the plaintext, so a chunk built " +
+                "to it is always under this) and send the same index again.");
         case "MANIFEST_CHUNK_MISSING":
             return ("The index names chunks this account has not stored. The refusal lists them in " +
                 "details.missing: write exactly those chunks, then send the same index again. Nothing " +
@@ -209,14 +209,14 @@ export function adviseFor(code) {
         case "MANIFEST_CHUNKS_EXCEEDED":
             return ("The account is at its chunk allowance (details.allowed). It is a base allowance plus " +
                 "one chunk for every details.per_verified_items files the storage network has confirmed, " +
-                "so it grows as files are stored; deleting files or packing the list into fewer chunks is " +
+                "so it grows as files are stored. Deleting files or packing the list into fewer chunks is " +
                 "what brings this write inside it.");
         case "VERSION_CONFLICT":
             return ("Something else changed the drive since this was read. Nothing is lost and nothing is " +
                 "wrong with the credential: read the current state and apply the change to that.");
         case "ERASE_BLOCKED":
             return ("The account cannot be erased while retained records still point at it. This will not " +
-                "clear by retrying; the records have their own retention and it has to run out.");
+                "clear by retrying. The records have their own retention and it has to run out.");
         case "credits_insufficient":
         case "CREDITS_SHORT":
             return "The account does not have enough credits for this upload.";

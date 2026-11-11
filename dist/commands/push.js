@@ -43,7 +43,7 @@ export async function push(target, options = {}) {
     if (target === undefined || target === "") {
         throw new NmtsError("Say which directory to push.", {
             exitCode: 2,
-            nextStep: `\`${BINARY_NAME} push <directory>\` — a directory on this machine.`,
+            nextStep: `\`${BINARY_NAME} push <directory>\`, with a directory on this machine.`,
         });
     }
     if (tierOf(options) === "heavy")
@@ -172,7 +172,7 @@ export async function push(target, options = {}) {
         return 0;
     }
     say(``);
-    say(`${uploaded.length} sent · ${already.length} already there`);
+    say(`${uploaded.length} sent, ${already.length} already there`);
     return 0;
 }
 /** Seal, buy, upload and record ONE file. The account's data key does not outlive it. */

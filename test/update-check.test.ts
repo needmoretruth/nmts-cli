@@ -184,7 +184,7 @@ test("the notice is one run behind: this run says what the last one found", asyn
       now: new Date(Date.now() + CHECK_EVERY_MS + 1),
     });
     assert.equal(later.length, 1);
-    assert.match(later[0] ?? "", /9\.9\.9 is published; this is 0\.2\.0/);
+    assert.match(later[0] ?? "", /9\.9\.9 is published\. This is 0\.2\.0/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

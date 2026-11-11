@@ -162,7 +162,7 @@ export async function put(target: string | undefined, options: PutOptions = {}):
   if (target === undefined || target === "") {
     throw new NmtsError("Say which file to put.", {
       exitCode: 2,
-      nextStep: `\`${BINARY_NAME} put <file>\` — a path on this machine.`,
+      nextStep: `\`${BINARY_NAME} put <file>\`, with a path on this machine.`,
     });
   }
   const resolved = await requireAccountCode();
@@ -268,7 +268,7 @@ export async function put(target: string | undefined, options: PutOptions = {}):
     say(`${name}  ${size} bytes  →  ${credits} credit${credits === 1 ? "" : "s"}`);
     for (const line of depositLines(deposit)) say(line);
     if (plan.length > 1) {
-      say(`  in ${plan.length} parts — each one is bought separately and can be finished later`);
+      say(`  in ${plan.length} parts. Each one is bought separately and can be finished later`);
     }
   }
   const steps: string[] = [];
@@ -383,7 +383,7 @@ export async function put(target: string | undefined, options: PutOptions = {}):
   say(`  saved as ${added.name}`);
   if (added.replaced) {
     say(``);
-    say(`  A file called ${name} was already there. It is in the trash now — ${BINARY_NAME} restore`);
+    say(`  A file called ${name} was already there. It is in the trash now; ${BINARY_NAME} restore`);
     say(`  brings it back for 30 days. This machine is set to overwrite: ${BINARY_NAME} on-collision`);
   } else if (added.name !== name) {
     say(``);

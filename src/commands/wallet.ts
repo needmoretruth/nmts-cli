@@ -96,7 +96,7 @@ function modeOf(what: string | undefined): Mode {
       `lists the storage resources it holds. None of those signs. \`${BINARY_NAME} wallet send <SUI|WAL> ` +
       `<amount|max> <address>\`, \`${BINARY_NAME} wallet swap <SUI|WAL> <amount|max>\` and ` +
       `\`${BINARY_NAME} wallet donate <SUI|WAL> <amount>\` are the three that do, and only with --yes. ` +
-      `\`${BINARY_NAME} wallet hall\` shows the gift hall of fame; with --name it signs a name into it.`,
+      `\`${BINARY_NAME} wallet hall\` shows the gift hall of fame. With --name it signs a name into it.`,
   });
 }
 
@@ -118,7 +118,7 @@ export async function wallet(what: string | undefined, options: WalletOptions = 
     if (sub !== undefined) {
       throw new NmtsError(`\`${BINARY_NAME} wallet storage ${sub}\` is not something this command does.`, {
         exitCode: 2,
-        nextStep: `\`${BINARY_NAME} wallet storage\` lists; \`buy\`, \`extend\`, \`split\`, \`merge\` and \`transfer\` sign — \`${BINARY_NAME} help wallet\`.`,
+        nextStep: `\`${BINARY_NAME} wallet storage\` lists; \`buy\`, \`extend\`, \`split\`, \`merge\` and \`transfer\` sign. See \`${BINARY_NAME} help wallet\`.`,
       });
     }
     return (await import("./wallet-storage.ts")).walletStorage(options);
@@ -190,15 +190,15 @@ export async function wallet(what: string | undefined, options: WalletOptions = 
   say(`SUI      ${inWords(balances.sui)}`);
   say(`WAL      ${inWords(balances.wal)}`);
   say(``);
-  say(`  The address is derived on this machine from the NMTS key; the balances were read`);
+  say(`  The address is derived on this machine from the NMTS key. The balances were read`);
   say(`  from the ${network} chain just now, and they move without this tool.`);
   if (!balances.sui.read || !balances.wal.read) {
     say(`  A balance that could not be read is printed as that and never as zero, and this command`);
-    say(`  exits non-zero when it happens — so nothing driving it reads a missing number as an`);
+    say(`  exits non-zero when it happens, so nothing driving it reads a missing number as an`);
     say(`  empty wallet.`);
   }
   say(`  Nothing here signs or spends. Every command that signs from this wallet stays locked until a`);
-  say(`  person unlocks it on this machine — \`${BINARY_NAME} unlock\` lists what is open.`);
+  say(`  person unlocks it on this machine; \`${BINARY_NAME} unlock\` lists what is open.`);
   say(`  Storing needs no coin here: credits pay the network. \`${BINARY_NAME} help wallet\` says where`);
   say(`  SUI comes from when you want to pay the network yourself.`);
   return exitCodeFor(balances);
@@ -215,7 +215,7 @@ function exitCodeFor(balances: WalletBalances): number {
 
 /** One balance, for a person. */
 function inWords(balance: CoinBalance): string {
-  return balance.read ? coinAmount(balance.baseUnits) : `⛔ could not be read — ${balance.why}`;
+  return balance.read ? coinAmount(balance.baseUnits) : `⛔ could not be read: ${balance.why}`;
 }
 
 /**

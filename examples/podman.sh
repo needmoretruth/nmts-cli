@@ -15,7 +15,7 @@
 #    would make the config volume root's and the tool unable to write to it.
 #
 # ⚠ THE SECRET IS STORED UNTIL IT IS REMOVED. `podman secret rm nmts-key` takes it out again. It
-#   lives in the invoking user's own Podman store, readable by that user — the same standing as the
+#   lives in the invoking user's own Podman store, readable by that user: the same standing as the
 #   file it came from, which is why this is worth nothing if that file is world-readable.
 set -eu
 
@@ -26,7 +26,7 @@ image=nmts
 secret=nmts-key
 volume=nmts-config
 
-# Built from the repository this file is in — there is no published image.
+# Built from the repository this file is in; there is no published image.
 podman image exists "$image" || podman build -t "$image" .
 
 # ⚠ Created only when it is not there. `podman secret create` on a name that exists is an error, and
@@ -38,7 +38,7 @@ podman secret inspect "$secret" >/dev/null 2>&1 || podman secret create "$secret
 #    every run and an upload would be refused in a mode nobody set.
 #
 # ⚠ `--secret <name>` mounts the value at /run/secrets/<name>. A bind mount reaches the same place
-#   — `--mount type=bind,src=$key_file,dst=/run/secrets/nmts-key,ro` — for a host that keeps its
+#   (`--mount type=bind,src=$key_file,dst=/run/secrets/nmts-key,ro`) for a host that keeps its
 #   secrets somewhere Podman's store is not.
 exec podman run --rm \
   --secret "$secret" \

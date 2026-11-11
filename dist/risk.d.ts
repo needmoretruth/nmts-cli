@@ -453,25 +453,25 @@ export declare const ACTS: {
     readonly "wallet.storage.reshape": {
         readonly tier: "high";
         readonly lock: "wallet";
-        readonly what: "Cut or join a storage resource the wallet holds — a signed transaction.";
+        readonly what: "Cut or join a storage resource the wallet holds. A signed transaction.";
         readonly asksItself: true;
     };
     readonly "wallet.storage.give": {
         readonly tier: "high";
         readonly lock: "wallet";
-        readonly what: "Hand a storage resource to another address — signed, and not undoable.";
+        readonly what: "Hand a storage resource to another address. Signed, and not undoable.";
         readonly asksItself: true;
     };
     readonly "wallet.storage.buy": {
         readonly tier: "high";
         readonly lock: "wallet";
-        readonly what: "Buy a storage resource with WAL from the wallet — signed, and not undoable.";
+        readonly what: "Buy a storage resource with WAL from the wallet. Signed, and not undoable.";
         readonly asksItself: true;
     };
     readonly "wallet.storage.extend": {
         readonly tier: "high";
         readonly lock: "wallet";
-        readonly what: "Extend a user's files with WAL from the wallet — signed, and not undoable.";
+        readonly what: "Extend a user's files with WAL from the wallet. Signed, and not undoable.";
         readonly asksItself: true;
     };
 };

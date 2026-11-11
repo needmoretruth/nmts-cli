@@ -109,7 +109,7 @@ export class WrongPassphraseError extends NmtsError {
     super("That passphrase does not open the stored NMTS key.", {
       exitCode: 3,
       nextStep:
-        "Try again. If the passphrase is lost, the stored copy cannot be recovered — sign in " +
+        "Try again. If the passphrase is lost, the stored copy cannot be recovered. Sign in " +
         "again with the NMTS key itself.",
     });
     this.name = "WrongPassphraseError";

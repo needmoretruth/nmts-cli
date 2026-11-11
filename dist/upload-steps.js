@@ -108,7 +108,7 @@ export async function commitItem(input, fileKey, parts) {
             paid: true,
             from: error,
             nextStep: "Nothing more will be spent. Running the same command again commits the same stored " +
-                "bytes — the retry is recognised and does not make a second file.",
+                "bytes. The retry is recognised and does not make a second file.",
         });
     }
     // ⛔ Written down before returning: from here on the file EXISTS and is paid for, and the only

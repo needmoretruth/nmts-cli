@@ -96,6 +96,6 @@ export async function pushWithWallet(
     return 0;
   }
   say(``);
-  say(options.dryRun === true ? `  Nothing was signed and nothing was sent.` : `${uploaded.length} sent · ${run.already.length} already there`);
+  say(options.dryRun === true ? `  Nothing was signed and nothing was sent.` : `${uploaded.length} sent, ${run.already.length} already there`);
   return 0;
 }

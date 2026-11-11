@@ -70,7 +70,7 @@ export async function payingWalletIndex(input: PayingWalletInput): Promise<numbe
         exitCode: 1,
         nextStep:
           `Nothing was signed. Try again when the list can be read, or name the wallet for this ` +
-          `one run with \`--wallet N\` — \`${BINARY_NAME} wallet list\` shows the numbers.`,
+          `one run with \`--wallet N\`; \`${BINARY_NAME} wallet list\` shows the numbers.`,
       },
     );
   }

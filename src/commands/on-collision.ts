@@ -39,11 +39,11 @@ export async function onCollision(wanted: string | undefined, options: OnCollisi
       say(JSON.stringify({ onCollision: at, means: COLLISION_MEANS[at] }));
       return 0;
     }
-    say(`${at} — ${COLLISION_MEANS[at]}`);
+    say(`${at}: ${COLLISION_MEANS[at]}`);
     // The other one, and how to pick it. Listing what exists without saying how to choose sends
     // the reader back to the help text.
     for (const other of COLLISION_CHOICES) {
-      if (other !== at) say(`${other} — ${COLLISION_MEANS[other]}`);
+      if (other !== at) say(`${other}: ${COLLISION_MEANS[other]}`);
     }
     say(`Change it: ${BINARY_NAME} on-collision <${COLLISION_CHOICES.join("|")}>`);
     return 0;
@@ -52,11 +52,11 @@ export async function onCollision(wanted: string | undefined, options: OnCollisi
   if (!isChoice(wanted)) {
     throw new NmtsError(`There is no such answer: "${wanted}".`, {
       exitCode: 2,
-      nextStep: `One of: ${COLLISION_CHOICES.join(" · ")}`,
+      nextStep: `One of: ${COLLISION_CHOICES.join(", ")}`,
     });
   }
 
   await setChoice(wanted, VERSION, now());
-  say(`${wanted} — ${COLLISION_MEANS[wanted]}`);
+  say(`${wanted}: ${COLLISION_MEANS[wanted]}`);
   return 0;
 }

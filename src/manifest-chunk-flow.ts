@@ -53,7 +53,7 @@ export class ManifestChunkError extends NmtsError {
       exitCode: 1,
       nextStep:
         "Nothing was changed. The list is stored in pieces and one of them did not arrive whole, " +
-        "so what this command could show would be missing files. Try again; if it repeats, open " +
+        "so what this command could show would be missing files. Try again. If it repeats, open " +
         "the account in a browser and compare before writing anything.",
     });
     this.name = "ManifestChunkError";

@@ -125,7 +125,7 @@ test("the inbox opens each row with the code it came to, and says which and whet
     assert.equal(await shares({ server: drive.base, network: "testnet", write: out.write }), 0);
     const said = out.lines.join("\n");
     assert.match(said, /report\.pdf/, "the row sent to code 1 did not open");
-    assert.ok(said.includes(`from ${sender.display}  · the sender has revoked this code`));
+    assert.ok(said.includes(`from ${sender.display} (the sender has revoked this code)`));
     assert.ok(said.includes(`to #1  ${mine.display}`), "which code it came to is not said");
     for (const k of [sender, mine]) k.wipe();
   });

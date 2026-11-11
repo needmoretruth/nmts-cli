@@ -133,7 +133,7 @@ export async function applyManyToList(input, make, patch) {
             }
         }
         throw new NmtsError(`The file list was rewritten by something else ${CONFLICT_RETRIES + 1} times in a row.`, {
-            nextStep: "Nothing about this edit was lost — running the same command again applies it to the " +
+            nextStep: "Nothing about this edit was lost. Running the same command again applies it to the " +
                 "list as it now stands.",
         });
     }

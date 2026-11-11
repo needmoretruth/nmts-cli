@@ -63,7 +63,7 @@ function translate(error) {
         return new NmtsError(error.message, {
             exitCode: 2,
             ...(error.message.startsWith("category")
-                ? { nextStep: `The categories are ${categoryCodes().join(" · ")}.` }
+                ? { nextStep: `The categories are ${categoryCodes().join(", ")}.` }
                 : {}),
         });
     }
@@ -138,13 +138,13 @@ export function requireCategory(given) {
     if (given === undefined) {
         throw new NmtsError("`support send` needs --category.", {
             exitCode: 2,
-            nextStep: `The categories are ${codes.join(" · ")}.`,
+            nextStep: `The categories are ${codes.join(", ")}.`,
         });
     }
     if (!codes.includes(given)) {
         throw new NmtsError(`There is no support category called ${given}.`, {
             exitCode: 2,
-            nextStep: `The categories are ${codes.join(" · ")}.`,
+            nextStep: `The categories are ${codes.join(", ")}.`,
         });
     }
     return given;
@@ -162,7 +162,7 @@ export function checkSub(category, given) {
     if (!subs.includes(given)) {
         throw new NmtsError(`${category} has no part called ${given}.`, {
             exitCode: 2,
-            nextStep: `Its parts are ${subs.join(" · ")}.`,
+            nextStep: `Its parts are ${subs.join(", ")}.`,
         });
     }
     return given;

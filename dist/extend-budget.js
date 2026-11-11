@@ -60,22 +60,22 @@ export function budgetFacts(b) {
 /** The next step when the wallet is short: where to send what, said once. */
 export function shortfallNextStep(b) {
     const coin = b.walFrost !== null && b.walFrost < b.priceFrost ? "WAL" : "SUI";
-    return (`Nothing was signed and nothing was charged. Send ${coin} to ${b.address} — ` +
-        `\`${BINARY_NAME} wallet\` shows the address and both balances — and run this again.`);
+    return (`Nothing was signed and nothing was charged. Send ${coin} to ${b.address} ` +
+        `(\`${BINARY_NAME} wallet\` shows the address and both balances) and run this again.`);
 }
 /** The fee and the wallet, for a person, after the price. */
 export function describeBudget(say, b) {
     if (b.feeMist === null) {
-        say(`  The chain fee (SUI) could not be measured just now; it is charged with the signature.`);
+        say(`  The chain fee (SUI) could not be measured just now. It is charged with the signature.`);
     }
     else {
-        say(`  Chain fee about ${coinAmount(b.feeMist)} SUI, measured by a dry run just now — the amount ` +
+        say(`  Chain fee about ${coinAmount(b.feeMist)} SUI, measured by a dry run just now. The amount ` +
             `charged is fixed when the transaction executes.`);
     }
     const wal = b.walFrost === null ? "WAL not read" : `${coinAmount(b.walFrost)} WAL`;
     const sui = b.suiMist === null ? "SUI not read" : `${coinAmount(b.suiMist)} SUI`;
     say(`  Wallet ${b.address} holds ${wal} and ${sui}.`);
     for (const why of b.unread) {
-        say(`  A balance could not be read — ${why}. That is not zero: the chain decides at signing.`);
+        say(`  A balance could not be read: ${why}. That is not zero: the chain decides at signing.`);
     }
 }

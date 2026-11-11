@@ -167,7 +167,7 @@ export async function planExtension(
     throw new NmtsError(`No file at "${fullPathOf(buildIndex(entries), entry)}".`, {
       exitCode: 4,
       nextStep:
-        "That is a folder. Nothing was signed and nothing was charged — storage is bought per " +
+        "That is a folder. Nothing was signed and nothing was charged. Storage is bought per " +
         "file, so this takes one file at a time.",
     });
   }
@@ -254,7 +254,7 @@ export async function planItemExtension(
       exitCode: 4,
       nextStep:
         seams.hints?.lapsed ??
-        `Nothing was signed and nothing was charged. A lease is extended before it ends — once it ` +
+        `Nothing was signed and nothing was charged. A lease is extended before it ends. Once it ` +
           `is over there is no storage object left to extend, and the bytes may already be gone. ` +
           `Fetching the file is what says whether they can still be read.`,
     });

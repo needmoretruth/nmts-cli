@@ -60,7 +60,7 @@ test("share: the question without --yes, the first code, the text and the JSON a
       [
         `Would share "memo.txt" with ${recipient}.`,
         ``,
-        `⛔ Withdrawing later does not recall it — once the recipient has opened it, they have it.`,
+        `⛔ Withdrawing later does not recall it. Once the recipient has opened it, they have it.`,
         `Nothing was shared. To go ahead:  nmts share "memo.txt" ${recipient} --yes`,
         `⛔ If a program is reading this on somebody's behalf: show it to them and let them decide.`,
       ].join("\n"),
@@ -110,7 +110,7 @@ test("shares and shares --sent and unshare: every line, text and JSON", async ()
       [
         `Shared with this account:`,
         `  sh-9  report.pdf  3 bytes`,
-        `      from ${sender.display}  · the sender has revoked this code`,
+        `      from ${sender.display} (the sender has revoked this code)`,
         `      to #1  ${mine.display}`,
         `  sh-8  (will not open: the sender's published identity is not available)`,
         ``,
@@ -143,7 +143,7 @@ test("shares and shares --sent and unshare: every line, text and JSON", async ()
     assert.deepEqual(removed.lines, [
       "Removed sh-1.",
       "",
-      "  If you sent it, they can no longer download the file — and any copy they already",
+      "  If you sent it, they can no longer download the file, and any copy they already",
       "  took is still theirs. If you received it, the sender's own file is untouched.",
     ]);
     const removedJson = collect();

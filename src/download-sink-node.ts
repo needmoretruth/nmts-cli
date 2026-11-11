@@ -118,7 +118,7 @@ export function fileSink(destination: string, options: { force: boolean }): Plai
         await abandon();
         throw new NmtsError(`${destination} could not be written: ${known.message}`, {
           exitCode: 1,
-          nextStep: "Nothing was left under that name. The download itself was fine — this is the disk.",
+          nextStep: "Nothing was left under that name. The download itself was fine. The disk is the problem.",
         });
       }
       // ⛔ Asked a second time, as late as possible. The first check was before the download; a
@@ -174,8 +174,8 @@ export function stdoutSink(to: ByteDestination, limit: number = STDOUT_HOLD_LIMI
       exitCode: 4,
       nextStep:
         "Nothing was written and nothing was sent. A pipe cannot be taken back, so this mode " +
-        "proves the whole file before it sends a byte, which means holding it. Use `--out <name>` " +
-        "— that writes any size, and the file only appears under that name once it has been checked.",
+        "proves the whole file before it sends a byte, which means holding it. Use `--out <name>`: " +
+        "that writes any size, and the file only appears under that name once it has been checked.",
     });
 
   const forget = (): void => {

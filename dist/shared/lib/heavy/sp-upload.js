@@ -57,7 +57,7 @@ export async function uploadPieceToProvider(input) {
     }
     const total = sizeOf(bytes);
     if (total < MIN_BYTES || total > MAX_BYTES) {
-        throw new PieceUploadError("size_out_of_range", `A piece must be ${MIN_BYTES}..${MAX_BYTES} bytes; this part is ${total}.`);
+        throw new PieceUploadError("size_out_of_range", `A piece must be ${MIN_BYTES}..${MAX_BYTES} bytes. This part is ${total}.`);
     }
     const withSignal = signal === undefined ? {} : { signal };
     // 1. Open an upload session.

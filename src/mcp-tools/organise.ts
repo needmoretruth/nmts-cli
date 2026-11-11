@@ -28,7 +28,7 @@ export function organiseTools(ctx: ToolContext): ToolDefinition[] {
       name: "nmts_mkdir",
       description:
         "Make a folder in the NMTS account, including any parent folders that are missing. " +
-        "Folders exist only inside the account's sealed list; making one costs nothing.",
+        "Folders exist only inside the account's sealed list. Making one costs nothing.",
       inputSchema: {
         type: "object",
         properties: { path: { type: "string", description: "The folder path to make." } },
@@ -41,7 +41,7 @@ export function organiseTools(ctx: ToolContext): ToolDefinition[] {
       name: "nmts_move",
       description:
         "Move one or more entries into a folder in the NMTS account. Nothing is re-uploaded and " +
-        "nothing is charged — only the sealed list changes. A name already taken in the " +
+        "nothing is charged. Only the sealed list changes. A name already taken in the " +
         "destination is numbered rather than replacing what is there.",
       inputSchema: {
         type: "object",
@@ -113,7 +113,7 @@ export function organiseTools(ctx: ToolContext): ToolDefinition[] {
     {
       name: "nmts_label_rename",
       description:
-        "Rename a label on every file that carries it. Changes only the file list; costs nothing.",
+        "Rename a label on every file that carries it. Changes only the file list. Costs nothing.",
       inputSchema: {
         type: "object",
         properties: {
@@ -135,7 +135,7 @@ export function organiseTools(ctx: ToolContext): ToolDefinition[] {
     {
       name: "nmts_unlabel_all",
       description:
-        "Take one label off every file that carries it. Changes only the file list; costs nothing.",
+        "Take one label off every file that carries it. Changes only the file list. Costs nothing.",
       inputSchema: {
         type: "object",
         properties: { name: { type: "string", description: "The label to take off." } },
@@ -150,7 +150,7 @@ export function organiseTools(ctx: ToolContext): ToolDefinition[] {
       description:
         "Read or set how file sizes are hidden on the storage network: standard (a few fixed " +
         "sizes per doubling), pow2 (one per doubling, hides more, costs more storage on " +
-        "average), or off (no padding — the file's exact length is visible to the network and " +
+        "average), or off (no padding: the file's exact length is visible to the network and " +
         "to anyone who reads the blob, and about 1 % less storage is used). Applies to the next " +
         "uploads from every device.",
       inputSchema: {
@@ -180,7 +180,7 @@ export function organiseTools(ctx: ToolContext): ToolDefinition[] {
         `upload, 0 to ${DEPOSIT_CREDITS_MAX}. Nothing here spends: it records what the next uploads will ` +
         "set aside, from every device. The deposit pays the chain fee of a later operation on " +
         "that file, measured rather than spent whole, and what is left comes back when the " +
-        "storage period ends. 0 is a real answer — a file with no deposit still releases, but " +
+        "storage period ends. 0 is a real answer: a file with no deposit still releases, but " +
         "pays twice the same fee out of the balance at that moment.",
       inputSchema: {
         type: "object",
@@ -206,7 +206,7 @@ export function organiseTools(ctx: ToolContext): ToolDefinition[] {
       description:
         "Put files in the NMTS account's trash. Nothing is destroyed and nothing is refunded: the " +
         "storage stays bought and the file can be brought back with nmts_restore. Emptying the " +
-        "trash for good is not something this surface can do — that is a person's decision at the " +
+        "trash for good is not something this surface can do. That is a person's decision at the " +
         "command line.",
       inputSchema: {
         type: "object",

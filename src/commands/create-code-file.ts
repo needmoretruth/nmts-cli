@@ -32,7 +32,7 @@ export function codeFileTarget(out: string | undefined): string | null {
       exitCode: 2,
       nextStep:
         `Nothing was created. stdout is what a program reads and a log keeps, and this is the ` +
-        `only copy of your NMTS key. Name a file — \`--out ./account-code.txt\` — or leave --out off ` +
+        `only copy of your NMTS key. Name a file (\`--out ./account-code.txt\`) or leave --out off ` +
         `and read it off the screen.`,
     });
   }
@@ -80,7 +80,7 @@ export function writeCodeFile(path: string, code: string): void {
     throw new NmtsError(`The NMTS key could not be written to ${path}.`, {
       exitCode: 1,
       nextStep:
-        `Nothing was created — the file is written before the account is asked for, so that a ` +
+        `Nothing was created. The file is written before the account is asked for, so that a ` +
         `failure here costs nothing. Cause: ${error instanceof Error ? error.message : String(error)}`,
     });
   }
@@ -93,7 +93,7 @@ export function jsonNeedsAFile(): NmtsError {
     nextStep:
       `Nothing was created. Machine-readable output is read by a program and kept by a log, and ` +
       `your NMTS key is the only key this account will ever have. \`--out ./account-code.txt\` writes ` +
-      `it to a file only you can read; the JSON then names that file. Without --json the NMTS key is ` +
+      `it to a file only you can read. The JSON then names that file. Without --json the NMTS key is ` +
       `printed on the screen for a person to keep.`,
   });
 }

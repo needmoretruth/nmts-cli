@@ -13,7 +13,7 @@ import { listLiveLinks, revokeAllLinks, revokeLink } from "../links.js";
 import { readFileList } from "../manifest.js";
 import { BINARY_NAME } from "../product.js";
 import { openSession } from "../session.js";
-const USAGE = `\`${BINARY_NAME} links\` · \`${BINARY_NAME} links revoke <id>\` · \`${BINARY_NAME} links revoke-all\``;
+const USAGE = `\`${BINARY_NAME} links\`, \`${BINARY_NAME} links revoke <id>\`, \`${BINARY_NAME} links revoke-all\``;
 export async function links(sub, operand, options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     if (sub !== undefined && sub !== "revoke" && sub !== "revoke-all") {

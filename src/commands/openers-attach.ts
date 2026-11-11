@@ -106,7 +106,7 @@ export function sayWalletAttached(say: (line: string) => void, attached: AttachO
   say(``);
   say(`This wallet also opens the new account:  ${attached.locator}`);
   if (attached.keyLeft !== null) {
-    say(`⚠ The key borrowed to store it — ${attached.keyLeft} — is still live. Cut it with \`${BINARY_NAME} key revoke ${attached.keyLeft}\`.`);
+    say(`⚠ The key borrowed to store it (${attached.keyLeft}) is still live. Cut it with \`${BINARY_NAME} key revoke ${attached.keyLeft}\`.`);
   }
 }
 

@@ -54,8 +54,8 @@ test("⛔ the total is the live drive, and what is in the trash is its own figur
     const out = collect();
     assert.equal(await usage(opts(out)), 0);
     const text = out.lines.join("\n");
-    assert.match(text, /2 files · 1 folder · 300 B/);
-    assert.match(text, /In the trash: 1 file · 900 B/);
+    assert.match(text, /2 files, 1 folder, 300 B/);
+    assert.match(text, /In the trash: 1 file, 900 B/);
     assert.ok(!text.includes("1.1 kB"), "the trashed bytes were folded into the total");
 
     const json = collect();

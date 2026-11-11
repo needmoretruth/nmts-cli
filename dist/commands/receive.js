@@ -26,7 +26,7 @@ export async function receive(id, options = {}) {
     if (id === undefined || id === "") {
         throw new NmtsError("Say which share to receive.", {
             exitCode: 2,
-            nextStep: `\`${BINARY_NAME} receive <id>\` — the id \`${BINARY_NAME} shares\` prints.`,
+            nextStep: `\`${BINARY_NAME} receive <id>\`, with the id \`${BINARY_NAME} shares\` prints.`,
         });
     }
     const session = await openSession({ server: options.server, network: options.network });
@@ -66,7 +66,7 @@ export async function receive(id, options = {}) {
         return 0;
     }
     say(`${got.name}  ${got.bytes} bytes`);
-    say(`  from ${got.sender ?? ""}${got.senderRevoked ? "  · the sender has revoked this code" : ""}`);
+    say(`  from ${got.sender ?? ""}${got.senderRevoked ? " (the sender has revoked this code)" : ""}`);
     if (got.toIndex !== 0)
         say(`  to #${got.toIndex}  ${got.toCode}`);
     say(`  checked against the hash the sender sealed with it`);

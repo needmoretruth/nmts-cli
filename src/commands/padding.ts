@@ -99,7 +99,7 @@ export async function padding(wanted: string | undefined, options: PaddingOption
         : `File sizes are hidden the standard way: a stored size shows as one of a few fixed values per doubling.`,
     );
     say(
-      `Anyone can read the size of a piece stored on the storage network; the blank bytes make it ` +
+      `Anyone can read the size of a piece stored on the storage network. The blank bytes make it ` +
         `one of a set of fixed values instead of the exact number.`,
     );
     return 0;
@@ -115,7 +115,7 @@ export async function padding(wanted: string | undefined, options: PaddingOption
   const before = await readFileList(session.server, session.apiKey, session.code, session.accountId);
   if (before.manifest === null) {
     throw new NmtsError(
-      `This account has no file list yet; the setting lives in the list, and there is nothing to write it into.`,
+      `This account has no file list yet. The setting lives in the list, and there is nothing to write it into.`,
       { exitCode: 4, nextStep: `Upload once (\`${BINARY_NAME} put\`) and set it after.` },
     );
   }
@@ -140,7 +140,7 @@ export async function padding(wanted: string | undefined, options: PaddingOption
     return 0;
   }
   say(
-    `Set to ${CALLED[wanted]}. It applies to what is uploaded next, from every device; files ` +
+    `Set to ${CALLED[wanted]}. It applies to what is uploaded next, from every device. Files ` +
       `already uploaded keep the size they were stored at.`,
   );
   return 0;

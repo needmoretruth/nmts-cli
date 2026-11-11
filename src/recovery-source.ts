@@ -69,7 +69,7 @@ function unreadable(what: string): NmtsError {
     exitCode: 1,
     nextStep:
       "Nothing was written. Update this tool, or build the recovery list from the account " +
-      "screen in a browser — a list that skipped what it could not read would claim to cover " +
+      "screen in a browser. A list that skipped what it could not read would claim to cover " +
       "files it does not.",
   });
 }

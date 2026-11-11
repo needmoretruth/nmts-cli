@@ -1,4 +1,4 @@
-# nmts extend — buy more storage time for one file
+# nmts extend: buy more storage time for one file
 
 Commands: extend
 Tiers: extend=high(wallet)
@@ -17,8 +17,8 @@ developer right after the extension, without a question.
 
 Both forms print the price in WAL, the chain fee in SUI measured by a dry run of the exact
 transaction (`null` in `--json` when it could not be measured, never 0), and what the wallet
-holds. A wallet short of either exits 4 with the two numbers before anything else; a balance the
+holds. A wallet short of either exits 4 with the two numbers before anything else. A balance the
 chain could not read is said as unread, not as zero. A file nowhere near its deadline is refused
-rather than extended; `--yes` says to do it anyway. If the purchase succeeds and the server then
-fails to record the date, that is reported as itself and must not be retried — the storage is
+rather than extended. `--yes` says to do it anyway. If the purchase succeeds and the server then
+fails to record the date, that is reported as itself and must not be retried: the storage is
 already bought.

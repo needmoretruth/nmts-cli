@@ -81,10 +81,10 @@ export async function walletList(options = {}) {
     }
     say(``);
     say(`  Every wallet above comes from this NMTS key, at the number in the first column. The one`);
-    say(`  marked "pays" is the one storage is paid from — \`${BINARY_NAME} wallet use <number>\` moves it,`);
+    say(`  marked "pays" is the one storage is paid from; \`${BINARY_NAME} wallet use <number>\` moves it,`);
     say(`  on this account rather than on this machine. Numbers come from the key, so a wallet`);
     say(`  cannot be deleted.`);
-    say(`  The list stops after twenty unused wallets in a row; a wallet further out than that is`);
+    say(`  The list stops after twenty unused wallets in a row. A wallet further out than that is`);
     say(`  reached by its number.`);
     if (unread) {
         say(`  A balance that could not be read is printed as that and never as zero, and this command`);

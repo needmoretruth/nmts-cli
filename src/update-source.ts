@@ -150,5 +150,5 @@ export function installCommandLine(version: string): string | null {
  *    would be inventing a reason to act.
  */
 export function newerVersionLine(latest: string, running: string, binary: string): string {
-  return `${binary} ${latest} is published; this is ${running}. \`${binary} update\` installs it.`;
+  return `${binary} ${latest} is published. This is ${running}. \`${binary} update\` installs it.`;
 }

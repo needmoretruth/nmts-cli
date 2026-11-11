@@ -157,11 +157,11 @@ function describe(say: (line: string) => void, review: StorageOpReview, wallet: 
   for (const line of detail(plan)) say(`  ${line}`);
   say(
     review.feeMist === null
-      ? `  Chain fee (SUI): could not be measured just now; it is charged with the signature.`
+      ? `  Chain fee (SUI): could not be measured just now. It is charged with the signature.`
       : `  Chain fee about ${coinAmount(review.feeMist)} SUI, measured by a dry run just now.`,
   );
   if (plan.op === "transfer") {
-    say(`  ⛔ No file goes with it. What goes is size and remaining time; the files stay sealed with this`);
+    say(`  ⛔ No file goes with it. What goes is size and remaining time. The files stay sealed with this`);
     say(`     account's keys. It cannot be undone, and NMTS cannot recall it. Check the address once more.`);
   }
 }
@@ -170,7 +170,7 @@ function describe(say: (line: string) => void, review: StorageOpReview, wallet: 
 function what(plan: StorageOpPlan): string {
   const named = (at: number): string => {
     const r = plan.named[at];
-    return r === undefined ? "" : `${formatBytes(r.sizeBytes)} · epoch ${r.startEpoch} to ${r.endEpoch} (${r.objectId})`;
+    return r === undefined ? "" : `${formatBytes(r.sizeBytes)}, epoch ${r.startEpoch} to ${r.endEpoch} (${r.objectId})`;
   };
   const result = plan.result;
   if (result.kind === "split") return `cut ${named(0)} by ${plan.shape.kind === "splitSize" ? "size" : "period"}.`;
@@ -184,8 +184,8 @@ function detail(plan: StorageOpPlan): string[] {
   if (result.kind === "split") {
     const { keeps, creates } = result;
     return plan.shape.kind === "splitSize"
-      ? [`It keeps ${formatBytes(keeps.sizeBytes)}; a new resource of ${formatBytes(creates.sizeBytes)} over the same period appears in this wallet.`]
-      : [`It keeps epoch ${keeps.startEpoch} to ${keeps.endEpoch}; a new resource of the same size over epoch ${creates.startEpoch} to ${creates.endEpoch} appears in this wallet.`];
+      ? [`It keeps ${formatBytes(keeps.sizeBytes)}. A new resource of ${formatBytes(creates.sizeBytes)} over the same period appears in this wallet.`]
+      : [`It keeps epoch ${keeps.startEpoch} to ${keeps.endEpoch}. A new resource of the same size over epoch ${creates.startEpoch} to ${creates.endEpoch} appears in this wallet.`];
   }
   if (result.kind === "merge") {
     const b: StorageShape = result.becomes;

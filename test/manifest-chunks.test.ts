@@ -21,6 +21,7 @@ import type { ManifestEntry } from "../src/shared/lib/drive/manifest-codec.ts";
 import { identityOf } from "../src/account.ts";
 import { KEY } from "./fake-drive.ts";
 import { nameOf } from "./fake-chunks.ts";
+import { forgetNodeZstd, registerNodeZstd } from "../src/zstd-node.ts";
 import { openFileListDoc } from "./helpers.ts";
 import { startFakeItems, withAccount } from "./fake-items.ts";
 
@@ -78,6 +79,20 @@ test("a list in three chunks opens as one list, in the order the index names the
       list.manifest?.entries.map((e) => e.name),
       ["apples.txt", "bananas.txt", "berries.txt", "cherries.txt"],
     );
+  });
+});
+
+// ⛔ A FRESH PROCESS READS A LIST A ZSTD WRITER LEFT. The index blob carries its own compression
+//    flag, and the codec used to be registered only before the chunks, after that blob was opened:
+//    `nmts ls` on a list the browser or the SDK had written answered "no zstd decoder" (2026-11-11).
+test("⛔ an index written with zstd opens in a process that has not registered the codec yet", async () => {
+  await withAccount(fake, "chunks-zstd-index", async (code) => {
+    registerNodeZstd();
+    await fake.serveChunked(code, [[item("z", "zebra.txt")]]);
+    forgetNodeZstd();
+    const id = (await identityOf(code)).accountId;
+    const list = await readFileList(fake.base, KEY, code, id);
+    assert.deepEqual(list.manifest?.entries.map((e) => e.name), ["zebra.txt"]);
   });
 });
 

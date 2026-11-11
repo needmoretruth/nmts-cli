@@ -192,14 +192,14 @@ export function adviseFor(env: Environment, hasStoredCode: boolean): Advice[] {
         level: "note",
         text:
           `This container is rootless: root inside it is an ordinary user on the host, so a ` +
-          `mistake in any program here — this one included — is bounded by that user's reach.`,
+          `mistake in any program here (this one included) is bounded by that user's reach.`,
       });
     } else if (env.rootMapped === false) {
       out.push({
         level: "warn",
         text:
-          `Root inside this container is root on the host. Running it rootless — \`podman run\` as ` +
-          `an ordinary user, or Docker's rootless mode — bounds what a mistake here can reach.`,
+          `Root inside this container is root on the host. Running it rootless (\`podman run\` as ` +
+          `an ordinary user, or Docker's rootless mode) bounds what a mistake here can reach.`,
       });
     }
     if (env.uid === 0 && env.rootMapped !== true) {
@@ -223,8 +223,8 @@ export function adviseFor(env: Environment, hasStoredCode: boolean): Advice[] {
     out.push({
       level: "note",
       text:
-        `No browser can be opened here. Anything that needs a human check — making an account, ` +
-        `renewing the account's four-week check — has to be done on a machine that has one.`,
+        `No browser can be opened here. Anything that needs a human check (making an account, ` +
+        `renewing the account's four-week check) has to be done on a machine that has one.`,
     });
   }
 

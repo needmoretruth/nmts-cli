@@ -204,7 +204,7 @@ function unusable(path, what) {
         exitCode: 3,
         nextStep: `Nothing was read from it. \`nmts logout\` removes it, and \`nmts login\` writes a fresh ` +
             `one. If that file is the only copy of the NMTS key, copy that key out of it by hand ` +
-            `first — this tool will not open it.`,
+            `first. This tool will not open it.`,
     });
 }
 function isNotFound(error) {

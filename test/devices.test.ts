@@ -57,7 +57,7 @@ test("it says what it cannot do rather than leaving a caller to find out by tryi
     await devices({ server: drive.base, write: out.write });
     const screen = out.lines.join("\n");
     assert.match(screen, /--sign-out <id>/);
-    assert.match(screen, /a key alone cannot/);
+    assert.match(screen, /a key alone cannot/i);
   });
 });
 

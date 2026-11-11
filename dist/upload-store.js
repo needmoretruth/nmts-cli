@@ -149,7 +149,7 @@ export async function readReservationBytes(key) {
     const held = await host().state.read(bin);
     if (held === undefined) {
         throw new NmtsError(`The sealed bytes of ${bin} are gone.`, {
-            nextStep: "Nothing was sent. The storage they bought cannot be filled by re-sealing — run the " +
+            nextStep: "Nothing was sent. The storage they bought cannot be filled by re-sealing. Run the " +
                 "upload again to buy storage for a fresh sealing of the same file.",
         });
     }

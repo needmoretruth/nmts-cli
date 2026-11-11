@@ -128,8 +128,8 @@ export function buildRecoveryKit(input: BuildKitInput): { filename: string; cont
     `This file is the only way to recover your NMTS files. Keep it private.`,
     `This file carries your NMTS key in the clear, your account identifier and fingerprint, ` +
       `and the whole recovery list.`,
-    `Anyone with this NMTS key can open your files. If you lose it, no one — including NMTS — can ` +
-      `recover them.`,
+    `Anyone with this NMTS key can open your files. If you lose it, your files cannot be recovered. ` +
+      `NMTS cannot recover them either.`,
     ``,
     `NMTS key:`,
     `    ${input.code}`,
@@ -139,21 +139,21 @@ export function buildRecoveryKit(input: BuildKitInput): { filename: string; cont
     `Recovery manifest blob: not yet created`,
     `Recovery list: ${
       input.recoveryList === null
-        ? `not included — this account had no files when the kit was made`
+        ? `not included: this account had no files when the kit was made`
         : `included in this file (${input.listFileCount ?? 0} files)`
     }`,
     ``,
     `--- HOW TO GET YOUR FILES BACK (English) ---`,
-    `1. Get the recovery program from ${RECOVERY_TOOL_URL} — it runs on Linux, macOS and ` +
+    `1. Get the recovery program from ${RECOVERY_TOOL_URL}. It runs on Linux, macOS and ` +
       `Windows, and its full source is there.`,
     `2. Open a terminal where you saved the program, and run:`,
     `       nmts-recovery --map <this file> --out <a folder to write into>`,
     `   It takes the NMTS key and the file list out of this file, fetches your files from ` +
       `public Walrus storage, checks every piece, and writes them out.`,
     `3. To click instead of typing, run:  nmts-recovery --gui`,
-    `   That opens a page only this machine can reach. The program still does the work; the page ` +
+    `   That opens a page only this machine can reach. The program still does the work. The page ` +
       `only shows the list and sends back what you ticked.`,
-    `4. To see what your NMTS key derives — your public code and your wallet addresses — ` +
+    `4. To see what your NMTS key derives (your public code and your wallet addresses), ` +
       `run:  nmts-recovery --derive`,
     `If you would rather it opened no network connections, run it with --print-fetch-plan: it ` +
       `prints the exact addresses to fetch by hand, then restores from the folder you filled.`,

@@ -63,7 +63,7 @@ export interface WalletDonateOptions {
 /** The four facts and the promise, as the screens say them, in the order a person reads them. */
 export const GIFT_NOTICES: readonly string[] = [
   "This is a voluntary gift. Nothing is provided in return, it is non-refundable, and it cannot be undone once sent.",
-  "We keep no record of who sent what. If you ever need to ask about this gift, keep the transaction id shown after sending — it is the only proof.",
+  "We keep no record of who sent what. If you ever need to ask about this gift, keep the transaction id shown after sending. It is the only proof.",
 ];
 
 export function asDonationConfig(value: unknown): DonationConfig {
@@ -136,7 +136,7 @@ export async function walletDonate(operands: readonly string[], options: WalletD
         : verdict.error === "noGasForWal"
           ? "A WAL gift pays its fee in SUI, and the wallet holds less SUI than the reserve kept for that."
           : verdict.error === "invalidAddress"
-            ? "The published address is not a Sui address; nothing was sent."
+            ? "The published address is not a Sui address. Nothing was sent."
             : "The wallet does not hold that much.";
     throw new NmtsError(why, {
       exitCode: verdict.error === "invalidAmount" ? 2 : 4,
@@ -168,7 +168,7 @@ export async function walletDonate(operands: readonly string[], options: WalletD
     say(`  ${shape.destination}`);
     say(
       feeMist === null
-        ? `  Chain fee (SUI): could not be measured just now; it is charged with the signature.`
+        ? `  Chain fee (SUI): could not be measured just now. It is charged with the signature.`
         : `  Chain fee about ${facts.feeSui} SUI, measured by a dry run just now.`,
     );
     say(``);
@@ -197,7 +197,7 @@ export async function walletDonate(operands: readonly string[], options: WalletD
     return 0;
   }
   say(``);
-  say(`  Thank you — your gift was sent. Transaction ${digest}`);
+  say(`  Thank you. Your gift was sent. Transaction ${digest}`);
   say(`  ${explorerTxUrl(digest, network)}`);
   say(`  Keep that id: no record of this gift exists anywhere else.`);
   // ⛔ THE OWNER'S OWN THANKS, IN BOTH LANGUAGES, after every gift whatever its size — the same two

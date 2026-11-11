@@ -84,7 +84,7 @@ export async function push(target: string | undefined, options: PushOptions = {}
   if (target === undefined || target === "") {
     throw new NmtsError("Say which directory to push.", {
       exitCode: 2,
-      nextStep: `\`${BINARY_NAME} push <directory>\` — a directory on this machine.`,
+      nextStep: `\`${BINARY_NAME} push <directory>\`, with a directory on this machine.`,
     });
   }
   if (tierOf(options) === "heavy") return (await import("./push-heavy.ts")).pushHeavy(target, options);
@@ -218,7 +218,7 @@ export async function push(target: string | undefined, options: PushOptions = {}
     return 0;
   }
   say(``);
-  say(`${uploaded.length} sent · ${already.length} already there`);
+  say(`${uploaded.length} sent, ${already.length} already there`);
   return 0;
 }
 

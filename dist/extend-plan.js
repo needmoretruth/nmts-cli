@@ -97,7 +97,7 @@ export function refuseUnheld(leases, payer, file) {
         return;
     throw new NmtsError(`EXTEND_NOT_OWNED: the wallet ${payer} does not hold the storage of "${file}": ${unheld.join("; ")}.`, {
         exitCode: 4,
-        nextStep: "Nothing was signed and nothing was charged. Only the wallet that holds a blob can extend it — " +
+        nextStep: "Nothing was signed and nothing was charged. Only the wallet that holds a blob can extend it: " +
             "pay from that wallet, or leave this file to whoever holds it.",
     });
 }
@@ -144,7 +144,7 @@ export function chooseEpochs(asked, available) {
         throw new NmtsError("This file's storage is already paid as far ahead as the network allows.", {
             exitCode: 4,
             nextStep: "Nothing was signed and nothing was charged. The storage network refuses a lease that " +
-                "ends further ahead than its own ceiling; extending again becomes possible as the " +
+                "ends further ahead than its own ceiling. Extending again becomes possible as the " +
                 "network's epoch moves forward.",
         });
     }
@@ -173,7 +173,7 @@ function parseEpochs(asked) {
         throw new NmtsError(`An extension is a whole number of epochs: ${String(asked)}.`, {
             exitCode: 2,
             nextStep: `Nothing was signed and nothing was charged. \`--epochs 4\` buys four more of the storage ` +
-                `network's epochs — one day each on testnet, fourteen on mainnet.`,
+                `network's epochs: one day each on testnet, fourteen on mainnet.`,
         });
     }
     return epochs;
@@ -190,7 +190,7 @@ export async function readWindowOrRefuse(reads, network) {
     throw new NmtsError(`The ${network} storage network could not be read.`, {
         exitCode: 1,
         nextStep: `Nothing was signed and nothing was charged. Which epoch the network is in, and how far ` +
-            `ahead it will sell, are facts only the chain has — this will not spend against a ` +
+            `ahead it will sell, are facts only the chain has, and this will not spend against a ` +
             `guess. Try again, or name a different Sui node in NMTS_SUI_RPC.`,
     });
 }

@@ -171,7 +171,7 @@ export async function encodedLength(client, sender, sealedLen) {
     if (value === undefined || value.length !== 8) {
         throw new NmtsError("The chain did not say how large this part is once encoded.", {
             exitCode: 1,
-            nextStep: "Nothing was signed. A held resource cannot be cut to fit without that number; buy new storage instead, or try again.",
+            nextStep: "Nothing was signed. A held resource cannot be cut to fit without that number. Buy new storage instead, or try again.",
         });
     }
     return Number(u64FromLe(value));

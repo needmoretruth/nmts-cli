@@ -33,7 +33,7 @@ export function metaOf(req) {
 /** The one sentence a write gets from `nmts s3` when this machine has not agreed to spending. */
 export function readOnlyOnThisMachine() {
     return ("This gateway is read only. Uploading spends credits, and this machine has not agreed to " +
-        "spending — `nmts consent grant spend`, run by the person whose account this is, is what " +
+        "spending. `nmts consent grant spend`, run by the person whose account this is, is what " +
         "changes that. Nothing was written.");
 }
 /** Why this drive takes no writes, in the words of whoever runs the gateway. */

@@ -104,7 +104,7 @@ export async function standingTipAfter(input: StandingTipInput): Promise<"none" 
       wallet: input.wallet,
       shape: { coin: "WAL", amountBaseUnits: amount, destination: config.devAddress, walType: walCoinType(input.network) },
     });
-    input.say(`  Your standing ${percentText(tenths)} % gift — ${coinAmount(amount)} WAL — went to the developer. Transaction ${digest}`);
+    input.say(`  Your standing ${percentText(tenths)} % gift (${coinAmount(amount)} WAL) went to the developer. Transaction ${digest}`);
     input.say(`  ${THANKS_EN}`);
     input.say(`  ${THANKS_KO}`);
     return "sent";

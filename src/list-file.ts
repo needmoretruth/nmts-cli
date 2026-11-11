@@ -63,7 +63,7 @@ export { WRITTEN_BY };
 
 /** Plain-language lines for whoever finds this file with no idea what it is. */
 const NOTE: readonly string[] = [
-  `This file is an encrypted copy of an NMTS (nmts.me) file list — the names, folders and file ` +
+  `This file is an encrypted copy of an NMTS (nmts.me) file list: the names, folders and file ` +
     `keys of one account, locked with its NMTS key.`,
   `It is written by the \`nmts\` command from the copy that machine keeps. A higher number in the ` +
     `filename is a newer copy.`,

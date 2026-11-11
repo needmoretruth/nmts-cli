@@ -219,7 +219,7 @@ function sayWhereTheCodeIs(say, codeFile, code) {
     say(``);
     say(`⛔ THIS IS THE ONLY COPY OF THE NMTS KEY THAT WILL EVER EXIST.`);
     say(`   NMTS keeps a verifier and never the NMTS key. It cannot be reset, resent or replaced.`);
-    say(`   Lose it and the account and every file in it are gone — for you and for NMTS.`);
+    say(`   Lose it and the account and every file in it are gone, for you and for NMTS.`);
     say(``);
     say(`   ${codeFile ?? code}`);
     say(``);
@@ -243,7 +243,7 @@ function nobodyCame(statusUrl) {
         exitCode: 5,
         nextStep: [
             `No account was created, and the NMTS key that was made for it is now good for nothing.`,
-            `Running \`${BINARY_NAME} create\` again makes a NEW NMTS key and a NEW address; it does not`,
+            `Running \`${BINARY_NAME} create\` again makes a NEW NMTS key and a NEW address. It does not`,
             `resume this one.`,
             ``,
             `If somebody is finishing it right now, this says so: ${statusUrl}`,

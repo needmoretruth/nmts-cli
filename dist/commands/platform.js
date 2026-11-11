@@ -52,11 +52,11 @@ function keygen(out, say) {
         //   stored NMTS key, which lives under the user's own profile. So on Windows the mode is not
         //   merely reported as absent: the file is cut off from the folder's permissions.
         say(restrictToCurrentUser(path)
-            ? `Inherited permissions were removed; only your Windows account can open this file.`
+            ? `Inherited permissions were removed. Only your Windows account can open this file.`
             : `Windows applies no POSIX file mode, and restricting the file with icacls failed, so it ` +
                 `inherits its folder's permissions. Move it somewhere only you can read.`);
     }
-    say(`Register the public key at ${HOME_URL} — ${REGISTER_PATH}. The private half stays in that file.`);
+    say(`Register the public key at ${HOME_URL}, under ${REGISTER_PATH}. The private half stays in that file.`);
     return 0;
 }
 /**

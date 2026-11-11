@@ -56,7 +56,7 @@ export async function walletActivity(options = {}) {
     catch (error) {
         throw new NmtsError("The wallet's transactions could not be read from the chain.", {
             exitCode: 1,
-            nextStep: `Nothing is known about this wallet's activity from here — that is not the same as there ` +
+            nextStep: `Nothing is known about this wallet's activity from here. That is not the same as there ` +
                 `being none. \`${BINARY_NAME} env\` says which network was asked. ` +
                 `Cause: ${error instanceof Error ? error.message : String(error)}`,
         });
@@ -88,8 +88,8 @@ export async function walletActivity(options = {}) {
         say(`  ago may be missing. Run this again to retry.`);
     }
     say(``);
-    say(`  The newest ${SHOW} at most; the chain link on each line shows the rest. A name is put only`);
-    say(`  where the transaction proves it — the storage network's own calls, the two exchanges, a`);
+    say(`  The newest ${SHOW} at most. The chain link on each line shows the rest. A name is put only`);
+    say(`  where the transaction proves it: the storage network's own calls, the two exchanges, a`);
     say(`  plain transfer. Anything else is "other". Gifts to the developer show here as sends, and a`);
     say(`  fee the free-trial pool paid shows as paid by another address: this tool does not know`);
     say(`  those two addresses.`);

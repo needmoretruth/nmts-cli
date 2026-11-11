@@ -32,7 +32,7 @@ export async function walletUse(said, options = {}) {
     const session = await openSession({ server: options.server, network: options.network });
     const before = await readFileList(session.server, session.apiKey, session.code, session.accountId);
     if (before.manifest === null) {
-        throw new NmtsError(`This account has no file list yet; which wallet pays lives in the list, and there is nothing to write it into.`, { exitCode: 4, nextStep: `Upload once (\`${BINARY_NAME} put\`) and set it after.` });
+        throw new NmtsError(`This account has no file list yet. Which wallet pays lives in the list, and there is nothing to write it into.`, { exitCode: 4, nextStep: `Upload once (\`${BINARY_NAME} put\`) and set it after.` });
     }
     const result = await applyManyToList(session, () => [], { activeWallet: index });
     const address = await walletAddress(session.code, index);
@@ -48,7 +48,7 @@ export async function walletUse(said, options = {}) {
     say(`Wallet ${index} pays from now on.`);
     say(`Address  ${address}`);
     say(``);
-    say(`  Storage paid from this account's wallet now leaves this address, on every device — the`);
+    say(`  Storage paid from this account's wallet now leaves this address, on every device. The`);
     say(`  number is kept in the sealed file list, not on this machine. What is already stored is`);
     say(`  unaffected, and the wallets you were using keep whatever is in them.`);
     return 0;

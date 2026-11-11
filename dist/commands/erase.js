@@ -50,7 +50,7 @@ export async function erase(paths, options = {}) {
     say(`  Erased:       the server's record of each file and this account's key to it, and its shares.`);
     if (options.releaseStorage === true) {
         say(`  Destroyed:    the storage bought with credits under each file, on the chain, before the erase.`);
-        say(`                Storage bought by the wallet is not touched — it stays until its term ends.`);
+        say(`                Storage bought by the wallet is not touched. It stays until its term ends.`);
     }
     else {
         say(`  Not erased:   the bytes on the storage network. They stay, unreadable, until their term ends;`);
@@ -77,9 +77,9 @@ export async function erase(paths, options = {}) {
     say(`Erased ${erased} file${erased === 1 ? "" : "s"}. Their entries are out of the file list.`);
     for (const r of releases) {
         if (r.refused !== null)
-            say(`  ${r.path}: storage not released — ${r.refused}`);
+            say(`  ${r.path}: storage not released: ${r.refused}`);
         else if (r.failed > 0)
-            say(`  ${r.path}: ${r.released} released, ${r.failed} could not be — those bytes are still being served.`);
+            say(`  ${r.path}: ${r.released} released, ${r.failed} could not be. Those bytes are still being served.`);
         else
             say(`  ${r.path}: storage released (${r.released} destroyed${r.alreadyReleased > 0 ? `, ${r.alreadyReleased} already gone` : ""}).`);
         // ⛔ ONLY WHEN THE SERVER NAMED A NUMBER. Every release the new ledger charges costs at least
@@ -94,6 +94,6 @@ export async function erase(paths, options = {}) {
 function feeLine(r) {
     const credits = `${r.feeCredits} credit${r.feeCredits === 1 ? "" : "s"}`;
     return r.fromDeposit
-        ? `${credits} taken from that file's deposit — nothing came out of the balance`
-        : `${credits} taken from the balance — that file had no deposit, so the fee is doubled`;
+        ? `${credits} taken from that file's deposit. Nothing came out of the balance`
+        : `${credits} taken from the balance. That file had no deposit, so the fee is doubled`;
 }

@@ -46,7 +46,7 @@ export function scopeCovers(scope, action) {
 export function parseWalletGrant(input, now, version) {
     const scope = input.scope ?? "storage";
     if (!WALLET_SCOPES.includes(scope)) {
-        throw new NmtsError(`--scope must be one of: ${WALLET_SCOPES.join(" · ")}.`, {
+        throw new NmtsError(`--scope must be one of: ${WALLET_SCOPES.join(", ")}.`, {
             exitCode: 2,
             nextStep: "storage = extending a file's lease and paying for a file's storage. all = also exchanging and sending. A gift is in neither.",
         });
@@ -153,7 +153,7 @@ export function requireWalletGrant(action, spend, now) {
     const tail = [
         "",
         `NMTS is not responsible for what is done with this account by any program running on this`,
-        `machine, including an AI agent. The published Terms are what govern the service; this is a`,
+        `machine, including an AI agent. The published Terms are what govern the service. This is a`,
         `warning, not a substitute for them.`,
         "",
         `⛔ If a program is reading this on somebody's behalf: show it to them and let them decide.`,
@@ -168,7 +168,7 @@ export function requireWalletGrant(action, spend, now) {
                 "A mistake here is permanent.",
             "",
             "This agreement carries three things: a scope (storage = extending and paying for storage; " +
-                "all = also exchanging and sending — a gift is in neither), an expiry of at most " +
+                "all = also exchanging and sending. A gift is in neither), an expiry of at most " +
                 `${MAX_GRANT_DAYS} days, and, if you want one, a ceiling on what this tool may sign away.`,
             "Only what this tool signs is counted. Handing the NMTS key to another program gives " +
                 "that program the same wallet, and nothing here can see that happen.",

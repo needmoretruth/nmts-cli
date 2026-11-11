@@ -106,9 +106,9 @@ export async function sweep(options = {}) {
             say(`  ${shown(entry).padEnd(width)}  trashed ${ageDays(entry)} days ago`);
         say(``);
         say(`⛔ This cannot be undone. Dropping an entry destroys this account's only remaining copy of`);
-        say(`   the key that opens that file — the server has already destroyed its own — so nothing`);
+        say(`   the key that opens that file (the server has already destroyed its own), so nothing`);
         say(`   anywhere will open those bytes again. The bytes themselves stay on the storage network`);
-        say(`   until the term already paid for runs out; no refund follows from this.`);
+        say(`   until the term already paid for runs out. No refund follows from this.`);
         say(``);
         reportHeldBack(say, plan);
         say(`Nothing was changed. To go ahead:  ${BINARY_NAME} sweep --yes`);
@@ -147,7 +147,7 @@ function reportHeldBack(say, plan) {
     if (plan.waiting.length > 0) {
         say(`${plan.waiting.length} more ${plan.waiting.length === 1 ? "is" : "are"} past ` +
             `${TRASH_RETENTION_DAYS} days and stayed: the server still holds their rows, so the key it ` +
-            `keeps is still there. It sweeps its own side on a timer — running this again later finishes them.`);
+            `keeps is still there. It sweeps its own side on a timer. Running this again later finishes them.`);
     }
     if (plan.tangled.length > 0) {
         say(`${plan.tangled.length} folder${plan.tangled.length === 1 ? "" : "s"} above ` +

@@ -56,7 +56,7 @@ export function requireNewName(name) {
         });
     }
     if (name.includes("/")) {
-        throw new DriveEditError("BAD_NAME", `A name cannot contain "/" — that is what makes it a path.`, {
+        throw new DriveEditError("BAD_NAME", `A name cannot contain "/": that is what makes it a path.`, {
             exitCode: 2,
             nextStep: `To move it, use \`nmts mv\`. Nothing was renamed.`,
         });

@@ -21,7 +21,7 @@ import { generateCode, grantConsents } from "./helpers.ts";
 
 const KEY = ["nmts", "ak1", "Abcdefghijkl"].join("_") + "_" + "x".repeat(43);
 
-/** What the server answers. Reset per test; the public-code doors keep their own state. */
+/** What the server answers. Reset per test\. The public-code doors keep their own state. */
 let summary: unknown = null;
 
 const server: Server = createServer((req, res) => {
@@ -115,8 +115,8 @@ test("a file's deposit is listed as what it set aside and what has been spent of
     const lines: string[] = [];
     assert.equal(await balance({ write: (l) => lines.push(l) }), 0);
     const said = lines.join("\n");
-    assert.match(said, /64 set aside · 3 spent/);
-    assert.match(said, /an upload sets 64 aside by default — 0 to 64/);
+    assert.match(said, /64 set aside, 3 spent/);
+    assert.match(said, /an upload sets 64 aside by default; 0 to 64/);
   });
 });
 
@@ -220,7 +220,7 @@ test("⛔ --publish writes exactly the value this account's code derives", async
     assert.equal(publicCodesState.posts.length, 1);
     assert.equal(publicCodesState.posts[0]?.index, 0, "the first code an account publishes is code 0");
     assert.equal(publicCodesState.posts[0]?.address, expected.raw);
-    assert.ok(lines.join("\n").includes(`public code  ${expected.shown}   (default · 1 of 3 live)`));
+    assert.ok(lines.join("\n").includes(`public code  ${expected.shown}   (default, 1 of 3 live)`));
   });
 });
 

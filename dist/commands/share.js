@@ -36,7 +36,7 @@ export async function share(target, typedAddress, options = {}) {
     if (target === undefined || target === "" || typedAddress === undefined || typedAddress === "") {
         throw new NmtsError("Say which file, and which public code to share it with.", {
             exitCode: 2,
-            nextStep: `\`${BINARY_NAME} share <path> <public-code>\` — the path as \`${BINARY_NAME} ls\` prints it, `
+            nextStep: `\`${BINARY_NAME} share <path> <public-code>\`, with the path as \`${BINARY_NAME} ls\` prints it, `
                 + `and the code as their \`${BINARY_NAME} public-code\` or account screen prints it.`,
         });
     }
@@ -57,7 +57,7 @@ export async function share(target, typedAddress, options = {}) {
         const from = sendAs === undefined ? "" : `, from public code #${sendAs}`;
         say(`Would share "${file.path}" with ${typedAddress}${from}.`);
         say(``);
-        say(`⛔ Withdrawing later does not recall it — once the recipient has opened it, they have it.`);
+        say(`⛔ Withdrawing later does not recall it. Once the recipient has opened it, they have it.`);
         const as = sendAs === undefined ? "" : ` --as ${sendAs}`;
         say(`Nothing was shared. To go ahead:  ${BINARY_NAME} share ${JSON.stringify(target)} ${typedAddress}${as} --yes`);
         say(`⛔ If a program is reading this on somebody's behalf: show it to them and let them decide.`);
@@ -91,7 +91,7 @@ export async function share(target, typedAddress, options = {}) {
             throw new NmtsError(error.message, {
                 exitCode: 3,
                 nextStep: "This account's key is not allowed to do this. Sharing asks for the strongest evidence " +
-                    `the server holds that a person was recently here — run \`${BINARY_NAME} verify\` and try again.`,
+                    `the server holds that a person was recently here. Run \`${BINARY_NAME} verify\` and try again.`,
             });
         }
         throw error;
@@ -133,7 +133,7 @@ export async function shares(options = {}) {
         //    what they are looking at is not everything.
         if (received.total > opened.length) {
             say(``);
-            say(`  ${received.total} in total; this shows ${opened.length}.`);
+            say(`  ${received.total} in total. This shows ${opened.length}.`);
         }
     }
     say(``);
@@ -148,7 +148,7 @@ function printRow(say, one, toCode) {
     }
     const size = one.size === null ? "" : `  ${one.size} bytes`;
     say(`  ${one.id}  ${one.name ?? ""}${size}`);
-    say(`      from ${one.sender ?? ""}${one.senderRevoked ? "  · the sender has revoked this code" : ""}`);
+    say(`      from ${one.sender ?? ""}${one.senderRevoked ? " (the sender has revoked this code)" : ""}`);
     if (toCode !== null)
         say(`      to ${toCode(one)}`);
 }
@@ -157,7 +157,7 @@ export async function unshare(id, options = {}) {
     if (id === undefined || id === "") {
         throw new NmtsError("Say which share to remove.", {
             exitCode: 2,
-            nextStep: `\`${BINARY_NAME} unshare <id>\` — the id \`${BINARY_NAME} shares\` prints.`,
+            nextStep: `\`${BINARY_NAME} unshare <id>\`, with the id \`${BINARY_NAME} shares\` prints.`,
         });
     }
     const session = await openSession({ server: options.server, network: options.network });
@@ -168,7 +168,7 @@ export async function unshare(id, options = {}) {
     }
     say(`Removed ${id}.`);
     say(``);
-    say(`  If you sent it, they can no longer download the file — and any copy they already`);
+    say(`  If you sent it, they can no longer download the file, and any copy they already`);
     say(`  took is still theirs. If you received it, the sender's own file is untouched.`);
     return 0;
 }

@@ -268,7 +268,7 @@ function keyBytes(parse: (code: string) => Uint8Array, accountCode: string): Uin
   } catch {
     throw new NmtsError("ACCOUNT_CODE_INVALID: that is not a valid NMTS key.", {
       exitCode: 2,
-      nextStep: "Nothing was stored. The last character is a check symbol; look for a mistyped one.",
+      nextStep: "Nothing was stored. The last character is a check symbol. Look for a mistyped one.",
     });
   }
 }

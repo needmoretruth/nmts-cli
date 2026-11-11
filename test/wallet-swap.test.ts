@@ -39,8 +39,8 @@ test("⛔ without --venue both venues are quoted side by side and the run stops:
     assert.match(String(failure.nextStep), /--venue deepbook or --venue bluefin/);
     const text = out.lines.join("\n");
     assert.match(text, /^Quotes for 1 SUI → WAL/m);
-    assert.match(text, /deepbook {2}27\.5 WAL — venue fee about 0\.13%.*0\.003 SUI would come back unused/);
-    assert.match(text, /bluefin {3}27\.53 WAL — venue fee about 0\.2%/);
+    assert.match(text, /deepbook {2}27\.5 WAL, venue fee about 0\.13%.*0\.003 SUI would come back unused/);
+    assert.match(text, /bluefin {3}27\.53 WAL, venue fee about 0\.2%/);
     assert.equal(sign.calls, 0);
     assert.equal(chain.estimated.length, 0, "no fee is measured before a venue is chosen");
 
@@ -48,7 +48,7 @@ test("⛔ without --venue both venues are quoted side by side and the run stops:
     const quiet = collect();
     const half = await refusal(walletSwap(["SUI", "1"], { ...FIRST_WALLET, network: "mainnet", write: quiet.write, readChain: () => reads({ bluefin: null }), readPrices: PRICES, sign }));
     assert.equal(half.exitCode, 4);
-    assert.match(quiet.lines.join("\n"), /bluefin {3}did not answer — bluefin is silent/);
+    assert.match(quiet.lines.join("\n"), /bluefin {3}did not answer: bluefin is silent/);
   });
 });
 
@@ -62,10 +62,10 @@ test("⛔ with --venue the review is printed — quote, minimum from the shared 
     assert.match(failure.message, /needs --yes/);
     const text = out.lines.join("\n");
     assert.match(text, /^Swapping 1 SUI for WAL on Bluefin$/m);
-    assert.match(text, /Quoted {4}27\.53 WAL — the chain's answer just now, not a promise/);
+    assert.match(text, /Quoted {4}27\.53 WAL: the chain's answer just now, and no promise/);
     const expectedMin = minOutFromQuote(OUT.bluefin, SLIPPAGE_BPS_DEFAULT);
     assert.equal(expectedMin, 27_392_350_000n);
-    assert.match(text, /At least {2}27\.39235 WAL, or the swap fails on chain — slippage 50 bps \(0\.5%\)/);
+    assert.match(text, /At least {2}27\.39235 WAL, or the swap fails on chain\. Slippage 50 bps \(0\.5%\)/);
     assert.match(text, /Venue fee about 0\.2% of what goes in/);
     assert.match(text, /Chain fee about 0\.0021 SUI, measured by a dry run/);
     assert.match(text, /Fee cap {3}0\.01 SUI/);
@@ -80,7 +80,7 @@ test("⛔ with --venue the review is printed — quote, minimum from the shared 
     // --slippage-bps reaches the same arithmetic; a non-number is refused before any read.
     const loose = collect();
     await refusal(walletSwap(["SUI", "1"], { ...FIRST_WALLET, network: "mainnet", venue: "deepbook", slippageBps: "100", write: loose.write, readChain: () => reads(), readPrices: PRICES, sign }));
-    assert.match(loose.lines.join("\n"), /At least {2}27\.225 WAL, or the swap fails on chain — slippage 100 bps \(1%\)/);
+    assert.match(loose.lines.join("\n"), /At least {2}27\.225 WAL, or the swap fails on chain\. Slippage 100 bps \(1%\)/);
     assert.equal((await refusal(walletSwap(["SUI", "1"], { ...FIRST_WALLET, network: "mainnet", venue: "deepbook", slippageBps: "lots", write: () => undefined, readChain: () => reads(), sign }))).exitCode, 2);
 
     // No reference price: said as uncompared, never as fine.

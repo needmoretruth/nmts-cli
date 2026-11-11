@@ -61,7 +61,7 @@ export async function listfile(options: ListFileOptions = {}): Promise<number> {
       nextStep:
         `Nothing was written. Run \`${BINARY_NAME} ls\` once while this machine can reach the ` +
         `server: every read of the list keeps its sealed bytes here, and this command writes that ` +
-        `copy out. A copy cannot be made from the NMTS key alone — the list itself is what is ` +
+        `copy out. A copy cannot be made from the NMTS key alone. The list itself is what is ` +
         `being copied.`,
     });
   }
@@ -132,8 +132,8 @@ function saidWhatItIs(
   say(`  File list version ${seq}, as this machine last read it (${savedAt}).`);
   say(`  It holds the names, folders and file keys of this account, sealed with the NMTS key.`);
   say(``);
-  say(`  ⛔ It is not a recovery on its own. It carries no storage-network addresses — those are in`);
-  say(`     the recovery list saved from the account screen — and it does not contain the NMTS`);
+  say(`  ⛔ It is not a recovery on its own. It carries no storage-network addresses (those are in`);
+  say(`     the recovery list saved from the account screen), and it does not contain the NMTS`);
   say(`     key. Keep it somewhere other than your NMTS key: together they are the whole account.`);
   say(`  ⚠ A copy goes stale. Run this again after uploading: of two copies, the one whose`);
   say(`    filename carries the higher number supersedes the other (this one is ${filename}).`);

@@ -46,7 +46,7 @@ export const CONSENTS = {
     "unsafe-code-storage": {
         what: "Store the NMTS key in the clear, unsealed, in this tool's own file.",
         risk: "The NMTS key opens every file in this account and derives its wallet. Written in the " +
-            "clear it is readable by anything running as you — every agent, every script, every " +
+            "clear it is readable by anything running as you: every agent, every script, every " +
             "backup that copies your home directory, every image layer built from it. Where the " +
             "filesystem cannot keep a file private, it is readable by others as well.",
         limit: "There is no recovery from a leaked NMTS key: it cannot be changed while it still opens the " +
@@ -71,8 +71,8 @@ export const CONSENTS = {
             "/proc/<pid>/environ while the process lives, every child process inherits it, and " +
             "continuous-integration systems commonly write it into logs.",
         limit: "This covers this tool reading it and printing it. It cannot cover where you put it " +
-            "afterwards, and it does not make the variable private. Naming a file instead — " +
-            "NMTS_ACCOUNT_CODE_FILE — avoids all of the above and asks for nothing.",
+            "afterwards, and it does not make the variable private. Naming a file instead (" +
+            "NMTS_ACCOUNT_CODE_FILE) avoids all of the above and asks for nothing.",
     },
     /**
      * Signing a chain transaction with the wallet the NMTS key derives.
@@ -93,7 +93,7 @@ export const CONSENTS = {
         what: "Give another account the key to one of this account's files.",
         risk: "Whoever holds that address can then download the file. Withdrawing the share stops further " +
             "downloads and cannot reach a copy they already have. The address is typed by you and is " +
-            "not checked against a person — a share sent to the wrong address is sent.",
+            "not checked against a person. A share sent to the wrong address is sent.",
         limit: "This does not cover uploading, spending, or anything to do with a wallet. It covers giving " +
             "away files this account already holds.",
     },
@@ -137,8 +137,8 @@ export const CONSENTS = {
     /** Writing the NMTS key into a recovery kit. */
     kit: {
         what: "Write the NMTS key into a recovery kit file on this disk.",
-        risk: "The kit holds the NMTS key in the clear. Anything that reads this disk — a backup, a sync " +
-            "folder, another user, an image built from it — reads it, and the NMTS key is the account.",
+        risk: "The kit holds the NMTS key in the clear. Anything that reads this disk (a backup, a sync " +
+            "folder, another user, an image built from it) reads it, and the NMTS key is the account.",
         limit: "The recovery list alone (`recovery-list`) holds no NMTS key and asks for nothing.",
     },
     /** A gift to the developer — on its own, or as a tip at payment (2026-09-06). */
@@ -244,7 +244,7 @@ export function requireConsent(key) {
             consent.limit,
             "",
             `NMTS is not responsible for what is done with this account by any program running on this`,
-            `machine, including an AI agent. The published Terms are what govern the service; this is a`,
+            `machine, including an AI agent. The published Terms are what govern the service. This is a`,
             `warning, not a substitute for them.`,
             "",
             `To unlock, at a terminal, once:  ${BINARY_NAME} unlock ${key}`,

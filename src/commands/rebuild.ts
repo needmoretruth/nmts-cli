@@ -85,7 +85,7 @@ export async function rebuild(options: RebuildOptions = {}): Promise<number> {
     throw new NmtsError(`This account already has a file list (version ${current.seq ?? 0}).`, {
       exitCode: 4,
       nextStep:
-        `Nothing was changed. Rebuilding is for an account whose list is missing; over an existing ` +
+        `Nothing was changed. Rebuilding is for an account whose list is missing. Over an existing ` +
         `one it would replace real names with placeholders. Run \`${BINARY_NAME} ls\` to see what ` +
         `the list holds.`,
     });
@@ -161,7 +161,7 @@ export async function rebuild(options: RebuildOptions = {}): Promise<number> {
       exitCode: 4,
       nextStep:
         `Nothing was changed. Either this is not this account's NMTS key, or the storage network could ` +
-        `not be reached at all — ${describeReasons(built)}. A list sealed from these pairs would ` +
+        `not be reached at all (${describeReasons(built)}). A list sealed from these pairs would ` +
         `name every file and open none of them.`,
     });
   }
@@ -189,7 +189,7 @@ export async function rebuild(options: RebuildOptions = {}): Promise<number> {
       `entr${built.entries.length === 1 ? "y" : "ies"} (${built.live} live, ${built.trashed} in the trash).`,
   );
   say(``);
-  say(`  Every file is at the top of the drive under a placeholder name — the server had no name,`);
+  say(`  Every file is at the top of the drive under a placeholder name: the server had no name,`);
   say(`  no folder and no placement to give back.`);
   say(`  \`${BINARY_NAME} ls\` shows them; \`${BINARY_NAME} rename\` and \`${BINARY_NAME} mv\` put them back.`);
   reportKeys(say, built);
@@ -201,20 +201,20 @@ export async function rebuild(options: RebuildOptions = {}): Promise<number> {
 function describe(say: (line: string) => void, built: RebuiltList): void {
   say(
     `This account has no file list, and the server still holds ${built.entries.length} ` +
-      `stored file${built.entries.length === 1 ? "" : "s"} for it. The files are there; what is ` +
+      `stored file${built.entries.length === 1 ? "" : "s"} for it. The files are there. What is ` +
       `missing is the list that names them.`,
   );
   say(``);
   say(`A rebuild would recover:`);
-  say(`  · ${built.live} live and ${built.trashed} in the trash — the trash keeps its remaining days`);
-  say(`  · every file's key, without which its bytes could never be opened again`);
-  say(`  · the sealed content hash, so a later download still checks itself`);
-  say(`  · each file's real dates and its size`);
+  say(`  - ${built.live} live and ${built.trashed} in the trash. The trash keeps its remaining days`);
+  say(`  - every file's key, without which its bytes could never be opened again`);
+  say(`  - the sealed content hash, so a later download still checks itself`);
+  say(`  - each file's real dates and its size`);
   say(``);
   say(`It cannot recover:`);
-  say(`  · names — each file gets a placeholder such as \`recovered-a1b2c3d4\`, for you to type over`);
-  say(`  · folders and where each file sat — the rebuilt drive is flat`);
-  say(`  · stars, labels, share receipts and account settings`);
+  say(`  - names: each file gets a placeholder such as \`recovered-a1b2c3d4\`, for you to type over`);
+  say(`  - folders and where each file sat: the rebuilt drive is flat`);
+  say(`  - stars, labels, share receipts and account settings`);
   say(``);
   say(`  None of that is a fault: the server was built not to know it. It keeps a row per stored`);
   say(`  file and the key that opens it, and nothing about what the file is called.`);
@@ -236,7 +236,7 @@ function reportKeys(say: (line: string) => void, built: RebuiltList): void {
   const notVerified = countUnverified(built);
   say(`  Keys checked against their own files: ${built.verified} verified, ${notVerified} not.`);
   if (notVerified === 0) return;
-  say(`  A file whose key was not verified keeps its entry and no key — nothing else on this side`);
+  say(`  A file whose key was not verified keeps its entry and no key. Nothing else on this side`);
   say(`  can say that key belongs to that file, and a wrong pairing would be sealed for good.`);
   for (const one of built.unverified) {
     if (one.reason === "no-key") continue;
@@ -275,7 +275,7 @@ function reportGaps(say: (line: string) => void, built: RebuiltList): void {
       `  ⚠ ${built.keyless} of them carr${built.keyless === 1 ? "ies" : "y"} no key on the server.` +
         ` ${built.keyless === 1 ? "It appears" : "They appear"} in the list and`,
     );
-    say(`    nothing can open ${built.keyless === 1 ? "it" : "them"} — the entry is still what says the file was there.`);
+    say(`    nothing can open ${built.keyless === 1 ? "it" : "them"}. The entry is still what says the file was there.`);
   }
   if (built.unaccounted === null) {
     say(``);

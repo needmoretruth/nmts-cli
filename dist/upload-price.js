@@ -9,6 +9,7 @@ import { NmtsError } from "./errors.js";
 import { DEFAULT_PART_BYTES, NCF3_SHAPE, sealedLenFor } from "./seal.js";
 import { paddedPlaintextLen } from "./shared/lib/crypto/size-padding.js";
 import { planParts } from "./shared/lib/upload/part-plan.js";
+import { largestSealedPartBytes, MAX_PART_SIZE_BYTES, partFitsRelay, RELAY_BODY_LIMIT_BYTES, } from "./shared/lib/upload/relay-limit.js";
 /**
  * Storage term, in storage-network epochs.
  *
@@ -48,7 +49,26 @@ export function partSizeFor(chosen) {
             nextStep: "Nothing was sent. Give a number of bytes, or a number with KiB, MiB or GiB.",
         });
     }
+    refuseOversizedPart(bytes);
     return bytes;
+}
+/**
+ * Stop when a part this size could seal to more than the storage network's relay carries.
+ *
+ * ⛔ BEFORE ANY PRICE, RESERVATION OR SIGNATURE. The relay refuses a body over 1 GiB, and it does so
+ *    after the bytes are sent, when the storage is already bought (measured 2026-11-11: a 1 GiB part
+ *    sealed to 1,073,745,992 bytes and the testnet relay answered 413 with the register paid).
+ *    `planFor` calls this too, so every rail that cuts a file (the price, the quote, the SDK and the
+ *    file driver `uploadFile`) refuses the same way, whoever handed it the number.
+ */
+export function refuseOversizedPart(partSize) {
+    if (partFitsRelay(partSize))
+        return;
+    throw new NmtsError(`A part of ${partSize} bytes is too large for the storage network's upload relay.`, {
+        exitCode: 2,
+        nextStep: `Nothing was sent and nothing was signed. Sealed and padded, it can reach ${largestSealedPartBytes(partSize)} bytes, ` +
+            `and the relay takes at most ${RELAY_BODY_LIMIT_BYTES}. Use --part-size ${MAX_PART_SIZE_BYTES / 2 ** 20}MiB or less.`,
+    });
 }
 /**
  * A byte count, plainly or with a unit.
@@ -77,6 +97,7 @@ function parseSize(text) {
  *    and the sealing read the plan from.
  */
 export function planFor(size, partSize) {
+    refuseOversizedPart(partSize);
     return size === 0 ? [{ partIndex: 0, offset: 0, length: 0 }] : planParts(size, partSize);
 }
 /**

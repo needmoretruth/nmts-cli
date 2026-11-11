@@ -34,7 +34,7 @@ const FOOTER = [
   `The date is when a check first could not find it, not when the storage went. There is no file ` +
     `name: the server cannot pair the object with a file, and NMTS cannot see inside files.`,
   "`nmts losses --recheck <id>` asks the chain again now. `nmts losses --dismiss <id>` takes a " +
-    "line off once you have read it; the incident stays in a record that names nobody.",
+    "line off once you have read it. The incident stays in a record that names nobody.",
 ];
 
 test("nothing missing says so — and does not say nothing is gone", async () => {
@@ -60,7 +60,7 @@ test("one missing object: what was measured, the day it was missed, and no file 
     assert.equal(await losses(opts(out)), 0);
     assert.deepEqual(out.lines, [
       "The chain no longer knows one storage object your credits paid for. That is what the check " +
-        "measured; it did not try the download. The file may no longer come back, and NMTS cannot " +
+        "measured. It did not try the download. The file may no longer come back, and NMTS cannot " +
         "restore it.",
       "",
       "0xaaa  first missed 2026-08-30",
@@ -80,11 +80,11 @@ test("⛔ a line shown despite an objection, and one frozen at the person's requ
     assert.equal(await losses(opts(out)), 0);
     assert.deepEqual(out.lines, [
       "The chain no longer knows 2 storage objects your credits paid for. That is what the check " +
-        "measured; it did not try the download. Those files may no longer come back, and NMTS " +
+        "measured. It did not try the download. Those files may no longer come back, and NMTS " +
         "cannot restore them.",
       "",
-      "0xaaa  first missed 2026-08-30 · shown because the law requires it",
-      "0xbbb  first missed 2026-07-01 · kept but not used while you contest it",
+      "0xaaa  first missed 2026-08-30, shown because the law requires it",
+      "0xbbb  first missed 2026-07-01, kept but not used while you contest it",
       "",
       ...FOOTER,
     ]);
@@ -142,7 +142,7 @@ test("dismissing takes the line off and says what stays behind", async () => {
     const out = collect();
     assert.equal(await losses({ ...opts(out), dismiss: "0xaaa" }), 0);
     assert.deepEqual(out.lines, [
-      "Took the line for 0xaaa off. The incident stays in a record that names nobody; if the same " +
+      "Took the line for 0xaaa off. The incident stays in a record that names nobody. If the same " +
         "storage is found and lost again, it is shown again.",
     ]);
     assert.deepEqual(drive.losses, [], "the row is still on the server");

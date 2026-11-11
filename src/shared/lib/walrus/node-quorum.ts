@@ -100,7 +100,7 @@ export function stopAtQuorum<T extends Writer>(walrus: T, timing: QuorumTiming =
         done = true;
         if (graceTimer !== null) clearTimeout(graceTimer);
         if (stallTimer !== null) clearTimeout(stallTimer);
-        controller.abort(error ?? new Error("quorum reached; the remaining node writes were stopped"));
+        controller.abort(error ?? new Error("quorum reached. The remaining node writes were stopped"));
         if (error) reject(error);
         else resolve([...results]);
       };

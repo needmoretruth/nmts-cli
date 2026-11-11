@@ -93,7 +93,7 @@ export async function readPublicCodes(server: string, token: string, accountProo
 function noNextNumber(index: number): NmtsError {
   return new NmtsError(`The server wants public code #${index} next, and refuses it as revoked.`, {
     exitCode: 4,
-    nextStep: "Nothing was published. The server has to let this account skip that number; report it.",
+    nextStep: "Nothing was published. The server has to let this account skip that number. Report it.",
   });
 }
 
@@ -197,7 +197,7 @@ export async function publishCode(
     ring.wipe();
   }
   throw new NmtsError(`${PUBLISH_TRIES} public code numbers in a row were refused as revoked.`, {
-    nextStep: "Nothing was published. Try again later; if it repeats, report it.",
+    nextStep: "Nothing was published. Try again later. If it repeats, report it.",
   });
 }
 

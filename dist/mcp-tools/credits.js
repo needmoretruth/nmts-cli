@@ -20,15 +20,15 @@ export function creditTools(ctx) {
     return [
         {
             name: "nmts_credits_transfer",
-            description: "Move credits from this account to another account of the SAME FAMILY — the account a " +
-                "person made and every account made under it — and nowhere else. Use it when the free " +
+            description: "Move credits from this account to another account of the SAME FAMILY (the account a " +
+                "person made and every account made under it) and nowhere else. Use it when the free " +
                 "trial's credits landed on one account and the work is happening in another: the whole " +
                 "family gets one application a week, not one each. The credits keep the date they were " +
-                "already going to lapse on; moving them does not renew them, and nothing is spent by " +
+                "already going to lapse on. Moving them does not renew them, and nothing is spent by " +
                 "moving them. The reply carries both balances. ⛔ A recipient outside the family and an " +
-                "account that does not exist are refused in the same words — do not treat that refusal " +
+                "account that does not exist are refused in the same words. Do not treat that refusal " +
                 "as an invitation to try another identifier. It also needs the account's human check to " +
-                "be live; when it is not, the refusal names `nmts verify`, which only a person can run.",
+                "be live. When it is not, the refusal names `nmts verify`, which only a person can run.",
             inputSchema: {
                 type: "object",
                 properties: {

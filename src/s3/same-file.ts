@@ -154,7 +154,7 @@ export function refusalFor(verdict: "differs" | "unknown" | "spelling", key: str
   return new KeyConflict(
     verdict === "differs"
       ? `A different file is already at ${key}, and this drive does not replace files. Delete it ` +
-        "first — a delete puts it in the trash, where it stays recoverable for thirty days."
+        "first. A delete puts it in the trash, where it stays recoverable for thirty days."
       : `A file is already at ${key} and this drive has no recorded hash for it, so it cannot tell ` +
         "whether yours is the same one. Files stored before hashes were recorded are in this state. " +
         "Delete it first if you mean to replace it.",

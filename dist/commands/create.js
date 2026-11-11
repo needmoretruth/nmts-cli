@@ -270,7 +270,7 @@ function explain(error, inForce) {
             exitCode: 4,
             nextStep: `An account that creates accounts may make two a day and five a week, counted by the ` +
                 `server across restarts. Nothing was created and nothing was spent. Waiting is the only ` +
-                `thing that lifts it — a second key on the same account shares the same allowance.`,
+                `thing that lifts it. A second key on the same account shares the same allowance.`,
         });
     }
     return error;
@@ -290,7 +290,7 @@ function uncertain(path, cause) {
             ``,
             `Keep it until you know. Nothing on this machine can tell the two cases apart, and the`,
             `cost of being wrong is one small file against an account nobody could ever open.`,
-            `Running this again makes a DIFFERENT account; it does not retry this one.`,
+            `Running this again makes a DIFFERENT account. It does not retry this one.`,
             ``,
             `Cause: ${cause instanceof Error ? cause.message : String(cause)}`,
         ].join("\n"),
@@ -310,7 +310,7 @@ function sayCreated(say, accountId, server, network) {
     say(`  account id  ${accountId}`);
     say(``);
     say(`Nothing on this machine changed. The NMTS key you were signed in as is still the one`);
-    say(`this tool uses; this new account is not stored, and not switched to.`);
+    say(`this tool uses. This new account is not stored, and not switched to.`);
     say(``);
 }
 /**
@@ -322,7 +322,7 @@ function sayCreated(say, accountId, server, network) {
 function sayTheCode(say, code) {
     say(`⛔ THIS IS THE ONLY COPY OF THE NMTS KEY THAT WILL EVER EXIST.`);
     say(`   NMTS keeps a verifier and never the NMTS key. It cannot be reset, resent or replaced.`);
-    say(`   Lose it and the account and every file in it are gone — for you and for NMTS.`);
+    say(`   Lose it and the account and every file in it are gone, for you and for NMTS.`);
     say(``);
     say(`   ${code}`);
     say(``);

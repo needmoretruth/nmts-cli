@@ -27,11 +27,11 @@ export const SUPPORT_LONG: readonly string[] = [
   "that is nowhere near enough. The tiniest report counts, and so does anything you are not",
   "sure is a bug. Every message is read, seriously.",
   "",
-  "Write in English if you can. Korean is read too; if Korean is not your own language,",
+  "Write in English if you can. Korean is read too. If Korean is not your own language,",
   "English is the better choice.",
   "",
   "Keep personal details out. Your NMTS key, API key, passphrase and file contents are",
-  "removed on this machine before anything is sent; file names and your public code may go.",
+  "removed on this machine before anything is sent. File names and your public code may go.",
   "Please do not type your name, address, health or anything else about yourself. The form",
   "does not need it, and this inbox is the wrong place for it.",
 ];
@@ -91,7 +91,7 @@ export function categoryCodes(): string[] {
 
 /** The categories and their narrowings, one line each, for the help text. */
 export function categoryLines(): string[] {
-  return SUPPORT_CATEGORIES.map((c) => `  ${c.code.padEnd(10)}${c.subs.join(" · ")}`);
+  return SUPPORT_CATEGORIES.map((c) => `  ${c.code.padEnd(10)}${c.subs.join(", ")}`);
 }
 
 /** The usage lines. Kept beside the copy because the two are read together. */
@@ -106,7 +106,7 @@ export const SUPPORT_USAGE: readonly string[] = [
 /** What `nmts support --help` and `nmts support send --help` print. */
 export function supportHelpText(): string {
   return [
-    "nmts support — write to the developer of NMTS.",
+    "nmts support: write to the developer of NMTS.",
     "",
     "USAGE",
     ...SUPPORT_USAGE,

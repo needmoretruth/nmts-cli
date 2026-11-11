@@ -192,7 +192,7 @@ async function storeSealed(
   say(`Sealed for ${server} (${network}) in ${credentialsPath()}`);
   say(``);
   say(`  What is on disk is not the NMTS key. Opening it needs the passphrase, so a copy of`);
-  say(`  this file — in a backup, a synced folder, a container image, a stolen disk — is worth`);
+  say(`  this file (in a backup, a synced folder, a container image, a stolen disk) is worth`);
   say(`  nothing on its own.`);
   say(``);
   say(`  ⚠ It does NOT protect your NMTS key from anything running as you on this machine while you`);
@@ -263,7 +263,7 @@ function printEnvForm(code: string, say: (line: string) => void): number {
   say(``);
   say(`  ⚠ Your NMTS key is now on this screen, and probably in this terminal's scrollback. An`);
   say(`    environment variable is readable by anything running as you, by every child process,`);
-  say(`    and — inside a container — by anybody who can run \`docker inspect\`.`);
+  say(`    and, inside a container, by anybody who can run \`docker inspect\`.`);
   say(``);
   say(`  ${CODE_ENV_VAR}_FILE names a FILE holding the NMTS key instead, and has none of those.`);
   return 0;
@@ -284,7 +284,7 @@ function printEnvForm(code: string, say: (line: string) => void): number {
 // registered it — which is more than the check symbol says and less than "the account is live".
 function sayCheckSymbol(say: (line: string) => void, keyWasAccepted: boolean): void {
   say(``);
-  say(`  The NMTS key is well-formed — its own check symbol matches. That was verified here, offline.`);
+  say(`  The NMTS key is well-formed: its own check symbol matches. That was verified here, offline.`);
   if (!keyWasAccepted) {
     say(`  Whether the account EXISTS has not been checked: signing in goes through a human check`);
     say(`  this tool cannot pass yet, so that will first show up on a command that needs the server.`);
@@ -314,22 +314,22 @@ function sayAboutTheKey(outcome: KeyOutcome, server: string, say: (line: string)
       say(`No API key is stored, and every command that talks to the server needs one.`);
       say(``);
       say(`  Make one on the account screen at ${HOME_URL}, then run \`${BINARY_NAME} login\` again`);
-      say(`  with it in ${API_KEY_ENV_VAR} — or enter it when this asks. It is checked with the`);
+      say(`  with it in ${API_KEY_ENV_VAR}, or enter it when this asks. It is checked with the`);
       say(`  server before it is written down.`);
       say(``);
       say(`  ${API_KEY_FILE_ENV_VAR} names a FILE holding the key instead, which is the shape a`);
       say(`  container cannot leak. The key waives the human check a browser sign-in does, and`);
-      say(`  nothing else — it opens no file.`);
+      say(`  nothing else. It opens no file.`);
       return;
     case "stored":
       say(``);
       say(`Key ${outcome.handle} stored for ${server}.`);
       say(``);
-      say(`  That is the key's public handle — the part the account screen lists. The secret half`);
+      say(`  That is the key's public handle: the part the account screen lists. The secret half`);
       say(`  is not printed here.`);
       say(``);
       say(`  ${server} accepted it just now, so it is a key this account has and nothing has`);
-      say(`  revoked. It waives the human check a browser sign-in does, and nothing else — it`);
+      say(`  revoked. It waives the human check a browser sign-in does, and nothing else. It`);
       say(`  opens no file, and what it is allowed to ask for was decided when it was made.`);
       if (!outcome.verified) {
         say(``);
@@ -347,8 +347,8 @@ function sayAboutTheKey(outcome: KeyOutcome, server: string, say: (line: string)
       say(`  connect to this.`);
       say(``);
       say(`  While that variable is set, every command uses what it holds anyway: the environment`);
-      say(`  wins over what is stored. To store it instead — at a terminal, run this again and`);
-      say(`  answer the question it asks; with no terminal, \`${BINARY_NAME} logout\` first and`);
+      say(`  wins over what is stored. To store it instead, at a terminal, run this again and`);
+      say(`  answer the question it asks. With no terminal, \`${BINARY_NAME} logout\` first and`);
       say(`  then \`${BINARY_NAME} login\`.`);
       return;
   }

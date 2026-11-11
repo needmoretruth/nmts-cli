@@ -100,7 +100,7 @@ function asSummary(value: unknown): Summary {
   const terms = value["terms"];
   if (!isRecord(credits) || !isRecord(quota) || !isRecord(storage)) {
     throw new NmtsError("The server described this account in a shape this version cannot read.", {
-      nextStep: `Update this tool — \`npm install -g ${BINARY_NAME}\` — or read it in a browser.`,
+      nextStep: `Update this tool (\`npm install -g ${BINARY_NAME}\`) or read it in a browser.`,
     });
   }
   const expiry = credits["soonest_expiry"];
@@ -194,33 +194,33 @@ export async function balance(options: BalanceOptions = {}): Promise<number> {
     //   already bought is not touched when one lapses.
     say(`           soonest to lapse unused: ${credits.soonest_expiry}`);
   }
-  say(`ceilings   ${credits.file_cap} per file · ${credits.daily_cap} per day`);
+  say(`ceilings   ${credits.file_cap} per file, ${credits.daily_cap} per day`);
   if (credits.held > 0) {
     // Tied up, not spent: each credit-paid file puts a deposit down, returned when its period ends.
-    say(`deposits   ${plural(credits.held, "credit", "credits")} held on ${plural(credits.deposits, "stored file", "stored files")} — back when the storage period ends`);
+    say(`deposits   ${plural(credits.held, "credit", "credits")} held on ${plural(credits.deposits, "stored file", "stored files")}, back when the storage period ends`);
     // ⚠ Per file, and what has already gone out of it. A deposit is spent a fee at a time, so
     //   "set aside" and "spent" are two different numbers about the same file.
     for (const row of summary.deposits) {
-      say(`           ${row.deposit_credits} set aside · ${row.spent_credits} spent`);
+      say(`           ${row.deposit_credits} set aside, ${row.spent_credits} spent`);
     }
   }
   if (credits.deposit_max > 0) {
     say(
-      `           an upload sets ${credits.deposit_default} aside by default — ` +
+      `           an upload sets ${credits.deposit_default} aside by default; ` +
         `0 to ${credits.deposit_max}, \`${BINARY_NAME} deposit\` or --deposit for one upload`,
     );
   }
   say(`holding    ${humanSize(quota.used)} across ${plural(storage.parts, "stored piece", "stored pieces")}`);
   if (storage.earliest_expiry_epoch !== null) {
     say(
-      `           the earliest lease ends at storage period ${storage.earliest_expiry_epoch} — ` +
+      `           the earliest lease ends at storage period ${storage.earliest_expiry_epoch}: ` +
         `\`${BINARY_NAME} expiring\` reads the clock and says when that is`,
     );
   }
   if (summary.terms.acceptance_required) {
     say(``);
     say(`⛔ New terms are in force and this account has not accepted them.`);
-    say(`   A person reads and accepts them — \`${BINARY_NAME} accept-terms\` here, or in a browser.`);
+    say(`   A person reads and accepts them: \`${BINARY_NAME} accept-terms\` here, or in a browser.`);
   }
   return 0;
 }

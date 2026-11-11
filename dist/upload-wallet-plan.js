@@ -29,7 +29,7 @@ export function chooseUploadEpochs(asked, window) {
     if (!Number.isSafeInteger(epochs) || epochs <= 0) {
         throw new NmtsError(`A storage term is a whole number of epochs: ${String(asked)}.`, {
             exitCode: 2,
-            nextStep: `Nothing was signed. \`--epochs 4\` buys four of the storage network's epochs — ${daysOf(window, 1)} each.`,
+            nextStep: `Nothing was signed. \`--epochs 4\` buys four of the storage network's epochs, ${daysOf(window, 1)} each.`,
         });
     }
     if (epochs > window.maxAhead) {
@@ -80,7 +80,7 @@ export function pickResource(ask, resources, encodedBytes, currentEpoch, needUnt
             throw new NmtsError(`Resource ${ask.objectId} cannot hold this part until epoch ${needUntilEpoch}.`, {
                 exitCode: 4,
                 nextStep: `Nothing was signed. It holds ${chosen.sizeBytes} bytes from epoch ${chosen.startEpoch} to ` +
-                    `${chosen.endEpoch}; this part is ${encodedBytes} bytes once encoded. Leave --storage off to buy new storage.`,
+                    `${chosen.endEpoch}. This part is ${encodedBytes} bytes once encoded. Leave --storage off to buy new storage.`,
             });
         }
     }
@@ -90,7 +90,7 @@ export function pickResource(ask, resources, encodedBytes, currentEpoch, needUnt
         if (chosen === undefined) {
             throw new NmtsError(`No free storage resource in this wallet holds ${encodedBytes} encoded bytes until epoch ${needUntilEpoch}.`, {
                 exitCode: 4,
-                nextStep: `Nothing was signed. \`${BINARY_NAME} wallet storage\` lists what it holds; leave --storage off ` +
+                nextStep: `Nothing was signed. \`${BINARY_NAME} wallet storage\` lists what it holds. Leave --storage off ` +
                     `to buy new storage, or ask for fewer epochs.`,
             });
         }
@@ -138,28 +138,28 @@ export function walPrice(quotes, storage) {
 /** The next step when the wallet is short: where to send what, said once. */
 export function uploadShortfallNextStep(b) {
     const coin = b.walFrost !== null && b.walFrost < b.walNeededFrost ? "WAL" : "SUI";
-    return (`Nothing was signed and nothing was sent. Send ${coin} to ${b.address} — ` +
-        `\`${BINARY_NAME} wallet\` shows the address and both balances — and run this again.`);
+    return (`Nothing was signed and nothing was sent. Send ${coin} to ${b.address} ` +
+        `(\`${BINARY_NAME} wallet\` shows the address and both balances) and run this again.`);
 }
 /** The numbers, for a person, in the order somebody deciding needs them. */
 export function describeUploadReview(say, facts, budget) {
     say(`${facts.name}  ${facts.bytes} bytes  →  ${coinAmount(facts.walNeeded)} WAL from the wallet`);
     if (facts.parts > 1)
-        say(`  in ${facts.parts} parts — each one is registered and certified with its own signatures`);
-    say(`  Stored for ${facts.epochs} epoch${facts.epochs === 1 ? "" : "s"} — ${facts.days} — until epoch ${facts.endEpoch}.`);
+        say(`  in ${facts.parts} parts. Each one is registered and certified with its own signatures`);
+    say(`  Stored for ${facts.epochs} epoch${facts.epochs === 1 ? "" : "s"} (${facts.days}), until epoch ${facts.endEpoch}.`);
     if (facts.storage.kind === "reuse") {
         const r = facts.storage.resource;
-        say(`  Storage comes from resource ${r.objectId} (${r.sizeBytes} bytes, until epoch ${r.endEpoch}); the WAL above is the write alone.`);
+        say(`  Storage comes from resource ${r.objectId} (${r.sizeBytes} bytes, until epoch ${r.endEpoch}). The WAL above is the write alone.`);
         say(facts.storage.cutToBytes === null
             ? `  Used whole: ${facts.storage.leftoverBytes} bytes beyond this file are bound with it and cannot be taken back.`
             : `  Cut to fit: ${facts.storage.leftoverBytes} bytes stay free as a resource of their own.`);
     }
     else if (facts.heldResources !== null && facts.heldResources > 0) {
-        say(`  This wallet also holds ${facts.heldResources} free storage resource${facts.heldResources === 1 ? "" : "s"} — \`${BINARY_NAME} wallet storage\` lists them; --storage fit or whole tries one.`);
+        say(`  This wallet also holds ${facts.heldResources} free storage resource${facts.heldResources === 1 ? "" : "s"}. \`${BINARY_NAME} wallet storage\` lists them; --storage fit or whole tries one.`);
     }
     say(`  Relay tip ${coinAmount(facts.tipMist)} SUI, paid inside the register signature${facts.parts > 1 ? "s" : ""}.`);
     if (budget.feeMist === null) {
-        say(`  The chain fee (SUI) of a register signature could not be measured just now; it is charged with each signature.`);
+        say(`  The chain fee (SUI) of a register signature could not be measured just now. It is charged with each signature.`);
     }
     else {
         say(`  Chain fee about ${coinAmount(budget.feeMist)} SUI per register signature, measured by a dry run just now; ` +
@@ -174,10 +174,10 @@ export function describeUploadReview(say, facts, budget) {
         say(`  Afterwards it holds about ${coinAmount(walAfter < 0n ? 0n : walAfter)} WAL and ${coinAmount(suiAfter < 0n ? 0n : suiAfter)} SUI.`);
     }
     for (const why of budget.unread) {
-        say(`  A balance could not be read — ${why}. That is not zero: the chain decides at signing.`);
+        say(`  A balance could not be read: ${why}. That is not zero: the chain decides at signing.`);
     }
     say(``);
-    say(`  This is paid in WAL and SUI from the wallet this NMTS key derives — not from credits, which`);
+    say(`  This is paid in WAL and SUI from the wallet this NMTS key derives, not from credits, which`);
     say(`  is what \`${BINARY_NAME} put\` spends without --pay wallet. Nobody, NMTS included, can reverse it.`);
     say(`  The storage is the wallet's own: NMTS records the file and does not hold it.`);
     // ⛔ SAID WHERE IT CHANGES WHAT SOMEBODY GETS, AND NOWHERE ELSE. An account that never asked for

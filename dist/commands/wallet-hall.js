@@ -80,7 +80,7 @@ export function asHall(value) {
  */
 const REFUSALS = {
     gift_not_found: {
-        line: "Your gift is not in the list yet. It appears within an hour; try again then.",
+        line: "Your gift is not in the list yet. It appears within an hour, so try again then.",
         exitCode: 4,
         nextStep: "Nothing was published. The gift itself is on the chain either way.",
     },
@@ -90,7 +90,7 @@ const REFUSALS = {
         nextStep: "Nothing was published. Choose another name and run the same command again.",
     },
     listing_stale: {
-        line: "A newer listing request exists; try again.",
+        line: "A newer listing request exists. Try again.",
         exitCode: 4,
         nextStep: "Nothing was published. Something else set this address's name after this run started.",
     },
@@ -139,8 +139,8 @@ async function show(server, say, options) {
         return 0;
     }
     const hall = asHall(answer.body);
-    say(`Hall of fame — everyone who sent the developer a gift`);
-    say(`  ${hall.developerLabel} — builds NMTS`);
+    say(`Hall of fame: everyone who sent the developer a gift`);
+    say(`  ${hall.developerLabel}, builds NMTS`);
     say(`  ${hall.developerAddress}`);
     say(``);
     if (hall.entries.length === 0) {
@@ -217,6 +217,6 @@ async function setName(server, say, options) {
     say(`  from  ${address} (wallet ${wallet})`);
     say(``);
     say(`  The hall of fame is at ${HOME_URL}/hall. Run \`${BINARY_NAME} wallet hall --remove\` to go`);
-    say(`  back to a shortened address; the gifts themselves stay on the chain either way.`);
+    say(`  back to a shortened address. The gifts themselves stay on the chain either way.`);
     return 0;
 }

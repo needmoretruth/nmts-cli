@@ -80,7 +80,7 @@ export async function walletSend(operands: readonly string[], options: WalletSen
   if (amountRaw === undefined || destinationRaw === undefined) {
     throw new NmtsError("Say how much, and to which address.", {
       exitCode: 2,
-      nextStep: `\`${BINARY_NAME} wallet send ${coin} <amount|max> <address>\` — "max" sends everything that can be sent.`,
+      nextStep: `\`${BINARY_NAME} wallet send ${coin} <amount|max> <address>\`. "max" sends everything that can be sent.`,
     });
   }
 
@@ -101,7 +101,7 @@ export async function walletSend(operands: readonly string[], options: WalletSen
     const which = [!purse.sui.read ? `SUI: ${purse.sui.why}` : null, !purse.wal.read ? `WAL: ${purse.wal.why}` : null].filter((w) => w !== null);
     throw new NmtsError("A balance could not be read, so this tool cannot tell what can be sent.", {
       exitCode: 1,
-      nextStep: `Nothing was signed. That is not an empty wallet — ${which.join("; ")}.`,
+      nextStep: `Nothing was signed. A balance that could not be read is not an empty one: ${which.join("; ")}.`,
     });
   }
   const suiBalance = purse.sui.baseUnits;
@@ -158,10 +158,10 @@ export async function walletSend(operands: readonly string[], options: WalletSen
     say(`  from  ${address}`);
     say(
       feeMist === null
-        ? `  Chain fee (SUI): could not be measured just now; it is charged with the signature.`
-        : `  Chain fee about ${facts.feeSui} SUI, measured by a dry run just now — the amount charged is fixed when it executes.`,
+        ? `  Chain fee (SUI): could not be measured just now. It is charged with the signature.`
+        : `  Chain fee about ${facts.feeSui} SUI, measured by a dry run just now. The amount charged is fixed when it executes.`,
     );
-    if (gasBudgetMist !== undefined) say(`  Fee cap ${coinAmount(gasBudgetMist)} SUI — only up to this is used; the rest stays.`);
+    if (gasBudgetMist !== undefined) say(`  Fee cap ${coinAmount(gasBudgetMist)} SUI. Only up to this is used. The rest stays.`);
     say(`  Afterwards the wallet holds about ${facts.suiAfter} SUI and ${facts.walAfter} WAL.`);
     say(``);
     say(`  ⛔ A transfer cannot be undone by anybody, NMTS included. Check the address once more.`);

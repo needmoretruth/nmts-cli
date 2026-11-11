@@ -35,7 +35,7 @@ const OMIT_ARG = {
   type: "array",
   items: { type: "string" },
   description:
-    "Values that must not travel — a file name, a folder path. Every occurrence in the message " +
+    "Values that must not travel, such as a file name or a folder path. Every occurrence in the message " +
     "and in the attached log becomes [omitted]. At least 3 characters each.",
 } as const;
 
@@ -47,7 +47,7 @@ export function supportTools(ctx: ToolContext): ToolDefinition[] {
         "File a report with the developer of NMTS: a bug, a confusing message, an idea, a " +
         `question. ${CARE} The NMTS key, API key, passphrase, tokens and key material are ` +
         "replaced by labels on this machine before anything is sent, and file contents are never " +
-        `read at all; file names and the account's public code may go. ${LOG} The answer to this ` +
+        `read at all. File names and the account's public code may go. ${LOG} The answer to this ` +
         "call is exactly what was sent, so it can be checked afterwards. One report per problem.",
       inputSchema: {
         type: "object",
@@ -97,7 +97,7 @@ export function supportTools(ctx: ToolContext): ToolDefinition[] {
       description:
         "The reports this account has filed from the command line, with their codes, what each " +
         "is about, whether it has been answered, and how many threads hold something unread. " +
-        "Read-only; costs nothing.",
+        "Read-only. Costs nothing.",
       inputSchema: NO_ARGS,
       run: () => say((write) => support("list", [], { ...common(ctx), json: true, write })),
     },

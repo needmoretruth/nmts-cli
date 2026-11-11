@@ -129,11 +129,11 @@ export async function putWithWallet(target, options) {
     }
     say(`  saved as ${savedAs}`);
     if (original !== null) {
-        say(`  The file credits paid for is in the trash now — ${BINARY_NAME} restore brings it back for 30 days.`);
+        say(`  The file credits paid for is in the trash now; ${BINARY_NAME} restore brings it back for 30 days.`);
         say(`  Erasing it releases its storage and settles its deposit: ${BINARY_NAME} erase --release-storage.`);
     }
     else if (done.replaced)
-        say(`  A file called ${name} was already there. It is in the trash now — ${BINARY_NAME} restore brings it back for 30 days.`);
+        say(`  A file called ${name} was already there. It is in the trash now; ${BINARY_NAME} restore brings it back for 30 days.`);
     else if (done.savedAs !== name)
         say(`  A file called ${name} was already there, so this one was numbered rather than replacing it.`);
     if (done.resumed)
@@ -160,7 +160,7 @@ function refuseFromClashes(target, options) {
     if (options.to !== undefined)
         throw clash(`--to`, `the re-upload keeps the folder the file is in.`);
     if (options.onCollision !== undefined) {
-        throw clash(`--on-collision`, `a re-upload replaces the file it came from; that is what it is for.`);
+        throw clash(`--on-collision`, `a re-upload replaces the file it came from. That is what it is for.`);
     }
 }
 /**
@@ -286,12 +286,12 @@ function tell(ctx, size, step) {
     if (step.step === "encoding")
         say(`  preparing${where} ${step.bytes} sealed bytes`);
     if (step.step === "reserving")
-        say(`  signing the registration${where} — WAL and the relay tip leave the wallet`);
+        say(`  signing the registration${where}: WAL and the relay tip leave the wallet`);
     if (step.step === "uploading")
         say(`  uploading${where} ${step.bytes} bytes to ${step.relayUrl}`);
     if (step.step === "certifying") {
         ctx.progress.done();
-        say(`  signing the certification${where} — gas only`);
+        say(`  signing the certification${where}: chain fee only`);
     }
     if (step.step === "committing")
         say(`  saving to the drive`);

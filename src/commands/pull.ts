@@ -142,7 +142,7 @@ export async function pull(target: string | undefined, options: PullOptions = {}
     return failed.length === 0 ? 0 : 1;
   }
   say(``);
-  say(`${written.length} written · ${skipped.length} already there · ${failed.length} failed`);
+  say(`${written.length} written, ${skipped.length} already there, ${failed.length} failed`);
   if (skipped.length > 0) {
     say(``);
     say(`  What was already there was left alone. --force replaces it, which cannot be undone.`);

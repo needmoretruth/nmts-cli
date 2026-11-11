@@ -1,4 +1,4 @@
-// `nmts public-code list · new · revoke`, against the public-code doors kept by `fake-public-codes.ts`.
+// `nmts public-code list, new, revoke`, against the public-code doors kept by `fake-public-codes.ts`.
 //
 // ⛔ THE CODES THE FAKE HOLDS ARE THE ONES THIS KEY DERIVES, number by number, because the command
 //    checks each one against its own derivation — a fake that held anything else would be testing
@@ -87,11 +87,11 @@ test("list: live codes first with the default marked, revoked after, and the two
     assert.equal(await listCodes({ write: (l) => lines.push(l) }), 0);
     const [c0, c1, c2] = [await at(code, 0), await at(code, 1), await at(code, 2)];
     assert.deepEqual(lines, [
-      `#0  ${c0.shown}  default  made 2026-09-10  sent 2 · received 1 · messages 0`,
-      `#2  ${c2.shown}  made 2026-09-10  sent 2 · received 1 · messages 0`,
-      `#1  ${c1.shown}  revoked 2026-09-20  sent 2 · received 1 · messages 0`,
+      `#0  ${c0.shown}  default  made 2026-09-10  sent 2, received 1, messages 0`,
+      `#2  ${c2.shown}  made 2026-09-10  sent 2, received 1, messages 0`,
+      `#1  ${c1.shown}  revoked 2026-09-20  sent 2, received 1, messages 0`,
       ``,
-      `2 of 3 live · 2 of 10 made today (UTC)`,
+      `2 of 3 live, 2 of 10 made today (UTC)`,
     ]);
   });
 });
@@ -167,7 +167,7 @@ test("the refusals say what happened and what to do, in the account's own number
   });
 });
 
-test("revoke: one code, after a yes; never the last live one", async () => {
+test("revoke: one code, after a yes. Never the last live one", async () => {
   await sandbox("pc-revoke", async (code, lines) => {
     state.codes = [await row(code, 0), await row(code, 1)];
     assert.equal(await revokeCodeCommand("1", { write: (l) => lines.push(l), readLine: async () => "y" }), 0);

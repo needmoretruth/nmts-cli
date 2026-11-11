@@ -236,8 +236,8 @@ async function readFrom(network, pathOf, what, options, node) {
     }
     throw new NmtsError(`${what} could not be read from the ${network} storage network.`, {
         exitCode: 5,
-        nextStep: `Tried: ${tried.join(" · ")}. If every host answered 404, either the bytes are gone or ` +
-            `this is the wrong network — the same identifier does not exist on both.`,
+        nextStep: `Tried: ${tried.join(", ")}. If every host answered 404, either the bytes are gone or ` +
+            `this is the wrong network. The same identifier does not exist on both.`,
     });
 }
 /**

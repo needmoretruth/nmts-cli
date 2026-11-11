@@ -44,8 +44,8 @@ export async function deleteAccount(options = {}) {
     const server = resolveServer(options.server ?? stored?.server);
     say(`This erases the account's server record. It cannot be undone.`);
     say(`  Erased:       the account, the file list, every file's record and share, sessions and keys.`);
-    say(`  Not erased:   the bytes on the storage network (paid through their term; unreadable without`);
-    say(`                the records), and the NMTS key on this machine — \`${BINARY_NAME} logout\` removes it.`);
+    say(`  Not erased:   the bytes on the storage network (paid through their term. Unreadable without`);
+    say(`                the records), and the NMTS key on this machine (\`${BINARY_NAME} logout\` removes it).`);
     say(`  Not refunded: storage already paid for. The funds went to the network, never to NMTS.`);
     say(``);
     const typed = typedFor ? CONFIRM_SENTENCE : (await ask(`Type exactly: ${CONFIRM_SENTENCE}\n> `)).trim();
@@ -58,6 +58,6 @@ export async function deleteAccount(options = {}) {
     await request(server, "/v1/account", { method: "DELETE", token: apiKey, accountProof });
     say(`Erased. The server holds nothing about this account now.`);
     say(`The stored NMTS key and API key on this machine are still here; \`${BINARY_NAME} logout\` removes them.`);
-    say(`A new account can be made at any time — \`${BINARY_NAME} create\` or ${HOME_URL}.`);
+    say(`A new account can be made at any time: \`${BINARY_NAME} create\` or ${HOME_URL}.`);
     return 0;
 }

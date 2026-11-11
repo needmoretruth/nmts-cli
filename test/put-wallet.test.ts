@@ -49,7 +49,7 @@ test("⛔ --dry-run prints the whole review — price, tip, fee, balances, epoch
     const sealed = sealedLenFor(planAndPrice(10, 64 * 2 ** 20, "padme").sealFor({ partIndex: 0, offset: 0, length: 10 }));
     const wal = BigInt(sealed) * 4n + BigInt(sealed);
     assert.match(text, new RegExp(`→  ${coinAmount(wal).replace(".", "\\.")} WAL from the wallet`));
-    assert.match(text, /Stored for 4 epochs — 56 days — until epoch 1204\./);
+    assert.match(text, /Stored for 4 epochs \(56 days\), until epoch 1204\./);
     assert.match(text, /Relay tip 0\.000001 SUI/);
     assert.match(text, /Chain fee about 0\.003 SUI per register signature/);
     assert.match(text, /holds 10000000 WAL and 1 SUI/);
@@ -114,6 +114,23 @@ test("⛔ a wallet short of WAL is refused with both numbers, before the agreeme
   });
 });
 
+test("⛔ a part size the upload relay cannot carry is refused before any price or signature", async () => {
+  // The relay refuses a body over 1 GiB after the register is paid (measured 413, 2026-11-11).
+  await withWalletAgreed(drive, "put-wallet-relay-cap", async (code) => {
+    await drive.serve(code, []);
+    const sign = refuseToSign("an oversized part reached a signer");
+    for (const partSize of ["1GiB", "513MiB"]) {
+      const failure = await refusal(put(FILE, opts(collect(), { partSize, sign })));
+      assert.equal(failure.exitCode, 2);
+      assert.match(failure.message, /too large for the storage network's upload relay/);
+      assert.match(String(failure.nextStep), /Nothing was sent and nothing was signed\..*--part-size 512MiB or less/s);
+    }
+    assert.equal(sign.calls, 0);
+    // The largest size that fits still goes through to the review.
+    assert.equal(await put(FILE, opts(collect(), { partSize: "512MiB", dryRun: true, sign })), 0);
+  });
+});
+
 test("⛔ an unread balance is said, not treated as zero — the run goes on to the agreement", async () => {
   await withSandbox(drive, "put-wallet-unread", async (code) => {
     await drive.serve(code, []);
@@ -123,7 +140,7 @@ test("⛔ an unread balance is said, not treated as zero — the run goes on to 
     );
     // Exit 5: it got as far as asking for the agreement, which means the unread WAL did not refuse it.
     assert.equal(failure.exitCode, 5);
-    assert.match(out.lines.join("\n"), /A balance could not be read — WAL: .*That is not zero/);
+    assert.match(out.lines.join("\n"), /A balance could not be read: WAL: .*That is not zero/);
   });
 });
 
@@ -135,7 +152,7 @@ test("⛔ without a wallet agreement the review is printed and then it stops, un
     const failure = await refusal(put(FILE, opts(out, { sign })));
     assert.equal(failure.exitCode, 5);
     assert.match(failure.message, /Use the wallet this NMTS key derives/);
-    assert.match(out.lines.join("\n"), /from the wallet this NMTS key derives — not from credits/);
+    assert.match(out.lines.join("\n"), /from the wallet this NMTS key derives, not from credits/);
     assert.equal(sign.calls, 0);
   });
 });
@@ -238,7 +255,7 @@ test("⛔ --storage fit cuts the smallest usable resource that fits and says wha
     assert.match(text, /Storage comes from resource 0xsmall/);
     assert.match(text, new RegExp(`Cut to fit: ${64 * 1024 ** 2 - encoded} bytes stay free`));
     // The write is charged; the storage is not.
-    assert.match(text, /the WAL above is the write alone/);
+    assert.match(text, /the WAL above is the write alone/i);
   });
 });
 
@@ -255,7 +272,7 @@ test("--storage whole binds the resource and says how many bytes go in with the 
   });
 });
 
-test("an object id names one resource; one that is ended or missing is refused before anything is signed", async () => {
+test("an object id names one resource. One that is ended or missing is refused before anything is signed", async () => {
   await withWalletAgreed(drive, "put-wallet-object", async (code) => {
     await drive.serve(code, []);
     const sign = recordingSigners();
@@ -322,7 +339,7 @@ test("the standing share of what the upload paid goes to the developer, after th
     const expected = (walPaid() * 25n) / 1000n;
     assert.ok(expected > 0n, "the fixture pays too little for a share to be worth anything");
     assert.deepEqual(gifts, [expected]);
-    assert.match(out.lines.join("\n"), /standing 2\.5 % gift — [0-9.]+ WAL — went to the developer/);
+    assert.match(out.lines.join("\n"), /standing 2\.5 % gift \([0-9.]+ WAL\) went to the developer/);
   });
 });
 

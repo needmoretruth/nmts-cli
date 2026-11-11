@@ -53,9 +53,9 @@ async function readPassphrase(allowPrompt) {
                 allowPrompt
                     ? `There is no terminal to type it into, so one of these has to supply it:`
                     : `This command reads its own protocol from the terminal, so it cannot ask. Supply it:`,
-                `  · set ${PASSPHRASE_ENV_VAR} for this run`,
-                `  · name a file holding the code instead: NMTS_ACCOUNT_CODE_FILE=/path`,
-                `  · store it unsealed: ${BINARY_NAME} login --plain  (this asks for an agreement first)`,
+                `  - set ${PASSPHRASE_ENV_VAR} for this run`,
+                `  - name a file holding the code instead: NMTS_ACCOUNT_CODE_FILE=/path`,
+                `  - store it unsealed: ${BINARY_NAME} login --plain  (this asks for an agreement first)`,
                 ``,
                 `The sealed file is ${credentialsPath()}.`,
             ].join("\n"),

@@ -37,14 +37,14 @@ export function planSlots(files) {
         }
         parts.forEach((part, position) => {
             if (part.partIndex !== position) {
-                throw new HeavyOrderError("slot_count", `File "${file.key}" has no part ${position}; its parts must be numbered 0..n-1.`);
+                throw new HeavyOrderError("slot_count", `File "${file.key}" has no part ${position}. Its parts must be numbered 0..n-1.`);
             }
             if (!Number.isSafeInteger(part.sealedLen) || part.sealedLen < HEAVY_PIECE_MIN_BYTES) {
-                throw new HeavyOrderError("piece_too_small", `Part ${part.partIndex} of "${file.key}" seals to ${part.sealedLen} bytes; a piece needs ` +
+                throw new HeavyOrderError("piece_too_small", `Part ${part.partIndex} of "${file.key}" seals to ${part.sealedLen} bytes. A piece needs ` +
                     `${HEAVY_PIECE_MIN_BYTES}. Pad it to at least ${HEAVY_MIN_SEAL_FROM_BYTES} bytes of plaintext.`);
             }
             if (part.sealedLen > HEAVY_PIECE_MAX_BYTES) {
-                throw new HeavyOrderError("piece_too_large", `Part ${part.partIndex} of "${file.key}" seals to ${part.sealedLen} bytes; a piece holds ` +
+                throw new HeavyOrderError("piece_too_large", `Part ${part.partIndex} of "${file.key}" seals to ${part.sealedLen} bytes. A piece holds ` +
                     `at most ${HEAVY_PIECE_MAX_BYTES}.`);
             }
             plans.push({
@@ -57,7 +57,7 @@ export function planSlots(files) {
         });
     });
     if (plans.length === 0 || plans.length > HEAVY_MAX_SLOTS) {
-        throw new HeavyOrderError("slot_count", `An order holds 1..${HEAVY_MAX_SLOTS} parts; this upload has ${plans.length}.`);
+        throw new HeavyOrderError("slot_count", `An order holds 1..${HEAVY_MAX_SLOTS} parts. This upload has ${plans.length}.`);
     }
     return plans;
 }

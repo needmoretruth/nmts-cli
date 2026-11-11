@@ -75,7 +75,7 @@ test("⛔ a balance that could not be read is said as unread, never as zero, and
     assert.equal(await extend("photos/a.jpg", opts(out, { epochs: 2, readChain: () => chain, sign })), 0);
     const text = out.lines.join("\n");
     assert.match(text, /WAL not read/);
-    assert.match(text, /could not be read — WAL: the fake chain was told not to answer/);
+    assert.match(text, /could not be read: WAL: the fake chain was told not to answer/);
     assert.match(text, /chain fee \(SUI\) could not be measured/);
     assert.doesNotMatch(text, /holds 0 WAL/);
     assert.equal(sign.asked.length, 1, "an unread balance stopped a purchase the wallet may well afford");

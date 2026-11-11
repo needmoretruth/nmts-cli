@@ -193,7 +193,7 @@ export async function openPart(crypt, dek, part, sealed, position, remaining, em
 function refusal(part) {
     return () => new NmtsError(`Part ${part.part_index} did not decrypt.`, {
         nextStep: "The bytes that arrived are not the bytes that were sealed. Nothing was written. " +
-            "Try again — a different aggregator may hold the right ones.",
+            "Try again. A different aggregator may hold the right ones.",
     });
 }
 /**

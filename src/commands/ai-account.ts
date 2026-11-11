@@ -59,7 +59,7 @@ function childrenOf(answer: unknown): Child[] {
   const list: unknown = isRecord(answer) ? answer["children"] : undefined;
   if (!Array.isArray(list)) {
     throw new NmtsError(`The server's answer did not carry a list of AI accounts.`, {
-      nextStep: `Nothing was changed. Report it rather than retrying — the shape, not the network, is wrong.`,
+      nextStep: `Nothing was changed. Report it instead of retrying: the shape of the answer is wrong, and the network is fine.`,
     });
   }
   const out: Child[] = [];
@@ -126,7 +126,7 @@ export async function aiAccount(verb: string | undefined, args: ParsedArgs): Pro
     nextStep:
       `The verbs are \`${BINARY_NAME} ai-account list\`, \`${BINARY_NAME} ai-account create [place]\` ` +
       `and \`${BINARY_NAME} ai-account delete <account id>\`. Each needs the NMTS key on this ` +
-      `machine; an API key cannot reach any of them.`,
+      `machine. An API key cannot reach any of them.`,
   });
 }
 
@@ -140,7 +140,7 @@ export async function list(options: AiAccountOptions = {}): Promise<number> {
   }
   if (children.length === 0) {
     say(`This account has made no AI accounts.`);
-    say(`\`${BINARY_NAME} ai-account create\` makes one — an ordinary account with its own key and`);
+    say(`\`${BINARY_NAME} ai-account create\` makes one: an ordinary account with its own key and`);
     say(`its own empty drive, so nothing of this one's is handed over.`);
     return 0;
   }
@@ -148,9 +148,9 @@ export async function list(options: AiAccountOptions = {}): Promise<number> {
     say(`place ${child.child_index}  ${child.account_id}  ${child.status}  made ${child.created_at.slice(0, 10)}`);
   }
   say(``);
-  say(`Each one's NMTS key comes from this account's key and its place, so it can be derived again`);
-  say(`— \`${BINARY_NAME} ai-account create <place>\` on a place that is already taken says so rather`);
-  say(`than printing it. \`${BINARY_NAME} ai-account delete <account id>\` erases one for good.`);
+  say(`Each one's NMTS key comes from this account's key and its place, so it can be derived again.`);
+  say(`\`${BINARY_NAME} ai-account create <place>\` on a place that is already taken says so instead of`);
+  say(`printing it. \`${BINARY_NAME} ai-account delete <account id>\` erases one for good.`);
   return 0;
 }
 
@@ -174,7 +174,7 @@ function placeFor(asked: string | undefined, taken: readonly Child[]): number {
   throw new NmtsError(`All ${PLACES} places under this account are taken.`, {
     exitCode: 4,
     nextStep:
-      `Nothing was made. Erase one with \`${BINARY_NAME} ai-account delete <account id>\` — its place ` +
+      `Nothing was made. Erase one with \`${BINARY_NAME} ai-account delete <account id>\`. Its place ` +
       `comes free and re-deriving at that place later gives the same account back.`,
   });
 }
@@ -225,7 +225,7 @@ export async function create(asked: string | undefined, options: AiAccountOption
         exitCode: 4,
         nextStep:
           `Nothing was made. Turning the feature on costs a human check, which no command-line tool ` +
-          `can pass — do it once on the account screen at ${HOME_URL}, and every one after it can be ` +
+          `can pass. Do it once on the account screen at ${HOME_URL}, and every one after it can be ` +
           `made from here.`,
       });
     }
@@ -242,7 +242,7 @@ export async function create(asked: string | undefined, options: AiAccountOption
   say(``);
   say(`  account id  ${childIdentity.accountId}`);
   say(``);
-  say(`⛔ THIS IS ITS NMTS KEY. It opens that account and nothing else — not this one.`);
+  say(`⛔ THIS IS ITS NMTS KEY. It opens that account and nothing else, not this one.`);
   say(`   Hand it to the program that will use it, and keep it as carefully as your own.`);
   say(``);
   say(`   ${childCode}`);
@@ -264,7 +264,7 @@ export async function remove(id: string | undefined, options: AiAccountOptions =
   if (id === undefined || id === "") {
     throw new NmtsError(`Say which AI account to erase.`, {
       exitCode: 2,
-      nextStep: `\`${BINARY_NAME} ai-account delete <account id>\` — the id \`${BINARY_NAME} ai-account list\` prints.`,
+      nextStep: `\`${BINARY_NAME} ai-account delete <account id>\`, with the id \`${BINARY_NAME} ai-account list\` prints.`,
     });
   }
   const who = await caller(options);

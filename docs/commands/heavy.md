@@ -1,7 +1,7 @@
-# nmts heavy — the EVM wallet that pays Filecoin yourself
+# nmts heavy: the EVM wallet that pays Filecoin yourself
 
 Commands: heavy
-Tiers: heavy=none · heavy.fund=high(wallet)
+Tiers: heavy=none, heavy.fund=high(wallet)
 
 NMTS Heavy keeps a file whole in two separate places on Filecoin instead of spreading it across
 Walrus. Most uploads never need this command: `put --tier heavy` and `push --tier heavy` pay with
@@ -26,10 +26,10 @@ for the storage service: it is a wallet act (`nmts unlock wallet`), prints what 
 only with `--yes`. When the deposit already covers the amount it signs nothing.
 
 `--pay evm` uploads pay the storage providers from that deposit. The file stays as long as the
-deposit lasts (`heavy wallet` shows the epoch it lasts to); add more with `heavy fund` before then.
+deposit lasts (`heavy wallet` shows the epoch it lasts to). Add more with `heavy fund` before then.
 `--copies` takes 1 to 12 (default 2), `--providers` names provider ids, and `--evm-wallet N` pays
 from another derived wallet. On a network whose storage providers this version does not list, it
 is refused before anything is spent.
 
 You need FIL for gas and USDFC in the EVM wallet before `heavy fund`. On the Calibration test
-network both come from the public faucets; on mainnet, from an exchange or a swap.
+network both come from the public faucets. On mainnet, from an exchange or a swap.

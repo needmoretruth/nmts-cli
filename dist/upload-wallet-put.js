@@ -71,7 +71,7 @@ export async function walletPut(ctx, file, seams = {}) {
     if (window === null) {
         throw new NmtsError(`The ${ctx.network} storage network could not be read.`, {
             exitCode: 1,
-            nextStep: `Nothing was signed and nothing was sent. Which epoch the network is in, and how far ahead it will sell, are facts only the chain has — this will not spend against a guess.`,
+            nextStep: `Nothing was signed and nothing was sent. Which epoch the network is in, and how far ahead it will sell, are facts only the chain has, and this will not spend against a guess.`,
         });
     }
     const epochs = chooseUploadEpochs(seams.epochs, window);

@@ -75,7 +75,7 @@ test("a report is previewed whole, then sent", async () => {
       "Log: none",
       "Total: 17 bytes.",
       "",
-      "Sent. NM1 — replies arrive in `nmts support show NM1`.",
+      "Sent. NM1: replies arrive in `nmts support show NM1`.",
     ]);
     assert.deepEqual(desk.posted[0]?.body, {
       message: "put failed at 90%",
@@ -231,7 +231,7 @@ test("⛔ a category this version does not know is refused here, with the list",
       (error: unknown) =>
         error instanceof NmtsError &&
         error.message === "There is no support category called board." &&
-        error.nextStep === "The categories are bug · idea · account · storage · payment · privacy.",
+        error.nextStep === "The categories are bug, idea, account, storage, payment, privacy.",
     );
     assert.deepEqual(desk.posted, [], "a bad category still reached the server");
   });
@@ -286,7 +286,7 @@ test("a validation refusal is a command-line error, and only a category one list
         error instanceof NmtsError &&
         error.exitCode === 2 &&
         error.message === "category: unknown" &&
-        error.nextStep === "The categories are bug · idea · account · storage · payment · privacy.",
+        error.nextStep === "The categories are bug, idea, account, storage, payment, privacy.",
     );
 
     desk.refuse = { status: 400, code: "VALIDATION", message: "message: too long" };

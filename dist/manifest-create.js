@@ -59,8 +59,8 @@ export async function createFirstList(input, entries) {
             if (error instanceof ServerError && error.code === "VERSION_CONFLICT") {
                 throw new NmtsError("This account already has a file list, so nothing was rebuilt.", {
                     exitCode: 4,
-                    nextStep: "Nothing was changed. A list appeared while this ran — another device wrote one, or " +
-                        "one was there all along. Run `nmts ls` to see what it holds; a rebuild would have " +
+                    nextStep: "Nothing was changed. A list appeared while this ran: another device wrote one, or " +
+                        "one was there all along. Run `nmts ls` to see what it holds. A rebuild would have " +
                         "replaced its names with placeholders.",
                 });
             }

@@ -161,13 +161,13 @@ export async function createWithPass(options: CreatePassOptions): Promise<number
   say(
     passphrase === ""
       ? `   In the clear, readable by this user alone (mode 600).`
-      : `   Sealed under the passphrase in ${PASSPHRASE_ENV_VAR}; opening it needs that passphrase.`,
+      : `   Sealed under the passphrase in ${PASSPHRASE_ENV_VAR}. Opening it needs that passphrase.`,
   );
   say(`   NMTS keeps a verifier and never the NMTS key. It cannot be reset, resent or replaced.`);
   say(`   A person should keep a copy somewhere else.`);
   say(``);
   if (issued !== null) {
-    say(`API key ${issued.keyId} made and stored in the same file (read, write, spend; stops ${issued.expiresAt}).`);
+    say(`API key ${issued.keyId} made and stored in the same file (read, write, spend. Stops ${issued.expiresAt}).`);
   } else {
     say(`⚠ No API key was made: ${keyError ?? "unknown"}.`);
     say(`  \`${BINARY_NAME} key new --scopes read,write,spend\` makes one from the kept NMTS key.`);
@@ -213,7 +213,7 @@ function explain(error: ServerError): unknown {
       exitCode: 5,
       nextStep:
         `Nothing was created and the pass was not spent. The person who takes a pass on ${HOME_URL}/ai ` +
-        `accepts the Terms and the Privacy Policy for the account it makes; this pass carries no ` +
+        `accepts the Terms and the Privacy Policy for the account it makes. This pass carries no ` +
         `acceptance, or the documents changed since it was taken. Ask the person for a new pass.`,
     });
   }

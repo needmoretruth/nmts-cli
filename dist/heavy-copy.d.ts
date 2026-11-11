@@ -8,7 +8,7 @@ export declare const HEAVY_COPY: {
     /** `--dry-run --tier heavy --pay wallet`: the plan line before any order opens (no price yet). */
     readonly walletDryPlan: (name: string, bytes: number, days: number, from: string) => string;
     /** `--dry-run` with `--tier heavy`: the closing line (nothing sent; a wallet price is quoted only when an order opens). */
-    readonly dryRunEnd: "  Nothing was sent and nothing was charged. The WAL or USDFC price is set when the upload runs; run the same command without --dry-run to see it before anything is paid.";
+    readonly dryRunEnd: "  Nothing was sent and nothing was charged. The WAL or USDFC price is set when the upload runs. Run the same command without --dry-run to see it before anything is paid.";
     /** Progress, one line per phase of one part. */
     readonly progress: (phase: string, where: string) => string;
     /** Finished: the Filecoin epoch it is kept until. */

@@ -48,7 +48,7 @@ export async function tip(wanted: string | undefined, options: TipOptions = {}):
     }
     say(
       current > 0
-        ? `Every storage payment sends ${percentText(current)} % of what it paid to the developer, as a gift, in WAL — without asking.`
+        ? `Every storage payment sends ${percentText(current)} % of what it paid to the developer, as a gift, in WAL, without asking.`
         : `No standing gift: 0 % of each storage payment goes to the developer.`,
     );
     say(`  Set one: \`${BINARY_NAME} tip 2.5\` (in steps of 0.1 %, the dial ends at 10 %). Stop it: \`${BINARY_NAME} tip off\`.`);
@@ -61,7 +61,7 @@ export async function tip(wanted: string | undefined, options: TipOptions = {}):
     throw new NmtsError(`\`${BINARY_NAME} tip\` takes a percent (2.5) or off.`, { exitCode: 2 });
   }
   if (list.manifest === null) {
-    throw new NmtsError(`This account has no file list yet; the setting lives in the list, and there is nothing to write it into.`, {
+    throw new NmtsError(`This account has no file list yet. The setting lives in the list, and there is nothing to write it into.`, {
       exitCode: 4,
       nextStep: `Upload once (\`${BINARY_NAME} put\`) and set it after.`,
     });

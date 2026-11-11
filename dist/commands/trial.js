@@ -110,7 +110,7 @@ async function apply(server, apiKey, week) {
         typeof round !== "string") {
         throw new NmtsError("The server granted a place and described it in a shape this version cannot read.", {
             exitCode: 1,
-            nextStep: `The credits are on the account whatever this printed — \`${BINARY_NAME} balance\` reads ` +
+            nextStep: `The credits are on the account whatever this printed; \`${BINARY_NAME} balance\` reads ` +
                 `the ledger. Update this tool.`,
         });
     }
@@ -142,7 +142,7 @@ function explain(error, week) {
                 nextStep: `Nothing was taken and this account's place for week ${week.round} is untouched. ` +
                     `Applying needs the account's four-week check to be live, and \`${BINARY_NAME} verify\` ` +
                     `is what renews it: it prints a short code for a person to type at a browser. A server ` +
-                    `that asks for a check on every application is an older build than this expects — ` +
+                    `that asks for a check on every application is an older build than this expects; ` +
                     `there, a person applies on the account screen at ${HOME_URL}.`,
             });
         case "TRIAL_FULL":
@@ -171,7 +171,7 @@ function explain(error, week) {
             return new NmtsError("This internet connection has taken all the places it can today.", {
                 exitCode: 4,
                 nextStep: `Nothing was taken. A day's share per connection is what stops one line sweeping a ` +
-                    `week. Tomorrow it resets — though this week's places may be gone by then.`,
+                    `week. Tomorrow it resets, though this week's places may be gone by then.`,
             });
         default:
             return error;
@@ -227,7 +227,7 @@ function asJson(week) {
  *    has not.
  */
 function sayWeek(say, week) {
-    say(`Free trial · week ${week.round}`);
+    say(`Free trial, week ${week.round}`);
     say(``);
     if (!week.live) {
         say(`  The trial is not running on this server.`);
@@ -238,7 +238,7 @@ function sayWeek(say, week) {
         return;
     }
     say(`  places left        ${week.slotsLeft} of ${week.winners}`);
-    say(`  one place gives    ${week.creditsPerWinner} credits — ` +
+    say(`  one place gives    ${week.creditsPerWinner} credits: ` +
         `${humanSize(week.creditsPerWinner * CREDIT_BYTES)} for one lease period`);
     say(`  this account       ${week.already ? `took its place this week` : `has not applied this week`}`);
     if (week.held) {
@@ -256,7 +256,7 @@ function sayWeek(say, week) {
  */
 function sayRules(say) {
     say(`The rules, which this tool does not set and cannot bend:`);
-    say(`  · one application per account per week, on the server's own week boundaries`);
-    say(`  · first come, first served — a place goes to whoever asks while one is open`);
-    say(`  · the week's budget is decided by the server; there is no way to ask for more`);
+    say(`  - one application per account per week, on the server's own week boundaries`);
+    say(`  - first come, first served: a place goes to whoever asks while one is open`);
+    say(`  - the week's budget is decided by the server. There is no way to ask for more`);
 }

@@ -17,7 +17,7 @@ export function logout(write?: (line: string) => void): number {
     if (isNotFound(error)) removed = false;
     else throw error;
   }
-  say(removed ? `Removed ${path}` : `Nothing to remove — ${path} does not exist.`);
+  say(removed ? `Removed ${path}` : `Nothing to remove: ${path} does not exist.`);
   if (removed) {
     say(`  This deleted a file. It did not end anything on the server, and it cannot reach a copy`);
     say(`  that something on this machine already read.`);

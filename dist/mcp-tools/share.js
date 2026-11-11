@@ -43,10 +43,10 @@ export function shareTools(ctx) {
     return [
         {
             name: "nmts_public_code_new",
-            description: "Make a new public code for this account — the next number from the same NMTS key — and " +
+            description: "Make a new public code for this account (the next number from the same NMTS key) and " +
                 "publish it, so other accounts can send files to it. `replace` names a live code to revoke " +
                 "in the same step: nobody can send to that one again and nobody can bring it back. The " +
-                "server caps how many codes are live at once and how many are made per UTC day; the reply " +
+                "server caps how many codes are live at once and how many are made per UTC day. The reply " +
                 "of nmts_public_code says both.",
             inputSchema: {
                 type: "object",
@@ -63,8 +63,8 @@ export function shareTools(ctx) {
         {
             name: "nmts_public_code_revoke",
             description: "Revoke one of this account's public codes, by its number from nmts_public_code. Nobody can " +
-                "send to it again and nobody can bring it back; files already received with it stay and " +
-                "still open. The account's last live code cannot be revoked — make a new one with " +
+                "send to it again and nobody can bring it back. Files already received with it stay and " +
+                "still open. The account's last live code cannot be revoked. Make a new one with " +
                 "nmts_public_code_new and `replace` instead.",
             inputSchema: {
                 type: "object",
@@ -81,9 +81,9 @@ export function shareTools(ctx) {
             description: "Give another NMTS account the key to one file in this account. ⛔ IT CANNOT BE TAKEN " +
                 "BACK: withdrawing the share stops further downloads and cannot reach a copy the " +
                 "recipient already fetched, and a public code typed wrongly is a share sent to whoever " +
-                "holds that code. The first share on a machine stops and asks the person to agree — show " +
+                "holds that code. The first share on a machine stops and asks the person to agree. Show " +
                 "them what it says rather than agreeing for them. Nothing is uploaded and nothing is " +
-                "charged; the recipient pays nothing either. Every call puts the file and the code in " +
+                "charged. The recipient pays nothing either. Every call puts the file and the code in " +
                 "front of the person to confirm, unless they have turned on a mode that says an agent " +
                 "may decide.",
             inputSchema: {

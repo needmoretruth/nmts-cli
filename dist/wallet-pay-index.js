@@ -54,7 +54,7 @@ export async function payingWalletIndex(input) {
             `${error instanceof Error ? error.message : String(error)}`, {
             exitCode: 1,
             nextStep: `Nothing was signed. Try again when the list can be read, or name the wallet for this ` +
-                `one run with \`--wallet N\` — \`${BINARY_NAME} wallet list\` shows the numbers.`,
+                `one run with \`--wallet N\`; \`${BINARY_NAME} wallet list\` shows the numbers.`,
         });
     }
 }

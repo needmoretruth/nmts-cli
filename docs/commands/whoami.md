@@ -1,16 +1,16 @@
-# nmts whoami — which account this machine holds
+# nmts whoami: which account this machine holds
 
 Commands: whoami
-Tiers: whoami=none · whoami.reveal=high(reveal)
+Tiers: whoami=none, whoami.reveal=high(reveal)
 
 Prints the account id the stored NMTS key belongs to, offline, with no server call. `--json` gives it
 to a program.
 
-`--reveal` prints the NMTS key itself. An agent never needs this — the tool already holds the
-key — so it is locked until a person runs `nmts unlock reveal` at a terminal, and then asked about
+`--reveal` prints the NMTS key itself. An agent never needs this (the tool already holds the
+key), so it is locked until a person runs `nmts unlock reveal` at a terminal, and then asked about
 on every run in every mode but skip-permissions. Never write the NMTS key anywhere it can be read
 again: a log, a commit, a file, a message. It is the only key to the account and cannot be rotated.
 
-`--reveal --phrase` prints the same key as its 15-word recovery phrase (BIP-39, the English list;
+`--reveal --phrase` prints the same key as its 15-word recovery phrase (BIP-39, the English list, or
 `--lang ko` for the Korean one). It is the key in words, under the same lock and the same warning:
 whoever reads the phrase opens the account.

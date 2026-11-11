@@ -165,7 +165,7 @@ async function run(verb, paths, name, options) {
             if (target.kind !== KIND_FILE) {
                 throw new NmtsError(`"${fullPathOf(index, target)}" is a folder, and marks are for files.`, {
                     exitCode: 4,
-                    nextStep: `Nothing was marked. A star, a pin and a label are shown on files; a folder that ` +
+                    nextStep: `Nothing was marked. A star, a pin and a label are shown on files. A folder that ` +
                         `carried one would show it nowhere.`,
                 });
             }

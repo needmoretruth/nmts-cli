@@ -86,7 +86,7 @@ export async function walletStorageExtend(items, options = {}) {
         exitCode: done.stopped.code === "EXTEND_RECORDED_LATE" ? 1 : 4,
         nextStep: done.stopped.code === "EXTEND_RECORDED_LATE"
             ? "Do not run this again for that file: it would pay for the same time twice."
-            : "The files above it were extended; the rest were not. Run it again once that is fixed.",
+            : "The files above it were extended. The rest were not. Run it again once that is fixed.",
     });
 }
 /** The user's token out of its file, refusing a missing or empty one before anything is read. */

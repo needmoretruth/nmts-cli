@@ -30,9 +30,9 @@ import { destinationFor } from "../safe-path.ts";
 import { common, needString, say, type ToolContext } from "./context.ts";
 
 const SPENDS =
-  "⛔ THIS SPENDS THE ACCOUNT'S CREDITS — one credit per started mebibyte, per lease period, and " +
+  "⛔ THIS SPENDS THE ACCOUNT'S CREDITS: one credit per started mebibyte, per lease period, and " +
   "credits are not refundable. Pass dry_run to be told the price without spending it. The first " +
-  "upload on a machine stops and asks the person to agree; show them what it says rather than " +
+  "upload on a machine stops and asks the person to agree. Show them what it says rather than " +
   "agreeing for them.";
 
 const DEPOSIT_HINT =
@@ -93,9 +93,9 @@ export function fileTools(ctx: ToolContext): ToolDefinition[] {
     {
       name: "nmts_pull",
       description:
-        `Fetch a whole folder — or the whole account, if no folder is named — and rebuild its ` +
+        `Fetch a whole folder (or the whole account, if no folder is named) and rebuild its ` +
         `shape under ${ctx.outDir}. Unlike fetching one file it carries on past a file that will ` +
-        `not come back, because getting nineteen of twenty is better than getting none; the reply ` +
+        `not come back, because getting nineteen of twenty is better than getting none. The reply ` +
         `lists what was written, what was skipped as already there, and what failed and why.`,
       inputSchema: {
         type: "object",
@@ -180,11 +180,11 @@ export function fileTools(ctx: ToolContext): ToolDefinition[] {
       name: "nmts_push",
       description:
         `Upload a whole directory from this machine, rebuilding its shape in the account. ` +
-        `${SPENDS} ⛔ It stops at the FIRST failure rather than carrying on — the opposite of ` +
+        `${SPENDS} ⛔ It stops at the FIRST failure instead of carrying on: the opposite of ` +
         `nmts_pull, and on purpose: a failure that really means the account cannot pay any more ` +
         `would, if carried past, ask to pay for every remaining file. Files already in the ` +
         `destination are skipped, so running it again is safe and sends only what is missing. ` +
-        `Names beginning with a dot are left alone unless include_hidden is true — a directory of ` +
+        `Names beginning with a dot are left alone unless include_hidden is true. A directory of ` +
         `source code keeps its credentials in exactly those files.`,
       inputSchema: {
         type: "object",

@@ -20,8 +20,8 @@ import { destinationFor } from "../safe-path.js";
 import { resolveServer } from "../server.js";
 import { openSession } from "../session.js";
 import { linkExpiryDays } from "../shared/lib/share/public-link.js";
-const USAGE = `\`${BINARY_NAME} link make <path> [--hide-name] [--expires <n>d]\` · \`${BINARY_NAME} link list <path>\` · ` +
-    `\`${BINARY_NAME} link revoke <id>\` · \`${BINARY_NAME} link open <link> [--out <path>]\``;
+const USAGE = `\`${BINARY_NAME} link make <path> [--hide-name] [--expires <n>d]\`, \`${BINARY_NAME} link list <path>\`, ` +
+    `\`${BINARY_NAME} link revoke <id>\`, \`${BINARY_NAME} link open <link> [--out <path>]\``;
 export async function link(sub, operand, options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     if (sub !== "make" && sub !== "list" && sub !== "revoke" && sub !== "open") {

@@ -47,8 +47,8 @@ export async function humanCheck(server, apiKey) {
 export function askAPersonToVerify(whatIsRefused) {
     return new NmtsError(`${whatIsRefused} until somebody passes this account's human check.`, {
         exitCode: 4,
-        nextStep: `Run \`${BINARY_NAME} verify\`. It prints a short code and an address; a person opens that ` +
+        nextStep: `Run \`${BINARY_NAME} verify\`. It prints a short code and an address. A person opens that ` +
             `address, types the code, and this account's limits are lifted for four of the server's ` +
-            `weeks. Nothing on this machine can pass that check — being unable to is what it measures.`,
+            `weeks. Nothing on this machine can pass that check. Being unable to is what it measures.`,
     });
 }

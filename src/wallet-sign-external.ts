@@ -137,7 +137,7 @@ export async function signAndSubmit(
   try {
     answered = await payer.signTransaction({ bytes: input.bytes, chain: chainOf(input.network) });
   } catch (error) {
-    throw new NmtsError(`WALLET_REFUSED: the wallet did not sign — ${why(error)}`, {
+    throw new NmtsError(`WALLET_REFUSED: the wallet did not sign: ${why(error)}`, {
       exitCode: 4,
       nextStep: `${input.refusals.unsigned} A wallet refuses when somebody declines it, when it is on another network, or when it cannot sign this shape at all.`,
     });
@@ -204,7 +204,7 @@ export function externalBlobSigners(payer: ExternalPayer): {
             what: "The storage network refused the registration",
             nextStep:
               `Nothing is stored and no storage was bought. The transaction fee was spent. The usual ` +
-              `causes are too little WAL or SUI in the paying wallet — ${payer.address} — or a held ` +
+              `causes are too little WAL or SUI in the paying wallet (${payer.address}) or a held ` +
               `storage resource too small for this part once encoded.`,
           },
         },
@@ -221,12 +221,12 @@ export function externalBlobSigners(payer: ExternalPayer): {
         bytes: await tx.build({ client }),
         refusals: {
           unsigned:
-            "The storage is bought and the bytes are on the network; only the certification is unsigned. " +
+            "The storage is bought and the bytes are on the network. Only the certification is unsigned. " +
             "Running the same upload again asks for that one signature and buys nothing.",
           refused: {
             what: "The storage network refused the certification",
             nextStep:
-              `The storage is bought and the bytes are on the network; only the certification failed, ` +
+              `The storage is bought and the bytes are on the network. Only the certification failed, ` +
               `and its fee was spent. Running the same upload again certifies again, which costs gas ` +
               `and nothing else.`,
           },
@@ -268,7 +268,7 @@ export function externalExtendSigner(payer: ExternalPayer): SignExtension {
           what: "The storage network refused the extension",
           nextStep:
             `The storage was NOT extended and the file still ends when it did. The transaction fee was ` +
-            `spent. The usual causes are too little WAL or SUI in the paying wallet — ${payer.address} — ` +
+            `spent. The usual causes are too little WAL or SUI in the paying wallet (${payer.address}) ` +
             `or a length the network will no longer sell.`,
         },
       },

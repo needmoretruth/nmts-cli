@@ -148,7 +148,7 @@ export function checkArgs(schema: unknown, args: unknown): string[] {
     if (isRecord(property)) {
       const allowed = stringList(property["enum"]);
       if (allowed.length > 0 && typeof value === "string" && !allowed.includes(value)) {
-        problems.push(`\`${name}\` must be one of ${allowed.join(", ")} — this call sent ${value}`);
+        problems.push(`\`${name}\` must be one of ${allowed.join(", ")}. This call sent ${value}`);
       }
     }
   }

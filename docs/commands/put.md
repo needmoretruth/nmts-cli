@@ -1,11 +1,11 @@
-# nmts put — encrypt one file and upload it
+# nmts put: encrypt one file and upload it
 
 Commands: put
-Tiers: put=medium · put.wallet=high(wallet) · put.evm=high(wallet)
+Tiers: put=medium, put.wallet=high(wallet), put.evm=high(wallet)
 
 `put` spends credits: one per started mebibyte, and the price is printed before the upload
-starts. In the default mode it asks first (answer at the terminal, or run with `--yes`);
-in an auto mode it runs when you judge it is what the person wants.
+starts. In the default mode it asks first (answer at the terminal, or run with `--yes`).
+In an auto mode it runs when you judge it is what the person wants.
 
 ```sh
 nmts put report.pdf --dry-run      # says the price, sends nothing, charges nothing
@@ -15,10 +15,10 @@ nmts put report.pdf --json         # one JSON object, no progress output
 ```
 
 A file larger than one part (64 MiB by default, `--part-size` changes it) is split and each part
-is bought separately; a run that stops partway is finished by running the same command again, which
+is bought separately. A run that stops partway is finished by running the same command again, which
 buys only what was never bought. If `put` fails, read whether the message says the account has
-already paid: when it has, the same command finishes the job for nothing more; when it has not,
-nothing was spent. `CHAIN_UNCERTAIN` is the one refusal where retrying can pay twice — run
+already paid: when it has, the same command finishes the job for nothing more. When it has not,
+nothing was spent. `CHAIN_UNCERTAIN` is the one refusal where retrying can pay twice: run
 `nmts ls` and look for the file first.
 
 A name already taken in that folder is decided by this machine's setting (`nmts help on-collision`).
@@ -36,7 +36,7 @@ cuts it to size and leaves the rest free, `whole` binds all of it with the file.
 `--pay wallet` exit 2. With the account's storage copy of the recovery list on, a one-part file
 under 64 MiB onto new storage goes up with the newest recovery list in the same quilt, as in the web
 app, and `nmts-recovery --find` finds that list with the NMTS key alone. The review's WAL includes
-it. If the list is left out, a warning says why and the file goes up on its own; `--json` reports
+it. If the list is left out, a warning says why and the file goes up on its own. `--json` reports
 `recoveryList` (its number, or `null`).
 
 **`--tier heavy`** stores the file on NMTS Heavy instead of NMTS Standard: each part is kept whole in
@@ -44,10 +44,10 @@ two separate places on Filecoin rather than spread across Walrus storage nodes. 
 two ways. With credits (the default) each part costs half the Standard credits, rounded up and at
 least one, and the file is kept 28 days. With
 `--pay wallet` the WAL price is set when the upload opens, the wallet is checked for it before
-anything is encrypted, and it is paid once, after the file is stored; `--days N` (1–365, default 28)
+anything is encrypted, and it is paid once, after the file is stored. `--days N` (1 to 365, default 28)
 is the term. Parts are 512 MiB, and `--part-size`, `--epochs`, `--storage`, `--from`, `--deposit` and
 `--thumbnail` do not apply.
-`get`, `ls` and deletion work the same for both tiers; `nmts ls --long` shows each file's tier. The
+`get`, `ls` and deletion work the same for both tiers. `nmts ls --long` shows each file's tier. The
 default is `--tier standard`. A Heavy run that stops is not resumed: running it again is a new upload.
 
 **`--tier heavy --pay evm`** pays Filecoin yourself from the EVM wallet the NMTS key derives, out of
@@ -55,7 +55,7 @@ its Filecoin Pay deposit, with `--copies` and `--providers` choosing where. See 
 
 **`--thumbnail`** on a video also sends one frame of it as `<saved name>.thumb.jpg`: an ordinary
 small file, priced, sealed and paid for like any other, linked to the video so every app shows it
-as the video's tile. The frame is taken by `ffmpeg` (one second in, 512 px on the long side);
+as the video's tile. The frame is taken by `ffmpeg` (one second in, 512 px on the long side).
 `--thumbnail-file <picture>` sends that picture instead. Without `ffmpeg` the video is still stored
 and the output says why it went alone. `--dry-run` prices both. With `--json` the one object is
 the video's, with the picture's result under `thumbnail` (`{"skipped": "<why>"}` when none went).

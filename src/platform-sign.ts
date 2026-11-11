@@ -239,7 +239,7 @@ export function mintDelegation(request: DelegationRequest): string {
       {
         exitCode: 2,
         nextStep:
-          "Nothing was minted. Mint a shorter one and mint it again when it runs out — a token " +
+          "Nothing was minted. Mint a shorter one and mint it again when it runs out. A token " +
           "cannot be withdrawn, so its life is the only bound on it.",
       },
     );
@@ -343,7 +343,7 @@ function exactly(text: string, length: number, what: string): Uint8Array {
     });
   }
   if (bytes.length !== length) {
-    throw new NmtsError(`That ${what} is ${bytes.length} bytes; it must be ${length}.`, {
+    throw new NmtsError(`That ${what} is ${bytes.length} bytes. It must be ${length}.`, {
       exitCode: 2,
       nextStep: `Nothing was signed. Check that the right value was passed as the ${what}.`,
     });

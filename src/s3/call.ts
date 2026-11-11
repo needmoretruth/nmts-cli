@@ -58,7 +58,7 @@ export function metaOf(req: IncomingMessage): WriteMeta {
 export function readOnlyOnThisMachine(): string {
   return (
     "This gateway is read only. Uploading spends credits, and this machine has not agreed to " +
-    "spending — `nmts consent grant spend`, run by the person whose account this is, is what " +
+    "spending. `nmts consent grant spend`, run by the person whose account this is, is what " +
     "changes that. Nothing was written."
   );
 }

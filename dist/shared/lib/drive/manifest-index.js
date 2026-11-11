@@ -83,6 +83,17 @@ export function childrenOf(index, parentId) {
     return bucket.filter((e) => shown(index, e) && isLive(index, e));
 }
 /**
+ * Does a live entry in that folder (`null` = drive root) already use `name`?
+ *
+ * The same rule as the command line and the SDK (cli/src/drive-edit/move.ts, `NAME_TAKEN`): a new
+ * folder, a rename and a move all refuse a name the destination already shows, file or folder.
+ * Exact match: `A.txt` and `a.txt` are two names, as in `unique-name.ts`. `except` holds the entries
+ * being renamed or moved, which do not collide with themselves.
+ */
+export function nameTakenIn(index, parentId, name, except = new Set()) {
+    return childrenOf(index, parentId).some((e) => e.name === name && !except.has(e.id));
+}
+/**
  * What the trash view shows: items the person deleted directly, newest first.
  * A child whose parent is also trashed is deliberately absent — it is restored with its parent.
  */

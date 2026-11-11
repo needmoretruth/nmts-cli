@@ -64,7 +64,7 @@ test("⛔ turning a mode on needs a terminal; turning it off never does", async 
     // With a person answering, the explanation is printed first and y turns it on.
     assert.equal(await mode("auto-low", undefined, { write: (l) => said.push(l), readLine: answering("y") }), 0);
     assert.equal(await currentMode(), "auto-low");
-    assert.ok(said.some((l) => l.startsWith("auto-low — ")), "the explanation was not printed before the question");
+    assert.ok(said.some((l) => l.startsWith("auto-low: ")), "the explanation was not printed before the question");
 
     // Anything but y leaves it as it was.
     assert.equal(await mode("auto-high", undefined, { write: () => {}, readLine: answering("") }), 1);

@@ -28,6 +28,16 @@ export declare function creditsFor(sealedBytes: number, epochs?: number): number
  */
 export declare function partSizeFor(chosen: string | number | undefined): number;
 /**
+ * Stop when a part this size could seal to more than the storage network's relay carries.
+ *
+ * ⛔ BEFORE ANY PRICE, RESERVATION OR SIGNATURE. The relay refuses a body over 1 GiB, and it does so
+ *    after the bytes are sent, when the storage is already bought (measured 2026-11-11: a 1 GiB part
+ *    sealed to 1,073,745,992 bytes and the testnet relay answered 413 with the register paid).
+ *    `planFor` calls this too, so every rail that cuts a file (the price, the quote, the SDK and the
+ *    file driver `uploadFile`) refuses the same way, whoever handed it the number.
+ */
+export declare function refuseOversizedPart(partSize: number): void;
+/**
  * Where the cuts fall — and for an EMPTY file, one part that carries nothing.
  *
  * ⛔ AN EMPTY FILE IS A FILE, NOT A MISTAKE. S3 clients make them routinely, and NCF-3 seals zero

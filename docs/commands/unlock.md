@@ -1,11 +1,11 @@
-# nmts unlock, lock — what a person has opened on this machine
+# nmts unlock, lock: what a person has opened on this machine
 
 Commands: unlock, lock, consent
-Tiers: unlock=none · lock=none · consent=none
+Tiers: unlock=none, lock=none, consent=none
 
 High acts are locked until a person opens them, once per machine, at a terminal. `nmts unlock`
-lists the keys and their state; `nmts unlock <key>` prints what the key opens, its risk and its
-limit, asks y/N, and records the answer with a date; `nmts lock <key>` closes it again. `consent`
+lists the keys and their state. `nmts unlock <key>` prints what the key opens, its risk and its
+limit, asks y/N, and records the answer with a date. `nmts lock <key>` closes it again. `consent`
 is the older name for the same command. An agent does not run the unlock command: when a run
 exits 5 naming a key, show the person the text it printed and let them decide.
 

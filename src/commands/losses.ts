@@ -68,7 +68,7 @@ function rowsOf(answer: unknown): LossRow[] {
   if (!Array.isArray(list)) {
     throw new NmtsError(`The server's answer did not carry a list of losses.`, {
       exitCode: 1,
-      nextStep: `Nothing was changed. Report it rather than retrying — the shape, not the network, is wrong.`,
+      nextStep: `Nothing was changed. Report it instead of retrying: the shape of the answer is wrong, and the network is fine.`,
     });
   }
   return list.map((row: unknown) => {
@@ -165,7 +165,7 @@ export async function losses(options: LossesOptions = {}): Promise<number> {
       return 0;
     }
     say(
-      `Took the line for ${id} off. The incident stays in a record that names nobody; if the same ` +
+      `Took the line for ${id} off. The incident stays in a record that names nobody. If the same ` +
         `storage is found and lost again, it is shown again.`,
     );
     return 0;
@@ -192,10 +192,10 @@ export async function losses(options: LossesOptions = {}): Promise<number> {
   say(
     rows.length === 1
       ? `The chain no longer knows one storage object your credits paid for. That is what the ` +
-          `check measured; it did not try the download. The file may no longer come back, and ` +
+          `check measured. It did not try the download. The file may no longer come back, and ` +
           `NMTS cannot restore it.`
       : `The chain no longer knows ${rows.length} storage objects your credits paid for. That is ` +
-          `what the check measured; it did not try the download. Those files may no longer come ` +
+          `what the check measured. It did not try the download. Those files may no longer come ` +
           `back, and NMTS cannot restore them.`,
   );
 
@@ -203,8 +203,8 @@ export async function losses(options: LossesOptions = {}): Promise<number> {
   for (const row of rows) {
     say(
       `${row.blob_object_id}  first missed ${utcDay(row.first_seen)}` +
-        (row.required_notice ? ` · shown because the law requires it` : ``) +
-        (row.restricted ? ` · kept but not used while you contest it` : ``),
+        (row.required_notice ? `, shown because the law requires it` : ``) +
+        (row.restricted ? `, kept but not used while you contest it` : ``),
     );
   }
 
@@ -215,7 +215,7 @@ export async function losses(options: LossesOptions = {}): Promise<number> {
   );
   say(
     `\`${BINARY_NAME} losses --recheck <id>\` asks the chain again now. \`${BINARY_NAME} losses ` +
-      `--dismiss <id>\` takes a line off once you have read it; the incident stays in a record ` +
+      `--dismiss <id>\` takes a line off once you have read it. The incident stays in a record ` +
       `that names nobody.`,
   );
   return 0;

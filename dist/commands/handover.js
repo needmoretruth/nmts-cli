@@ -134,13 +134,13 @@ async function make(target, options) {
     if (entry.kind !== KIND_FILE) {
         throw new NmtsError(`No file at "${fullPathOf(index, entry)}".`, {
             exitCode: 4,
-            nextStep: "That is a folder. Nothing was written — a handover carries one file.",
+            nextStep: "That is a folder. Nothing was written. A handover carries one file.",
         });
     }
     if (entry.dekWrapped === undefined || entry.contentHashCt === undefined) {
         throw new NmtsError(`The file list holds no ${entry.dekWrapped === undefined ? "key" : "hash"} for "${entry.name}".`, {
             exitCode: 4,
-            nextStep: "A handover carries both — the key that opens the file and the hash the recipient checks. Nothing was written.",
+            nextStep: "A handover carries both: the key that opens the file and the hash the recipient checks. Nothing was written.",
         });
     }
     checkHandoverName(entry.name, entry.size, network);

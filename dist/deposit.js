@@ -68,7 +68,7 @@ export function refuseDepositWithWallet(asked) {
  */
 export function depositLines(credits, files) {
     if (credits === 0) {
-        return [`  no deposit — a release costs twice the fee from your balance`];
+        return [`  no deposit: a release costs twice the fee from your balance`];
     }
     const each = `${credits} credit${credits === 1 ? "" : "s"}`;
     const set = files === undefined || files === 1

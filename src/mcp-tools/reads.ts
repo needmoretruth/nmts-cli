@@ -71,7 +71,7 @@ export function readTools(ctx: ToolContext): ToolDefinition[] {
       name: "nmts_usage",
       description:
         "How much this account holds: how many files and folders, how many bytes, how much is in " +
-        "the trash, and the largest few. Reads the account's own sealed list — it costs nothing " +
+        "the trash, and the largest few. Reads the account's own sealed list. It costs nothing " +
         "and says nothing about credits.",
       inputSchema: NO_ARGS,
       run: () => say((write) => usage({ ...common(ctx), json: true, write })),
@@ -89,9 +89,9 @@ export function readTools(ctx: ToolContext): ToolDefinition[] {
       name: "nmts_losses",
       description:
         "Storage objects paid with this account's credits that NMTS's daily check could not find " +
-        "on the chain, newest first. Read-only; costs nothing. A program uploading with a key is " +
+        "on the chain, newest first. Read-only. Costs nothing. A program uploading with a key is " +
         "the caller that keeps writing into storage that is gone, so read this before a long run. " +
-        "Each row is a public chain object id and the day a check first missed it — no file name, " +
+        "Each row is a public chain object id and the day a check first missed it. There is no file name, " +
         "because the server cannot pair them.",
       inputSchema: NO_ARGS,
       run: () => say((write) => losses({ ...common(ctx), json: true, write })),
@@ -110,18 +110,18 @@ export function readTools(ctx: ToolContext): ToolDefinition[] {
       name: "nmts_wallet_activity",
       description:
         "The recent transactions of the wallet this account derives (newest first, 20 at most), " +
-        "each named only where the chain proves it — seal, extend, erase, exchange, send, receive, " +
-        "otherwise 'other' — with its balance changes and an explorer link. Read-only. Gifts to the " +
-        "developer appear as sends here; this tool does not know that address.",
+        "each named only where the chain proves it (seal, extend, erase, exchange, send, receive, " +
+        "otherwise 'other'), with its balance changes and an explorer link. Read-only. Gifts to the " +
+        "developer appear as sends here. This tool does not know that address.",
       inputSchema: NO_ARGS,
       run: () => say((write) => walletActivity({ ...common(ctx), json: true, write })),
     },
     {
       name: "nmts_wallet_storage",
       description:
-        "The storage resources (size × time on the storage network) this wallet holds unbound — " +
-        "what deleting a file from the network gave back — with whether each is usable now. " +
-        "Read-only; nothing here spends or signs.",
+        "The storage resources (size × time on the storage network) this wallet holds unbound " +
+        "(what deleting a file from the network gave back), with whether each is usable now. " +
+        "Read-only. Nothing here spends or signs.",
       inputSchema: NO_ARGS,
       run: () => say((write) => walletStorage({ ...common(ctx), json: true, write })),
     },
@@ -130,7 +130,7 @@ export function readTools(ctx: ToolContext): ToolDefinition[] {
       description:
         "What is signed in to this NMTS account: for each device, when it was first signed in, " +
         "when it was last used, and when it runs out. ⛔ READ-ONLY. Signing a device out is a " +
-        "person's act at nmts.me and no API key can do it — including this one — so if a row " +
+        "person's act at nmts.me and no API key can do it, including this one, so if a row " +
         "looks wrong, say so and let the person end it rather than looking for a way to do it " +
         "here. ⚠ The name each device was given is encrypted with the NMTS key, which the " +
         "server has never had, so no name is returned.",
@@ -140,12 +140,12 @@ export function readTools(ctx: ToolContext): ToolDefinition[] {
     {
       name: "nmts_public_code",
       description:
-        "The account's PUBLIC CODES — the values other accounts send files to. `code` is the " +
+        "The account's PUBLIC CODES: the values other accounts send files to. `code` is the " +
         "default one (the lowest-numbered live code) and whether it is published; `codes` lists " +
         "every code with its number, whether it is live or revoked, and how many shares and " +
         "messages went through it; `live`, `liveMax`, `madeToday` and `dayCap` are the server's " +
         "ceilings. With `activity`, each code also lists its shares. Until a code is published " +
-        "nobody can send to this account; nmts_public_code_new publishes one. ⚠ Not the NMTS " +
+        "nobody can send to this account. Nmts_public_code_new publishes one. ⚠ Not the NMTS " +
         "key, which opens every file and is never given away.",
       inputSchema: {
         type: "object",
@@ -166,7 +166,7 @@ export function readTools(ctx: ToolContext): ToolDefinition[] {
       name: "nmts_shares",
       description:
         "Files this account has shared with somebody, and files somebody has shared with it. The " +
-        "ids in the received list are what nmts_receive takes; the ids in the sent list are what " +
+        "ids in the received list are what nmts_receive takes. The ids in the sent list are what " +
         "nmts_unshare takes.",
       inputSchema: NO_ARGS,
       run: () => say((write) => shares({ ...common(ctx), json: true, write })),
@@ -175,7 +175,7 @@ export function readTools(ctx: ToolContext): ToolDefinition[] {
       name: "nmts_shares_sent",
       description:
         "Who one file in the account was shared with: recipient address, since when, and the " +
-        "share id. Read-only; costs nothing.",
+        "share id. Read-only. Costs nothing.",
       inputSchema: {
         type: "object",
         properties: {
@@ -201,14 +201,14 @@ export function readTools(ctx: ToolContext): ToolDefinition[] {
       description:
         "The NMTS notice board as JSON, newest first: interruptions, incidents, and the notice " +
         "given before a new version of the Terms takes effect. Ids here are what nmts_notice " +
-        "takes. Public and read-only; it costs nothing and needs no account.",
+        "takes. Public and read-only. It costs nothing and needs no account.",
       inputSchema: NO_ARGS,
       run: () => say((write) => notices({ ...common(ctx), json: true, write })),
     },
     {
       name: "nmts_notice",
       description:
-        "One notice in full, as the dated text the board's download button writes — the same " +
+        "One notice in full, as the dated text the board's download button writes, the same " +
         "bytes. Read this before acting on anything nmts_notices only summarised.",
       inputSchema: {
         type: "object",
@@ -249,7 +249,7 @@ export function readTools(ctx: ToolContext): ToolDefinition[] {
       name: "nmts_privacy",
       description:
         "The NMTS Privacy Policy in force, as text, with its version and effective date at the " +
-        "head. It is what the service says it collects and keeps; read it rather than describing " +
+        "head. It is what the service says it collects and keeps. Read it rather than describing " +
         "it from memory.",
       inputSchema: {
         type: "object",

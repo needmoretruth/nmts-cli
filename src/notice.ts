@@ -35,7 +35,7 @@ export function firstRunNotice(): string {
     `  means any program that can read your files can read it, including any`,
     `  agent you run on this machine.`,
     ``,
-    `  If it leaves this machine — in a log line, in a prompt, in a repository —`,
+    `  If it leaves this machine (in a log line, in a prompt, in a repository),`,
     `  whoever holds it can read every file in the account and spend from the`,
     `  wallet. NMTS cannot undo that: requests made with your NMTS key cannot be`,
     `  told apart from your own, and it cannot be changed while keeping`,

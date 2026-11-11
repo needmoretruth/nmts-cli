@@ -93,7 +93,7 @@ export async function quoteUpload(network, ask, seams = {}) {
     if (window === null) {
         throw new NmtsError(`The ${network} storage network could not be read.`, {
             exitCode: 1,
-            nextStep: "Nothing was spent. Which epoch it is and how far ahead the network sells are facts only the chain has; ask again.",
+            nextStep: "Nothing was spent. Which epoch it is and how far ahead the network sells are facts only the chain has. Ask again.",
         });
     }
     // ⛔ THE SAME REFUSAL AS THE UPLOAD: a term the network will not sell is refused, never clamped.
@@ -106,7 +106,7 @@ export async function quoteUpload(network, ask, seams = {}) {
     if (price === null) {
         throw new NmtsError(`The ${network} reference gas price could not be read.`, {
             exitCode: 1,
-            nextStep: "Nothing was spent. The fee estimate scales with that price, so it is not guessed; ask again.",
+            nextStep: "Nothing was spent. The fee estimate scales with that price, so it is not guessed. Ask again.",
         });
     }
     const sum = (pick) => quotes.reduce((total, q) => total + pick(q), 0n);

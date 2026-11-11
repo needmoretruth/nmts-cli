@@ -136,7 +136,7 @@ export async function verify(options: VerifyOptions = {}): Promise<number> {
   }
   // ⚠ ADDRESSED TO WHOEVER IS RUNNING THIS, WHICH IS OFTEN A PROGRAM. It says what has to happen
   //   and who has to do it, and it does not pretend that the tool has any way to do it instead.
-  human(`A person has to finish this at a browser. Nothing here can do it for them — what`);
+  human(`A person has to finish this at a browser. Nothing here can do it for them: what`);
   human(`is being checked is that somebody is there.`);
   human(``);
   human(`  Ask the person to open   ${minted.verifyUrl}`);

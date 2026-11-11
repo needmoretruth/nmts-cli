@@ -50,7 +50,7 @@ export function resolveCoin(word: CoinWord, network: Network): SwapCoin {
   if (coin === null) {
     throw new NmtsError(`${word.coinType} is not SUI, WAL or Circle's native USDC on ${network}.`, {
       exitCode: 2,
-      nextStep: `Nothing was signed. A coin is matched by its whole type, package address included — a coin that only shares the name is a different coin. The USDC this tool swaps is ${swapCoinTypes(network).USDC}.`,
+      nextStep: `Nothing was signed. A coin is matched by its whole type, package address included. A coin that only shares the name is a different coin. The USDC this tool swaps is ${swapCoinTypes(network).USDC}.`,
     });
   }
   return coin;
@@ -82,8 +82,8 @@ export function venueName(venue: SwapVenue | "exchange"): string {
 
 export function quoteLine(q: VenueQuote, outCoin: SwapCoin, inCoin: SwapCoin): string {
   const fee = q.feeRateBps === null ? "venue fee could not be measured" : `venue fee about ${pct(q.feeRateBps)}`;
-  const via = q.route === "viaUsdc" ? ` — ${inCoin} → USDC → ${outCoin} in one transaction` : "";
+  const via = q.route === "viaUsdc" ? `, ${inCoin} → USDC → ${outCoin} in one transaction` : "";
   const left = q.leftoverInUnits > 0n ? ` (${amountOf(inCoin, q.leftoverInUnits)} ${inCoin} would come back unused)` : "";
   const mid = q.leftoverMidUnits > 0n ? ` (${amountOf("USDC", q.leftoverMidUnits)} USDC would come back unused)` : "";
-  return `${q.venue.padEnd(9)} ${amountOf(outCoin, q.outUnits)} ${outCoin} — ${fee}${via}${left}${mid}`;
+  return `${q.venue.padEnd(9)} ${amountOf(outCoin, q.outUnits)} ${outCoin}, ${fee}${via}${left}${mid}`;
 }

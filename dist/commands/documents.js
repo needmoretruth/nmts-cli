@@ -98,7 +98,7 @@ function noticeRows(answer) {
     if (!Array.isArray(list)) {
         throw new NmtsError("The server's answer did not carry a list of notices.", {
             exitCode: 1,
-            nextStep: "Report it rather than retrying — the shape, not the network, is wrong.",
+            nextStep: "Report it instead of retrying: the shape of the answer is wrong, and the network is fine.",
         });
     }
     const rows = [];

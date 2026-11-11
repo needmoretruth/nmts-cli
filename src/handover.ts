@@ -252,7 +252,7 @@ export function readPublicCodeFileText(
   if (!identityMatches(crypt, identity, address)) {
     throw new NmtsError("The identity in this public code file does not belong to the public code it names.", {
       exitCode: 1,
-      nextStep: "Nothing was written. Sealing to it would hand the file to somebody else; ask the recipient for their file again.",
+      nextStep: "Nothing was written. Sealing to it would hand the file to somebody else. Ask the recipient for their file again.",
     });
   }
   return { identity, address, display: crypt.share_address_display(address) };
@@ -268,7 +268,7 @@ function readRefusal(error: unknown, network: HandoverNetwork): NmtsError {
         nextStep: "Nothing was written. Update this tool and try again.",
       });
     case "other-network":
-      return new NmtsError(`This handover file was made on the other network; this tool is on ${network}.`, {
+      return new NmtsError(`This handover file was made on the other network. This tool is on ${network}.`, {
         exitCode: 4,
         nextStep: "Nothing was written. Open it with --network set to the network it was made on.",
       });

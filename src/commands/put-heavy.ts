@@ -59,7 +59,7 @@ export async function putHeavy(target: string | undefined, options: PutOptions):
   if (target === undefined || target === "") {
     throw new NmtsError("Say which file to put.", {
       exitCode: 2,
-      nextStep: `\`${BINARY_NAME} put <file>\` — a path on this machine.`,
+      nextStep: `\`${BINARY_NAME} put <file>\`, with a path on this machine.`,
     });
   }
   const localPath = resolve(target);
@@ -120,7 +120,7 @@ export async function putHeavy(target: string | undefined, options: PutOptions):
   if (typeof report.facts["expiryEpoch"] === "number") say(HEAVY_COPY.stored(report.facts["expiryEpoch"]));
   if (added.replaced !== null) {
     say(``);
-    say(`  A file called ${name} was already there. It is in the trash now — ${BINARY_NAME} restore`);
+    say(`  A file called ${name} was already there. It is in the trash now; ${BINARY_NAME} restore`);
     say(`  brings it back for 30 days. This machine is set to overwrite: ${BINARY_NAME} on-collision`);
   } else if (added.name !== name) {
     say(``);

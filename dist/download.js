@@ -158,7 +158,7 @@ async function collect(crypt, ordered, dek, expected, size, chain, read, sink) {
             expected.fill(0);
             if (!same) {
                 throw new NmtsError("The file came back whole but does not match the hash recorded for it.", {
-                    nextStep: "Nothing was written. Every part decrypted, so this is not a wrong key — the bytes " +
+                    nextStep: "Nothing was written. Every part decrypted, so the key is right. The bytes " +
                         "themselves are not the ones that were uploaded.",
                 });
             }

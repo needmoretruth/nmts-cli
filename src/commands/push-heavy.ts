@@ -123,6 +123,6 @@ export async function pushHeavy(target: string, options: PushOptions): Promise<n
     return 0;
   }
   say(``);
-  say(`${uploaded.length} sent · ${already.length} already there`);
+  say(`${uploaded.length} sent, ${already.length} already there`);
   return 0;
 }

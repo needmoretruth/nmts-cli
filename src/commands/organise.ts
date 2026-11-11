@@ -71,7 +71,7 @@ export async function mv(operands: readonly string[], options: OrganiseOptions =
     throw new NmtsError("`nmts mv` needs what to move and where to put it.", {
       exitCode: 2,
       nextStep:
-        `For example: nmts mv notes.txt archive   ·   nmts mv a.txt b.txt archive   ·   ` +
+        `For example: nmts mv notes.txt archive, nmts mv a.txt b.txt archive, ` +
         `nmts mv archive/notes.txt /`,
     });
   }

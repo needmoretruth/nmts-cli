@@ -187,7 +187,7 @@ export async function recovery(options: RecoveryOptions = {}): Promise<number> {
   for (const line of wrapText(CHECK_DOES_NOT_PROVE)) say(`  ${line}`);
   say(``);
   for (const line of wrapText(
-    `Nothing was installed. The file is where you see it and nowhere else — no copy was put on ` +
+    `Nothing was installed. The file is where you see it and nowhere else. No copy was put on ` +
       `your PATH, and nothing on this machine was pointed at it. Run it with \`--help\` to see ` +
       `what it does.`,
   )) {
@@ -237,7 +237,7 @@ async function fetched(from: string, cap: number, what: string): Promise<Fetched
         exitCode: 1,
         nextStep:
           `Nothing was written. This talks to the site the recovery program is published on, not ` +
-          `to NMTS — check that this machine can reach it, and try again.`,
+          `to NMTS. Check that this machine can reach it, and try again.`,
       });
     }
     if (response.status >= 300 && response.status < 400) {
@@ -264,12 +264,12 @@ async function fetched(from: string, cap: number, what: string): Promise<Fetched
       continue;
     }
     if (!response.ok) {
-      throw new NmtsError(`${what} — the release answered ${response.status}.`, {
+      throw new NmtsError(`${what}: the release answered ${response.status}.`, {
         exitCode: 1,
         nextStep:
           response.status === 404
             ? `Nothing was written. That file is not attached to the release this resolved to.`
-            : `Nothing was written. Try again; if it keeps answering this, the release page is the ` +
+            : `Nothing was written. Try again. If it keeps answering this, the release page is the ` +
               `place to look.`,
       });
     }
@@ -294,7 +294,7 @@ function tooBig(what: string, cap: number): NmtsError {
   return new NmtsError(`${what} is larger than ${Math.round(cap / (1024 * 1024))} MiB.`, {
     exitCode: 4,
     nextStep:
-      `Nothing was written. The published executables are a few megabytes; whatever answered is ` +
+      `Nothing was written. The published executables are a few megabytes. Whatever answered is ` +
       `not one of them.`,
   });
 }
@@ -354,8 +354,8 @@ function doesNotMatch(asset: string, tag: string, expected: string, got: string)
   return new NmtsError(`${asset} is not the file release ${tag} published.`, {
     exitCode: 4,
     nextStep:
-      `The downloaded file was deleted. ${SUMS_FILE} says ${expected}; what arrived hashes to ` +
-      `${got}. Run this again — a download can be cut short — and if it says the same thing twice, ` +
+      `The downloaded file was deleted. ${SUMS_FILE} says ${expected}. What arrived hashes to ` +
+      `${got}. Run this again (a download can be cut short), and if it says the same thing twice, ` +
       `do not run the file.`,
   });
 }

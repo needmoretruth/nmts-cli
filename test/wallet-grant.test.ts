@@ -147,14 +147,14 @@ test("`unlock wallet` writes the three things and `unlock` lists them", async ()
     const write = (l: string): number => lines.push(l);
     assert.equal((await refusalAsync(() => unlock("unlock", "wallet", { write, now: () => AT, readLine: async () => "y" }))).exitCode, 2, "no expiry, no grant");
     assert.equal(await unlock("unlock", "wallet", { write, now: () => AT, days: "7", scope: "all", capWal: "3", readLine: async () => "y" }), 0);
-    assert.match(lines.join("\n"), /unlocked: wallet — scope all, until 2026-09-12T12:00:00\.000Z/);
+    assert.match(lines.join("\n"), /unlocked: wallet, scope all, until 2026-09-12T12:00:00\.000Z/);
     assert.match(lines.join("\n"), /ceiling 3 WAL/);
     lines.length = 0;
     assert.equal(await unlock(undefined, undefined, { write, now: () => AT }), 0);
     const text = lines.join("\n");
     assert.match(text, /^ {2}unlocked +wallet$/m);
-    assert.match(text, /scope all · unlocked 2026-09-05T12:00:00\.000Z · until 2026-09-12T12:00:00\.000Z/);
-    assert.match(text, /ceiling 3 WAL · signed away so far 0 WAL, 0 SUI in fees/);
+    assert.match(text, /scope all, unlocked 2026-09-05T12:00:00\.000Z, until 2026-09-12T12:00:00\.000Z/);
+    assert.match(text, /ceiling 3 WAL, signed away so far 0 WAL, 0 SUI in fees/);
     lines.length = 0;
     assert.equal(await unlock(undefined, undefined, { write, now: () => AT, json: true }), 0);
     const parsed: unknown = JSON.parse(lines.join(""));

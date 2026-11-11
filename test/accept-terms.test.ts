@@ -55,7 +55,7 @@ test("it sends the account id, the sign-in proof and the two typed versions — 
     assert.match(input.asked[0] ?? "", /Terms of Service version you have read and accept/);
     assert.match(input.asked[1] ?? "", /Privacy Policy version you have read/);
     assert.deepEqual(out.lines.slice(0, 2), [
-      "In force: Terms of Service 2026-09-10-v11 · Privacy Policy 2026-09-10-v12.",
+      "In force: Terms of Service 2026-09-10-v11, Privacy Policy 2026-09-10-v12.",
       "This account has not accepted this pair, so uploads and shares are refused until it does.",
     ]);
     assert.equal(
@@ -92,7 +92,7 @@ test("an account that already accepted is told so, and nothing is sent", async (
     assert.equal(input.asked.length, 0);
     assert.equal(accountState.acceptRequests.length, 0);
     assert.deepEqual(out.lines, [
-      "This account has already accepted the documents in force (Terms of Service 2026-09-10-v11 · " +
+      "This account has already accepted the documents in force (Terms of Service 2026-09-10-v11, " +
         "Privacy Policy 2026-09-10-v12). Nothing to do.",
     ]);
   });

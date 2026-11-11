@@ -47,7 +47,7 @@ interface ListedKey {
 function asKeys(value: unknown): ListedKey[] {
   if (!isRecord(value) || !Array.isArray(value["keys"])) {
     throw new NmtsError("The server listed the keys in a shape this version cannot read.", {
-      nextStep: `Update this tool — \`npm install -g ${BINARY_NAME}\` — or read them in a browser.`,
+      nextStep: `Update this tool (\`npm install -g ${BINARY_NAME}\`) or read them in a browser.`,
     });
   }
   const out: ListedKey[] = [];
@@ -132,7 +132,7 @@ export async function keyList(options: KeyManageOptions = {}): Promise<number> {
   }
   say(``);
   say(`  ${live.length} live of ${keys.length}. The key strings are not here: NMTS keeps no copy of them.`);
-  say(`  \`${BINARY_NAME} key revoke <id>\` (or \`all\`) cuts one — whatever uses it stops at once.`);
+  say(`  \`${BINARY_NAME} key revoke <id>\` (or \`all\`) cuts one. Whatever uses it stops at once.`);
   return 0;
 }
 

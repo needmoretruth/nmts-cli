@@ -46,7 +46,7 @@ export async function get(target, options = {}) {
     if (target === undefined || target === "") {
         throw new NmtsError("Say which file to get.", {
             exitCode: 2,
-            nextStep: `\`${BINARY_NAME} get <path>\` — the path as \`${BINARY_NAME} ls\` prints it.`,
+            nextStep: `\`${BINARY_NAME} get <path>\`, with the path as \`${BINARY_NAME} ls\` prints it.`,
         });
     }
     // ⛔ ONE PLACE RESOLVES THE CREDENTIALS, so the "no API key" refusal — the sentence a new user is
@@ -72,7 +72,7 @@ export async function get(target, options = {}) {
     if (entry.kind !== KIND_FILE) {
         throw new NmtsError(`No file at "${fullPathOf(index, entry)}".`, {
             exitCode: 4,
-            nextStep: "That is a folder. Nothing was written — this version gets one file at a time.",
+            nextStep: "That is a folder. Nothing was written. This version gets one file at a time.",
         });
     }
     if (entry.dekWrapped === undefined) {

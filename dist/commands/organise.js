@@ -60,7 +60,7 @@ export async function mv(operands, options = {}) {
     if (destination === undefined || paths.length === 0) {
         throw new NmtsError("`nmts mv` needs what to move and where to put it.", {
             exitCode: 2,
-            nextStep: `For example: nmts mv notes.txt archive   ·   nmts mv a.txt b.txt archive   ·   ` +
+            nextStep: `For example: nmts mv notes.txt archive, nmts mv a.txt b.txt archive, ` +
                 `nmts mv archive/notes.txt /`,
         });
     }

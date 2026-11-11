@@ -167,7 +167,7 @@ export async function makeRecoveryList(account: RecoveryAccount, options: MakeOp
       exitCode: 4,
       nextStep:
         `Nothing was written. A recovery list says what each stored file is CALLED and which key ` +
-        `opens it, and both come from the account's own file list — the storage network holds ` +
+        `opens it, and both come from the account's own file list. The storage network holds ` +
         `neither. Run \`${BINARY_NAME} rebuild\` if this account has stored files but no list.`,
     });
   }

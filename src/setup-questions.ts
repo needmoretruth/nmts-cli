@@ -28,5 +28,5 @@ export async function askAboutCollisions(say: (line: string) => void): Promise<v
   say(`  ${ANSWER_NUMBER.overwrite}  ${COLLISION_MEANS.overwrite}`);
   const choice = readAnswer(await promptLine(`[${ANSWER_NUMBER.rename}] `));
   await setChoice(choice, VERSION, new Date());
-  say(`${choice} — ${COLLISION_MEANS[choice]}  Change it: ${BINARY_NAME} on-collision <rename|overwrite>`);
+  say(`${choice}: ${COLLISION_MEANS[choice]}  Change it: ${BINARY_NAME} on-collision <rename|overwrite>`);
 }

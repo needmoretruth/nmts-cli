@@ -62,7 +62,7 @@ export async function deposit(wanted: string | undefined, options: DepositOption
         ? `Uploads paid for with credits set no deposit aside. ${WHAT_ZERO_COSTS}`
         : `Uploads paid for with credits set ${credits} credit${credits === 1 ? "" : "s"} aside on ` +
             `each file, back when that file's storage period ends. Anything from 0 to ` +
-            `${DEPOSIT_CREDITS_MAX} — \`${BINARY_NAME} deposit <n>\`, or --deposit for one upload.`,
+            `${DEPOSIT_CREDITS_MAX}: \`${BINARY_NAME} deposit <n>\`, or --deposit for one upload.`,
     );
     return 0;
   }
@@ -73,7 +73,7 @@ export async function deposit(wanted: string | undefined, options: DepositOption
   const before = await readFileList(session.server, session.apiKey, session.code, session.accountId);
   if (before.manifest === null) {
     throw new NmtsError(
-      `This account has no file list yet; the setting lives in the list, and there is nothing to write it into.`,
+      `This account has no file list yet. The setting lives in the list, and there is nothing to write it into.`,
       { exitCode: 4, nextStep: `Upload once (\`${BINARY_NAME} put\`) and set it after.` },
     );
   }
@@ -92,7 +92,7 @@ export async function deposit(wanted: string | undefined, options: DepositOption
     return 0;
   }
   say(
-    `Set to ${asked}. It applies to what is uploaded next, from every device; deposits already ` +
+    `Set to ${asked}. It applies to what is uploaded next, from every device. Deposits already ` +
       `set aside on stored files are not moved.`,
   );
   return 0;

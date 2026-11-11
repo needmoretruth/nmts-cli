@@ -91,7 +91,7 @@ const NOTE: readonly string[] = [
   `The original file list lives on the NMTS server. If the server can no longer be reached, this ` +
     `list together with the NMTS key carries the information needed to find the files still ` +
     `on the storage network and open them.`,
-  `A list with a higher number in its filename is newer — keep the newest. Store this file ` +
+  `A list with a higher number in its filename is newer. Keep the newest. Store this file ` +
     `somewhere other than the NMTS key. The program that reads it is at ` +
     `github.com/needmoretruth/nmts-recovery.`,
 ];

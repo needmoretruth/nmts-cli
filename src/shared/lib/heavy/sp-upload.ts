@@ -102,7 +102,7 @@ export async function uploadPieceToProvider(input: UploadPieceInput): Promise<vo
   if (total < MIN_BYTES || total > MAX_BYTES) {
     throw new PieceUploadError(
       "size_out_of_range",
-      `A piece must be ${MIN_BYTES}..${MAX_BYTES} bytes; this part is ${total}.`,
+      `A piece must be ${MIN_BYTES}..${MAX_BYTES} bytes. This part is ${total}.`,
     );
   }
   const withSignal = signal === undefined ? {} : { signal };

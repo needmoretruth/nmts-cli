@@ -39,7 +39,7 @@ import { tierLabel, tiersOf } from "../list-tier.js";
 function trashWindow(trashedAtMs, nowMs) {
     const left = daysLeftInTrash(trashedAtMs, nowMs);
     if (left <= 0)
-        return `past ${TRASH_RETENTION_DAYS} days — \`nmts sweep\` drops it`;
+        return `past ${TRASH_RETENTION_DAYS} days; \`nmts sweep\` drops it`;
     return `${left} day${left === 1 ? "" : "s"} left`;
 }
 /**
@@ -158,7 +158,7 @@ export async function ls(options = {}) {
         }
         else {
             say(`No file in this account has "${options.find}" in its name` +
-                (hidden > 0 ? ` (${hidden} in the trash, not searched — \`--all\` searches those too)` : ``) +
+                (hidden > 0 ? ` (${hidden} in the trash, not searched; \`--all\` searches those too)` : ``) +
                 `.`);
         }
     }
@@ -175,12 +175,12 @@ export async function ls(options = {}) {
         say(``);
         const files = rows.filter((r) => r.kind !== KIND_FOLDER).length;
         const total = rows.filter((r) => r.kind !== KIND_FOLDER).reduce((n, r) => n + r.size, 0);
-        say(`${files} file${files === 1 ? "" : "s"} · ${humanSize(total)}` +
+        say(`${files} file${files === 1 ? "" : "s"}, ${humanSize(total)}` +
             (needle === null ? `` : ` matching "${options.find}"`) +
             (hidden > 0
                 ? needle === null
-                    ? ` · ${hidden} in the trash, hidden (--all shows them)`
-                    : ` · ${hidden} in the trash, not searched (--all searches those too)`
+                    ? `, ${hidden} in the trash, hidden (--all shows them)`
+                    : `, ${hidden} in the trash, not searched (--all searches those too)`
                 : ``));
         // ⛔ THE TABLE SAYS WHAT IT LEFT OUT. Under a query the rows above are not the drive, and the
         //    two ways that misleads are both quiet ones: files that did not match are simply absent,
@@ -194,7 +194,7 @@ export async function ls(options = {}) {
                 say(`  Without --find this listing would also have shown ${filteredOutFiles} other ` +
                     `file${filteredOutFiles === 1 ? "" : "s"}, which did not match.`);
             }
-            say(`  Only file names are matched, so a folder is never a match of its own — the folders`);
+            say(`  Only file names are matched, so a folder is never a match of its own. The folders`);
             say(`  above are the ones that hold a match, and folders holding none are not listed.`);
         }
     }
@@ -208,7 +208,7 @@ export async function ls(options = {}) {
     }
     if (list.serverSeqDisagreed !== undefined) {
         say(``);
-        say(`  The server said version ${list.serverSeqDisagreed}; the sealed list says ${list.seq}.`);
+        say(`  The server said version ${list.serverSeqDisagreed}. The sealed list says ${list.seq}.`);
         say(`  The sealed number is the one that is authenticated, so it is the one used.`);
     }
     return 0;

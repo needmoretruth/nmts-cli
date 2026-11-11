@@ -99,7 +99,7 @@ function describe(say, review, wallet) {
     say(`  paid by  ${review.address} (wallet ${wallet}), which also receives it`);
     say(`  Storage ${coinAmount(review.priceFrost)} WAL. Writing a file into it later costs its own small WAL.`);
     say(review.feeMist === null
-        ? `  Chain fee (SUI): could not be measured just now; it is charged with the signature.`
+        ? `  Chain fee (SUI): could not be measured just now. It is charged with the signature.`
         : `  Chain fee about ${coinAmount(review.feeMist)} SUI, measured by a dry run just now.`);
     const wal = review.walFrost === null ? "WAL not read" : `${coinAmount(review.walFrost)} WAL`;
     const sui = review.suiMist === null ? "SUI not read" : `${coinAmount(review.suiMist)} SUI`;

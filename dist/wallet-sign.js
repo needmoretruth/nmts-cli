@@ -136,8 +136,8 @@ export const signExtension = async ({ network, code, wallet, objectIds, epochs }
         throw new NmtsError(`The storage network refused the extension: ${result.refused}.`, {
             exitCode: 1,
             nextStep: `The storage was NOT extended and the file still ends when it did. The transaction fee ` +
-                `was spent. The usual causes are too little WAL or SUI in this account's wallet — ` +
-                `\`nmts wallet\` shows both — or a length the network will no longer sell.`,
+                `was spent. The usual causes are too little WAL or SUI in this account's wallet ` +
+                `(\`nmts wallet\` shows both) or a length the network will no longer sell.`,
         });
     }
     // The wait until a node can read it back already happened inside `signAndRun`.
@@ -161,7 +161,7 @@ export const signTransfer = async ({ network, code, wallet, shape }) => {
         throw new NmtsError(`The chain refused the transfer: ${result.refused}.`, {
             exitCode: 1,
             nextStep: `Nothing was sent. The transaction fee was spent. The usual cause is a balance that moved ` +
-                `between reading it and signing — \`nmts wallet\` shows both balances now.`,
+                `between reading it and signing. \`nmts wallet\` shows both balances now.`,
         });
     }
     return result.digest;
@@ -202,7 +202,7 @@ export const signSwap = async ({ network, code, wallet, shape }) => {
         throw new NmtsError(`The chain refused the swap: ${refused}.`, {
             exitCode: 1,
             nextStep: `Nothing was swapped. The transaction fee was spent. The usual causes are a price that moved ` +
-                `past the minimum between the quote and the signature — quote again, or allow more slippage — ` +
+                `past the minimum between the quote and the signature (quote again, or allow more slippage) ` +
                 `or a balance that moved. \`nmts wallet\` shows both balances now.`,
         });
     }
@@ -230,7 +230,7 @@ export const signBlobRegister = async ({ network, code, wallet, relayUrl, ...sha
         throw new NmtsError(`The storage network refused the registration: ${refused}.`, {
             exitCode: 1,
             nextStep: `Nothing is stored and no storage was bought. The transaction fee was spent. The usual causes ` +
-                `are too little WAL or SUI in this account's wallet — \`nmts wallet\` shows both — or a held ` +
+                `are too little WAL or SUI in this account's wallet (\`nmts wallet\` shows both) or a held ` +
                 `resource too small for the part once encoded.`,
         });
     }
@@ -248,7 +248,7 @@ export const signBlobCertify = async ({ network, code, wallet, relayUrl, ...shap
     if (refused !== null) {
         throw new NmtsError(`The storage network refused the certification: ${refused}.`, {
             exitCode: 1,
-            nextStep: `The storage is bought and the bytes are on the network; only the certification failed, and ` +
+            nextStep: `The storage is bought and the bytes are on the network. Only the certification failed, and ` +
                 `its fee was spent. Running the same command again certifies again and buys nothing.`,
         });
     }

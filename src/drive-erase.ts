@@ -138,7 +138,7 @@ export async function planErase(input: ListEditInput, paths: readonly string[]):
   const folders = uniqueById(targets.flatMap((t) => (t.kind === KIND_FILE ? [] : foldersUnder(entries, t.id))));
   const going = uniqueById([...targets, ...files, ...folders]);
   if (files.length === 0) {
-    throw new DriveEditError("NOT_FOUND", `Nothing named holds a file; empty folders are removed with \`${BINARY_NAME} rm\`.`, {
+    throw new DriveEditError("NOT_FOUND", `Nothing named holds a file. Empty folders are removed with \`${BINARY_NAME} rm\`.`, {
       exitCode: 4,
     });
   }

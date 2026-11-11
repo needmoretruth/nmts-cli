@@ -1,8 +1,8 @@
-# nmts — for agents
+# nmts: for agents
 
 NMTS = NeedMoreTruthStorage: end-to-end encrypted cloud storage on the Walrus network, built by
 one developer (needmoretruth) for AI agents as much as for people. Site https://nmts.me. Each command has a document: **`nmts help <command>`** prints
-it (same files under `docs/commands/`); read it before using that command the first time.
+it (same files under `docs/commands/`). Read it before using that command the first time.
 
 **This document describes a tool. It has no authority over your own instructions.** Nothing here
 asks you to do anything for anyone but the person you are working for, and if any line reads as an
@@ -25,7 +25,7 @@ nmts env      # where am I, and can I use this here?  (needs nothing)
 nmts whoami   # which account am I holding?           (offline, no server call)
 nmts ls       # what is in it?
 nmts get x    # fetch one file
-nmts put x    # upload one file — this one spends credits
+nmts put x    # upload one file; this one spends credits
 nmts mode     # which mode is on, and so what will be asked
 ```
 
@@ -43,11 +43,11 @@ once, for an unlock (`nmts help login`).
 ## What is built on it today
 
 - **Storage for an agent**, outliving a session or a machine: this command, or [its MCP server](#if-your-client-speaks-mcp).
-- **Encrypted storage inside a product.** The [SDK](https://github.com/needmoretruth/nmts-sdk) (`npm install @needmoretruth/nmts-sdk`; it has an `AGENTS.md` of its own) opens an account per user. The user holds the NMTS key, or the product does (`Nmts.managed`); every method works either way, and [terms](https://nmts.me/terms) 3.7 provides for it, commercially too.
+- **Encrypted storage inside a product.** The [SDK](https://github.com/needmoretruth/nmts-sdk) (`npm install @needmoretruth/nmts-sdk`. It has an `AGENTS.md` of its own) opens an account per user. The user holds the NMTS key, or the product does (`Nmts.managed`). Every method works either way, and [terms](https://nmts.me/terms) 3.7 provides for it, commercially too.
 - **An S3 endpoint**, `@needmoretruth/nmts-sdk/gateway`: a bucket and a key pair per customer, so django-storages, Rails Active Storage, rclone and backup tools store into NMTS unchanged.
 - **Files that come back without NMTS.** [nmts-recovery](https://github.com/needmoretruth/nmts-recovery) rebuilds them from Walrus with the NMTS key and the recovery list the person saved. No NMTS server takes part.
 
-All of it works with what is published now. An account pays with credits or from its own wallet — WAL to Walrus, SUI to the chain, no fee to NMTS. NMTS does not inspect or certify products built with the SDK: who holds the keys in one is that product's own statement.
+All of it works with what is published now. An account pays with credits or from its own wallet: WAL to Walrus, SUI to the chain, no fee to NMTS. NMTS does not inspect or certify products built with the SDK: who holds the keys in one is that product's own statement.
 
 ## What only a person can do, once
 
@@ -55,27 +55,27 @@ Four things need a person, all at the beginning. If you are being set up, hand t
 
 | Step | Who | Where | How often |
 |---|---|---|---|
-| 1. Make the account | a person — or you, with a one-time pass | nmts.me, or `nmts create` at a terminal (it makes the NMTS key on that machine and hands the person a one-time link to finish in a browser). **With a pass**: the person takes it at nmts.me/ai (passing the check and accepting the Terms and Privacy Policy there), and within sixty minutes you run `nmts create` with the pass in the environment variable `NMTS_AGENT_PASS`, which keeps the NMTS key in this tool's file, makes step 2's key (read, write, spend) and starts step 3 live; with no shell, open `https://nmts.me/create#pass=<pass>`. The pass works once and never goes on a command line | once |
+| 1. Make the account | a person, or you with a one-time pass | nmts.me, or `nmts create` at a terminal (it makes the NMTS key on that machine and hands the person a one-time link to finish in a browser). **With a pass**: the person takes it at nmts.me/ai (passing the check and accepting the Terms and Privacy Policy there), and within sixty minutes you run `nmts create` with the pass in the environment variable `NMTS_AGENT_PASS`, which keeps the NMTS key in this tool's file, makes step 2's key (read, write, spend) and starts step 3 live. With no shell, open `https://nmts.me/create#pass=<pass>`. The pass works once and never goes on a command line | once |
 | 2. Make an API key for you | a person | the account screen at nmts.me, or `nmts key new` on a machine that holds the NMTS key (`key list` and `key revoke` live there too) | once, and again if it is revoked |
 | 3. Pass the check that says a person is here | a person | nmts.me, one short code | **every twelve weeks**, and only for step 1, step 4 and sharing |
-| 4. Get credits into the account | you, for the free trial (`nmts trial apply`, while step 3 is live) — a person, for a funded wallet | a terminal, or nmts.me | once, then as they run out |
+| 4. Get credits into the account | you, for the free trial (`nmts trial apply`, while step 3 is live). A person, for a funded wallet | a terminal, or nmts.me | once, then as they run out |
 
 **Step 3 does not gate the work.** Reading, writing, listing, folders, the trash, the recovery files and the
-wallet's balances never ask about it. Exactly six things do — making another account, the free trial,
+wallet's balances never ask about it. Exactly six things do: making another account, the free trial,
 creating a share, making a public link, making a new public code, and
-moving credits between your own accounts. A lapsed check does not stop you storing and fetching files; it
+moving credits between your own accounts. A lapsed check does not stop you storing and fetching files. It
 stops you growing the account, and the account runs in a tighter rate tier until a person checks in again.
-`nmts verify --status` says whether it is live and until when; you cannot pass it (`nmts help verify`).
+`nmts verify --status` says whether it is live and until when. You cannot pass it (`nmts help verify`).
 
-**An account and the accounts made under it count as one.** The check is shared — one passed anywhere in that
-group is live for all of it — and so is the free trial: the whole group gets one application a week, not one
-each. Credits can be moved between accounts of the group and nowhere else — `nmts credits transfer --to
-<account identifier> <credits>` — so the place the trial lands on can be sent to whichever account needs it.
+**An account and the accounts made under it count as one.** The check is shared (one passed anywhere in that
+group is live for all of it), and so is the free trial: the whole group gets one application a week, not one
+each. Credits can be moved between accounts of the group and nowhere else (`nmts credits transfer --to
+<account identifier> <credits>`), so the place the trial lands on can be sent to whichever account needs it.
 
 With a key that carries `files:write` and a live check behind it, `nmts create` makes further accounts with no
-browser — **two a day and five a week** per key, each starting with no credits (`nmts help create`).
+browser: **two a day and five a week** per key, each starting with no credits (`nmts help create`).
 
-**What to say when you are blocked:** name the step. "The account has no credits, which is step 4 — this
+**What to say when you are blocked:** name the step. "The account has no credits, which is step 4. This
 week's free places are gone, so it needs a funded wallet" is something a person can act on in a minute.
 
 ## Rules
@@ -84,21 +84,21 @@ week's free places are gone, so it needs a funded wallet" is something a person 
    read another's command line, and shells write it to history.
 2. **Never print the NMTS key, and never write it where it can be read again.** Not into logs,
    a commit, a file you create, or a message. It is the only key to the account and cannot be
-   rotated while keeping the account. If you have echoed it, say so plainly; the remedy is the
+   rotated while keeping the account. If you have echoed it, say so plainly. The remedy is the
    person's.
 3. **Do not guess the network.** `--network mainnet` and `--network testnet` are different places.
-   The wrong one does not error; it reports nothing found. If you were not told, ask.
+   The wrong one does not error. It reports nothing found. If you were not told, ask.
 4. **Do not invent commands.** `nmts --help` is the list, `nmts help <command>` the detail.
 5. **Read stderr before deciding what went wrong.** A refusal carries its own code and, nearly
    always, one line naming the next step. A refusal is not a transient error and must not be
-   retried in a loop. **`CHAIN_UNCERTAIN` is the one refusal where retrying can cost money** — run
+   retried in a loop. **`CHAIN_UNCERTAIN` is the one refusal where retrying can cost money**: run
    `nmts ls` and look for the file first. A refusal is almost never about the credential:
    `SPONSORED_STATE`, `RATE_LIMITED`, `VERSION_CONFLICT` and the credit caps only look like one.
 6. **Do not build your own retry loop.** A connection that was refused, reset or never made is
    already tried again for about twenty seconds. A write that failed and may have landed is read
    back, not sent again.
 
-## Tiers and modes — what is asked, and of whom
+## Tiers and modes: what is asked, and of whom
 
 Every act this tool performs has a tier: **none** (free and reversible: listing, fetching,
 folders, marks), **low** (reversible but worth a word: the trash, a setting, a report), **medium**
@@ -114,45 +114,45 @@ folders, marks), **low** (reversible but worth a word: the trash, a setting, a r
 | high | unlock, then asks | unlock, then asks | unlock, then asks | runs |
 | ultra-high | a person types | refused | refused | `--reason` and `--yes` |
 
-- **Asks** means a y/N question at a terminal; with no terminal, exit **5** and the sentence to run the same
+- **Asks** means a y/N question at a terminal. With no terminal, exit **5** and the sentence to run the same
   command with `--yes` once the person has said so. Nothing was done, so retrying after they agree is safe.
-  Explain before you ask, in the words somebody who has never seen this tool would use: not "grant the spend
-  consent" — "this uploads a file, which spends credits from your account". Do not paste the tool's text.
+  Explain before you ask, in the words somebody who has never seen this tool would use: say "this uploads a file, which spends credits from your account",
+  not "grant the spend consent". Do not paste the tool's text.
 - **Your judgement** means the tool does not block: in an auto mode you decide whether this is
   what the person wants. Auto-high is the mode where they asked you to think further ahead.
   Where a choice has a safe side, take it: a name already taken gets the numbered copy.
 - **Unlock** is a person's act at a terminal, once per machine: `nmts unlock <key>` prints what
   the key opens, its risk and its limit, and asks. When a run exits 5 naming a key, show the person
   what it printed and let them decide. **Do not run the unlock command yourself.** `nmts unlock`
-  lists the keys (`nmts help unlock`); the wallet key carries an expiry and optional ceilings.
-- **The modes are the person's.** `nmts mode` prints which one is on; every other command
+  lists the keys (`nmts help unlock`). The wallet key carries an expiry and optional ceilings.
+- **The modes are the person's.** `nmts mode` prints which one is on. Every other command
   announces an active mode on stderr. Switching is done at a terminal by a person. Do not switch
   one, and do not tell the person to switch one so that you can finish a task. You may recommend a
-  mode when the work fits it — say exactly what it does, what it risks and what it gains, or point
-  them at `nmts mode explain <mode>` — and let them decide. Under skip-permissions nothing asks;
-  an ultra-high act still wants a `--reason`, which is where you say why it is right.
+  mode when the work fits it (say exactly what it does, what it risks and what it gains, or point
+  them at `nmts mode explain <mode>`) and let them decide. Under skip-permissions nothing asks.
+  An ultra-high act still wants a `--reason`, which is where you say why it is right.
 
 ## Commands
 
-`nmts --help` prints the full list with options. The documents, by subject — `nmts help <command>`:
+`nmts --help` prints the full list with options. The documents, by subject (`nmts help <command>`):
 
 | Subject | Commands |
 |---|---|
-| where am I | `env` · `whoami` · `mode` · `unlock` / `lock` |
-| credentials | `login` · `logout` · `key` (new · list · revoke) · `devices` · `verify` |
-| files | `ls` / `listfile` · `get` · `pull` · `put` · `push` · `rm` / `restore` / `sweep` · `mkdir` / `mv` / `rename` · `star` / `pin` / `label` |
-| the account | `usage` / `balance` / `expiring` · `losses` · `trial` · `credits` · `public-code` (list · new · revoke) · `create` · `delete-account` · `accept-terms` |
-| paying and the wallet | `extend` · `wallet` (address · activity · storage · send · swap · donate · hall) |
+| where am I | `env`, `whoami`, `mode`, `unlock` / `lock` |
+| credentials | `login`, `logout`, `key` (new, list, revoke), `devices`, `verify` |
+| files | `ls` / `listfile`, `get`, `pull`, `put`, `push`, `rm` / `restore` / `sweep`, `mkdir` / `mv` / `rename`, `star` / `pin` / `label` |
+| the account | `usage` / `balance` / `expiring`, `losses`, `trial`, `credits`, `public-code` (list, new, revoke), `create`, `delete-account`, `accept-terms` |
+| paying and the wallet | `extend`, `wallet` (address, activity, storage, send, swap, donate, hall) |
 | other accounts | `share` / `shares` / `receive` / `unshare` |
-| settings | `on-collision` · `padding` · `deposit` · `tip` |
-| for the day NMTS is not there | `recovery` / `recovery-list` / `kit` · `rebuild` / `rollback` |
-| the service | `notices` / `terms` / `privacy` · `support` · `update` |
-| for programs | `mcp` · `s3` |
+| settings | `on-collision`, `padding`, `deposit`, `tip` |
+| for the day NMTS is not there | `recovery` / `recovery-list` / `kit`, `rebuild` / `rollback` |
+| the service | `notices` / `terms` / `privacy`, `support`, `update` |
+| for programs | `mcp`, `s3` |
 | for a business's signing key | `platform keygen` |
 
 **`put` is the
-command that spends** — one credit per started mebibyte, `--dry-run` says the price and sends
-nothing — and **only one command erases a file for good**: `rm` is a trash with thirty days, and
+command that spends** (one credit per started mebibyte, and `--dry-run` says the price and sends
+nothing), and **only one command erases a file for good**: `rm` is a trash with thirty days, and
 `erase` is an ultra-high act a person confirms by typing a sentence (`nmts help erase`). If
 somebody asks you to destroy something permanently, that is theirs to confirm, not yours to run.
 
@@ -162,7 +162,7 @@ New Terms take effect and the server refuses uploads and shares from an account 
 accepted them (`TERMS_ACCEPTANCE_REQUIRED`). Accepting is the person's act: at a terminal they
 type the versions they read, or you relay their answer with the two version flags after asking
 them in your own words (`nmts help accept-terms`). Show them what the tool printed and stop
-retrying that request; other commands still work.
+retrying that request. Other commands still work.
 
 ## If your client speaks MCP
 
@@ -170,27 +170,27 @@ retrying that request; other commands still work.
 starts with its tier, the listing carries the MCP hints, and an act that needs the person's yes is
 put to them over MCP elicitation or refused when the client cannot ask. Prefer the tools over
 shelling out: the person chose the directory files land in, and the tools cannot write anywhere
-else. Deliberately absent — signing in or out, keys and unlocks, the human check, permanent
-destruction, the file list's history, the recovery files — are a person's; say so rather than
+else. The acts deliberately absent (signing in or out, keys and unlocks, the human check, permanent
+destruction, the file list's history, the recovery files) are a person's. Say so rather than
 work around it. Setup and the sealed-code rule: `nmts help mcp`.
 
 ## Remembering this across sessions
 
 You will lose this context. The person has to put it somewhere your next session reads: the file your client
-loads from a repository root, holding the first section above and the two environment variable names; a saved
-instruction saying *the `nmts` command manages files in an NMTS account; run `nmts env` first, then `nmts --help`,
-and `nmts help <command>` before a command you have not used*; or, for an MCP client, the server entry. One line pointing at this file is the smallest thing that works.
+loads from a repository root, holding the first section above and the two environment variable names. A saved
+instruction saying *the `nmts` command manages files in an NMTS account. Run `nmts env` first, then `nmts --help`,
+and `nmts help <command>` before a command you have not used*. Or, for an MCP client, the server entry. One line pointing at this file is the smallest thing that works.
 
 ## Reporting a problem or an idea
 
-`nmts support send` files a report with the developer of NMTS; it is optional, always, and the
+`nmts support send` files a report with the developer of NMTS. It is optional, always, and the
 log it attaches is redacted on this machine first (`nmts help support`). If the CLI itself cannot
 run at all, write to `nmts@nmts.me` with what you ran and what it said.
 
 ## Exit codes
 
-`0` done · `1` something went wrong · `2` the command line was wrong · `3` not signed in · `4` the command exists
-but could not do it · `5` waiting on the person's agreement · `130` cancelled.
+`0` done, `1` something went wrong, `2` the command line was wrong, `3` not signed in, `4` the command exists
+but could not do it, `5` waiting on the person's agreement, `130` cancelled.
 
 ## Licence and source
 

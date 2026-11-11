@@ -207,12 +207,12 @@ export const ACTS = {
     "wallet.use": { tier: "low", what: "Change which of this key's wallets pays for storage." },
     "wallet.hall": { tier: "none" },
     "wallet.hall.set": { tier: "medium", what: "Publish this name beside your wallet's address in the gift hall of fame." },
-    "wallet.storage.reshape": { tier: "high", lock: "wallet", what: "Cut or join a storage resource the wallet holds — a signed transaction.", asksItself: true },
-    "wallet.storage.give": { tier: "high", lock: "wallet", what: "Hand a storage resource to another address — signed, and not undoable.", asksItself: true },
+    "wallet.storage.reshape": { tier: "high", lock: "wallet", what: "Cut or join a storage resource the wallet holds. A signed transaction.", asksItself: true },
+    "wallet.storage.give": { tier: "high", lock: "wallet", what: "Hand a storage resource to another address. Signed, and not undoable.", asksItself: true },
     // ⛔ BOTH SPEND WAL. Until 2026-11-11 `buy` fell through to the bare `wallet` read, tier none, so
     //    an auto mode ran a WAL purchase without the gate knowing a payment was coming.
-    "wallet.storage.buy": { tier: "high", lock: "wallet", what: "Buy a storage resource with WAL from the wallet — signed, and not undoable.", asksItself: true },
-    "wallet.storage.extend": { tier: "high", lock: "wallet", what: "Extend a user's files with WAL from the wallet — signed, and not undoable.", asksItself: true },
+    "wallet.storage.buy": { tier: "high", lock: "wallet", what: "Buy a storage resource with WAL from the wallet. Signed, and not undoable.", asksItself: true },
+    "wallet.storage.extend": { tier: "high", lock: "wallet", what: "Extend a user's files with WAL from the wallet. Signed, and not undoable.", asksItself: true },
 };
 export const ACT_IDS = Object.keys(ACTS);
 /**

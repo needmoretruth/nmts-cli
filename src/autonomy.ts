@@ -46,9 +46,9 @@ export const MODE_MEANS: Readonly<Record<Autonomy, string>> = {
   default: "A person is asked before anything but reading and tidying. This is the default.",
   "auto-low":
     "The agent decides whether you asked for it, or whether it is fine to do unasked, and goes ahead " +
-    "with low and medium acts. High acts still ask and stay locked; irreversible ones are refused.",
+    "with low and medium acts. High acts still ask and stay locked. Irreversible ones are refused.",
   "auto-high":
-    "Like auto-low, but the agent is told to reason for itself more — for a model you trust to keep " +
+    "Like auto-low, but the agent is told to reason for itself more: for a model you trust to keep " +
     "itself safe. The tool refuses exactly what auto-low refuses.",
   "skip-permissions":
     "Nothing asks and nothing is refused. You have left the chair. Irreversible acts still need a " +
@@ -64,19 +64,19 @@ export function explain(mode: Autonomy): string[] {
   switch (mode) {
     case "default":
       return [
-        `default — ${MODE_MEANS.default}`,
+        `default: ${MODE_MEANS.default}`,
         `What happens: reading, downloading, listing, moving, renaming, labelling run at once. Anything`,
         `that changes or spends is asked about (y/N here, or --yes from an agent that asked you).`,
-        `High acts — sharing, signing with the wallet, signing devices out, exposing the NMTS key — are`,
+        `High acts (sharing, signing with the wallet, signing devices out, exposing the NMTS key) are`,
         `locked until you unlock them (\`nmts unlock\`). Erasing the account or files takes a typed sentence.`,
         `Risk: the smallest. Cost: an agent stops for you often.`,
       ];
     case "auto-low":
       return [
-        `auto-low — ${MODE_MEANS["auto-low"]}`,
+        `auto-low: ${MODE_MEANS["auto-low"]}`,
         `What happens: the agent runs reads, tidying and reversible changes without asking, and may run`,
-        `medium acts — uploads that spend credits within the server's daily ceiling, making an API key,`,
-        `publishing or making a public code — when it judges you asked for them or would want them.`,
+        `medium acts (uploads that spend credits within the server's daily ceiling, making an API key,`,
+        `publishing or making a public code) when it judges you asked for them or would want them.`,
         `High acts (sharing, wallet signing, signing devices out) are still asked about and stay locked`,
         `until you unlock them. Erasing the account or files is refused however it is asked.`,
         `Risk: credits can be spent and metadata changed without a question each time. What you gain:`,
@@ -85,9 +85,9 @@ export function explain(mode: Autonomy): string[] {
       ];
     case "auto-high":
       return [
-        `auto-high — ${MODE_MEANS["auto-high"]}`,
-        `What happens: the tool refuses exactly what auto-low refuses; what changes is the instruction`,
-        `the agent reads. In auto-low it asks itself "did they ask for this?"; in auto-high it is told to`,
+        `auto-high: ${MODE_MEANS["auto-high"]}`,
+        `What happens: the tool refuses exactly what auto-low refuses. What changes is the instruction`,
+        `the agent reads. In auto-low it asks itself "did they ask for this?". In auto-high it is told to`,
         `weigh the situation itself and act on its own judgement where a question would only delay.`,
         `Use it only for a model you would trust with the decisions a careful assistant makes unasked.`,
         `Risk: the same acts as auto-low, decided with less deference to you. What you gain: fewer stops`,
@@ -96,7 +96,7 @@ export function explain(mode: Autonomy): string[] {
       ];
     case "skip-permissions":
       return [
-        `skip-permissions — ${MODE_MEANS["skip-permissions"]}`,
+        `skip-permissions: ${MODE_MEANS["skip-permissions"]}`,
         `What happens: every act runs, locked or not, asked or not. The agent may unlock things, share,`,
         `sign with the wallet, sign devices out, erase files and the account. Erasing still needs`,
         `--reason "<why now>", and the reason is kept in this machine's run log.`,
@@ -186,7 +186,7 @@ export async function setMode(mode: Autonomy, version: string, now: Date): Promi
  */
 export function announcement(mode: Autonomy): string | null {
   if (mode === "default") return null;
-  return `${BANNER_PREFIX}${mode} — ${MODE_MEANS[mode]} Turn it off with \`nmts mode default\`.`;
+  return `${BANNER_PREFIX}${mode}: ${MODE_MEANS[mode]} Turn it off with \`nmts mode default\`.`;
 }
 
 const BANNER_PREFIX = "nmts: autonomy is ";

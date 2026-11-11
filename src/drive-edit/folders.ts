@@ -85,7 +85,7 @@ export async function ensureFolderPath(
         exitCode: 1,
         nextStep:
           `The folders made so far are kept: ${made.join(", ")}. Running the same command again ` +
-          `makes the rest — nothing is lost.`,
+          `makes the rest. Nothing is lost.`,
       });
     });
 

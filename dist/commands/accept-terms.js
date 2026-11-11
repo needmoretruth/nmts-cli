@@ -40,7 +40,7 @@ export async function acceptTerms(options = {}) {
     if (!relayed && options.readLine === undefined && !stdinIsATerminal()) {
         throw new NmtsError("There is no terminal to type into (stdin is not a TTY).", {
             exitCode: 3,
-            nextStep: `Run this where a person can type the two versions, or — after they have said so — ` +
+            nextStep: `Run this where a person can type the two versions, or, after they have said so, ` +
                 `\`${BINARY_NAME} accept-terms --accept-terms <version> --accept-privacy <version> --yes\`.`,
         });
     }
@@ -54,7 +54,7 @@ export async function acceptTerms(options = {}) {
     const standing = key === null ? null : await standingOf(server, key.key);
     if (standing !== null && !standing.owed) {
         say(`This account has already accepted the documents in force ` +
-            `(Terms of Service ${standing.terms} · Privacy Policy ${standing.privacy}). Nothing to do.`);
+            `(Terms of Service ${standing.terms}, Privacy Policy ${standing.privacy}). Nothing to do.`);
         return 0;
     }
     if (standing === null) {
@@ -62,10 +62,10 @@ export async function acceptTerms(options = {}) {
         say(`Each document prints its version at the top.`);
     }
     else {
-        say(`In force: Terms of Service ${standing.terms} · Privacy Policy ${standing.privacy}.`);
+        say(`In force: Terms of Service ${standing.terms}, Privacy Policy ${standing.privacy}.`);
         say(`This account has not accepted this pair, so uploads and shares are refused until it does.`);
     }
-    say(`Read them first: \`${BINARY_NAME} terms\` · \`${BINARY_NAME} privacy\` · what changed: ` +
+    say(`Read them first: \`${BINARY_NAME} terms\`, \`${BINARY_NAME} privacy\`, what changed: ` +
         `\`${BINARY_NAME} notices\` (or ${HOME_URL}/notices).`);
     say(``);
     const terms = (options.terms ?? (await ask(`Type the Terms of Service version you have read and accept: `))).trim();

@@ -66,7 +66,7 @@ export async function recoveryList(options = {}) {
     }
     say(`Wrote ${destination}`);
     say(``);
-    say(`  Recovery list ${seq} — ${built.fileCount} files, ${built.totalBytes} bytes described.`);
+    say(`  Recovery list ${seq}: ${built.fileCount} files, ${built.totalBytes} bytes described.`);
     say(`  It holds where each file's bytes are on the storage network, and the key that opens`);
     say(`  each one, sealed with the NMTS key.`);
     say(``);

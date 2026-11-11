@@ -215,7 +215,7 @@ export function buildRecoveryListDoc(input: BuildRecoveryListDocInput): Recovery
 
   const items: ManifestItem[] = input.items.map((it) => {
     if (it.parts.length === 0) {
-      throw new RecoveryListProblem(`item ${it.id} has no parts — nothing to recover from`);
+      throw new RecoveryListProblem(`item ${it.id} has no parts. Nothing to recover from`);
     }
     const partBytes = it.parts.reduce((sum, p) => sum + p.plaintext_len, 0);
     if (partBytes !== it.size) {

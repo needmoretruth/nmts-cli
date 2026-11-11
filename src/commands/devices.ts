@@ -63,7 +63,7 @@ function asDevices(value: unknown): Device[] {
   if (!Array.isArray(rows)) {
     throw new NmtsError(
       "The server listed the signed-in devices in a shape this version cannot read.",
-      { nextStep: `Update this tool — \`npm install -g ${BINARY_NAME}\` — or read it in a browser.` },
+      { nextStep: `Update this tool (\`npm install -g ${BINARY_NAME}\`) or read it in a browser.` },
     );
   }
   const out: Device[] = [];
@@ -126,8 +126,8 @@ export async function devices(options: DevicesOptions = {}): Promise<number> {
   say(``);
   // ⛔ IT SAYS WHAT THIS CANNOT DO, rather than leaving a reader to find out by trying. A refusal
   //    discovered by running something is a refusal an agent retries.
-  say(`  \`${BINARY_NAME} devices --sign-out <id>\` (or \`all\`) ends one — a person's act that needs the`);
-  say(`  NMTS key on this machine; a key alone cannot, so a stolen key cannot end the browser's.`);
+  say(`  \`${BINARY_NAME} devices --sign-out <id>\` (or \`all\`) ends one. A person's act that needs the`);
+  say(`  NMTS key on this machine. A key alone cannot, so a stolen key cannot end the browser's.`);
   return 0;
 }
 

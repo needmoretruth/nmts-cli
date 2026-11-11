@@ -126,7 +126,7 @@ test("⛔ the browser's rules judge the address and the amount, and an unread ba
     assert.match(gas.message, /pays its fee in SUI/);
     const unread = await refusal(walletSend(["WAL", "1", TO], { ...FIRST_WALLET, ...quiet, readChain: () => reads({ wal: null }) }));
     assert.equal(unread.exitCode, 1);
-    assert.match(String(unread.nextStep), /not an empty wallet — WAL: the node did not answer/);
+    assert.match(String(unread.nextStep), /is not an empty one: WAL: the node did not answer/);
     assert.equal((await refusal(walletSend(["BTC", "1", TO], { ...FIRST_WALLET, ...quiet, readChain: () => reads() }))).exitCode, 2);
   });
 });

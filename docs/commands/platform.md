@@ -1,7 +1,7 @@
-# nmts platform — the key pair a business signs with
+# nmts platform: the key pair a business signs with
 
 Commands: platform
-Tiers: platform=none · platform.keygen=medium
+Tiers: platform=none, platform.keygen=medium
 
 `platform keygen` makes an Ed25519 key pair and writes both halves to `nmts-business-key.json`, or
 to `--out <file>`, with mode 0600 (on Windows, where no file mode applies, it removes the inherited

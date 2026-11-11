@@ -33,7 +33,7 @@ function failedNextFor(reason: string): string {
     );
   }
   if (reason === "piece_too_small" || reason === "piece_too_large" || reason === "slot_count" || reason === "sealed_len_mismatch") {
-    return "Nothing was stored. This is a fault in this tool, not in the file — please write to us with `nmts support`.";
+    return "Nothing was stored. The fault is in this tool and the file is fine. Please write to us with `nmts support`.";
   }
   return (
     "Credits for anything that was not stored come back within a day, and a wallet pays nothing until " +
@@ -44,10 +44,10 @@ function failedNextFor(reason: string): string {
 export const HEAVY_COPY = {
   /** `put --tier heavy`: the line before the upload starts (credits). */
   creditsPlan: (name: string, bytes: number, credits: number) =>
-    `${name}  ${bytes} bytes  →  ${credits} credit${credits === 1 ? "" : "s"}  ·  NMTS Heavy: kept whole in two separate places for 28 days`,
+    `${name}  ${bytes} bytes  →  ${credits} credit${credits === 1 ? "" : "s"}, NMTS Heavy: kept whole in two separate places for 28 days`,
   /** `put --tier heavy --pay wallet`: the review line with the order's WAL price and term. */
   walletPlan: (name: string, bytes: number, wal: string, days: number, from: string, to: string) =>
-    `${name}  ${bytes} bytes  →  ${wal} WAL for ${days} day${days === 1 ? "" : "s"}, paid once it is stored, from ${from} to ${to}  ·  NMTS Heavy`,
+    `${name}  ${bytes} bytes  →  ${wal} WAL for ${days} day${days === 1 ? "" : "s"}, paid once it is stored, from ${from} to ${to}, NMTS Heavy`,
   /** `put --tier heavy --pay evm`: the review line (copies, paying 0x address). */
   evmPlan: (name: string, bytes: number, copies: number, address: string) =>
     `${name}  ${bytes} bytes  →  ${copies} cop${copies === 1 ? "y" : "ies"} on Filecoin, paid in USDFC by ${address}`,
@@ -56,7 +56,7 @@ export const HEAVY_COPY = {
     `${name}  ${bytes} bytes  →  NMTS Heavy for ${days} day${days === 1 ? "" : "s"}, paid from ${from} once it is stored`,
   /** `--dry-run` with `--tier heavy`: the closing line (nothing sent; a wallet price is quoted only when an order opens). */
   dryRunEnd:
-    "  Nothing was sent and nothing was charged. The WAL or USDFC price is set when the upload runs; run the same command without --dry-run to see it before anything is paid.",
+    "  Nothing was sent and nothing was charged. The WAL or USDFC price is set when the upload runs. Run the same command without --dry-run to see it before anything is paid.",
   /** Progress, one line per phase of one part. */
   progress: (phase: string, where: string) => `  ${PHASE[phase] ?? phase}${where}`,
   /** Finished: the Filecoin epoch it is kept until. */
@@ -96,7 +96,7 @@ export const HEAVY_COPY = {
     `The wallet is short: this upload needs ${needWal} WAL and about ${needSui} SUI for the fee, and the wallet holds ${haveWal} WAL and ${haveSui} SUI. Nothing was stored or paid.`,
   /** `--copies` out of 1..12, or `--providers` not a list of ids. */
   badCopies: (raw: string) => `--copies takes a whole number from 1 to 12, not "${raw}".`,
-  badProviders: (raw: string) => `--providers takes storage provider ids separated by commas, such as 4,9 — not "${raw}".`,
+  badProviders: (raw: string) => `--providers takes storage provider ids separated by commas, such as 4,9. It got "${raw}".`,
   /** A self-paid upload stored no copy at all (the SDK answered no copies). */
   evmNoCopy: (detail: string) => `No storage provider kept the piece: ${detail}`,
   /** `heavy wallet` output labels. */
@@ -109,8 +109,8 @@ export const HEAVY_COPY = {
   fundReview: (usdfc: string, address: string) => `Deposit ${usdfc} USDFC from ${address} into Filecoin Pay, for --pay evm uploads.`,
   fundNeedsYes: "Nothing was signed. Depositing spends from the wallet: run it again with --yes.",
   fundNothing: "The deposit already covers this amount. Nothing was signed.",
-  fundDone: (hash: string) => `  deposited — transaction ${hash}`,
-  fundBadAmount: (raw: string) => `heavy fund takes an amount of USDFC above zero, such as 5 or 2.5 — not "${raw}".`,
+  fundDone: (hash: string) => `  deposited: transaction ${hash}`,
+  fundBadAmount: (raw: string) => `heavy fund takes an amount of USDFC above zero, such as 5 or 2.5. It got "${raw}".`,
   /** The SDK's `put(…, { tier })`: an option given on the tier or payer it means nothing to. */
   sdkHeavyOnly: (option: string) => `\`${option}\` only applies with tier: "heavy".`,
   sdkNotHeavy: (option: string) => `\`${option}\` does not apply to tier: "heavy".`,

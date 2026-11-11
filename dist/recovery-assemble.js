@@ -56,7 +56,7 @@ export async function recordRecoveryList(assembled, destination) {
         if (error instanceof ServerError && error.code === "VERSION_CONFLICT") {
             throw new NmtsError(`The file was written, and the server did not record it: ${error.message}`, {
                 exitCode: 4,
-                nextStep: `${destination} IS usable — keep it. What did not happen is the note on the server that ` +
+                nextStep: `${destination} IS usable. Keep it. What did not happen is the note on the server that ` +
                     `says which list is newest, because this account already has one numbered ${seq} or ` +
                     `higher: a browser or another machine wrote one this machine has not seen. This run has ` +
                     `been remembered, so running the command again offers a higher number.`,

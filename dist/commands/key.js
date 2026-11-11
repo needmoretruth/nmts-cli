@@ -161,7 +161,7 @@ function asIssued(value) {
             // ⛔ IT NAMES NO PART OF THE ANSWER. Whatever came back may contain the key.
             nextStep: `A key may have been made even though this could not read the reply. Check the account ` +
                 `screen at ${HOME_URL} and revoke anything you did not mean to keep, then update this ` +
-                `tool — \`npm install -g ${BINARY_NAME}\`.`,
+                `tool: \`npm install -g ${BINARY_NAME}\`.`,
         });
     }
     return { key, keyId, scopes, expiresAt };
@@ -223,12 +223,12 @@ export async function keyNew(options = {}) {
     say(``);
     if (canStore) {
         say(`  Stored in ${credentialsPath()}, so every command on this machine now uses it.`);
-        say(`  Whatever key was there before is no longer used; revoke it at ${HOME_URL} if it is`);
+        say(`  Whatever key was there before is no longer used. Revoke it at ${HOME_URL} if it is`);
         say(`  running somewhere else.`);
     }
     else {
-        say(`  ⛔ NOTHING WAS STORED. This machine keeps no NMTS key file — it came from`);
-        say(`     the environment — so there is nowhere to put the key. It is printed below because`);
+        say(`  ⛔ NOTHING WAS STORED. This machine keeps no NMTS key file (it came from`);
+        say(`     the environment), so there is nowhere to put the key. It is printed below because`);
         say(`     this is the only time it exists outside the server's memory.`);
     }
     if (options.print === true || !canStore) {
@@ -241,7 +241,7 @@ export async function keyNew(options = {}) {
         //    on it is one a person can select without dragging a label into their clipboard.
         say(issued.key);
         say(``);
-        say(`  Put it in ${API_KEY_ENV_VAR}, or in a file named by ${API_KEY_ENV_VAR}_FILE — the`);
+        say(`  Put it in ${API_KEY_ENV_VAR}, or in a file named by ${API_KEY_ENV_VAR}_FILE. The`);
         say(`  shape a container cannot leak. NMTS keeps no copy: lose it and the way back is to`);
         say(`  revoke it and make another.`);
     }

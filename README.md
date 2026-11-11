@@ -1,10 +1,10 @@
 # nmts
 
-Command-line access to [NMTS](https://nmts.me) — **NeedMoreTruthStorage**, end-to-end encrypted
+Command-line access to [NMTS](https://nmts.me): **NeedMoreTruthStorage**, end-to-end encrypted
 cloud storage on the Walrus network, built by one developer ([needmoretruth](https://github.com/needmoretruth)).
 For people at a terminal, and for the AI agents they run.
 
-> **[한국어 문서](README.ko.md)** · Talk about NMTS on [Discord](https://discord.gg/pcmRkVmVZk),
+> **[한국어 문서](README.ko.md)**, Talk about NMTS on [Discord](https://discord.gg/pcmRkVmVZk),
 > in English or Korean.
 >
 > **If you are an AI agent, read [AGENTS.md](AGENTS.md) instead.** It has the tier table,
@@ -26,18 +26,18 @@ The bytes live on **Walrus**, a public storage network, paid for on the **Sui** 
 - **There is no password reset.** Your NMTS key *is* the account. It cannot be recovered or
   changed while keeping the files, because nobody, NMTS included, holds a key to them.
 - **NMTS charges nothing.** Storage is bought from the Walrus network, for a period, from your own
-  wallet; nothing is paid to NMTS. Uploads here spend **credits**, which are storage a donation pool
-  has already paid the network for (the weekly free trial) — they are not sold. One command,
+  wallet. Nothing is paid to NMTS. Uploads here spend **credits**, which are storage a donation pool
+  has already paid the network for (the weekly free trial). They are not sold. One command,
   `nmts extend`, pays from your own Sui wallet instead, and asks for a separate agreement first,
   because a signed purchase on a public chain cannot be reversed by anyone.
 
 This tool, the encryption engine and the recovery program
-are open source under Apache-2.0; the server and the web app are not published.
+are open source under Apache-2.0. The server and the web app are not published.
 
 ## 📦 Install
 
 Node 22.15.0 or newer. Nothing is compiled at install time and there is no native build step: the
-encryption engine is a WebAssembly module carried in the repository. It runs wherever Node runs —
+encryption engine is a WebAssembly module carried in the repository. It runs wherever Node runs:
 Linux, macOS, Windows, and inside a rootless container.
 
 ```sh
@@ -45,13 +45,13 @@ npm install -g @needmoretruth/nmts-cli
 nmts --help
 ```
 
-The same package can be installed straight from this repository, without the registry — from the
+The same package can be installed straight from this repository, without the registry: from the
 default branch, from a pinned version, or from the tarball attached to the
 [latest release](https://github.com/needmoretruth/nmts-cli/releases):
 
 ```sh
 npm install -g github:needmoretruth/nmts-cli            # the default branch
-npm install -g github:needmoretruth/nmts-cli#v0.59.1    # a pinned version
+npm install -g github:needmoretruth/nmts-cli#v0.60.1    # a pinned version
 npm install -g https://github.com/needmoretruth/nmts-cli/releases/latest/download/nmts.tgz
 ```
 
@@ -79,23 +79,23 @@ halves, and `nmts env` shows what the check last found.
 nmts env       # what this machine is, and whether credentials are in reach. Contacts nothing.
 nmts login     # keep the NMTS key here, sealed, and take an API key
 nmts ls        # list the files
-nmts put x     # upload one file — spends credits
+nmts put x     # upload one file; spends credits
 nmts get x     # download one file
 ```
 
-Run `nmts env` first on any machine you do not know — a container, a CI runner, someone else's
+Run `nmts env` first on any machine you do not know: a container, a CI runner, someone else's
 laptop. It needs no credential and reports what a credential here would be exposed to.
 
 ## 🔑 The two credentials
 
 | | What it does | How to give it |
 |---|---|---|
-| **NMTS key** | Opens your files. Every key in the account derives from it. Never goes to the server. | `NMTS_ACCOUNT_CODE_FILE=/path` (recommended) · `nmts login` · `NMTS_ACCOUNT_CODE` |
-| **API key** | Makes the server answer. Made on the account screen at nmts.me. Opens no file. | `NMTS_API_KEY_FILE=/path` (recommended) · `NMTS_API_KEY` · `nmts login` |
+| **NMTS key** | Opens your files. Every key in the account derives from it. Never goes to the server. | `NMTS_ACCOUNT_CODE_FILE=/path` (recommended), `nmts login`, `NMTS_ACCOUNT_CODE` |
+| **API key** | Makes the server answer. Made on the account screen at nmts.me. Opens no file. | `NMTS_API_KEY_FILE=/path` (recommended), `NMTS_API_KEY`, `nmts login` |
 
 `nmts ls` needs both: the API key so the server answers, your NMTS key so the answer can be opened.
 
-**The NMTS key used to be called the account code; only the name changed.** The flags, the
+**The NMTS key used to be called the account code. Only the name changed.** The flags, the
 environment variables (`NMTS_ACCOUNT_CODE`, `NMTS_ACCOUNT_CODE_FILE`), the config keys, the MCP
 tool and argument names, the error codes and every file format keep the names they already had, so
 nothing you have scripted breaks.
@@ -105,9 +105,9 @@ handle and never the key itself, and does not replace a stored API key unless th
 `nmts logout` clears what is stored.
 
 `nmts whoami --reveal` prints your NMTS key itself. It is locked until you run `nmts unlock
-reveal` once, and asked about on every run; anything that logs your terminal has your NMTS key from
+reveal` once, and asked about on every run. Anything that logs your terminal has your NMTS key from
 then on. Add `--phrase` for the same key as its 15-word recovery phrase (`--lang ko` for Korean
-words); `nmts login` accepts either form.
+words). `nmts login` accepts either form.
 
 **Neither credential is ever accepted as a command-line argument.** Any process can read another
 process's command line, and shells record it in history. There is no flag for either.
@@ -125,12 +125,12 @@ A sealed NMTS key needs its passphrase for every command, from a terminal or fro
 `NMTS_PASSPHRASE`. Opening it costs a fraction of a second and 64 MiB of memory, which is what
 makes guessing the passphrase expensive. A passphrase does not protect your NMTS key from anything
 running as you: on a machine where an agent runs unattended, the passphrase has to be reachable
-too. That is why the file form is the recommendation for agents — your NMTS key is never copied,
+too. That is why the file form is the recommendation for agents: your NMTS key is never copied,
 and the permissions are the host's to set.
 
 An environment variable is not private: `docker inspect` prints it, anything running as you can
 read `/proc/<pid>/environ`, every child process inherits it, and CI systems write it into logs.
-That is why using one asks once. `nmts login --env` prints the line to set and writes nothing; it is
+That is why using one asks once. `nmts login --env` prints the line to set and writes nothing. It is
 behind the same agreement.
 
 **Under Codex, Hermes and OpenClaw an environment variable does not reach an MCP server.** All
@@ -150,90 +150,90 @@ your main one.
 |---|---|
 | `nmts env` | Where this is running, and what that means. Needs nothing. |
 | `nmts login` / `logout` | Keep or remove an NMTS key and an API key on this machine |
-| `nmts whoami` | Which account the stored NMTS key belongs to — offline. `--reveal` prints your NMTS key |
+| `nmts whoami` | Which account the stored NMTS key belongs to, offline. `--reveal` prints your NMTS key |
 | `nmts ls` | List the files |
 | `nmts usage` | What the account holds: counts, bytes, the largest files, the trash |
 | `nmts balance` | Credits left, what they buy, and the ceilings on spending |
 | `nmts get <path>` | Download one file, decrypt it, check it |
 | `nmts pull [folder]` | Download a whole folder, or the whole account, keeping its shape |
-| `nmts put <file>` | Encrypt one file and upload it — **spends credits**. `--deposit <n>` sets the deposit for this upload |
-| `nmts push <directory>` | Upload a whole directory, keeping its shape — **spends credits**. `--deposit <n>` applies to every file in it |
-| `nmts rm <paths>` | Move things to the trash — restorable for 30 days |
+| `nmts put <file>` | Encrypt one file and upload it. **Spends credits**. `--deposit <n>` sets the deposit for this upload |
+| `nmts push <directory>` | Upload a whole directory, keeping its shape. **Spends credits**. `--deposit <n>` applies to every file in it |
+| `nmts rm <paths>` | Move things to the trash, restorable for 30 days |
 | `nmts restore <paths>` | Bring things back out of the trash |
-| `nmts sweep` | Drop trash entries past their 30 days. **Cannot be undone** — asks every run |
-| `nmts erase <paths>` | Erase files for good — the server's record and this account's key, trash or not. A typed sentence, your NMTS key beside the API key; `--release-storage` also destroys credit-paid storage (locked until `nmts unlock release-storage`) |
+| `nmts sweep` | Drop trash entries past their 30 days. **Cannot be undone**. Asks every run |
+| `nmts erase <paths>` | Erase files for good: the server's record and this account's key, trash or not. A typed sentence, your NMTS key beside the API key. `--release-storage` also destroys credit-paid storage (locked until `nmts unlock release-storage`) |
 | `nmts mkdir <path>` | Make a folder, and any folder above it that is missing |
 | `nmts mv <paths> <folder>` | Move things into a folder. `/` is the top of the drive |
 | `nmts rename <path> <name>` | Give one thing a new name |
 | `nmts star` / `unstar` | Star files, or take the star off |
 | `nmts pin` / `unpin` | Hold files at the top of their folder, or let them fall back |
-| `nmts label <name> <files>` | Put one label on files. `unlabel` takes it off; `--rename` and `--all` sweep the whole list |
+| `nmts label <name> <files>` | Put one label on files. `unlabel` takes it off. `--rename` and `--all` sweep the whole list |
 | `nmts on-collision` | What an upload does when its name is already taken |
 | `nmts padding [mode]` | How file sizes are hidden on the storage network, and change it for the next uploads |
 | `nmts deposit [credits]` | How many credits each credit-paid upload sets aside as a deposit (0 to 64, default 64), and change it |
-| `nmts tip [percent\|off]` | A standing share of every WAL payment sent to the developer as a gift (default 0). Setting it needs `nmts unlock donate`; the agreement is asked once |
+| `nmts tip [percent\|off]` | A standing share of every WAL payment sent to the developer as a gift (default 0). Setting it needs `nmts unlock donate`. The agreement is asked once |
 | `nmts expiring` | Which files run out of bought storage soon, and when |
-| `nmts losses` | Storage NMTS bought for you that the daily check could not find on the chain. `--recheck <id>` asks again; `--dismiss <id>` takes a line off |
-| `nmts extend <path>` | Buy more storage time for one file — **signs and spends from the wallet** |
+| `nmts losses` | Storage NMTS bought for you that the daily check could not find on the chain. `--recheck <id>` asks again. `--dismiss <id>` takes a line off |
+| `nmts extend <path>` | Buy more storage time for one file. **Signs and spends from the wallet** |
 | `nmts wallet` | The account's wallet address, and its SUI and WAL balances. Never signs |
 | `nmts wallet activity` | The wallet's recent transactions, named only where the chain proves it. Never signs |
 | `nmts wallet storage` | The storage resources (size × time) the wallet holds outside any file. Never signs |
-| `nmts wallet storage split <id> --size <n>\|--epochs <n>` · `merge <id> <id>` · `transfer <id> <address>` | Cut, join or hand over a storage resource — **signs**, under the wallet unlock (`transfer` needs scope `all`). No file goes with a transfer: size and remaining time only |
-| `nmts wallet send <SUI\|WAL> <amount\|max> <address>` | Send coins to an address — **signs and spends from the wallet**. Prints the review; sends only with `--yes` |
-| `nmts wallet swap <SUI\|WAL> <amount\|max>` | Swap one coin for the other on DeepBook or Bluefin — **signs and spends from the wallet**. Without `--venue` prints both quotes and stops; swaps only with `--yes` |
-| `nmts wallet donate <SUI\|WAL> <amount>` | A voluntary gift to the developer, in either coin — **signs and spends**. Locked until `nmts unlock donate`, and `--yes` every run |
-| `nmts wallet hall [--name <name>\|--remove]` | The gift hall of fame; `--name` lists you by a name you choose, signed by your wallet |
+| `nmts wallet storage split <id> --size <n>\|--epochs <n>`, `merge <id> <id>`, `transfer <id> <address>` | Cut, join or hand over a storage resource. **Signs**, under the wallet unlock (`transfer` needs scope `all`). No file goes with a transfer: size and remaining time only |
+| `nmts wallet send <SUI\|WAL> <amount\|max> <address>` | Send coins to an address. **Signs and spends from the wallet**. Prints the review. Sends only with `--yes` |
+| `nmts wallet swap <SUI\|WAL> <amount\|max>` | Swap one coin for the other on DeepBook or Bluefin. **Signs and spends from the wallet**. Without `--venue` prints both quotes and stops. Swaps only with `--yes` |
+| `nmts wallet donate <SUI\|WAL> <amount>` | A voluntary gift to the developer, in either coin. **Signs and spends**. Locked until `nmts unlock donate`, and `--yes` every run |
+| `nmts wallet hall [--name <name>\|--remove]` | The gift hall of fame. `--name` lists you by a name you choose, signed by your wallet |
 | `nmts trial` | What is left of this week's free credits. `trial apply` asks for some |
-| `nmts create` | Make a NEW account and print its NMTS key once. Nothing can print it again. With no verified API key on this machine it makes the NMTS key here, prints an address, and waits while a person opens it, types that NMTS key and passes the human check — the account exists the moment they finish. `--no-wait` prints the address and stops |
+| `nmts create` | Make a NEW account and print its NMTS key once. Nothing can print it again. With no verified API key on this machine it makes the NMTS key here, prints an address, and waits while a person opens it, types that NMTS key and passes the human check. The account exists the moment they finish. `--no-wait` prints the address and stops |
 | `nmts verify` | Ask a person to pass the check that opens this account's limits. Only the account holder can: signed in to this account in that browser, or typing its NMTS key there |
-| `nmts public-code` | The code other accounts send files to. `--publish` makes it reachable; `--save [file]` writes your public code file |
-| `nmts public-code list · new · revoke <n>` | Every code your NMTS key has published; publish the next one (`--replace <n>` revokes one in the same step); revoke one — nobody can send to it again. Revoking asks every time |
-| `nmts share <path> <address>` | Give one file to another account — **withdrawing does not recall it**. Locked until `nmts unlock share`; every share stops and `--yes` answers for that one file |
-| `nmts shares` | What was shared with this account; `--sent <path>` shows who one file went to |
+| `nmts public-code` | The code other accounts send files to. `--publish` makes it reachable. `--save [file]` writes your public code file |
+| `nmts public-code list · new · revoke <n>` | Every code your NMTS key has published. Publish the next one (`--replace <n>` revokes one in the same step). Revoke one: nobody can send to it again. Revoking asks every time |
+| `nmts share <path> <address>` | Give one file to another account. **Withdrawing does not recall it**. Locked until `nmts unlock share`. Every share stops and `--yes` answers for that one file |
+| `nmts shares` | What was shared with this account. `--sent <path>` shows who one file went to |
 | `nmts receive <id>` | Download one file somebody shared with this account |
 | `nmts unshare <id>` | Withdraw a share you sent, or remove one you were sent |
-| `nmts handover make <path> --to <public code \| public code file>` | Write a handover file for one account and pass it on yourself — **it cannot be taken back**, and NMTS keeps no record of it. Locked like `share` |
-| `nmts handover open <file>` | Download the file a handover file carries. Needs the NMTS key and no API key; tells the NMTS server nothing about the file |
+| `nmts handover make <path> --to <public code \| public code file>` | Write a handover file for one account and pass it on yourself. **It cannot be taken back**, and NMTS keeps no record of it. Locked like `share` |
+| `nmts handover open <file>` | Download the file a handover file carries. Needs the NMTS key and no API key. Tells the NMTS server nothing about the file |
 | `nmts link make <path> [--hide-name] [--expires <n>d]` | Make a public link to a file |
 | `nmts link list <path>` | List a file's public links |
 | `nmts link revoke <id>` | Cut a public link |
 | `nmts link open <link> [--out <path>]` | Download and decrypt a file from a public link, without logging in |
 | `nmts rebuild` | Build a file list from the server's rows, for an account with none |
-| `nmts rollback` | Put the previous version of the file list back — locked until `nmts unlock rollback`, `--yes` every run |
+| `nmts rollback` | Put the previous version of the file list back. Locked until `nmts unlock rollback`, `--yes` every run |
 | `nmts listfile` | Write this machine's copy of the sealed file list out as a file |
 | `nmts recovery-list` | Write the file that finds this account's bytes without NMTS |
 | `nmts kit` | Recovery kit: that list **and your NMTS key**, together in one file |
 | `nmts recovery` | Download the standalone program that reads files back without NMTS |
-| `nmts unlock` / `nmts lock` | What this machine has unlocked; `unlock <key>` opens one (a person, at a terminal), `lock <key>` closes it. `consent` is the older name |
+| `nmts unlock` / `nmts lock` | What this machine has unlocked. `unlock <key>` opens one (a person, at a terminal), `lock <key>` closes it. `consent` is the older name |
 | `nmts mode` | How much an agent driving this tool may decide without asking |
-| `nmts support send` | Send a report to the developer — a bug, an error, an idea, a question. `--attach-log` adds the last runs, redacted |
+| `nmts support send` | Send a report to the developer: a bug, an error, an idea, a question. `--attach-log` adds the last runs, redacted |
 | `nmts support list` / `show <code>` / `reply <code>` | Read the answers, and write back in the same thread |
 | `nmts update` | Install the newest published release of this tool |
-| `nmts notices` | What NMTS has posted: interruptions, incidents, and the warning before new Terms take effect. `notices <id>` prints one; `--save <id>` keeps it as a dated file |
+| `nmts notices` | What NMTS has posted: interruptions, incidents, and the warning before new Terms take effect. `notices <id>` prints one. `--save <id>` keeps it as a dated file |
 | `nmts terms` | The Terms of Service in force. `--lang ko` for Korean, `--board` for the message board's terms, `--save` to keep a copy |
 | `nmts privacy` | The Privacy Policy in force. `--lang ko`, `--save` to keep a copy |
-| `nmts delete-account` | A **person** erases this account's server record — irreversible. Needs your NMTS key and a typed sentence; refused in the auto modes, and under skip-permissions only with `--reason` |
+| `nmts delete-account` | A **person** erases this account's server record. Irreversible. Needs your NMTS key and a typed sentence. Refused in the auto modes, and under skip-permissions only with `--reason` |
 | `nmts accept-terms` | Accept a new version of the Terms after reading it: a person types the versions, or an agent relays them with `--accept-terms <v> --accept-privacy <v> --yes` after asking |
-| `nmts key new` | Make an API key for this account with your NMTS key alone — no browser. `--scopes read,write,spend`, `--days <n>`. The new API key is stored as this machine's credential; `--print` also prints it once |
-| `nmts devices` | The devices signed in to this account. `--sign-out <id>` or `--sign-out all` ends one or all of them — needs your NMTS key, locked until `nmts unlock sign-out`, asked every run |
+| `nmts key new` | Make an API key for this account with your NMTS key alone, no browser. `--scopes read,write,spend`, `--days <n>`. The new API key is stored as this machine's credential. `--print` also prints it once |
+| `nmts devices` | The devices signed in to this account. `--sign-out <id>` or `--sign-out all` ends one or all of them. Needs your NMTS key, locked until `nmts unlock sign-out`, asked every run |
 | `nmts mcp` | Serve a subset of the above as tools over the Model Context Protocol |
 | `nmts s3` | Serve the drive to any S3 program, on this machine only |
 | `nmts platform keygen` | Make the Ed25519 key pair a business signs its NMTS Platform requests with: both halves go to a file only you can read (mode 0600), and only the public half is printed. The public half is registered at nmts.me under Settings › Developer › Platform |
 
 ### Listing and fetching
 
-`ls` takes `--json`, `--all` (include the trash; the count always says how many were hidden),
+`ls` takes `--json`, `--all` (include the trash. The count always says how many were hidden),
 `--find <text>` (files whose name contains the text, with the folders that hold them), `--sort
 name|size|date` and `--desc`.
 
 `get` takes `--out` and `--force`. It never leaves a half-right file: the bytes are written under a
 temporary name in the same directory and renamed into place only once the whole-file hash
 matches. One part is held in memory at a time, not the file. `--out -` sends the file to stdout
-instead of writing it, with everything a person reads on stderr; a pipe cannot be taken back, so
+instead of writing it, with everything a person reads on stderr. A pipe cannot be taken back, so
 that mode proves the whole file first and refuses above 64 MiB.
 
 `pull` fetches each file on its own. One that will not come back is named at the end and the rest
-stay on disk. Files already in the destination are skipped and counted; `--force` replaces them.
+stay on disk. Files already in the destination are skipped and counted. `--force` replaces them.
 
 ### Uploading
 
@@ -244,9 +244,9 @@ nmts put film.mov --part-size 256MiB   # bigger parts: fewer purchases, more mem
 ```
 
 One credit per started mebibyte, printed before anything is spent. A name already taken in that
-folder gets a numbered copy (`report (2).pdf`) unless `nmts on-collision` says otherwise; NMTS keeps
+folder gets a numbered copy (`report (2).pdf`) unless `nmts on-collision` says otherwise. NMTS keeps
 no previous versions, so replacing is permanent. A file larger than one part (64 MiB by default) is
-split and each part bought separately; a run that stops partway is finished by running the same
+split and each part bought separately. A run that stops partway is finished by running the same
 command again, which buys only the parts that were never bought. The same is true after any
 interrupted upload: the retry costs nothing more.
 
@@ -261,21 +261,21 @@ nmts put film.mov --pay wallet --sui-key-file ~/.sui/agent.key   # another Sui w
 
 The file is planned into the same parts, the chain quotes each part in WAL
 and the relay's tip in SUI, the register transaction is dry-run for its fee, both balances are read,
-and the review is printed — the term as epochs and as days — before the `wallet` agreement (scope
+and the review is printed (the term as epochs and as days) before the `wallet` agreement (scope
 `storage`) is held against the total and anything is signed. A wallet known to be short is refused
-with the two numbers; a balance that could not be read is said as unread, not as zero. Each part
-takes two signatures, register and certify; a run that stops partway is finished by running the same
+with the two numbers. A balance that could not be read is said as unread, not as zero. Each part
+takes two signatures, register and certify. A run that stops partway is finished by running the same
 command again, which signs nothing twice. `--storage fit|whole|<object id>` uses a free storage
 resource the wallet holds (`nmts wallet storage` lists them) for a one-part file: `fit` cuts it to the
 part's encoded size and leaves the rest free, `whole` binds all of it with the file, and the review
-says in bytes which. Without `--storage` new storage is bought; the review only mentions what the
+says in bytes which. Without `--storage` new storage is bought. The review only mentions what the
 wallet holds. The server records the file as stored on the wallet's own storage, and `nmts extend`
 can extend it. A wallet-paid upload does not carry the recovery list's storage-network copy,
-whichever way the account's switch is set — today only the browser's small-file uploads do. `push
+whichever way the account's switch is set. Today only the browser's small-file uploads do. `push
 --pay wallet` does the same one file at a time.
 
 With `--sui-key-file <file>`, `put` pays from another Sui wallet you hold instead of your NMTS key's
-wallet, and the review names that wallet. The file holds the wallet's `suiprivkey1…` line; a file other
+wallet, and the review names that wallet. The file holds the wallet's `suiprivkey1…` line. A file other
 users can read is refused, and the key is never printed. It cannot be combined with `--wallet` or used
 with `push`.
 
@@ -285,7 +285,7 @@ beginning with a dot are left alone unless `--hidden` is given, and symbolic lin
 
 `nmts deposit` shows how many credits each credit-paid upload sets aside as a deposit, and `nmts
 deposit <n>` changes it for every device's next uploads (0 to 64, default 64). The deposit pays the
-chain fee of a later operation on that file — releasing its storage early, for instance — measured
+chain fee of a later operation on that file (releasing its storage early, for instance), measured
 rather than spent whole, and what is left comes back when the storage period ends. `put --deposit
 <n>` and `push --deposit <n>` set it for one run. `--deposit 0` sets nothing aside: that file still
 releases, but pays twice the same fee out of the balance at that moment, and is refused with both
@@ -294,7 +294,7 @@ numbers named when the balance cannot cover it.
 `nmts padding` shows how file sizes are hidden, and `nmts padding standard`, `nmts padding pow2` or
 `nmts padding off` changes it for every device's next uploads (`off` stores the exact size: the
 file's length is visible to the network and to anyone who reads the blob, for about 1 % less storage). Anyone can read the size of a piece on the storage
-network; blank bytes make that size one of a set of fixed values. Powers of two hide more and cost
+network. Blank bytes make that size one of a set of fixed values. Powers of two hide more and cost
 more storage on average.
 
 ### Names, folders and the trash
@@ -308,10 +308,10 @@ nmts restore photos/2026
 ```
 
 None of these costs anything or asks anything: a name, a folder and a parent live only in your
-sealed file list, and the server holds no place to put a name. `rm` never destroys; each trashed
+sealed file list, and the server holds no place to put a name. `rm` never destroys. Each trashed
 file keeps its own thirty-day clock. The command that erases for good is deliberately not in this
 tool. A path is matched whole (`photos/a.jpg` is not `a.jpg`), and a path that matches two entries
-is refused rather than resolved. `rm`, `restore` and `mv` take several paths in one write; a path
+is refused rather than resolved. `rm`, `restore` and `mv` take several paths in one write. A path
 that names nothing stops the whole run before anything is touched.
 
 `nmts label --rename <old> <new>` renames a label on every file that carries it, and
@@ -324,34 +324,34 @@ spending. `usage` answers "what do I have". `expiring` says when stored files ru
 
 `extend` buys more time for a stored file **from the wallet your NMTS key derives**, on a public
 chain. It is locked until you unlock `wallet`, which names a scope (`storage`, or `all` for exchanging and
-sending too), runs out after at most 30 days, and can carry a ceiling on what the tool signs away —
+sending too), runs out after at most 30 days, and can carry a ceiling on what the tool signs away:
 `nmts unlock wallet --days 7 [--scope all] [--cap-wal 10 --cap-sui 0.1]`. It takes
 `--dry-run`, which touches no key. Before the agreement it reads the wallet and dry-runs the transaction: the price, the chain
 fee (SUI) and both balances are printed, and a wallet known to be short is refused with the two
 numbers rather than signed. `wallet` only reads: the address is derived on this machine, and a balance that could not be
 read is reported as unread, not as zero. `wallet address --qr` draws the address as a code a phone
 can scan. `wallet activity` lists the newest transactions with the same names the browser gives
-them (seal, extend, erase, exchange, send, receive — otherwise "other", never a guess); gifts to the
+them (seal, extend, erase, exchange, send, receive. Otherwise "other", never a guess). Gifts to the
 developer show as sends there, because the tool does not know that address. `wallet storage` lists
-the storage resources the wallet holds outside any file — what deleting a file from the network
-gives back — and whether each can be used now. `wallet send` moves SUI or WAL to an address: it
+the storage resources the wallet holds outside any file (what deleting a file from the network
+gives back), and whether each can be used now. `wallet send` moves SUI or WAL to an address: it
 reads both balances, judges the address and the amount by the browser's own rules, dry-runs the
 transfer for its fee, prints the review with the whole address, and signs only with `--yes` and
 under a `wallet` agreement of scope `all`. `max` sends everything that can be sent (SUI keeps a
-reserve back for fees); `--fee-cap` puts a ceiling on the fee. A transfer cannot be undone. `wallet swap`
+reserve back for fees). `--fee-cap` puts a ceiling on the fee. A transfer cannot be undone. `wallet swap`
 turns SUI into WAL or WAL into SUI on one of the two venues the browser app offers on mainnet,
 DeepBook and Bluefin, with the same transaction the browser builds: your wallet signs, the outputs
 come back to it, and NMTS is not a party and takes nothing. Without `--venue` it reads both
-venues' quotes at the same moment, prints them side by side — what comes out, the venue's fee as
-measured from the quote (or "could not be measured", never a guessed figure) — and stops: neither
-is a default and the tool recommends neither; any other exchange may be used instead. With
+venues' quotes at the same moment, prints them side by side: what comes out, and the venue's fee as
+measured from the quote (or "could not be measured", never a guessed figure). Then it stops: neither
+is a default and the tool recommends neither. Any other exchange may be used instead. With
 `--venue deepbook|bluefin` it prints the review: the quote, the least it will accept
 (`--slippage-bps`, 1 to 5000, default 50), the chain fee from a dry run, `--fee-cap` if given, and
 how far the quote sits from the site's reference price when one can be read (said as uncompared
 when none can). A slippage under 10 or over 200 bps, a fee cap far from the measured fee, or a
-quote more than 3% from the reference price is refused, even with `--yes`; `--accept-extremes`
+quote more than 3% from the reference price is refused, even with `--yes`. `--accept-extremes`
 goes on anyway, and only a person may say it (refused while a mode is on). The swap needs `--yes`
-and a `wallet` agreement of scope `all`; the chain gives what it gives, never less than the
+and a `wallet` agreement of scope `all`. The chain gives what it gives, never less than the
 minimum, and a swap that would give less fails on chain with the fee spent. On testnet the one
 rail is the official Walrus exchange, SUI→WAL only, at the rate read off its object. `wallet donate` is a voluntary gift to
 the developer, to the address the server publishes (the same one the wallet screen's card shows).
@@ -359,42 +359,42 @@ It is locked until you run `nmts unlock donate`, needs `--yes` on every run, and
 `wallet` unlock and its ceiling. It says, before signing, that the gift is voluntary, buys nothing, is
 non-refundable and cannot be undone, and that the transaction id is the only proof. `nmts tip 2.5` makes
 2.5 % of every WAL payment (an upload paid by wallet, an extension) a standing gift, sent right after the
-payment without a question; `nmts tip off` stops it, and it is outside the `wallet` ceiling.
+payment without a question. `nmts tip off` stops it, and it is outside the `wallet` ceiling.
 
 ### Sharing
 
 `share` needs the other account's public code, read off their account screen. There is no
-directory and no name lookup; a mistyped code is caught by its own check symbol. Withdrawing a
+directory and no name lookup. A mistyped code is caught by its own check symbol. Withdrawing a
 share stops further downloads and cannot reach a copy already taken, which is why sharing asks
 for an agreement the first time.
 
 `public-code` prints the value other accounts send files to and says whether it is published.
 Until it is published nobody can send to you. `--publish` writes it. Every code derives from your
-NMTS key at a number, so it cannot be chosen; you hold one to three live ones, make the next with
-`public-code new`, and revoke one with `public-code revoke <n>` — nobody can send to a revoked code,
+NMTS key at a number, so it cannot be chosen. You hold one to three live ones, make the next with
+`public-code new`, and revoke one with `public-code revoke <n>`. Nobody can send to a revoked code,
 and files already received with it stay. `share --as <n>` picks which code sends. A public code is
 not your NMTS key, and it opens nothing on its own.
 
-`nmts shares --sent <path>` lists who one file was shared with — the recipient address, since when,
+`nmts shares --sent <path>` lists who one file was shared with: the recipient address, since when,
 and the share id `unshare` takes.
 
 A share tells NMTS who shared with whom. A handover does not: `nmts handover make <path> --to
 <recipient>` writes the file, sealed to one recipient, into a handover file you pass on yourself,
 and no share is registered. The recipient opens it with `nmts handover open <file>`, which needs no
 API key and tells the NMTS server nothing about the file. Give `--to` their public code file (`nmts public-code
---save` on their side) and the server is not even asked whose code it is; give it the code and the
+--save` on their side) and the server is not even asked whose code it is. Give it the code and the
 server sees that lookup. Whoever holds a handover file sees your public code in it. It cannot be
 taken back: the recipient can download the file until its storage ends or its stored bytes are
-destroyed, and removing the file from your drive does not stop it. The format is NCF-3 §5.6–§5.7.
+destroyed, and removing the file from your drive does not stop it. The format is NCF-3 §5.6 to §5.7.
 
 ### Recovery
 
-`recovery-list` writes the encrypted file that locates your bytes on the storage network; it holds
+`recovery-list` writes the encrypted file that locates your bytes on the storage network. It holds
 no NMTS key. `kit` writes that list together with your NMTS key in one file, so whoever
 holds a kit holds the account. `recovery` downloads the standalone recovery program for this
 machine, checks it against the release's checksum file before making it runnable, and never puts
 anything on your PATH. `rebuild` reconstructs a file list from the server's rows for an account
-that has lost its own: keys, hashes, dates and sizes come back; names and folders do not.
+that has lost its own: keys, hashes, dates and sizes come back. Names and folders do not.
 
 With the account's storage copy of the recovery list switched on (in the web app, or with the
 SDK's `setRecoveryCopy(true)`), `put --pay wallet` of a one-part file under 64 MiB onto new storage
@@ -405,17 +405,17 @@ not derive cannot be found that way. A program can build the same file without t
 `setRecoveryCopy`, and runs in a browser as well as in Node.
 
 `nmts rollback` puts the previous version of the file list back as the current one, for the case
-where the current one will not open. Files the newer version added are out of the list afterwards —
+where the current one will not open. Files the newer version added are out of the list afterwards:
 their bytes are still stored, and `nmts rebuild` finds files the list does not name. It is locked
 until you run `nmts unlock rollback`, and needs `--yes` on every run.
 
 ### When storage goes missing
 
-`nmts losses` lists the storage objects NMTS bought with your credits that the daily check could not find on the chain — the object id and the day a check first missed it. There is no file name: the server cannot pair the two, and NMTS cannot see the file. `nmts losses --recheck <id>` asks the chain again now. `nmts losses --dismiss <id>` takes a line off once you have read it; it asks once (a medium act — in an auto mode, the agent's judgement). The incident stays in a record that names nobody; the same finding is posted on the notice board by day.
+`nmts losses` lists the storage objects NMTS bought with your credits that the daily check could not find on the chain: the object id and the day a check first missed it. There is no file name: the server cannot pair the two, and NMTS cannot see the file. `nmts losses --recheck <id>` asks the chain again now. `nmts losses --dismiss <id>` takes a line off once you have read it. It asks once (a medium act, in an auto mode, the agent's judgement). The incident stays in a record that names nobody. The same finding is posted on the notice board by day.
 
 ### The check a person has to pass
 
-An API key makes the server answer; it does not stand in for somebody being there. While nobody
+An API key makes the server answer. It does not stand in for somebody being there. While nobody
 has checked in lately, the account still works under tighter limits, and a few requests are
 refused outright.
 
@@ -429,7 +429,7 @@ a number of days, because the window ends on a boundary of the server's own week
 
 ## Wallet login
 
-An account can also be opened by a Sui wallet. The account keeps its NMTS key; wallet login puts a
+An account can also be opened by a Sui wallet. The account keeps its NMTS key. Wallet login puts a
 copy of that key on the NMTS server, locked so that only the wallet's signature of one fixed message
 opens it. NMTS cannot open the copy and does not learn which wallet it belongs to.
 
@@ -447,10 +447,10 @@ nmts openers remove <locator>                          # take one off
   for one product only. Both are inside the signed message, so another value is another signature
   and another account.
 - Attaching asks the wallet to sign twice and refuses unless the two signatures are the same bytes.
-  A wallet that signs the same message differently each time — a zkLogin account, a multi-signature
-  account, a passkey account — is refused with a code of its own.
+  A wallet that signs the same message differently each time (a zkLogin account, a multi-signature
+  account, a passkey account) is refused with a code of its own.
 - Whoever holds an attached wallet can open every file in the account until it is removed. Removing
-  stops it from then on; a wallet that opened the account before has held the NMTS key.
+  stops it from then on. A wallet that opened the account before has held the NMTS key.
 - Keep the NMTS key. It opens the account if the wallet is lost or starts signing differently.
 
 `nmts help openers` has the long form.
@@ -459,17 +459,17 @@ nmts openers remove <locator>                          # take one off
 
 Every act has a tier. **None** (listing, fetching, folders, marks) never asks. **Low** (the trash,
 a setting, a report) and **medium** (uploading, publishing or making a public code, a new key) ask
-once per run — y/N at the terminal, or `--yes`. **High** (signing with the wallet, giving another
+once per run: y/N at the terminal, or `--yes`. **High** (signing with the wallet, giving another
 account a file, revealing or storing your NMTS key unsealed) is locked until you run `nmts unlock
-<key>` once on this machine, and then still asks on every run; revoking a public code is high too,
+<key>` once on this machine, and then still asks on every run. Revoking a public code is high too,
 with no unlock, and asks every time. **Ultra-high** (erasing the
-account) is a typed sentence. `nmts unlock` lists the keys; each unlock prints what it opens, what
+account) is a typed sentence. `nmts unlock` lists the keys. Each unlock prints what it opens, what
 could go wrong and what it does not cover before it asks. `nmts help <command>` prints any
 command's document, with its tier at the top.
 
 ## 🐳 Containers
 
-It runs unchanged in Docker and Podman, rootless. There is no published image; this repository has
+It runs unchanged in Docker and Podman, rootless. There is no published image. This repository has
 a `Dockerfile`, and both container tools build and run it on every push.
 
 ```sh
@@ -499,10 +499,10 @@ the container as the file `/run/secrets/nmts-key`, and `podman inspect` shows on
 container.
 
 Unlocks and the mode live in the config directory, and a container that is removed takes them
-with it. A fresh container lists and downloads freely; an upload asks, so a script passes `--yes`,
+with it. A fresh container lists and downloads freely. An upload asks, so a script passes `--yes`,
 and anything locked (the wallet, sharing) needs the config directory kept outside the container
 (`-v nmts-config:/config`) where a person unlocked it once. On an image of your own, `NMTS_CONFIG_DIR` moves everything the tool
-writes to a directory you choose; `nmts env` reports where it landed and whether it survives.
+writes to a directory you choose. `nmts env` reports where it landed and whether it survives.
 
 ## Serving the drive to S3 tools
 
@@ -520,15 +520,15 @@ $ nmts s3
 
 - One bucket, `drive`. A key is the file's path without the leading slash. Folders come back as
   common prefixes, including empty ones, and as `folder/` markers of 0 bytes in a listing without a
-  delimiter; a `PUT` of `folder/` with no bytes makes one. An empty file is stored like any other.
+  delimiter. A `PUT` of `folder/` with no bytes makes one. An empty file is stored like any other.
 - The credentials are made when the command starts, stored nowhere, and die with it.
 - It listens on 127.0.0.1 only, with no option to change that.
-- Starting it asks once (uploads through it spend credits); `--yes` answers for a script. Deleting
+- Starting it asks once (uploads through it spend credits). `--yes` answers for a script. Deleting
   puts a file in the trash.
 - A key that already holds the **same** file is answered `200` and nothing is sent: content is
   compared, not names, so a nightly backup pays only for files that changed. A key that holds a
   **different** file is refused with `409`, because this drive does not replace files.
-- Large files go up in pieces, checked against the hash the client signed for; nothing is stored
+- Large files go up in pieces, checked against the hash the client signed for. Nothing is stored
   until every piece is in.
 - The modification time is not carried across, and a file uploaded from another device can take
   five seconds to appear.
@@ -546,7 +546,7 @@ $ rclone copy --size-only ./somewhere drive:drive
 
 ## 🔌 For an agent that speaks MCP
 
-`nmts mcp` is a local MCP server over stdin and stdout. Sign in first (`nmts login`); it never
+`nmts mcp` is a local MCP server over stdin and stdout. Sign in first (`nmts login`). It never
 takes an NMTS key on a command line, and it never prompts, so a sealed NMTS key with no `NMTS_PASSPHRASE`
 makes it exit 3 at startup.
 
@@ -557,7 +557,7 @@ $ opencode mcp add nmts -- nmts mcp --out /where/files/should/land
 ```
 
 Hermes and OpenClaw pass the arguments one at a time (`--args` in Hermes, a repeated `--arg` in
-OpenClaw); their `mcp add --help` prints the shape. Any other client takes the command `nmts` and
+OpenClaw). Their `mcp add --help` prints the shape. Any other client takes the command `nmts` and
 the arguments `mcp --out <directory>`, for example in opencode's own file:
 
 ```json
@@ -577,7 +577,7 @@ documents this service publishes (`nmts_notices`, `nmts_notice`, `nmts_terms`, `
 
 It deliberately does not offer credentials and agreements, the check a person has to pass,
 permanent destruction, rebuilding a lost file list or putting the previous one back, or writing the
-recovery files — those need a person at a terminal. Nothing it offers can write outside the directory you name, and a wrong argument is refused
+recovery files: those need a person at a terminal. Nothing it offers can write outside the directory you name, and a wrong argument is refused
 rather than guessed at. It is implemented directly, with no MCP SDK dependency.
 
 ## Letting an agent decide for itself
@@ -590,18 +590,18 @@ $ nmts mode                        # what is set now
 $ nmts mode explain auto-high      # what a mode does, what it risks, what it gains
 $ nmts mode auto-low               # low acts run unasked; medium ones are the agent's judgement
 $ nmts mode auto-high              # the same, and the agent is asked to think further ahead
-$ nmts mode skip-permissions       # nothing asks and nothing is locked — a typed sentence to turn on
+$ nmts mode skip-permissions       # nothing asks and nothing is locked; a typed sentence to turn on
 $ nmts mode default                # back to asking
 ```
 
-High acts stay locked in every mode but skip-permissions, and still ask every time once unlocked;
-erasing the account is refused in both auto modes. While a mode is on, every command says so on
-stderr. An agent may recommend a mode, with the explanation; it cannot switch one.
+High acts stay locked in every mode but skip-permissions, and still ask every time once unlocked.
+Erasing the account is refused in both auto modes. While a mode is on, every command says so on
+stderr. An agent may recommend a mode, with the explanation. It cannot switch one.
 
 ## Networks and retries
 
 `--network mainnet` or `--network testnet`, or `NMTS_NETWORK`. Against the live server it is
-already known; against any other server it is required, because the wrong network answers
+already known. Against any other server it is required, because the wrong network answers
 "not found" rather than "wrong network".
 
 A connection that was refused, reset or never made is retried with a growing wait for about
@@ -614,9 +614,9 @@ carry such a key and are safe to repeat, nothing else that writes is.
 Send it from the tool: `nmts support send --category bug --message "…" --attach-log`. It reaches
 the one developer who builds NMTS, in the same inbox as the app's contact form, and the reply comes
 back to the same thread (`nmts support list`, then `nmts support show <code>`). The tool shows you
-exactly what will be sent before it goes; your NMTS key, API key, passphrase and file contents
+exactly what will be sent before it goes. Your NMTS key, API key, passphrase and file contents
 are stripped on this machine first, and `--omit <text>` strips anything else you name. English is
-preferred; Korean is read too.
+preferred. Korean is read too.
 
 If the tool itself cannot run, write to **nmts@nmts.me** with what you ran and what it said.
 
@@ -625,8 +625,8 @@ answers in English and Korean: https://discord.gg/HtrUwhb2Mz
 
 ## Built on this?
 
-If you built something on this code — a service, a fork, a port to another language, a lighter
-client — you owe us nothing: Apache-2.0 asks for the notices and nothing more. We would still like
+If you built something on this code (a service, a fork, a port to another language, a lighter
+client), you owe us nothing: Apache-2.0 asks for the notices and nothing more. We would still like
 to know. Write to **nmts@nmts.me**, or open an issue here if public is fine with you. If you want
 it listed, say so: [SHOWCASE.md](SHOWCASE.md) carries a link and up to ten lines about each
 project, in English ([SHOWCASE.ko.md](SHOWCASE.ko.md) in Korean), written by the people who made it. A listing is not an
@@ -634,12 +634,12 @@ endorsement, and we may decline or remove one without giving a reason.
 
 ## Licence
 
-Apache-2.0 — the full text is in [LICENSE](LICENSE). It allows commercial use: a product built on
-this tool can be sold. It moved here from AGPL-3.0-only on 2026-08-30; copies already held under
+Apache-2.0: the full text is in [LICENSE](LICENSE). It allows commercial use: a product built on
+this tool can be sold. It moved here from AGPL-3.0-only on 2026-08-30. Copies already held under
 the AGPL stay under it.
 
 If you need different terms, write to
-**nmts@nmts.me** and say why — see [LICENSING.md](LICENSING.md). Code is welcome:
+**nmts@nmts.me** and say why. See [LICENSING.md](LICENSING.md). Code is welcome:
 [CONTRIBUTING.md](CONTRIBUTING.md) says how it reaches here, and the
 [Contributor License Agreement](CLA.md) is the licence a contributor gives needmoretruth for what
 they send.

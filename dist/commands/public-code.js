@@ -67,7 +67,7 @@ export async function publicCode(options = {}) {
     const say = options.write ?? ((line) => process.stdout.write(`${line}\n`));
     if (options.save === true) {
         if (options.publish === true) {
-            throw new NmtsError("--save and --publish are two different things; run them one at a time.", { exitCode: 2 });
+            throw new NmtsError("--save and --publish are two different things. Run them one at a time.", { exitCode: 2 });
         }
         return await savePublicCodeFile(options, say);
     }
@@ -105,14 +105,14 @@ export async function publicCode(options = {}) {
         return 0;
     }
     if (published) {
-        say(`public code  ${shown.code}   (default · ${live} of ${list.liveMax} live)`);
+        say(`public code  ${shown.code}   (default, ${live} of ${list.liveMax} live)`);
         say(``);
-        say(`Give it to whoever is sending. ⛔ It is NOT your NMTS key — that one opens`);
+        say(`Give it to whoever is sending. ⛔ It is NOT your NMTS key. That one opens`);
         say(`every file you have and is never given to anybody. This one opens nothing.`);
         return 0;
     }
     say(`public code  ${shown.code}`);
-    say(`             NOT published — nobody can send to it yet`);
+    say(`             NOT published: nobody can send to it yet`);
     say(``);
     say(`Publishing writes it on the server so a sender can find the key to seal to.`);
     say(`A published code cannot be changed. You can revoke it and make a new one with`);

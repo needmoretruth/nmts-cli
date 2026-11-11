@@ -74,7 +74,7 @@ export async function shareableFileAt(account: ShareAccount, target: string): Pr
   if (entry.kind !== KIND_FILE) {
     throw new NmtsError(`No file at "${fullPathOf(index, entry)}".`, {
       exitCode: 4,
-      nextStep: "That is a folder. Nothing was shared — this version shares one file at a time.",
+      nextStep: "That is a folder. Nothing was shared. This version shares one file at a time.",
     });
   }
   const { dekWrapped, contentHashCt } = entry;
@@ -82,7 +82,7 @@ export async function shareableFileAt(account: ShareAccount, target: string): Pr
     throw new NmtsError(`The file list holds no ${dekWrapped === undefined ? "key" : "hash"} for "${entry.name}".`, {
       exitCode: 4,
       nextStep:
-        "A share carries both — the key that opens the file and the hash the recipient checks the " +
+        "A share carries both: the key that opens the file and the hash the recipient checks the " +
         "bytes against. Nothing was shared.",
     });
   }
@@ -153,7 +153,7 @@ export async function sendShare(
       throw new NmtsError("That public code has never published an identity to share to.", {
         exitCode: 4,
         nextStep:
-          "Nothing was shared. The code may be right and unused — somebody has to open " +
+          "Nothing was shared. The code may be right and unused: somebody has to open " +
           "their account once before anything can be encrypted to them.",
       });
     }
@@ -225,7 +225,7 @@ export async function sentShares(account: ShareAccount, target: string): Promise
   const rows: unknown = typeof answer === "object" && answer !== null ? Reflect.get(answer, "shares") : null;
   if (!Array.isArray(rows)) {
     throw new NmtsError("The server's answer did not carry a list of shares.", {
-      nextStep: "Nothing was changed. Report it rather than retrying — the shape, not the network, is wrong.",
+      nextStep: "Nothing was changed. Report it instead of retrying: the shape of the answer is wrong, and the network is fine.",
     });
   }
   return { path: fullPathOf(index, entry), itemId: entry.id, rows };

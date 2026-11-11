@@ -25,7 +25,7 @@ export async function sharesSent(target, options = {}) {
     if (target === undefined || target === "") {
         throw new NmtsError("Say which file to look up.", {
             exitCode: 2,
-            nextStep: `\`${BINARY_NAME} shares --sent <path>\` — the path as \`${BINARY_NAME} ls\` prints it.`,
+            nextStep: `\`${BINARY_NAME} shares --sent <path>\`, with the path as \`${BINARY_NAME} ls\` prints it.`,
         });
     }
     const session = await openSession({ server: options.server, network: options.network });
@@ -59,7 +59,7 @@ function sentLine(row, fromShown) {
         return value;
     };
     const from = fromShown && isRecord(row) && typeof row["from_index"] === "number" ? `  from #${row["from_index"]}` : "";
-    const gone = isRecord(row) && row["recipient_code_revoked"] === true ? "  · the recipient has revoked this code" : "";
+    const gone = isRecord(row) && row["recipient_code_revoked"] === true ? " (the recipient has revoked this code)" : "";
     return `${at("recipient_address")}  since ${utcDay(at("created_at"))}${from}  share ${at("id")}${gone}`;
 }
 /** The UTC day of an RFC 3339 instant, `YYYY-MM-DD`. */

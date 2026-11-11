@@ -164,7 +164,7 @@ async function sendReport(options: SupportOptions): Promise<number> {
     return 0;
   }
   say(``);
-  say(`Sent. ${ticket.code} — replies arrive in \`${BINARY_NAME} support show ${ticket.code}\`.`);
+  say(`Sent. ${ticket.code}: replies arrive in \`${BINARY_NAME} support show ${ticket.code}\`.`);
   return 0;
 }
 

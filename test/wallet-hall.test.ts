@@ -158,7 +158,7 @@ test("the hall prints the developer, ten rows, and how many more the site holds"
     const out = collect();
     assert.equal(await walletHall({ server: server.base, write: out.write }), 0);
     const text = out.lines.join("\n");
-    assert.match(text, /needmoretruth — builds NMTS/);
+    assert.match(text, /needmoretruth, builds NMTS/);
     assert.match(text, /^ {2}0xdev$/m);
     // The amounts are the CLI's own coin formatting of the base units the server sent.
     assert.match(text, /^ {4}1\. alice\s+2 WAL\s+1 SUI$/m);
@@ -219,9 +219,9 @@ test("--remove sends a null name, and signs `(none)` in its place", async () => 
 
 test("⛔ each refusal the server can send has one plain line of its own", async () => {
   const expected: ReadonlyArray<[string, RegExp]> = [
-    ["gift_not_found", /not in the list yet\. It appears within an hour; try again then\./],
+    ["gift_not_found", /not in the list yet\. It appears within an hour, so try again then\./],
     ["name_invalid", /^A name is 1 to 24 characters, no links, not an address\.$/],
-    ["listing_stale", /^A newer listing request exists; try again\.$/],
+    ["listing_stale", /^A newer listing request exists\. Try again\.$/],
     ["signature_invalid", /^The server did not accept the signature\.$/],
   ];
   const server = await fake();
@@ -300,7 +300,7 @@ test("without --wallet, the account's own number is the wallet the name is signe
   }
 });
 
-test("reading the hall is tier none; naming yourself in it is medium", () => {
+test("reading the hall is tier none. Naming yourself in it is medium", () => {
   assert.equal(actOf(parseArgs(["wallet", "hall"])), "wallet.hall");
   assert.equal(actOf(parseArgs(["wallet", "hall", "--name", "alice"])), "wallet.hall.set");
   assert.equal(actOf(parseArgs(["wallet", "hall", "--remove"])), "wallet.hall.set");

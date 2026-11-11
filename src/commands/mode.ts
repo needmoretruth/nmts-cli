@@ -52,9 +52,9 @@ export async function mode(
       say(JSON.stringify({ mode: at, setAt: await setAt(), means: MODE_MEANS[at] }));
       return 0;
     }
-    say(`${at} — ${MODE_MEANS[at]}`);
+    say(`${at}: ${MODE_MEANS[at]}`);
     for (const other of AUTONOMY_MODES) {
-      if (other !== at) say(`${other} — ${MODE_MEANS[other]}`);
+      if (other !== at) say(`${other}: ${MODE_MEANS[other]}`);
     }
     say(`Change it, at a terminal: ${BINARY_NAME} mode <${AUTONOMY_MODES.join("|")}>`);
     say(`Read one in full first:    ${BINARY_NAME} mode explain <mode>`);
@@ -64,7 +64,7 @@ export async function mode(
   if (wanted === "explain") {
     const which = target === undefined ? null : wantedMode(target);
     if (which === null) {
-      throw new NmtsError(`Say which mode to explain.`, { exitCode: 2, nextStep: `One of: ${AUTONOMY_MODES.join(" · ")}` });
+      throw new NmtsError(`Say which mode to explain.`, { exitCode: 2, nextStep: `One of: ${AUTONOMY_MODES.join(", ")}` });
     }
     for (const line of explain(which)) say(line);
     return 0;
@@ -74,7 +74,7 @@ export async function mode(
   if (next === null) {
     throw new NmtsError(`There is no mode called "${wanted}".`, {
       exitCode: 2,
-      nextStep: `One of: ${AUTONOMY_MODES.join(" · ")}`,
+      nextStep: `One of: ${AUTONOMY_MODES.join(", ")}`,
     });
   }
 
@@ -82,15 +82,15 @@ export async function mode(
   //    somebody leaves it on.
   if (next === "default") {
     setMode("default", VERSION, now());
-    say(`default — ${MODE_MEANS.default}`);
+    say(`default: ${MODE_MEANS.default}`);
     return 0;
   }
 
   if (options.readLine === undefined && !stdinIsATerminal()) {
-    throw new NmtsError(`A person switches modes, at a terminal — stdin here is not one.`, {
+    throw new NmtsError(`A person switches modes, at a terminal, and stdin here is not one.`, {
       exitCode: 5,
       nextStep:
-        `If you are an agent: do not switch modes. You may recommend one — show the person ` +
+        `If you are an agent: do not switch modes. You may recommend one: show the person ` +
         `\`${BINARY_NAME} mode explain ${next}\` in full and let them decide.`,
     });
   }
@@ -111,6 +111,6 @@ export async function mode(
     }
   }
   setMode(next, VERSION, now());
-  say(`${next} — ${MODE_MEANS[next]}`);
+  say(`${next}: ${MODE_MEANS[next]}`);
   return 0;
 }

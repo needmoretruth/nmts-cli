@@ -138,7 +138,7 @@ test("with --yes the gift goes to the published address, and the wallet agreemen
     assert.equal(sign.asked.length, 1);
     assert.equal(sign.asked[0]?.destination, DEV);
     assert.equal(sign.asked[0]?.amountBaseUnits, 250_000_000n);
-    assert.match(out.lines.join("\n"), /Thank you — your gift was sent\. Transaction 3nJqYd2f/);
+    assert.match(out.lines.join("\n"), /Thank you\. Your gift was sent\. Transaction 3nJqYd2f/);
     assert.match(out.lines.join("\n"), /Keep that id/);
     assert.equal(readWalletGrant(), null, "a gift wrote a wallet agreement, or charged one");
   });

@@ -96,7 +96,7 @@ async function buyAndPushPartWithWallet(ctx: WalletRailContext, input: UploadInp
       paid: existing.registerTxDigest !== undefined,
       nextStep:
         "Nothing was sent. Run it again with the wallet that started it, or clear the unfinished " +
-        "upload records to start over — the storage the first wallet bought stays that wallet's.",
+        "upload records to start over. The storage the first wallet bought stays that wallet's.",
     });
   }
   if (existing !== null && (existing.partIndex !== input.part.index || existing.partTotal !== input.part.total)) {
@@ -202,7 +202,7 @@ async function buyAndPushPartWithWallet(ctx: WalletRailContext, input: UploadInp
       nextStep:
         error instanceof NmtsError && error.nextStep !== null
           ? error.nextStep
-          : "If the transaction reached the chain the storage may be bought; running the same " +
+          : "If the transaction reached the chain the storage may be bought. Running the same " +
             "command again finds the record and does not sign a second registration for a part " +
             "that has one.",
     });

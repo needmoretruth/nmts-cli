@@ -42,7 +42,7 @@ export async function gate(act, args, io = {}) {
         if (a.tier === "ultra-high" && (args.reason === undefined || args.reason.trim() === "")) {
             throw new NmtsError(`${a.what} This is permanent, and skip-permissions still wants the reason written down.`, {
                 exitCode: 5,
-                nextStep: `Think it through first — is this really what the person would want done right now, and ` +
+                nextStep: `Think it through first: is this really what the person would want done right now, and ` +
                     `why? Then run the same command with --reason "<that, in a sentence>". The reason is kept ` +
                     `in this machine's run log.`,
             });

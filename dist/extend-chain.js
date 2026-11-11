@@ -78,7 +78,7 @@ export async function readBlobLease(client, objectId) {
         throw new NmtsError(`The storage object ${objectId} could not be read from the chain.`, {
             exitCode: 1,
             nextStep: "Nothing was signed and nothing was charged. The blob may already have been deleted, or " +
-                "this tool may be pointed at the wrong network — `nmts env` says which one it is using.",
+                "this tool may be pointed at the wrong network; `nmts env` says which one it is using.",
         });
     }
     const storage = fields["storage"];

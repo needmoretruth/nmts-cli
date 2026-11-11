@@ -42,7 +42,7 @@ export async function deposit(wanted, options = {}) {
             ? `Uploads paid for with credits set no deposit aside. ${WHAT_ZERO_COSTS}`
             : `Uploads paid for with credits set ${credits} credit${credits === 1 ? "" : "s"} aside on ` +
                 `each file, back when that file's storage period ends. Anything from 0 to ` +
-                `${DEPOSIT_CREDITS_MAX} — \`${BINARY_NAME} deposit <n>\`, or --deposit for one upload.`);
+                `${DEPOSIT_CREDITS_MAX}: \`${BINARY_NAME} deposit <n>\`, or --deposit for one upload.`);
         return 0;
     }
     // ⛔ NO LIST, NO SETTING — the same refusal `padding` makes, for the same reason: the default
@@ -50,7 +50,7 @@ export async function deposit(wanted, options = {}) {
     //    first `ls` say "a list exists" about an account nothing was ever put in.
     const before = await readFileList(session.server, session.apiKey, session.code, session.accountId);
     if (before.manifest === null) {
-        throw new NmtsError(`This account has no file list yet; the setting lives in the list, and there is nothing to write it into.`, { exitCode: 4, nextStep: `Upload once (\`${BINARY_NAME} put\`) and set it after.` });
+        throw new NmtsError(`This account has no file list yet. The setting lives in the list, and there is nothing to write it into.`, { exitCode: 4, nextStep: `Upload once (\`${BINARY_NAME} put\`) and set it after.` });
     }
     const result = await applyManyToList(session, () => [], { depositDefault: asked });
     if (options.json === true) {
@@ -65,7 +65,7 @@ export async function deposit(wanted, options = {}) {
         say(`Uploads from now on set no deposit aside. ${WHAT_ZERO_COSTS}`);
         return 0;
     }
-    say(`Set to ${asked}. It applies to what is uploaded next, from every device; deposits already ` +
+    say(`Set to ${asked}. It applies to what is uploaded next, from every device. Deposits already ` +
         `set aside on stored files are not moved.`);
     return 0;
 }

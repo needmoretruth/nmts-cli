@@ -66,7 +66,7 @@ test("with --yes the retained version becomes the current one, and the sentence 
     assert.equal(await rollback({ ...opts(out), yes: true }), 0);
     assert.deepEqual(out.lines, [
       "Put version 1 of the file list back as the current one, over version 2. What version 2 " +
-        "added is out of the list now; the bytes are still stored, and `nmts rebuild` finds files " +
+        "added is out of the list now. The bytes are still stored, and `nmts rebuild` finds files " +
         "the list does not name.",
     ]);
 

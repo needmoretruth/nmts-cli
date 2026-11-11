@@ -76,9 +76,9 @@ export interface StorageOpPlan {
 /** Why two resources cannot be joined, in the contract's own terms. */
 const FUSE_WHY = {
   same: "those are the same resource.",
-  differentSize: "their periods differ and so do their sizes — the contract joins sizes only over an identical period, and periods only at an identical size.",
+  differentSize: "their periods differ and so do their sizes. The contract joins sizes only over an identical period, and periods only at an identical size.",
   differentPeriod: "their periods differ.",
-  notAdjacent: "their sizes are equal but their periods do not touch — one has to end where the other starts.",
+  notAdjacent: "their sizes are equal but their periods do not touch. One has to end where the other starts.",
 } as const;
 
 /**
@@ -100,7 +100,7 @@ export function planStorageOp(
         exitCode: 4,
         nextStep:
           hints.notHeld ??
-          "Nothing was signed. A storage listing shows the free ones it holds; a resource bound " +
+          "Nothing was signed. A storage listing shows the free ones it holds. A resource bound " +
             "inside a file is not free.",
       });
     }

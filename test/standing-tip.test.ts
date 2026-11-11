@@ -96,7 +96,7 @@ test("the share of what was just paid goes to the published address, and the tha
     { coin: "WAL", amountBaseUnits: 25_000n, destination: DEV, walType: walCoinType("testnet") },
   ]);
   const text = out.lines.join("\n");
-  assert.match(text, /standing 2\.5 % gift — 0\.000025 WAL — went to the developer\./);
+  assert.match(text, /standing 2\.5 % gift \(0\.000025 WAL\) went to the developer\./);
   assert.match(text, new RegExp(`Transaction ${DIGEST}`));
   assert.ok(text.includes(THANKS_EN), "the thanks were not said in English");
   assert.ok(text.includes(THANKS_KO), "the thanks were not said in Korean");

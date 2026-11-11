@@ -246,7 +246,7 @@ async function collect(
       if (!same) {
         throw new NmtsError("The file came back whole but does not match the hash recorded for it.", {
           nextStep:
-            "Nothing was written. Every part decrypted, so this is not a wrong key — the bytes " +
+            "Nothing was written. Every part decrypted, so the key is right. The bytes " +
             "themselves are not the ones that were uploaded.",
         });
       }

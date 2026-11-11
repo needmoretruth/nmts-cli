@@ -54,8 +54,8 @@ test("usable first and largest first, with the usable total on top", async () =>
     assert.match(text, /1\.06 GiB usable now, in 3 resources/);
     const order = ["0xbig", "0xsmall", "0xended"].map((id) => text.indexOf(id));
     assert.ok(order[0] < order[1] && order[1] < order[2], "not usable-first, largest-first");
-    assert.match(text, /1\.00 GiB · epoch 1195 to 1230 {2}usable now/);
-    assert.match(text, /5\.00 GiB · epoch 1100 to 1150 {2}ended/);
+    assert.match(text, /1\.00 GiB, epoch 1195 to 1230 {2}usable now/);
+    assert.match(text, /5\.00 GiB, epoch 1100 to 1150 {2}ended/);
   });
 });
 

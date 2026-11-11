@@ -60,7 +60,7 @@ export async function gate(act: ActId, args: ParsedArgs, io: GateIo = {}): Promi
       throw new NmtsError(`${a.what} This is permanent, and skip-permissions still wants the reason written down.`, {
         exitCode: 5,
         nextStep:
-          `Think it through first — is this really what the person would want done right now, and ` +
+          `Think it through first: is this really what the person would want done right now, and ` +
           `why? Then run the same command with --reason "<that, in a sentence>". The reason is kept ` +
           `in this machine's run log.`,
       });

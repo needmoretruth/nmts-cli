@@ -55,7 +55,7 @@ export function certificateByShardWeight(confirmations, members, nShards, expect
     const valid = aggregateHolds(signed) ? signed : signed.filter((s) => sigs.verify(s.signature, hashed, s.key));
     const weight = valid.reduce((sum, s) => sum + s.weight, 0);
     if (!chainQuorum(weight, nShards)) {
-        throw new NotEnoughBlobConfirmationsError(`Too few confirmed shards for blob (${weight} of ${nShards} from ${valid.length} nodes; the chain needs more than two thirds)`);
+        throw new NotEnoughBlobConfirmationsError(`Too few confirmed shards for blob (${weight} of ${nShards} from ${valid.length} nodes. The chain needs more than two thirds)`);
     }
     return {
         signers: valid.map((s) => s.index),

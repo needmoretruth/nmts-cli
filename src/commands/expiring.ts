@@ -162,7 +162,7 @@ export async function expiring(options: ExpiringOptions = {}): Promise<number> {
     say(
       `${unrecorded.length} file${unrecorded.length === 1 ? " has" : "s have"} no storage period ` +
         `recorded. That is not a short one: whatever uploaded them could not read the network's ` +
-        `epoch clock, so nothing was written down. The chain still knows; a browser can show it.`,
+        `epoch clock, so nothing was written down. The chain still knows. A browser can show it.`,
     );
   }
 
@@ -170,7 +170,7 @@ export async function expiring(options: ExpiringOptions = {}): Promise<number> {
     say(``);
     say(`  Rows marked "(not in the file list)" are files the server is holding that this account's`);
     say(`  list does not name. An upload can commit and then fail before the list was written.`);
-    say(`  Nothing here can repair that; opening the account in a browser can.`);
+    say(`  Nothing here can repair that. Opening the account in a browser can.`);
   }
   if (answer.truncated) {
     say(``);
@@ -197,8 +197,8 @@ function nameOf(row: Row): string {
 
 /** The two stages that need a word beside them. `soon` is the warning itself and needs none. */
 const MARK: Record<ExpiryStage, string> = {
-  lapsed: "  — TERM ENDED",
-  urgent: "  — EXTEND NOW",
+  lapsed: "  ⚠ TERM ENDED",
+  urgent: "  ⚠ EXTEND NOW",
   soon: "",
   later: "",
   unrecorded: "",

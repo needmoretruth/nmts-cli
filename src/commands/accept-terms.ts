@@ -62,7 +62,7 @@ export async function acceptTerms(options: AcceptTermsOptions = {}): Promise<num
     throw new NmtsError("There is no terminal to type into (stdin is not a TTY).", {
       exitCode: 3,
       nextStep:
-        `Run this where a person can type the two versions, or — after they have said so — ` +
+        `Run this where a person can type the two versions, or, after they have said so, ` +
         `\`${BINARY_NAME} accept-terms --accept-terms <version> --accept-privacy <version> --yes\`.`,
     });
   }
@@ -79,7 +79,7 @@ export async function acceptTerms(options: AcceptTermsOptions = {}): Promise<num
   if (standing !== null && !standing.owed) {
     say(
       `This account has already accepted the documents in force ` +
-        `(Terms of Service ${standing.terms} · Privacy Policy ${standing.privacy}). Nothing to do.`,
+        `(Terms of Service ${standing.terms}, Privacy Policy ${standing.privacy}). Nothing to do.`,
     );
     return 0;
   }
@@ -87,11 +87,11 @@ export async function acceptTerms(options: AcceptTermsOptions = {}): Promise<num
     say(`No API key on this machine, so where this account stands could not be read.`);
     say(`Each document prints its version at the top.`);
   } else {
-    say(`In force: Terms of Service ${standing.terms} · Privacy Policy ${standing.privacy}.`);
+    say(`In force: Terms of Service ${standing.terms}, Privacy Policy ${standing.privacy}.`);
     say(`This account has not accepted this pair, so uploads and shares are refused until it does.`);
   }
   say(
-    `Read them first: \`${BINARY_NAME} terms\` · \`${BINARY_NAME} privacy\` · what changed: ` +
+    `Read them first: \`${BINARY_NAME} terms\`, \`${BINARY_NAME} privacy\`, what changed: ` +
       `\`${BINARY_NAME} notices\` (or ${HOME_URL}/notices).`,
   );
   say(``);

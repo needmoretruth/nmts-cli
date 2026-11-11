@@ -22,7 +22,7 @@ export interface LinksOptions {
   write?: (line: string) => void;
 }
 
-const USAGE = `\`${BINARY_NAME} links\` · \`${BINARY_NAME} links revoke <id>\` · \`${BINARY_NAME} links revoke-all\``;
+const USAGE = `\`${BINARY_NAME} links\`, \`${BINARY_NAME} links revoke <id>\`, \`${BINARY_NAME} links revoke-all\``;
 
 export async function links(sub: string | undefined, operand: string | undefined, options: LinksOptions = {}): Promise<number> {
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));

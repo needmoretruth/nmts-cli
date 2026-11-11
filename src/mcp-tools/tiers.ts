@@ -79,7 +79,7 @@ export const TOOL_TIERS: Readonly<Record<string, ToolTier>> = {
     act: "credits.transfer",
     question: (args) =>
       `Move ${String(args["credits"])} credits from this account to ${String(args["to"])}?\n\n` +
-      "Both are accounts of yours — the server refuses any other recipient. Nothing is spent by " +
+      "Both are accounts of yours. The server refuses any other recipient. Nothing is spent by " +
       "moving them and the same move the other way puts them back, but the credits keep the date " +
       "they were already going to lapse on: moving them does not renew them.",
   },
@@ -92,7 +92,7 @@ export const TOOL_TIERS: Readonly<Record<string, ToolTier>> = {
       `${typeof args["as"] === "number" ? `, from this account's public code #${String(args["as"])}` : ""}?\n\n` +
       "Whoever holds that code can then download the file. Withdrawing the share afterwards stops " +
       "further downloads and cannot reach a copy already fetched. The code is not checked against " +
-      "a person — if it is the wrong one, the file goes to whoever holds it.",
+      "a person: if it is the wrong one, the file goes to whoever holds it.",
   },
   nmts_unshare: { act: "unshare" },
   nmts_support_send: { act: "support.send" },
@@ -121,7 +121,7 @@ export function tierLine(tier: Tier): string {
     case "low":
       return "Tier low: asked in the default mode, runs unasked in the auto modes. ";
     case "medium":
-      return "Tier medium: asked in the default mode; in an auto mode it is your judgement whether this is what the person wants. ";
+      return "Tier medium: asked in the default mode. In an auto mode it is your judgement whether this is what the person wants. ";
     case "high":
       return `Tier high: locked until a person runs \`${BINARY_NAME} unlock\` at a terminal, and asked every time in every mode but skip-permissions. `;
     case "ultra-high":
@@ -133,7 +133,7 @@ export function tierLine(tier: Tier): string {
 export function cannotAsk(what: string): string {
   return (
     `Refused: ${what} needs the person's yes in this mode, and this client cannot put a question in ` +
-    `front of them. Ask them in your own words; once they agree, run the same thing with \`${BINARY_NAME}\` ` +
+    `front of them. Ask them in your own words. Once they agree, run the same thing with \`${BINARY_NAME}\` ` +
     `at the command line with --yes, or use a client that supports MCP elicitation. Nothing was done.`
   );
 }

@@ -1,19 +1,19 @@
-# nmts openers — the wallets that open this account
+# nmts openers: the wallets that open this account
 
 Commands: openers
-Tiers: openers=none · openers.add=medium · openers.remove=medium
+Tiers: openers=none, openers.add=medium, openers.remove=medium
 
 An opener is a second way into the account. The account keeps its NMTS key, and that key is still
-the root; an opener is a copy of it on the NMTS server, locked so that only one wallet's signature of
+the root. An opener is a copy of it on the NMTS server, locked so that only one wallet's signature of
 one fixed message opens it. NMTS cannot open the copy and does not learn which wallet it belongs to.
 
-`nmts openers` lists what this account has — a locator, the kind, the day it was added — and how
+`nmts openers` lists what this account has (a locator, the kind, the day it was added) and how
 many it may have. `nmts openers add --sui-key-file <file>` attaches a wallet, and
 `nmts openers remove <locator>` takes one off. All three need the NMTS key beside the API key.
 
 The file holds one `suiprivkey1…` line. The wallet's key is read, used to sign, never printed, and
 never accepted as an option value. `--account <n>` (default 1) picks which of that wallet's accounts
-and `--app <name>` makes a key for one product only; both are inside the signed message, so another
+and `--app <name>` makes a key for one product only. Both are inside the signed message, so another
 value is another signature and another account.
 
 Attaching asks the wallet to sign the same message twice and refuses unless the two signatures are

@@ -273,8 +273,8 @@ async function refuse(shape, value) {
         return new NmtsError(`That is an NMTS key, not an API key.`, {
             exitCode: 2,
             nextStep: `It was NOT sent anywhere: the NMTS key stays on this machine, and it is what opens ` +
-                `your files. An API key is a different thing — it makes the server answer a program, and ` +
-                `it opens nothing. Make one on the account screen at ${HOME_URL}; it begins ` +
+                `your files. An API key is a different thing: it makes the server answer a program, and ` +
+                `it opens nothing. Make one on the account screen at ${HOME_URL}. It begins ` +
                 `\`${KEY_PREFIX}\`. ${NOTHING_WAS_WRITTEN}`,
         });
     }

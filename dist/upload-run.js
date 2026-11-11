@@ -92,7 +92,7 @@ function conflict(paid) {
         message: "Another run is uploading this same file to the same place.",
         paid,
         nextStep: "This run stopped before committing anything. Let the other run finish, then run this " +
-            "again — it finds that upload's records, or starts one of its own.",
+            "again. It finds that upload's records, or starts one of its own.",
     });
 }
 /**

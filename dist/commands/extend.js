@@ -38,7 +38,7 @@ export async function extend(target, options = {}) {
     if (target === undefined || target === "") {
         throw new NmtsError("Say which file to extend.", {
             exitCode: 2,
-            nextStep: `\`${BINARY_NAME} extend <path>\` — the path as \`${BINARY_NAME} ls\` prints it.`,
+            nextStep: `\`${BINARY_NAME} extend <path>\`, with the path as \`${BINARY_NAME} ls\` prints it.`,
         });
     }
     const session = await openSession(options);
@@ -53,7 +53,7 @@ export async function extend(target, options = {}) {
         readChain: options.readChain,
         // ⚠ THE LAST SENTENCE IS THIS FILE'S: `nmts get` is a command at a prompt.
         hints: {
-            lapsed: `Nothing was signed and nothing was charged. A lease is extended before it ends — once it ` +
+            lapsed: `Nothing was signed and nothing was charged. A lease is extended before it ends. Once it ` +
                 `is over there is no storage object left to extend, and the bytes may already be gone. ` +
                 `\`${BINARY_NAME} get\` says whether they can still be read.`,
         },
@@ -87,8 +87,8 @@ export async function extend(target, options = {}) {
     if (plan.stage === "later" && options.yes !== true) {
         throw new NmtsError(`"${plan.path}" is not near the end of its storage term.`, {
             exitCode: 4,
-            nextStep: `Nothing was signed and nothing was charged. Extending early loses nothing — the epochs ` +
-                `are added to what is left — but it spends now for time this file does not need yet. ` +
+            nextStep: `Nothing was signed and nothing was charged. Extending early loses nothing (the epochs ` +
+                `are added to what is left), but it spends now for time this file does not need yet. ` +
                 `Add --yes to buy it anyway. \`${BINARY_NAME} expiring\` lists what is actually running out.`,
         });
     }
@@ -114,7 +114,7 @@ export async function extend(target, options = {}) {
         }
         else {
             say(``);
-            say(`  The storage IS extended and the payment has been made — transaction ${outcome.digest}.`);
+            say(`  The storage IS extended and the payment has been made: transaction ${outcome.digest}.`);
             say(`  What failed is telling the NMTS server about it, so the drive will go on showing the`);
             say(`  old date until something tells it. ⛔ Do not run this command again for this file:`);
             say(`  that would buy the same epochs a second time. Opening the account in a browser reads`);
@@ -128,7 +128,7 @@ export async function extend(target, options = {}) {
     }
     else {
         say(``);
-        say(`  Extended. The storage now ends at epoch ${facts.newEndEpoch} — ${daysLeftInWords(facts.daysLeftAfter)}.`);
+        say(`  Extended. The storage now ends at epoch ${facts.newEndEpoch}, ${daysLeftInWords(facts.daysLeftAfter)}.`);
         say(`  Transaction ${outcome.digest}`);
         if (outcome.replay)
             say(`  The server had already recorded this transaction, so nothing was written twice.`);
@@ -150,14 +150,14 @@ export async function extend(target, options = {}) {
 }
 /** What the numbers say, for a person, in the order somebody deciding needs them. */
 function describe(say, facts) {
-    const when = (epoch, left) => `epoch ${epoch} — ${daysLeftInWords(left)}`;
+    const when = (epoch, left) => `epoch ${epoch}, ${daysLeftInWords(left)}`;
     const cohort = facts.filesOnTheSameBlobs;
     const unreachable = facts.partsThatCannotBeExtended;
     say(`${facts.file}`);
     say(`  Storage ends at ${when(facts.endEpoch, facts.daysLeft)}.`);
     say(`  Extending by ${facts.epochs} epoch${facts.epochs === 1 ? "" : "s"} moves that to ` +
         `${when(facts.newEndEpoch, facts.daysLeftAfter)}.`);
-    say(`  Price ${facts.priceWal} WAL for ${facts.blobs} stored blob${facts.blobs === 1 ? "" : "s"} — ` +
+    say(`  Price ${facts.priceWal} WAL for ${facts.blobs} stored blob${facts.blobs === 1 ? "" : "s"}: ` +
         `storage only, because the writing was paid for when the file was uploaded.`);
     if (cohort > 1) {
         say(`  ${cohort} of this account's files sit on the storage this pays for, so the same payment ` +

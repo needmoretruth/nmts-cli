@@ -36,8 +36,8 @@ export interface LinkOptions {
 }
 
 const USAGE =
-  `\`${BINARY_NAME} link make <path> [--hide-name] [--expires <n>d]\` · \`${BINARY_NAME} link list <path>\` · ` +
-  `\`${BINARY_NAME} link revoke <id>\` · \`${BINARY_NAME} link open <link> [--out <path>]\``;
+  `\`${BINARY_NAME} link make <path> [--hide-name] [--expires <n>d]\`, \`${BINARY_NAME} link list <path>\`, ` +
+  `\`${BINARY_NAME} link revoke <id>\`, \`${BINARY_NAME} link open <link> [--out <path>]\``;
 
 export async function link(sub: string | undefined, operand: string | undefined, options: LinkOptions = {}): Promise<number> {
   const say = options.write ?? ((line: string) => process.stdout.write(`${line}\n`));

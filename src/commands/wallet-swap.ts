@@ -99,7 +99,7 @@ export async function walletSwap(operands: readonly string[], options: WalletSwa
   const inWord = coinWordOf(coinRaw, "goes in");
   const toWord = options.to === undefined ? null : coinWordOf(options.to, "comes out");
   if (amountRaw === undefined) {
-    throw new NmtsError("Say how much.", { exitCode: 2, nextStep: `${USAGE} — "max" swaps everything that can be swapped.` });
+    throw new NmtsError("Say how much.", { exitCode: 2, nextStep: `${USAGE}. "max" swaps everything that can be swapped.` });
   }
 
   const resolved = await requireAccountCode();
@@ -141,7 +141,7 @@ export async function walletSwap(operands: readonly string[], options: WalletSwa
     ].filter((w) => w !== null);
     throw new NmtsError("A balance could not be read, so this tool cannot tell what can be swapped.", {
       exitCode: 1,
-      nextStep: `Nothing was signed. That is not an empty wallet — ${which.join("; ")}.`,
+      nextStep: `Nothing was signed. A balance that could not be read is not an empty one: ${which.join("; ")}.`,
     });
   }
   const held: Record<SwapCoin, bigint> = {
@@ -170,7 +170,7 @@ export async function walletSwap(operands: readonly string[], options: WalletSwa
         : "The wallet does not hold that much.",
       {
         exitCode: 4,
-        nextStep: `Nothing was signed. The wallet holds ${holds.join(", ")}; the most that can go in is ${amountOf(coinIn, maxIn)} ${coinIn} (SUI keeps ${coinAmount(keptForGas)} back for the fee).`,
+        nextStep: `Nothing was signed. The wallet holds ${holds.join(", ")}. The most that can go in is ${amountOf(coinIn, maxIn)} ${coinIn} (SUI keeps ${coinAmount(keptForGas)} back for the fee).`,
       },
     );
   }
@@ -213,7 +213,7 @@ export async function walletSwap(operands: readonly string[], options: WalletSwa
       }),
     );
     if (options.venue === undefined) {
-      const lines = answers.map((a) => (a.quote === null ? `${a.venue.padEnd(9)} did not answer — ${a.why}` : quoteLine(a.quote, coinOut, coinIn)));
+      const lines = answers.map((a) => (a.quote === null ? `${a.venue.padEnd(9)} did not answer: ${a.why}` : quoteLine(a.quote, coinOut, coinIn)));
       if (options.json) {
         say(JSON.stringify({ direction, amountInUnits: amountInUnits.toString(), network, quotes: answers.map((a) => (a.quote === null ? { venue: a.venue, answered: false, why: a.why } : { venue: a.venue, answered: true, outUnits: a.quote.outUnits.toString(), feeRateBps: a.quote.feeRateBps, leftoverInUnits: a.quote.leftoverInUnits.toString(), route: a.quote.route, leftoverMidUnits: a.quote.leftoverMidUnits.toString() })), signed: false }));
         return 4;
@@ -291,13 +291,13 @@ export async function walletSwap(operands: readonly string[], options: WalletSwa
   if (!options.json) {
     say(`Swapping ${facts.amountIn} ${coinIn} for ${coinOut} on ${venueName(venue)}`);
     say(`  from      ${address} (wallet ${wallet})`);
-    if (quote.route === "viaUsdc") say(`  Route     ${coinIn} → USDC → ${coinOut}, two pools in one transaction; the minimum covers the whole trade`);
-    say(`  Quoted    ${facts.quotedOut} ${coinOut} — the chain's answer just now, not a promise${quote.leftoverInUnits > 0n ? `; ${amountOf(coinIn, quote.leftoverInUnits)} ${coinIn} would come back unused` : ""}${quote.leftoverMidUnits > 0n ? `; ${amountOf("USDC", quote.leftoverMidUnits)} USDC would come back unused` : ""}`);
-    if (venue === "exchange") say(`  Rate      ${exchange?.rateWal} WAL per ${exchange?.rateSui} SUI, read off the facility; it takes no minimum`);
-    else say(`  At least  ${facts.minOut} ${coinOut}, or the swap fails on chain — slippage ${slippageBps} bps (${pct(slippageBps)})`);
+    if (quote.route === "viaUsdc") say(`  Route     ${coinIn} → USDC → ${coinOut}, two pools in one transaction. The minimum covers the whole trade`);
+    say(`  Quoted    ${facts.quotedOut} ${coinOut}: the chain's answer just now, and no promise${quote.leftoverInUnits > 0n ? `; ${amountOf(coinIn, quote.leftoverInUnits)} ${coinIn} would come back unused` : ""}${quote.leftoverMidUnits > 0n ? `; ${amountOf("USDC", quote.leftoverMidUnits)} USDC would come back unused` : ""}`);
+    if (venue === "exchange") say(`  Rate      ${exchange?.rateWal} WAL per ${exchange?.rateSui} SUI, read off the facility. It takes no minimum`);
+    else say(`  At least  ${facts.minOut} ${coinOut}, or the swap fails on chain. Slippage ${slippageBps} bps (${pct(slippageBps)})`);
     say(quote.feeRateBps === null ? `  Venue fee: could not be measured from the quote just now` : `  Venue fee about ${pct(quote.feeRateBps)} of what goes in, measured from the quote`);
-    say(feeMist === null ? `  Chain fee (SUI): could not be measured just now; it is charged with the signature` : `  Chain fee about ${facts.feeSui} SUI, measured by a dry run just now — the amount charged is fixed when it executes`);
-    if (gasBudgetMist !== undefined) say(`  Fee cap   ${coinAmount(gasBudgetMist)} SUI — only up to this is used; the rest stays`);
+    say(feeMist === null ? `  Chain fee (SUI): could not be measured just now. It is charged with the signature` : `  Chain fee about ${facts.feeSui} SUI, measured by a dry run just now. The amount charged is fixed when it executes`);
+    if (gasBudgetMist !== undefined) say(`  Fee cap   ${coinAmount(gasBudgetMist)} SUI. Only up to this is used. The rest stays`);
     say(deviationBps === null ? `  Market    no reference price could be read just now, so the quote was not compared with the market` : `  Market    ${pct(deviationBps)} from the site's reference price (1 ${coinIn} ≈ ${market?.toFixed(4)} ${coinOut})`);
     say(`  Afterwards, if the chain gives exactly the quote: about ${facts.suiAfter} SUI and ${facts.walAfter} WAL${facts.usdcAfter === null ? "" : ` and ${facts.usdcAfter} USDC`}`);
     say(``);
@@ -305,7 +305,7 @@ export async function walletSwap(operands: readonly string[], options: WalletSwa
     if (extremes.length > 0) {
       say(``);
       say(`  ⛔ Outside the ordinary bands:`);
-      for (const e of extremes) say(`     · ${EXTREME_WORDS[e]}`);
+      for (const e of extremes) say(`     - ${EXTREME_WORDS[e]}`);
     }
   }
 
@@ -318,7 +318,7 @@ export async function walletSwap(operands: readonly string[], options: WalletSwa
       }
       throw new NmtsError("Nothing was signed: this swap is outside the ordinary bands.", {
         exitCode: 4,
-        nextStep: `Choose again (--slippage-bps 50, a different --fee-cap, the other venue, or later), or — as a person — add --accept-extremes to go on anyway.`,
+        nextStep: `Choose again (--slippage-bps 50, a different --fee-cap, the other venue, or later), or, as a person, add --accept-extremes to go on anyway.`,
       });
     }
     const mode = await currentMode();
@@ -340,7 +340,7 @@ export async function walletSwap(operands: readonly string[], options: WalletSwa
     }
     throw new NmtsError("Nothing was signed: swapping needs --yes.", {
       exitCode: 4,
-      nextStep: `Read the review above, then run the same command with --yes. The quote will be read again; the chain gives what it gives, never less than the minimum.`,
+      nextStep: `Read the review above, then run the same command with --yes. The quote will be read again. The chain gives what it gives, never less than the minimum.`,
     });
   }
 
@@ -371,6 +371,6 @@ export async function walletSwap(operands: readonly string[], options: WalletSwa
   say(``);
   say(`  Swapped. Transaction ${digest}`);
   say(`  ${explorerTxUrl(digest, network)}`);
-  say(`  What arrived is what the chain gave — at least the minimum above. \`${BINARY_NAME} wallet\` shows the SUI and WAL balances now.`);
+  say(`  What arrived is what the chain gave: at least the minimum above. \`${BINARY_NAME} wallet\` shows the SUI and WAL balances now.`);
   return 0;
 }

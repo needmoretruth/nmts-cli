@@ -172,8 +172,8 @@ export async function mcp(options = {}) {
     const gated = withTiers(tools, ctx.asker);
     // ⛔ To stderr, deliberately. A person starting this by hand should see what it is; a client
     //    reading stdout must see nothing but protocol.
-    note(`${PRODUCT_NAME} · ${identity.accountId} · ${network} · files land in ${outDir}`);
-    note(`Tools: ${tools.map((t) => t.name).join(" · ")}`);
+    note(`${PRODUCT_NAME}, ${identity.accountId}, ${network}, files land in ${outDir}`);
+    note(`Tools: ${tools.map((t) => t.name).join(", ")}`);
     // ⚠ READ ONCE, BEFORE THE SERVER STARTS. The line below is written from a callback the
     //   protocol drives, and a callback that had to await would report the setting after the
     //   sentence it belongs to.
@@ -191,7 +191,7 @@ export async function mcp(options = {}) {
             if (client.host !== null)
                 note(`Client: ${describeSighting(client.host)}`);
             else if (client.name !== null)
-                note(`Client: ${client.name} — not an agent this version knows by name`);
+                note(`Client: ${client.name} (not an agent this version knows by name)`);
         },
         // ⛔ AND WHETHER IT CAN BE ASKED ANYTHING, said once for the same reason. A person watching
         //    this log needs to know before the first share, not when it is refused.
@@ -204,7 +204,7 @@ export async function mcp(options = {}) {
                 return;
             note(built === null
                 ? "This client cannot show you a question, so sharing is refused here. Share from a terminal."
-                : "This client can show you a question; every share will ask you first.");
+                : "This client can show you a question. Every share will ask you first.");
         },
     });
     return 0;

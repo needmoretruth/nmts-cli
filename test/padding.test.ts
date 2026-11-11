@@ -26,7 +26,7 @@ const opts = (out: { write: (line: string) => void }) => ({
 });
 
 const WHAT_IT_HIDES =
-  "Anyone can read the size of a piece stored on the storage network; the blank bytes make it one " +
+  "Anyone can read the size of a piece stored on the storage network. The blank bytes make it one " +
   "of a set of fixed values instead of the exact number.";
 
 test("an account that has never chosen is on the standard rule, and is told what padding hides", async () => {
@@ -47,7 +47,7 @@ test("choosing powers of two writes it into the sealed list, and it reads back f
     const set = collect();
     assert.equal(await padding("pow2", opts(set)), 0);
     assert.deepEqual(set.lines, [
-      "Set to powers of two. It applies to what is uploaded next, from every device; files " +
+      "Set to powers of two. It applies to what is uploaded next, from every device. Files " +
         "already uploaded keep the size they were stored at.",
     ]);
     assert.equal(drive.written.length, 1, `it wrote the list ${drive.written.length} times`);
@@ -86,7 +86,7 @@ test("going back to the standard rule takes the field away rather than writing t
     const out = collect();
     assert.equal(await padding("standard", opts(out)), 0);
     assert.deepEqual(out.lines, [
-      "Set to standard. It applies to what is uploaded next, from every device; files already " +
+      "Set to standard. It applies to what is uploaded next, from every device. Files already " +
         "uploaded keep the size they were stored at.",
     ]);
     const read = collect();
@@ -152,7 +152,7 @@ test("⛔ a rule this tool does not know is refused before anything is asked of 
     assert.ok(failure instanceof NmtsError, `it did not refuse — ${String(failure)}`);
     assert.equal(failure.message, '`nmts padding` takes standard, pow2 or off, not "pow-2".');
     assert.equal(failure.exitCode, 2);
-    assert.deepEqual(drive.calls, [], `it asked the server: ${drive.calls.join(" · ")}`);
+    assert.deepEqual(drive.calls, [], `it asked the server: ${drive.calls.join(", ")}`);
   });
 });
 

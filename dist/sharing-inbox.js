@@ -97,7 +97,7 @@ export async function receiveShare(account, id, sinkFor, read) {
             opened.dek.fill(0);
             throw new NmtsError("The sender did not record this file's real length.", {
                 exitCode: 1,
-                nextStep: "Nothing was written. It was shared by an older client; ask them to share it again from " +
+                nextStep: "Nothing was written. It was shared by an older client. Ask them to share it again from " +
                     "a current one, which seals the length beside the name.",
             });
         }

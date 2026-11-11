@@ -19,7 +19,7 @@ import { isNewer } from "../update-source.js";
 function sourceWords(source) {
     switch (source) {
         case "env":
-            return "environment variable — readable by anything running as you";
+            return "environment variable, readable by anything running as you";
         case "secret-file":
             return "a file named by an environment variable";
         case "file":
@@ -38,17 +38,17 @@ function sourceWords(source) {
  */
 function updateCheckWords(running) {
     if (checkingIsOff())
-        return `off — ${NO_CHECK_ENV_VAR} is set`;
+        return `off (${NO_CHECK_ENV_VAR} is set)`;
     const record = readCheck();
     if (record === null)
         return `has not run yet`;
     const when = record.checkedAt.slice(0, 16).replace("T", " ");
     if (record.failed !== undefined)
-        return `⛔ last try ${when} UTC did not answer — ${record.failed}`;
+        return `⛔ last try ${when} UTC did not answer: ${record.failed}`;
     if (record.latest === undefined)
         return `last ran ${when} UTC and found nothing to compare`;
     return isNewer(record.latest, running)
-        ? `${record.latest} is published (this is ${running}) — \`${BINARY_NAME} update\` installs it`
+        ? `${record.latest} is published (this is ${running}); \`${BINARY_NAME} update\` installs it`
         : `${record.latest} is newest, looked up ${when} UTC`;
 }
 export function env(options = {}) {
@@ -96,26 +96,26 @@ export function env(options = {}) {
         }));
         return 0;
     }
-    say(`  system        ${environment.os} ${environment.osRelease} · node ${environment.node}`);
+    say(`  system        ${environment.os} ${environment.osRelease}, node ${environment.node}`);
     const mapping = environment.rootMapped === null
         ? ""
         : environment.rootMapped
-            ? " · rootless (root here is an ordinary user on the host)"
-            : " · root here is root on the host";
+            ? ", rootless (root here is an ordinary user on the host)"
+            : ", root here is root on the host";
     say(`  containment   ${environment.containment}${mapping}`);
     say(`  running as    uid ${environment.uid ?? "n/a"}`);
-    say(`  private files ${environment.privateStorage ? "yes" : "NO — this filesystem does not keep a file mode"}`);
+    say(`  private files ${environment.privateStorage ? "yes" : "NO: this filesystem does not keep a file mode"}`);
     say(`  config        ${environment.configDir}`);
-    say(`  terminal      ${environment.interactive ? "yes" : "no — nothing here can be typed"}`);
+    say(`  terminal      ${environment.interactive ? "yes" : "no: nothing here can be typed"}`);
     say(`  browser       ${environment.browserReachable ? "reachable" : "not reachable"}`);
     // ⛔ "none found" IS NOT "no agent". Three of the five hosts this tool knows clear the
     //    environment before starting an MCP server, so an empty line here is exactly what running
     //    inside one of them looks like. The wording has to leave room for that or it reports a
     //    measurement as a conclusion.
     say(`  agent host    ${environment.agentHosts.length === 0
-        ? "no marker in this environment — some agents clear it, so this is not proof there is none"
+        ? "no marker in this environment (some agents clear it, so this is not proof there is none)"
         : environment.agentHosts.map(describeSighting).join("; ")}`);
-    const found = (got, problem) => (got !== null ? `found — ${sourceWords(got.source)}` : problem !== null ? `⛔ REFUSED — ${problem}` : "not found");
+    const found = (got, problem) => (got !== null ? `found: ${sourceWords(got.source)}` : problem !== null ? `⛔ REFUSED: ${problem}` : "not found");
     say(`  NMTS key      ${found(code, codeProblem)}`);
     if (code?.source === "file-locked") {
         // ⛔ THE ANSWER AN AGENT NEEDS BEFORE IT RUNS ANYTHING ELSE. A sealed code with no way to
@@ -126,7 +126,7 @@ export function env(options = {}) {
             ? `${PASSPHRASE_ENV_VAR} is set`
             : environment.interactive
                 ? `it will be asked for on the terminal`
-                : `⛔ NOT AVAILABLE — no ${PASSPHRASE_ENV_VAR} and no terminal`;
+                : `⛔ NOT AVAILABLE: no ${PASSPHRASE_ENV_VAR} and no terminal`;
         say(`  passphrase    ${how}`);
     }
     say(`  api key       ${found(key, keyProblem)}`);
@@ -134,7 +134,7 @@ export function env(options = {}) {
     if (advice.length > 0) {
         say(``);
         for (const item of advice) {
-            say(`  ${item.level === "warn" ? "⛔" : "·"} ${item.text}`);
+            say(`  ${item.level === "warn" ? "⛔" : "-"} ${item.text}`);
         }
     }
     say(``);

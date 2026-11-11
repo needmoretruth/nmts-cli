@@ -260,7 +260,7 @@ export async function readFileList(
   const seen = (await readSeen())[accountId];
   if (seen !== undefined && answer.seq < seen.seq) {
     throw new NmtsError(
-      `The server offered file-list version ${answer.seq}; this machine already saw ${seen.seq}.`,
+      `The server offered file-list version ${answer.seq}. This machine already saw ${seen.seq}.`,
       {
         nextStep:
           "Nothing was changed. A list that goes backwards means an older copy is being served, " +
@@ -309,8 +309,11 @@ export async function readFileList(
       });
     }
 
-    // ⛔ The index is packed with zstd whenever the writer had the codec, and this is the first read
-    //    in a fresh process: the codec registers here, before the index, not only in `openChunks`.
+    // ⛔ THE CODEC IS REGISTERED BEFORE THE FIRST DECODE, NOT ONLY BEFORE THE CHUNKS. The opened blob
+    //    itself — a version-2 index, or a version-1 list — carries a compression flag, and a writer
+    //    with zstd sets it. Registering only in `openChunks` left a fresh process unable to read any
+    //    list this tool, the SDK or the browser had written: `nmts ls` answered "this build has no
+    //    zstd decoder" (found 2026-11-11 by the part-size measurement's second SDK run).
     await host().zstd.register();
     const doc = await decodeFileList(body);
     body.fill(0);

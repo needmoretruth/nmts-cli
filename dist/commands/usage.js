@@ -55,8 +55,8 @@ export async function usage(options = {}) {
         say(`This account's file list is empty.`);
         return 0;
     }
-    say(`${plural(report.files, "file", "files")} · ` +
-        `${plural(report.folders, "folder", "folders")} · ` +
+    say(`${plural(report.files, "file", "files")}, ` +
+        `${plural(report.folders, "folder", "folders")}, ` +
         `${humanSize(report.bytes)}`);
     if (report.biggest.length > 0) {
         say(``);
@@ -70,13 +70,13 @@ export async function usage(options = {}) {
         say(`Nothing is in the trash.`);
     }
     else {
-        say(`In the trash: ${plural(report.trashedFiles, "file", "files")} · ` +
+        say(`In the trash: ${plural(report.trashedFiles, "file", "files")}, ` +
             `${humanSize(report.trashedBytes)}. That is still stored and still paid for, and it is not`);
         say(`counted above. \`${BINARY_NAME} ls --all\` lists it; \`${BINARY_NAME} sweep\` drops the ` +
             `entries whose 30 days have run out.`);
     }
     say(``);
-    say(`  Sizes are the plaintext the files hold, counted from this account's own list — the server`);
+    say(`  Sizes are the plaintext the files hold, counted from this account's own list. The server`);
     say(`  was asked for nothing but the sealed blob, and it could not have answered this anyway.`);
     say(`  What the storage network holds is larger: sealing adds bytes, and storage is bought in`);
     say(`  fixed units. This is not what the account was charged.`);

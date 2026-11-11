@@ -112,7 +112,7 @@ test("split by size: the review prices the exact shape and stops without --yes; 
     assert.match(String(stopped.nextStep), /--yes/);
     assert.deepEqual(r().dryRuns, [{ kind: "splitSize", objectId: "0xa", keepBytes: 1024 ** 3 }]);
     assert.equal(sign.shapes.length, 0, "it signed without --yes");
-    assert.match(out.lines.join("\n"), /keeps 1\.00 GiB; a new resource of 3\.00 GiB/);
+    assert.match(out.lines.join("\n"), /keeps 1\.00 GiB\. A new resource of 3\.00 GiB/);
 
     unlockWallet("storage");
     assert.equal(await walletStorageOps("split", ["0xa"], { ...base(collect(), r, sign), size: "1GiB", yes: true }), 0);
@@ -156,7 +156,7 @@ test("⛔ the chain's refusal at the dry run ends the run before anything is sig
   });
 });
 
-test("⛔ transfer needs scope all; a resource the wallet does not hold, or a bad address, is refused before the chain", async () => {
+test("⛔ transfer needs scope all. A resource the wallet does not hold, or a bad address, is refused before the chain", async () => {
   await withAccount("storage-transfer", async () => {
     const r = reads();
     const sign = signer();

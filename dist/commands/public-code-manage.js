@@ -48,7 +48,7 @@ function day(instant) {
     return Number.isNaN(at.getTime()) ? instant : at.toISOString().slice(0, 10);
 }
 function rowLine(row, display, isDefault) {
-    const counts = `sent ${row.sent} · received ${row.received} · messages ${row.support}`;
+    const counts = `sent ${row.sent}, received ${row.received}, messages ${row.support}`;
     if (row.revokedAt !== null)
         return `#${row.index}  ${display}  revoked ${day(row.revokedAt)}  ${counts}`;
     return `#${row.index}  ${display}${isDefault ? "  default" : ""}  made ${day(row.createdAt)}  ${counts}`;
@@ -57,7 +57,7 @@ function activityLines(activity) {
     const out = [];
     for (const s of activity?.sent ?? []) {
         const what = s.path ?? `${s.itemId} (no longer in the file list)`;
-        const gone = s.recipientRevoked ? "  · the recipient has revoked this code" : "";
+        const gone = s.recipientRevoked ? " (the recipient has revoked this code)" : "";
         out.push(`    sent      ${what}  to ${s.recipient}  ${day(s.createdAt)}  share ${s.id}${gone}`);
     }
     for (const r of activity?.received ?? []) {
@@ -65,7 +65,7 @@ function activityLines(activity) {
             out.push(`    received  share ${r.id}  (will not open: ${r.problem})`);
             continue;
         }
-        const gone = r.senderRevoked ? "  · the sender has revoked this code" : "";
+        const gone = r.senderRevoked ? " (the sender has revoked this code)" : "";
         out.push(`    received  ${r.name ?? ""}  from ${r.sender ?? ""}  ${day(r.createdAt)}  share ${r.id}${gone}`);
     }
     return out;
@@ -123,7 +123,7 @@ export async function listCodes(options = {}) {
                 say(line);
     }
     say(``);
-    say(`${live.length} of ${list.liveMax} live · ${list.madeToday} of ${list.dayCap} made today (UTC)`);
+    say(`${live.length} of ${list.liveMax} live, ${list.madeToday} of ${list.dayCap} made today (UTC)`);
     return 0;
 }
 /**

@@ -127,7 +127,7 @@ function needsTo(): NmtsError {
   return new NmtsError(`\`--to\` is required: it names the account that receives.`, {
     exitCode: 2,
     nextStep:
-      `It takes an account identifier — what \`${BINARY_NAME} whoami\` prints for that account, ` +
+      `It takes an account identifier: what \`${BINARY_NAME} whoami\` prints for that account, ` +
       `and what the account screen lists for an AI account. It has to be an account of your own ` +
       `family: your account, or one made under it.`,
   });
@@ -141,7 +141,7 @@ function read(answer: unknown): Moved {
     throw new NmtsError("The server moved the credits and described it in a shape this version cannot read.", {
       exitCode: 1,
       nextStep:
-        `The move happened whatever this printed — \`${BINARY_NAME} balance\` reads the ledger. ` +
+        `The move happened whatever this printed; \`${BINARY_NAME} balance\` reads the ledger. ` +
         `Update this tool.`,
     });
   }

@@ -171,7 +171,7 @@ export async function update(options: UpdateOptions = {}): Promise<number> {
       say(`  this one    ${moduleFile}`);
       say(`  the new one wherever the installer puts it, which may come first on your PATH.`);
       say(``);
-      say(`Update this copy where it came from — or, to install alongside it anyway:`);
+      say(`Update this copy where it came from. To install alongside it anyway:`);
       say(``);
     }
     say(`  ${line}`);
@@ -200,7 +200,7 @@ export async function update(options: UpdateOptions = {}): Promise<number> {
       nextStep:
         (outcome.output !== undefined ? `${outcome.output}\n\n` : "") +
         `${running} is still what runs. A global install writes outside your home directory on ` +
-        `some setups and needs the rights to do it; running the same command yourself shows the ` +
+        `some setups and needs the rights to do it. Running the same command yourself shows the ` +
         `whole reason:\n\n  ${line}`,
     });
   }
@@ -217,7 +217,7 @@ function couldNotAsk(why: string): NmtsError {
   return new NmtsError(`Could not find out which release is newest: ${why}.`, {
     exitCode: 1,
     nextStep:
-      `Nothing was changed. This asks the site the releases are published on, not NMTS — the ` +
+      `Nothing was changed. This asks the site the releases are published on (not NMTS). The ` +
       `releases are readable in a browser at:\n\n  ${SOURCE_URL}/releases/latest`,
   });
 }

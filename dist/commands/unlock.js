@@ -25,12 +25,12 @@ function isKey(value) {
 }
 function keyOrFail(raw) {
     if (raw === undefined || raw === "") {
-        throw new NmtsError("Say which one.", { exitCode: 2, nextStep: `One of: ${CONSENT_KEYS.join(" · ")}` });
+        throw new NmtsError("Say which one.", { exitCode: 2, nextStep: `One of: ${CONSENT_KEYS.join(", ")}` });
     }
     if (!isKey(raw)) {
         throw new NmtsError(`There is nothing called "${raw}" to unlock.`, {
             exitCode: 2,
-            nextStep: `One of: ${CONSENT_KEYS.join(" · ")}`,
+            nextStep: `One of: ${CONSENT_KEYS.join(", ")}`,
         });
     }
     return raw;
@@ -68,7 +68,7 @@ export async function unlock(action, target, options = {}) {
     if (action === "unlock") {
         const key = keyOrFail(target);
         if (options.readLine === undefined && !stdinIsATerminal() && (await currentMode()) !== "skip-permissions") {
-            throw new NmtsError(`A person unlocks, at a terminal — stdin here is not one.`, {
+            throw new NmtsError(`A person unlocks, at a terminal, and stdin here is not one.`, {
                 exitCode: 5,
                 nextStep: `If you are an agent: do not unlock things. Show the person what \`${BINARY_NAME} unlock\` ` +
                     `prints for "${key}" and let them decide.`,
@@ -91,7 +91,7 @@ export async function unlock(action, target, options = {}) {
         if (wallet !== null) {
             // ⛔ Not a bare date: scope, expiry and ceilings.
             writeWalletGrant(wallet);
-            say(`unlocked: wallet — scope ${wallet.scope}, until ${wallet.expiresAt}`);
+            say(`unlocked: wallet, scope ${wallet.scope}, until ${wallet.expiresAt}`);
             say(`  ${ceilingWords(wallet.capWalFrost, wallet.capSuiMist)}`);
             return 0;
         }
@@ -138,8 +138,8 @@ function walletLines(now) {
     const head = state === "active" ? "  unlocked  " : state === "expired" ? "  ran out   " : "  locked    ";
     const out = [`${head}  wallet`, `                ${CONSENTS.wallet.what}`];
     if (g !== null) {
-        out.push(`                scope ${g.scope} · unlocked ${g.grantedAt} · ${state === "expired" ? "ran out" : "until"} ${g.expiresAt}`);
-        out.push(`                ${ceilingWords(g.capWalFrost, g.capSuiMist)} · signed away so far ${coinAmount(BigInt(g.spentWalFrost))} WAL, ${coinAmount(BigInt(g.spentSuiMist))} SUI in fees`);
+        out.push(`                scope ${g.scope}, unlocked ${g.grantedAt}, ${state === "expired" ? "ran out" : "until"} ${g.expiresAt}`);
+        out.push(`                ${ceilingWords(g.capWalFrost, g.capSuiMist)}, signed away so far ${coinAmount(BigInt(g.spentWalFrost))} WAL, ${coinAmount(BigInt(g.spentSuiMist))} SUI in fees`);
     }
     else {
         out.push(`                ${BINARY_NAME} unlock wallet --days <1..30> [--scope storage|all] [--cap-wal <coins> --cap-sui <coins>]`);

@@ -110,7 +110,7 @@ export async function trashPaths(
       // `deletedAt` it does not have and leave the person exactly where they were.
       throw new DriveEditError("NOT_IN_TRASH", `"${at}" is in the trash because a folder above it is.`, {
         exitCode: 4,
-        nextStep: `Nothing changed. Restore that folder instead — \`nmts ls --all\` shows which one carries the trash.`,
+        nextStep: `Nothing changed. Restore that folder instead; \`nmts ls --all\` shows which one carries the trash.`,
       });
     }
     acting.push({ entry, path: at });
@@ -174,7 +174,7 @@ export async function trashPaths(
       exitCode: 1,
       nextStep:
         `${done} of ${files.length} file rows were moved before this stopped, and the file list was ` +
-        `not written. Running \`nmts ${verb}\` on the same paths again finishes the job — nothing is lost.`,
+        `not written. Running \`nmts ${verb}\` on the same paths again finishes the job. Nothing is lost.`,
     });
   }
 

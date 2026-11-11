@@ -1,17 +1,17 @@
-# nmts wallet — the wallet your NMTS key derives
+# nmts wallet: the wallet your NMTS key derives
 
 Commands: wallet
-Tiers: wallet=none · wallet.use=low · wallet.send=high(wallet) · wallet.swap=high(wallet) · wallet.donate=high(donate) · wallet.storage.reshape=high(wallet) · wallet.storage.give=high(wallet) · wallet.storage.buy=high(wallet) · wallet.storage.extend=high(wallet) · wallet.hall=none · wallet.hall.set=medium
+Tiers: wallet=none, wallet.use=low, wallet.send=high(wallet), wallet.swap=high(wallet), wallet.donate=high(donate), wallet.storage.reshape=high(wallet), wallet.storage.give=high(wallet), wallet.storage.buy=high(wallet), wallet.storage.extend=high(wallet), wallet.hall=none, wallet.hall.set=medium
 
-`wallet` shows the address and its SUI and WAL balances; `wallet address` derives the address
-offline (`--qr` draws it, `--index N` derives another of this key's wallets); `wallet activity`
-lists recent transactions, named only where the chain proves it; `wallet storage` lists storage
+`wallet` shows the address and its SUI and WAL balances. `wallet address` derives the address
+offline (`--qr` draws it, `--index N` derives another of this key's wallets). `wallet activity`
+lists recent transactions, named only where the chain proves it. `wallet storage` lists storage
 resources (size × time) held outside any file. None of these signs.
 
 ## One key, many wallets
 
 Your NMTS key derives a wallet at every number from 0 upwards, and one of them pays. `wallet list`
-walks them — it shows each number, its address and its balances, marks the one that pays, and stops
+walks them: it shows each number, its address and its balances, marks the one that pays, and stops
 after twenty unused wallets in a row. `wallet use <number>` moves which one pays: the number is
 kept inside your sealed file list, so the browser, this tool and every other device agree on it.
 Numbers come from the key, so a wallet cannot be deleted, and a wallet you leave keeps whatever is
@@ -21,7 +21,7 @@ in it.
 number decides the rest: `wallet swap` swaps its coins, `wallet storage split|merge|transfer`
 reshapes the resources it holds, and `wallet hall --name` signs as its address. Each takes
 `--wallet <number>` to use a different one for that run only, without changing the setting.
-⛔ If the file list cannot be read, they refuse rather than falling back to wallet 0 — signing with
+⛔ If the file list cannot be read, they refuse rather than falling back to wallet 0. Signing with
 a wallet nobody chose is not a thing to guess at.
 
 ## Where SUI comes from, and why it is SUI
@@ -35,21 +35,21 @@ this wallet holds SUI and WAL and nothing else.
 Fiat is not taken because taking it would make NMTS hold your money, which it never does.
 
 Getting SUI (as of 2026-09-06): buy it on an exchange that lists it (Binance and Upbit did on that
-date — a statement of fact, not a recommendation) and send it to `wallet address`; or, if you hold
+date: a statement of fact, not a recommendation) and send it to `wallet address`. Or, if you hold
 SUI or WAL already, `wallet swap` exchanges one for the other on a public venue. `wallet address
 --qr` draws the address for a phone.
 
-`wallet storage` also reshapes what it lists, and each of these signs (storage control — the
+`wallet storage` also reshapes what it lists, and each of these signs (storage control: the
 resources are the person's, in their wallet, and every step is their signature):
 
 - `wallet storage split <id> --size <bytes>` keeps that much in the resource and leaves the rest as
-  a new resource over the same period; `--epochs <n>` keeps the first n epochs and leaves the rest
+  a new resource over the same period. `--epochs <n>` keeps the first n epochs and leaves the rest
   as a new resource of the same size. Under the wallet unlock, scope `storage`.
 - `wallet storage merge <id> <id>` joins two: sizes add when the periods are identical, periods join
-  when the sizes are equal and the periods touch; anything else is refused with the reason before
+  when the sizes are equal and the periods touch. Anything else is refused with the reason before
   the chain is asked. Scope `storage`.
-- `wallet storage transfer <id> <address>` hands a resource to another wallet. No file goes with it
-  — what goes is size and remaining time; files stay sealed with this account's keys. Not undoable,
+- `wallet storage transfer <id> <address>` hands a resource to another wallet. No file goes with it:
+  what goes is size and remaining time. Files stay sealed with this account's keys. Not undoable,
   and NMTS cannot recall it. Scope `all`.
 
 Two more spend WAL from the wallet, under the wallet unlock, and sign only with `--yes`:
@@ -59,37 +59,37 @@ Two more spend WAL from the wallet, under the wallet unlock, and sign only with 
 - `wallet storage extend [<item-id>...] --delegation-file <file>` is for a business that paid for
   its users' uploads. The storage of those files is held by the business's wallet, so that wallet
   extends it. The file holds a delegation token for the user's account with `files_read` and
-  `storage_spend`; the user's key is not needed. Without item ids it takes every file of that user
-  that runs out soon; `--force` takes files not due yet. A file whose storage another wallet holds
+  `storage_spend`. The user's key is not needed. Without item ids it takes every file of that user
+  that runs out soon. `--force` takes files not due yet. A file whose storage another wallet holds
   is named and left as it is before anything is signed. Each file is one transaction, and the new
   end is written into the user's account.
 
 Each prints the review with the chain fee measured by a dry run, and a refusal the chain would
-give ends the run there; nothing is signed without `--yes` on that run. Sizes are what a resource
+give ends the run there. Nothing is signed without `--yes` on that run. Sizes are what a resource
 holds after the network's encoding, as the listing prints them.
 
 Three coin subcommands sign, and every signed transaction is irreversible by anyone:
 
-- `wallet send <SUI|WAL> <amount|max> <address>` — locked until a person runs `nmts unlock wallet
+- `wallet send <SUI|WAL> <amount|max> <address>`: locked until a person runs `nmts unlock wallet
   --scope all`, prints the review, and sends only with `--yes` on that run. `--fee-cap` bounds the
   chain fee.
-- `wallet swap <SUI|WAL> <amount|max>` — the same unlock. Without `--venue` it prints both quotes
-  (DeepBook and Bluefin, mainnet) and exits 4; choosing the venue is the person's decision, so show
+- `wallet swap <SUI|WAL> <amount|max>`: the same unlock. Without `--venue` it prints both quotes
+  (DeepBook and Bluefin, mainnet) and exits 4. Choosing the venue is the person's decision, so show
   them the two rows rather than pick. With `--venue` it prints the review and swaps only with
-  `--yes`. `--slippage-bps` (default 50) and `--fee-cap` bound the fill; a swap outside the
+  `--yes`. `--slippage-bps` (default 50) and `--fee-cap` bound the fill. A swap outside the
   ordinary bands (slippage under 10 or over 200 bps, a fee cap far from the measured fee, a quote
   more than 3 % from the site's reference price) is refused even with `--yes`. `--accept-extremes`
-  is a person's flag, refused in the auto modes; never pass it on somebody's behalf.
-- `wallet donate <SUI|WAL> <amount>` — a voluntary gift to the developer, in either coin. Locked
+  is a person's flag, refused in the auto modes. Never pass it on somebody's behalf.
+- `wallet donate <SUI|WAL> <amount>`: a voluntary gift to the developer, in either coin. Locked
   until a person runs `nmts unlock donate`, and needs `--yes` on every run. A gift is not refundable,
   buys nothing, goes to the address the server publishes, and is visible to anyone on a chain
   explorer. It is outside the wallet unlock and its ceiling. A standing share of every WAL
   payment is `nmts tip`, not a gift on its own.
 
-`wallet hall` prints the gift hall of fame — the developer, then the ten largest senders as read
-from the public chain, with the rest of the list at nmts.me/hall; reading it signs nothing and
+`wallet hall` prints the gift hall of fame: the developer, then the ten largest senders as read
+from the public chain, with the rest of the list at nmts.me/hall. Reading it signs nothing and
 needs no NMTS key. `--name <name>` (1 to 24 characters, no links, not an address) signs a
-short message with the wallet this account pays from — the wallet a gift left from — so the
+short message with the wallet this account pays from (the wallet a gift left from) so the
 server shows that name beside its address, and `--remove` puts the entry back to a shortened
 address. Reading which wallet that is opens the file list, so naming yourself needs an API key
 where reading the hall needs none.

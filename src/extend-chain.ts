@@ -86,7 +86,7 @@ export async function readBlobLease(
       exitCode: 1,
       nextStep:
         "Nothing was signed and nothing was charged. The blob may already have been deleted, or " +
-        "this tool may be pointed at the wrong network — `nmts env` says which one it is using.",
+        "this tool may be pointed at the wrong network; `nmts env` says which one it is using.",
     });
   }
   const storage: unknown = fields["storage"];

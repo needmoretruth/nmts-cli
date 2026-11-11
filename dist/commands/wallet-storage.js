@@ -57,7 +57,7 @@ export async function walletStorage(options = {}) {
             say(`  ${formatBytes(listed.usableBytes)} usable now, in ${items.length} resource${items.length === 1 ? "" : "s"}.`);
         for (const r of items) {
             const status = r.status === null ? "" : `  ${statusWord(r.status)}`;
-            say(`  ${formatBytes(r.sizeBytes).padStart(11)} · epoch ${r.startEpoch} to ${r.endEpoch}${status}`);
+            say(`  ${formatBytes(r.sizeBytes).padStart(11)}, epoch ${r.startEpoch} to ${r.endEpoch}${status}`);
             say(`    ${r.objectId}`);
         }
     }

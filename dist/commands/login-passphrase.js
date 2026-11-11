@@ -36,9 +36,9 @@ export async function newPassphrase(options) {
             exitCode: 2,
             nextStep: [
                 `One of these:`,
-                `  · set ${PASSPHRASE_ENV_VAR} and run this again`,
-                `  · ${BINARY_NAME} login --plain   store it unsealed (asks for an agreement first)`,
-                `  · ${BINARY_NAME} login --env     store nothing; print the variable to set`,
+                `  - set ${PASSPHRASE_ENV_VAR} and run this again`,
+                `  - ${BINARY_NAME} login --plain   store it unsealed (asks for an agreement first)`,
+                `  - ${BINARY_NAME} login --env     store nothing and print the variable to set`,
             ].join("\n"),
         });
     }
@@ -59,6 +59,6 @@ function tooShort() {
     return new NmtsError(`That passphrase is shorter than ${MIN_PASSPHRASE} characters.`, {
         exitCode: 2,
         nextStep: `Nothing was written. A short passphrase is guessed whatever the tool does to slow guessing ` +
-            `down. ⛔ If it is lost, the sealed copy cannot be opened by anybody — keep it somewhere.`,
+            `down. ⛔ If it is lost, the sealed copy cannot be opened by anybody. Keep it somewhere.`,
     });
 }

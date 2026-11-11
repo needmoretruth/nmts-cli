@@ -62,8 +62,8 @@ test("⛔ the price and the dates come from this tool's own epoch arithmetic, no
     const out = collect();
     assert.equal(await extend("photos/a.jpg", opts(out, { epochs: 4, dryRun: true })), 0);
     const text = out.lines.join("\n");
-    assert.match(text, /Storage ends at epoch 1202 — 14 days or more left\./);
-    assert.match(text, /moves that to epoch 1206 — 70 days or more left\./);
+    assert.match(text, /Storage ends at epoch 1202, 14 days or more left\./);
+    assert.match(text, /moves that to epoch 1206, 70 days or more left\./);
     // 1,000,000 + 500,000 base units, four epochs each = 6,000,000 FROST = 0.006 WAL, printed
     // exactly rather than rounded: money that reads as zero when it is not is unforgivable.
     assert.match(text, /Price 0\.006 WAL for 2 stored blobs/);
@@ -230,7 +230,7 @@ test("the standing share of what was just paid goes to the developer, after the 
     assert.deepEqual(gifts, [75_000n]);
     const text = out.lines.join("\n");
     assert.match(text, /Extended\. The storage now ends at epoch 1204/);
-    assert.match(text, /standing 2\.5 % gift — 0\.000075 WAL — went to the developer/);
+    assert.match(text, /standing 2\.5 % gift \(0\.000075 WAL\) went to the developer/);
   });
 });
 

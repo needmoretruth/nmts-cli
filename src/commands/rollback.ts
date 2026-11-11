@@ -97,7 +97,7 @@ export async function rollback(options: RollbackOptions = {}): Promise<number> {
     say(``);
     say(`⛔ What version ${current.seq} added is out of the list afterwards: a file's name, the`);
     say(`   folder it sits in and the key that opens it live in the list and nowhere else. The`);
-    say(`   bytes are not touched — the storage stays bought — and \`${BINARY_NAME} rebuild\` finds`);
+    say(`   bytes are not touched (the storage stays bought), and \`${BINARY_NAME} rebuild\` finds`);
     say(`   files the list does not name.`);
     say(``);
     say(`Nothing was changed. To go ahead:  ${BINARY_NAME} rollback --yes`);
@@ -137,7 +137,7 @@ export async function rollback(options: RollbackOptions = {}): Promise<number> {
   }
   say(
     `Put version ${previous.seq} of the file list back as the current one, over version ` +
-      `${current.seq}. What version ${current.seq} added is out of the list now; the bytes are ` +
+      `${current.seq}. What version ${current.seq} added is out of the list now. The bytes are ` +
       `still stored, and \`${BINARY_NAME} rebuild\` finds files the list does not name.`,
   );
   return 0;

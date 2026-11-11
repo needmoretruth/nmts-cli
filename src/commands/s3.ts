@@ -108,7 +108,7 @@ export async function s3(options: S3Options = {}): Promise<number> {
     // ⛔ A FILE ALREADY IN THE DRIVE IS NOT REPLACED FROM HERE. Different bytes at a taken key are
     //    refused, and the person deletes the old file first; what is said at start-up below.
     overwrite: "refuse",
-    onAlreadyStored: (key) => say(`same ${key} — already stored, nothing sent`),
+    onAlreadyStored: (key) => say(`same ${key}: already stored, nothing sent`),
     account: {
       readList: async () => {
         const list = await readFileList(session.server, session.apiKey, session.code, session.accountId);
@@ -194,12 +194,12 @@ export async function s3(options: S3Options = {}): Promise<number> {
     say(`  bucket          ${BUCKET}`);
     say(`  access key id   ${credential.accessKeyId}`);
     say(`  secret key      ${credential.secretAccessKey}`);
-    say(`  region          any — the signature carries whichever one the client used`);
+    say(`  region          any: the signature carries whichever one the client used`);
     say(``);
     say(
       writable
         ? `  Listing, downloading, uploading and deleting all work. Uploading spends credits.`
-        : `  ⛔ READ ONLY — this machine has not agreed to spending, so uploads and deletes are` +
+        : `  ⛔ READ ONLY: this machine has not agreed to spending, so uploads and deletes are` +
             ` refused. \`${BINARY_NAME} consent grant spend\`, run by the person whose account this` +
             ` is, changes that.`,
     );

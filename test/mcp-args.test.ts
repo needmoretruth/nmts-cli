@@ -73,7 +73,7 @@ test("an array is checked item by item, and the reply says which one", () => {
 
 test("a value outside a declared set is refused and the set is printed", () => {
   assert.deepEqual(checkArgs(SCHEMA, { file: "a.txt", sort: "colour" }), [
-    "`sort` must be one of name, size — this call sent colour",
+    "`sort` must be one of name, size. This call sent colour",
   ]);
 });
 

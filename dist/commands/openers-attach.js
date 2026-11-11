@@ -71,7 +71,7 @@ export function sayWalletAttached(say, attached) {
     say(``);
     say(`This wallet also opens the new account:  ${attached.locator}`);
     if (attached.keyLeft !== null) {
-        say(`⚠ The key borrowed to store it — ${attached.keyLeft} — is still live. Cut it with \`${BINARY_NAME} key revoke ${attached.keyLeft}\`.`);
+        say(`⚠ The key borrowed to store it (${attached.keyLeft}) is still live. Cut it with \`${BINARY_NAME} key revoke ${attached.keyLeft}\`.`);
     }
 }
 /** Cut the borrowed key. Its failure is an answer, not a throw: the wallet is attached either way. */

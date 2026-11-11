@@ -73,8 +73,8 @@ export async function usage(options: UsageOptions = {}): Promise<number> {
   }
 
   say(
-    `${plural(report.files, "file", "files")} · ` +
-      `${plural(report.folders, "folder", "folders")} · ` +
+    `${plural(report.files, "file", "files")}, ` +
+      `${plural(report.folders, "folder", "folders")}, ` +
       `${humanSize(report.bytes)}`,
   );
 
@@ -91,7 +91,7 @@ export async function usage(options: UsageOptions = {}): Promise<number> {
     say(`Nothing is in the trash.`);
   } else {
     say(
-      `In the trash: ${plural(report.trashedFiles, "file", "files")} · ` +
+      `In the trash: ${plural(report.trashedFiles, "file", "files")}, ` +
         `${humanSize(report.trashedBytes)}. That is still stored and still paid for, and it is not`,
     );
     say(
@@ -101,7 +101,7 @@ export async function usage(options: UsageOptions = {}): Promise<number> {
   }
 
   say(``);
-  say(`  Sizes are the plaintext the files hold, counted from this account's own list — the server`);
+  say(`  Sizes are the plaintext the files hold, counted from this account's own list. The server`);
   say(`  was asked for nothing but the sealed blob, and it could not have answered this anyway.`);
   say(`  What the storage network holds is larger: sealing adds bytes, and storage is bought in`);
   say(`  fixed units. This is not what the account was charged.`);

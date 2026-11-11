@@ -103,7 +103,7 @@ export async function buyAndPushPart(input) {
                 message: `Could not ask about the paid reservation ${ledgerId}: ${why(error)}`,
                 paid: true,
                 from: error,
-                nextStep: "Nothing more was spent. The storage this account paid for is still bought — run the " +
+                nextStep: "Nothing more was spent. The storage this account paid for is still bought. Run the " +
                     "same command again when the server answers.",
             });
         }
@@ -220,7 +220,7 @@ export async function buyAndPushPart(input) {
             from: error,
             nextStep: error instanceof ServerError
                 ? "Nothing was uploaded. No credits were spent on a refused reservation."
-                : "If the request reached the server, credits may have been spent — running the same " +
+                : "If the request reached the server, credits may have been spent. Running the same " +
                     "command again finds that reservation rather than making a second one.",
         });
     }
